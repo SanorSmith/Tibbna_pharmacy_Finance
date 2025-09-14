@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Trash2, Building2 } from "lucide-react";
+import { Search, Plus, Trash2, Building2, Eye } from "lucide-react";
 import { createWorkspaceAction, deleteWorkspaceAction } from "../actions";
 import { Workspace } from "@/lib/db/tables/workspace";
+import { User } from "@/lib/db/tables/user";
+import { WorkspaceDetailModal } from "./workspace-detail-modal";
 
 const workspaceTypeColors = {
   hospital: "bg-red-100 text-red-800",
@@ -21,13 +23,16 @@ const workspaceTypeColors = {
 
 interface WorkspaceManagementClientProps {
   initialWorkspaces: Workspace[];
+  allUsers: User[];
 }
 
-export function WorkspaceManagementClient({ initialWorkspaces }: WorkspaceManagementClientProps) {
+export function WorkspaceManagementClient({ initialWorkspaces, allUsers }: WorkspaceManagementClientProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [filteredWorkspaces, setFilteredWorkspaces] = useState<Workspace[]>(initialWorkspaces);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const handleSearch = () => {
     if (!searchQuery.trim()) {
@@ -159,14 +164,26 @@ export function WorkspaceManagementClient({ initialWorkspaces }: WorkspaceManage
                   </TableCell>
                   <TableCell>{new Date(workspace.createdat).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteWorkspace(workspace.workspaceid)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedWorkspace(workspace);
+                          setIsDetailOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteWorkspace(workspace.workspaceid)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -174,6 +191,20 @@ export function WorkspaceManagementClient({ initialWorkspaces }: WorkspaceManage
           </TableBody>
         </Table>
       </div>
+
+      <WorkspaceDetailModal
+        workspace={selectedWorkspace}
+        isOpen={isDetailOpen}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setSelectedWorkspace(null);
+        }}
+        allUsers={allUsers}
+        onWorkspaceUpdate={(updatedWorkspace) => {
+          setWorkspaces(prev => prev.map(w => w.workspaceid === updatedWorkspace.workspaceid ? updatedWorkspace : w));
+          setFilteredWorkspaces(prev => prev.map(w => w.workspaceid === updatedWorkspace.workspaceid ? updatedWorkspace : w));
+        }}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { users, NewUser, User } from "@/lib/db/tables/user";
-import { eq, ilike, or, desc } from "drizzle-orm";
+import { users, NewUser, User, UserPermissions } from "@/lib/db/tables/user";
+import { eq, ilike, or, desc, not, sql, and } from "drizzle-orm";
 import { withAdminCheck } from "./shared";
 
 export const createNewUser = withAdminCheck(
@@ -15,7 +15,13 @@ export const createNewUser = withAdminCheck(
         throw new Error("User already exists");
       }
 
-      const [user] = await db.insert(users).values(userData).returning();
+      // Prevent creating admin users - force permissions to be empty or null
+      const safeUserData = {
+        ...userData,
+        permissions: [] as UserPermissions[], // Force non-admin permissions
+      };
+
+      const [user] = await db.insert(users).values(safeUserData).returning();
 
       return user || null;
     } catch (error) {
@@ -28,7 +34,17 @@ export const createNewUser = withAdminCheck(
 export const deleteUser = withAdminCheck(
   async (userid: string): Promise<boolean> => {
     try {
-      await db.delete(users).where(eq(users.userid, userid));
+      // Prevent deleting admin users
+      await db.delete(users).where(
+        and(
+          eq(users.userid, userid),
+          or(
+            sql`${users.permissions} IS NULL`,
+            sql`${users.permissions} = '[]'::jsonb`,
+            not(sql`${users.permissions} ? 'admin'`)
+          )
+        )
+      );
       return true;
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -42,6 +58,13 @@ export const getAllUsers = withAdminCheck(async (limit: number = 50, offset: num
     return await db
       .select()
       .from(users)
+      .where(
+        or(
+          sql`${users.permissions} IS NULL`,
+          sql`${users.permissions} = '[]'::jsonb`,
+          not(sql`${users.permissions} ? 'admin'`)
+        )
+      )
       .orderBy(desc(users.createdat))
       .limit(limit)
       .offset(offset);
@@ -57,9 +80,16 @@ export const searchUsers = withAdminCheck(async (query: string, limit: number = 
       .select()
       .from(users)
       .where(
-        or(
-          ilike(users.name, `%${query}%`),
-          ilike(users.email, `%${query}%`)
+        and(
+          or(
+            ilike(users.name, `%${query}%`),
+            ilike(users.email, `%${query}%`)
+          ),
+          or(
+            sql`${users.permissions} IS NULL`,
+            sql`${users.permissions} = '[]'::jsonb`,
+            not(sql`${users.permissions} ? 'admin'`)
+          )
         )
       )
       .orderBy(desc(users.createdat))
@@ -69,3 +99,43 @@ export const searchUsers = withAdminCheck(async (query: string, limit: number = 
     return [];
   }
 });
+
+export const updateUser = withAdminCheck(
+  async (userid: string, updates: Partial<Pick<User, 'name' | 'email'>>): Promise<User | null> => {
+    try {
+      // Prevent updating admin users
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.userid, userid),
+            or(
+              sql`${users.permissions} IS NULL`,
+              sql`${users.permissions} = '[]'::jsonb`,
+              not(sql`${users.permissions} ? 'admin'`)
+            )
+          )
+        )
+        .limit(1);
+
+      if (!existingUser) {
+        throw new Error("User not found or is an administrator");
+      }
+
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          ...updates,
+          updatedat: new Date(),
+        })
+        .where(eq(users.userid, userid))
+        .returning();
+
+      return updatedUser || null;
+    } catch (error) {
+      console.error("Error updating user:", error);
+      return null;
+    }
+  }
+);

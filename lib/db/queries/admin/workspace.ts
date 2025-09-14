@@ -4,7 +4,7 @@ import {
   WorkspaceUserRole,
   workspaceusers,
 } from "@/lib/db/tables/workspace";
-import { eq, and, ilike, or, desc } from "drizzle-orm";
+import { eq, and, ilike, or, desc, not, sql } from "drizzle-orm";
 import { WorkspaceType } from "@/lib/db/tables/workspace";
 import { WorkspaceSettings } from "@/lib/db/tables/workspace";
 import { Workspace } from "@/lib/db/tables/workspace";
@@ -65,7 +65,16 @@ export const getWorkspaceUsers = withAdminCheck(
         .select()
         .from(workspaceusers)
         .innerJoin(users, eq(workspaceusers.userid, users.userid))
-        .where(eq(workspaceusers.workspaceid, workspaceId))
+        .where(
+          and(
+            eq(workspaceusers.workspaceid, workspaceId),
+            or(
+              sql`${users.permissions} IS NULL`,
+              sql`${users.permissions} = '[]'::jsonb`,
+              not(sql`${users.permissions} ? 'admin'`)
+            )
+          )
+        )
         .orderBy(workspaceusers.createdat);
 
       return results.map((result) => ({
@@ -86,6 +95,26 @@ export const addUserToWorkspace = withAdminCheck(
     role: WorkspaceUserRole
   ): Promise<WorkspaceUser | null> => {
     try {
+      // First check if the user is an admin - prevent adding admin users
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.userid, userId),
+            or(
+              sql`${users.permissions} IS NULL`,
+              sql`${users.permissions} = '[]'::jsonb`,
+              not(sql`${users.permissions} ? 'admin'`)
+            )
+          )
+        )
+        .limit(1);
+
+      if (!user) {
+        throw new Error("Cannot add admin users to workspaces");
+      }
+
       const [workspaceUser] = await db
         .insert(workspaceusers)
         .values({
@@ -203,3 +232,47 @@ export const searchWorkspaces = withAdminCheck(async (query: string, limit: numb
     return [];
   }
 });
+
+export const updateWorkspace = withAdminCheck(
+  async (
+    workspaceId: string,
+    updates: Partial<Pick<Workspace, 'name' | 'type' | 'description'>>
+  ): Promise<Workspace | null> => {
+    try {
+      const [updatedWorkspace] = await db
+        .update(workspaces)
+        .set({
+          ...updates,
+          updatedat: new Date(),
+        })
+        .where(eq(workspaces.workspaceid, workspaceId))
+        .returning();
+
+      return updatedWorkspace || null;
+    } catch (error) {
+      console.error("Error updating workspace:", error);
+      return null;
+    }
+  }
+);
+
+export const getUserWorkspaces = withAdminCheck(
+  async (userId: string): Promise<(WorkspaceUser & { workspace: Workspace })[]> => {
+    try {
+      const results = await db
+        .select()
+        .from(workspaceusers)
+        .innerJoin(workspaces, eq(workspaceusers.workspaceid, workspaces.workspaceid))
+        .where(eq(workspaceusers.userid, userId))
+        .orderBy(workspaceusers.createdat);
+
+      return results.map((result) => ({
+        ...result.workspaceusers,
+        workspace: result.workspaces,
+      }));
+    } catch (error) {
+      console.error("Error getting user workspaces:", error);
+      return [];
+    }
+  }
+);
