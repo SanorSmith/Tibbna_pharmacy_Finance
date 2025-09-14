@@ -5,16 +5,10 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { Theme } from "@radix-ui/themes";
 import { useSession } from "next-auth/react";
 
-interface ThemeProviderProps
-  extends React.ComponentProps<typeof NextThemesProvider> {
-  initialTheme?: string;
-}
-
 export function ThemeProvider({
   children,
-  initialTheme,
   ...props
-}: ThemeProviderProps) {
+}: React.ComponentProps<typeof NextThemesProvider>) {
   return (
     <NextThemesProvider
       attribute="class"
@@ -31,7 +25,7 @@ export function ThemeProvider({
 function RadixThemeWrapper({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const [mounted, setMounted] = React.useState(false);
-  const [_, setCurrentTheme] = React.useState<"light" | "dark">(
+  const [, setCurrentTheme] = React.useState<"light" | "dark">(
     "light"
   );
 
