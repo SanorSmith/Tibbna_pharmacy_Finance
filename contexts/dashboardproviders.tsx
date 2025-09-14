@@ -12,16 +12,12 @@ export function DashboardProviders({
   children,
   user,
 }: DashboardProvidersProps) {
-  // Extract user preferences or use defaults
-  const initialTheme = user?.theme || "system";
   // Only pass initialLanguage if user is logged in, otherwise let localStorage take precedence
   const initialLanguage = user?.language as Language;
 
   return (
     <LanguageProvider initialLanguage={initialLanguage}>
-      <ThemeProvider initialTheme={initialTheme}>
-        {children}
-      </ThemeProvider>
+      <ThemeProvider>{children}</ThemeProvider>
     </LanguageProvider>
   );
 }
