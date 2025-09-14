@@ -30,7 +30,7 @@ export function AppSidebar({
         <NavMain />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} onOpenSettings={() => {}} />
+        <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

@@ -1,18 +1,51 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Plus, Trash2, User as UserIcon, Edit, Save, X } from "lucide-react";
 import { User } from "@/lib/db/tables/user";
-import { Workspace, WorkspaceUserRole, WorkspaceUser, WorkspaceType } from "@/lib/db/tables/workspace";
-import { addUserToWorkspaceAction, removeUserFromWorkspaceAction, updateWorkspaceAction, getWorkspaceUsersAction } from "../actions";
+import {
+  Workspace,
+  WorkspaceUserRole,
+  WorkspaceUser,
+  WorkspaceType,
+} from "@/lib/db/tables/workspace";
+import {
+  addUserToWorkspaceAction,
+  removeUserFromWorkspaceAction,
+  updateWorkspaceAction,
+  getWorkspaceUsersAction,
+} from "../actions";
+import {
+  WorkspaceIcon,
+  getWorkspaceLabel,
+} from "@/components/shared/workspace-icons";
+import { useLanguage } from "@/hooks/use-language";
 
 interface WorkspaceDetailModalProps {
   workspace: Workspace | null;
@@ -37,13 +70,26 @@ const workspaceTypeColors = {
 
 type WorkspaceUserWithDetails = WorkspaceUser & { user: User };
 
-export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onWorkspaceUpdate }: WorkspaceDetailModalProps) {
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUserWithDetails[]>([]);
+export function WorkspaceDetailModal({
+  workspace,
+  isOpen,
+  onClose,
+  allUsers,
+  onWorkspaceUpdate,
+}: WorkspaceDetailModalProps) {
+  const { ttt } = useLanguage();
+  const [workspaceUsers, setWorkspaceUsers] = useState<
+    WorkspaceUserWithDetails[]
+  >([]);
   const [selectedUser, setSelectedUser] = useState("");
   const [selectedRole, setSelectedRole] = useState<WorkspaceUserRole>("doctor");
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", type: "hospital" as WorkspaceType, description: "" });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    type: "hospital" as WorkspaceType,
+    description: "",
+  });
 
   const loadWorkspaceUsers = async () => {
     if (!workspace) return;
@@ -67,10 +113,10 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
   useEffect(() => {
     if (workspace && isOpen) {
       loadWorkspaceUsers();
-      setEditForm({ 
-        name: workspace.name, 
-        type: workspace.type, 
-        description: workspace.description || "" 
+      setEditForm({
+        name: workspace.name,
+        type: workspace.type,
+        description: workspace.description || "",
       });
       setIsEditing(false);
     }
@@ -123,15 +169,15 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setEditForm({ 
-      name: workspace?.name || "", 
-      type: workspace?.type || "hospital", 
-      description: workspace?.description || "" 
+    setEditForm({
+      name: workspace?.name || "",
+      type: workspace?.type || "hospital",
+      description: workspace?.description || "",
     });
   };
 
   const availableUsers = allUsers.filter(
-    user => !workspaceUsers.some(wu => wu.user.userid === user.userid)
+    (user) => !workspaceUsers.some((wu) => wu.user.userid === user.userid)
   );
 
   if (!workspace) return null;
@@ -140,7 +186,10 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Workspace Details: {workspace.name}</DialogTitle>
+          <DialogTitle className="flex items-center space-x-2">
+            <WorkspaceIcon type={workspace.type} className="h-5 w-5" />
+            <span>Workspace Details: {workspace.name}</span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -149,13 +198,21 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Workspace Information</h3>
               {!isEditing ? (
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
               ) : (
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                  >
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
@@ -166,23 +223,27 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
                 </div>
               )}
             </div>
-            
+
             {!isEditing ? (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <strong>Name:</strong> {workspace.name}
                 </div>
                 <div>
-                  <strong>Type:</strong> 
-                  <Badge className={`ml-2 ${workspaceTypeColors[workspace.type]}`}>
-                    {workspace.type.charAt(0).toUpperCase() + workspace.type.slice(1)}
+                  <strong>Type:</strong>
+                  <Badge
+                    className={`ml-2 ${workspaceTypeColors[workspace.type]}`}
+                  >
+                    {getWorkspaceLabel(workspace.type, ttt)}
                   </Badge>
                 </div>
                 <div className="col-span-2">
-                  <strong>Description:</strong> {workspace.description || "No description"}
+                  <strong>Description:</strong>{" "}
+                  {workspace.description || "No description"}
                 </div>
                 <div>
-                  <strong>Created:</strong> {new Date(workspace.createdat).toLocaleDateString()}
+                  <strong>Created:</strong>{" "}
+                  {new Date(workspace.createdat).toLocaleDateString()}
                 </div>
               </div>
             ) : (
@@ -193,36 +254,63 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
                     <Input
                       id="edit-workspace-name"
                       value={editForm.name}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
                       placeholder="Enter workspace name"
                     />
                   </div>
                   <div>
                     <Label htmlFor="edit-workspace-type">Type</Label>
-                    <Select value={editForm.type} onValueChange={(value) => setEditForm(prev => ({ ...prev, type: value as WorkspaceType }))}>
+                    <Select
+                      value={editForm.type}
+                      onValueChange={(value) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          type: value as WorkspaceType,
+                        }))
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="hospital">Hospital</SelectItem>
-                        <SelectItem value="laboratory">Laboratory</SelectItem>
-                        <SelectItem value="pharmacy">Pharmacy</SelectItem>
+                        <SelectItem value="hospital">
+                          {ttt("Hospital")}
+                        </SelectItem>
+                        <SelectItem value="laboratory">
+                          {ttt("Laboratory")}
+                        </SelectItem>
+                        <SelectItem value="pharmacy">
+                          {ttt("Pharmacy")}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="edit-workspace-description">Description</Label>
+                  <Label htmlFor="edit-workspace-description">
+                    Description
+                  </Label>
                   <Textarea
                     id="edit-workspace-description"
                     value={editForm.description}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
                     placeholder="Enter workspace description"
                     rows={3}
                   />
                 </div>
                 <div>
-                  <strong>Created:</strong> {new Date(workspace.createdat).toLocaleDateString()}
+                  <strong>Created:</strong>{" "}
+                  {new Date(workspace.createdat).toLocaleDateString()}
                 </div>
               </div>
             )}
@@ -245,7 +333,12 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
                 </SelectContent>
               </Select>
 
-              <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as WorkspaceUserRole)}>
+              <Select
+                value={selectedRole}
+                onValueChange={(value) =>
+                  setSelectedRole(value as WorkspaceUserRole)
+                }
+              >
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
@@ -309,7 +402,9 @@ export function WorkspaceDetailModal({ workspace, isOpen, onClose, allUsers, onW
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRemoveUser(workspaceUser.user.userid)}
+                            onClick={() =>
+                              handleRemoveUser(workspaceUser.user.userid)
+                            }
                             className="text-red-600 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />

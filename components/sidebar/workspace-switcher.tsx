@@ -2,15 +2,18 @@
 
 import * as React from "react";
 import { ChevronsUpDown, Plus } from "lucide-react";
-import { Briefcase } from "lucide-react";
 import { useRouter } from "next/navigation";
+import {
+  WorkspaceIcon,
+  WorkspaceIconWithBg,
+  getWorkspaceLabel,
+} from "@/components/shared/workspace-icons";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -72,15 +75,16 @@ export function WorkspaceSwitcher() {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <Briefcase className="size-4" />
-              </div>
+              <WorkspaceIconWithBg
+                type={workspace.workspace.type}
+                className="flex aspect-square size-8 items-center justify-center rounded-lg"
+              />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
                   {workspace.workspace.name}
                 </span>
                 <span className="truncate text-xs">
-                  {workspace.workspace.type}
+                  {getWorkspaceLabel(workspace.workspace.type, ttt)}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
@@ -105,25 +109,16 @@ export function WorkspaceSwitcher() {
                   className="gap-2 p-2"
                 >
                   <div className="flex size-6 items-center justify-center rounded-md border">
-                    <Briefcase className="size-3.5 shrink-0" />
+                    <WorkspaceIcon
+                      type={workspace.workspace.type}
+                      className="size-3.5 shrink-0"
+                    />
                   </div>
                   {workspace.workspace.name || "Unnamed Workspace"}
                   <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
                 </DropdownMenuItem>
               );
             })}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 p-2"
-              onClick={handleCreateWorkspace}
-            >
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">
-                {ttt("Create Workspace")}
-              </div>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronsUpDown, Settings, HelpCircle, LogOut } from "lucide-react";
 
 import { signOut } from "next-auth/react";
@@ -22,16 +23,12 @@ import {
 } from "@/components/ui/sidebar";
 import { User } from "@/lib/db/tables/user";
 import { useLanguage } from "@/hooks/use-language";
+import { UserSettingsModal } from "./user-settings-modal";
 
-export function NavUser({
-  user,
-  onOpenSettings,
-}: {
-  user: User;
-  onOpenSettings: (open: boolean) => void;
-}) {
+export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
   const { ttt } = useLanguage();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
     <SidebarMenu>
@@ -82,7 +79,7 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => onOpenSettings(true)}
+                onClick={() => setIsSettingsOpen(true)}
                 className="cursor-pointer"
               >
                 <Settings />
@@ -104,6 +101,11 @@ export function NavUser({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      <UserSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </SidebarMenu>
   );
 }

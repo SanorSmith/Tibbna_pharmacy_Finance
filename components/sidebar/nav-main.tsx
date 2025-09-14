@@ -2,10 +2,23 @@
 
 import {
   ChevronRight,
-  SquareTerminal,
-  Bot,
-  BookOpen,
+  Calendar,
+  Users,
+  FileText,
+  Stethoscope,
+  TestTube,
+  Pill,
+  ClipboardList,
+  UserCheck,
+  Activity,
+  Heart,
+  Microscope,
+  FlaskConical,
+  Package,
+  ShoppingCart,
   Settings,
+  BarChart3,
+  FileSearch,
 } from "lucide-react";
 
 import {
@@ -24,72 +37,657 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { useLanguage } from "@/hooks/use-language";
+import { useWorkspace } from "@/hooks/use-workspace";
 import Link from "next/link";
+
+// Define types for workspace and role combinations
+type WorkspaceType = "hospital" | "laboratory" | "pharmacy";
+type WorkspaceRole = "doctor" | "nurse" | "receptionist" | "administrator";
+
+type MenuItem = {
+  title: string;
+  url: string;
+  icon?: React.ComponentType;
+  items?: { title: string; url: string }[];
+  isActive?: boolean;
+};
+
+type NavigationConfig = {
+  [K in WorkspaceType]: {
+    [R in WorkspaceRole]: MenuItem[];
+  };
+};
 
 export function NavMain() {
   const { ttt } = useLanguage();
+  const { workspace } = useWorkspace();
 
-  const data = {
-    navMain: [
-      {
-        title: ttt("My transactions"),
-        url: "/d/transactions",
-        icon: SquareTerminal,
-        isActive: true,
-      },
-      {
-        title: ttt("Invoices"),
-        url: "#",
-        icon: Bot,
-        items: [
-          {
-            title: ttt("Invoices"),
-            url: "#",
-          },
-          {
-            title: ttt("Offers"),
-            url: "#",
-          },
-          {
-            title: ttt("Customers"),
-            url: "#",
-          },
-        ],
-      },
-      {
-        title: ttt("Salaries"),
-        url: "#",
-        icon: BookOpen,
-        items: [
-          {
-            title: ttt("Salaries"),
-            url: "#",
-          },
-          {
-            title: ttt("Employees"),
-            url: "#",
-          },
-          {
-            title: ttt("Outlays"),
-            url: "#",
-          },
-        ],
-      },
-      {
-        title: ttt("Settings"),
-        url: "#",
-        icon: Settings,
-      },
-    ],
+  // Comprehensive navigation configuration for all workspace + role combinations
+  const navigationConfig: NavigationConfig = {
+    hospital: {
+      doctor: [
+        {
+          title: ttt("Schedule"),
+          url: "/d/schedule",
+          icon: Calendar,
+          isActive: true,
+        },
+        {
+          title: ttt("Patients"),
+          url: "/d/patients",
+          icon: Users,
+          items: [
+            { title: ttt("Patient List"), url: "/d/patients" },
+            { title: ttt("New Patient"), url: "/d/patients/new" },
+            { title: ttt("Search Patient"), url: "/d/patients/search" },
+          ],
+        },
+        {
+          title: ttt("Medical Records"),
+          url: "/d/records",
+          icon: FileText,
+          items: [
+            { title: ttt("View Records"), url: "/d/records" },
+            { title: ttt("Create Record"), url: "/d/records/new" },
+            { title: ttt("Lab Results"), url: "/d/records/lab-results" },
+          ],
+        },
+        {
+          title: ttt("Prescriptions"),
+          url: "/d/prescriptions",
+          icon: Pill,
+          items: [
+            { title: ttt("Write Prescription"), url: "/d/prescriptions/new" },
+            {
+              title: ttt("Prescription History"),
+              url: "/d/prescriptions/history",
+            },
+            { title: ttt("Drug Database"), url: "/d/prescriptions/drugs" },
+          ],
+        },
+        {
+          title: ttt("Diagnostics"),
+          url: "/d/diagnostics",
+          icon: Stethoscope,
+          items: [
+            { title: ttt("Order Tests"), url: "/d/diagnostics/order" },
+            { title: ttt("View Results"), url: "/d/diagnostics/results" },
+            { title: ttt("Imaging"), url: "/d/diagnostics/imaging" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      nurse: [
+        {
+          title: ttt("Schedule"),
+          url: "/d/schedule",
+          icon: Calendar,
+          isActive: true,
+        },
+        {
+          title: ttt("Patients"),
+          url: "/d/patients",
+          icon: Users,
+          items: [
+            { title: ttt("Patient List"), url: "/d/patients" },
+            { title: ttt("Vital Signs"), url: "/d/patients/vitals" },
+            { title: ttt("Medication Admin"), url: "/d/patients/medications" },
+          ],
+        },
+        {
+          title: ttt("Care Plans"),
+          url: "/d/care-plans",
+          icon: ClipboardList,
+          items: [
+            { title: ttt("Active Plans"), url: "/d/care-plans" },
+            { title: ttt("Create Plan"), url: "/d/care-plans/new" },
+            { title: ttt("Progress Notes"), url: "/d/care-plans/notes" },
+          ],
+        },
+        {
+          title: ttt("Monitoring"),
+          url: "/d/monitoring",
+          icon: Activity,
+          items: [
+            { title: ttt("Patient Monitoring"), url: "/d/monitoring/patients" },
+            { title: ttt("Alerts"), url: "/d/monitoring/alerts" },
+            { title: ttt("Rounds"), url: "/d/monitoring/rounds" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      receptionist: [
+        {
+          title: ttt("Appointments"),
+          url: "/d/appointments",
+          icon: Calendar,
+          isActive: true,
+          items: [
+            {
+              title: ttt("Today's Appointments"),
+              url: "/d/appointments/today",
+            },
+            { title: ttt("Schedule Appointment"), url: "/d/appointments/new" },
+            { title: ttt("Calendar View"), url: "/d/appointments/calendar" },
+          ],
+        },
+        {
+          title: ttt("Patients"),
+          url: "/d/patients",
+          icon: Users,
+          items: [
+            { title: ttt("Patient Registration"), url: "/d/patients/register" },
+            { title: ttt("Patient List"), url: "/d/patients" },
+            { title: ttt("Check-in"), url: "/d/patients/checkin" },
+          ],
+        },
+        {
+          title: ttt("Billing"),
+          url: "/d/billing",
+          icon: FileText,
+          items: [
+            { title: ttt("Generate Invoice"), url: "/d/billing/invoice" },
+            { title: ttt("Payment Processing"), url: "/d/billing/payments" },
+            { title: ttt("Insurance Claims"), url: "/d/billing/insurance" },
+          ],
+        },
+        {
+          title: ttt("Reports"),
+          url: "/d/reports",
+          icon: BarChart3,
+          items: [
+            { title: ttt("Daily Reports"), url: "/d/reports/daily" },
+            { title: ttt("Patient Flow"), url: "/d/reports/flow" },
+            { title: ttt("Revenue Reports"), url: "/d/reports/revenue" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      administrator: [
+        {
+          title: ttt("Dashboard"),
+          url: "/d/dashboard",
+          icon: BarChart3,
+          isActive: true,
+        },
+        {
+          title: ttt("Staff Management"),
+          url: "/d/staff",
+          icon: UserCheck,
+          items: [
+            { title: ttt("Staff List"), url: "/d/staff" },
+            { title: ttt("Schedules"), url: "/d/staff/schedules" },
+            { title: ttt("Roles & Permissions"), url: "/d/staff/roles" },
+          ],
+        },
+        {
+          title: ttt("Department Management"),
+          url: "/d/departments",
+          icon: Heart,
+          items: [
+            { title: ttt("Departments"), url: "/d/departments" },
+            { title: ttt("Resources"), url: "/d/departments/resources" },
+            { title: ttt("Capacity Planning"), url: "/d/departments/capacity" },
+          ],
+        },
+        {
+          title: ttt("Reports & Analytics"),
+          url: "/d/analytics",
+          icon: BarChart3,
+          items: [
+            {
+              title: ttt("Performance Metrics"),
+              url: "/d/analytics/performance",
+            },
+            { title: ttt("Financial Reports"), url: "/d/analytics/financial" },
+            { title: ttt("Quality Metrics"), url: "/d/analytics/quality" },
+          ],
+        },
+        {
+          title: ttt("Admin Panel"),
+          url: "/d/admin",
+          icon: Settings,
+        },
+      ],
+    },
+    laboratory: {
+      doctor: [
+        {
+          title: ttt("Lab Orders"),
+          url: "/d/orders",
+          icon: TestTube,
+          isActive: true,
+          items: [
+            { title: ttt("Pending Orders"), url: "/d/orders/pending" },
+            { title: ttt("In Progress"), url: "/d/orders/progress" },
+            { title: ttt("Completed"), url: "/d/orders/completed" },
+          ],
+        },
+        {
+          title: ttt("Results Review"),
+          url: "/d/results",
+          icon: FileSearch,
+          items: [
+            { title: ttt("Pending Review"), url: "/d/results/pending" },
+            { title: ttt("Approved Results"), url: "/d/results/approved" },
+            { title: ttt("Critical Values"), url: "/d/results/critical" },
+          ],
+        },
+        {
+          title: ttt("Quality Control"),
+          url: "/d/quality",
+          icon: FlaskConical,
+          items: [
+            { title: ttt("QC Results"), url: "/d/quality/results" },
+            { title: ttt("Calibration"), url: "/d/quality/calibration" },
+            { title: ttt("Maintenance"), url: "/d/quality/maintenance" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      nurse: [
+        {
+          title: ttt("Sample Collection"),
+          url: "/d/samples",
+          icon: TestTube,
+          isActive: true,
+          items: [
+            { title: ttt("Collection Schedule"), url: "/d/samples/schedule" },
+            { title: ttt("Sample Tracking"), url: "/d/samples/tracking" },
+            {
+              title: ttt("Collection Guidelines"),
+              url: "/d/samples/guidelines",
+            },
+          ],
+        },
+        {
+          title: ttt("Patient Preparation"),
+          url: "/d/preparation",
+          icon: Users,
+          items: [
+            {
+              title: ttt("Pre-test Instructions"),
+              url: "/d/preparation/instructions",
+            },
+            {
+              title: ttt("Patient Education"),
+              url: "/d/preparation/education",
+            },
+            { title: ttt("Consent Forms"), url: "/d/preparation/consent" },
+          ],
+        },
+        {
+          title: ttt("Lab Results"),
+          url: "/d/results",
+          icon: FileText,
+          items: [
+            { title: ttt("View Results"), url: "/d/results" },
+            {
+              title: ttt("Patient Communication"),
+              url: "/d/results/communication",
+            },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      receptionist: [
+        {
+          title: ttt("Appointments"),
+          url: "/d/appointments",
+          icon: Calendar,
+          isActive: true,
+          items: [
+            { title: ttt("Lab Appointments"), url: "/d/appointments" },
+            { title: ttt("Walk-in Queue"), url: "/d/appointments/walkin" },
+            { title: ttt("Sample Drop-off"), url: "/d/appointments/dropoff" },
+          ],
+        },
+        {
+          title: ttt("Patient Registration"),
+          url: "/d/patients",
+          icon: Users,
+          items: [
+            { title: ttt("Register Patient"), url: "/d/patients/register" },
+            { title: ttt("Update Information"), url: "/d/patients/update" },
+            {
+              title: ttt("Insurance Verification"),
+              url: "/d/patients/insurance",
+            },
+          ],
+        },
+        {
+          title: ttt("Billing & Reports"),
+          url: "/d/billing",
+          icon: FileText,
+          items: [
+            { title: ttt("Test Billing"), url: "/d/billing/tests" },
+            { title: ttt("Insurance Claims"), url: "/d/billing/claims" },
+            { title: ttt("Daily Reports"), url: "/d/billing/reports" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      administrator: [
+        {
+          title: ttt("Lab Management"),
+          url: "/d/management",
+          icon: Microscope,
+          isActive: true,
+          items: [
+            { title: ttt("Equipment Status"), url: "/d/management/equipment" },
+            { title: ttt("Inventory"), url: "/d/management/inventory" },
+            {
+              title: ttt("Workflow Optimization"),
+              url: "/d/management/workflow",
+            },
+          ],
+        },
+        {
+          title: ttt("Staff & Scheduling"),
+          url: "/d/staff",
+          icon: UserCheck,
+          items: [
+            { title: ttt("Staff Management"), url: "/d/staff" },
+            { title: ttt("Shift Scheduling"), url: "/d/staff/shifts" },
+            { title: ttt("Competency Tracking"), url: "/d/staff/competency" },
+          ],
+        },
+        {
+          title: ttt("Analytics"),
+          url: "/d/analytics",
+          icon: BarChart3,
+          items: [
+            { title: ttt("Turnaround Times"), url: "/d/analytics/turnaround" },
+            { title: ttt("Test Volume"), url: "/d/analytics/volume" },
+            { title: ttt("Quality Metrics"), url: "/d/analytics/quality" },
+          ],
+        },
+        {
+          title: ttt("Admin Panel"),
+          url: "/d/admin",
+          icon: Settings,
+        },
+      ],
+    },
+    pharmacy: {
+      doctor: [
+        {
+          title: ttt("Prescription Review"),
+          url: "/d/prescriptions",
+          icon: Pill,
+          isActive: true,
+          items: [
+            { title: ttt("Pending Review"), url: "/d/prescriptions/pending" },
+            {
+              title: ttt("Drug Interactions"),
+              url: "/d/prescriptions/interactions",
+            },
+            {
+              title: ttt("Clinical Guidelines"),
+              url: "/d/prescriptions/guidelines",
+            },
+          ],
+        },
+        {
+          title: ttt("Patient Consultation"),
+          url: "/d/consultation",
+          icon: Users,
+          items: [
+            {
+              title: ttt("Medication Counseling"),
+              url: "/d/consultation/counseling",
+            },
+            {
+              title: ttt("Therapy Management"),
+              url: "/d/consultation/therapy",
+            },
+            { title: ttt("Adverse Events"), url: "/d/consultation/adverse" },
+          ],
+        },
+        {
+          title: ttt("Drug Information"),
+          url: "/d/drugs",
+          icon: FileSearch,
+          items: [
+            { title: ttt("Drug Database"), url: "/d/drugs/database" },
+            { title: ttt("Formulary"), url: "/d/drugs/formulary" },
+            { title: ttt("Clinical Studies"), url: "/d/drugs/studies" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      nurse: [
+        {
+          title: ttt("Medication Administration"),
+          url: "/d/medications",
+          icon: Pill,
+          isActive: true,
+          items: [
+            {
+              title: ttt("Patient Medications"),
+              url: "/d/medications/patients",
+            },
+            {
+              title: ttt("Administration Records"),
+              url: "/d/medications/records",
+            },
+            {
+              title: ttt("Medication Reconciliation"),
+              url: "/d/medications/reconciliation",
+            },
+          ],
+        },
+        {
+          title: ttt("Patient Education"),
+          url: "/d/education",
+          icon: Users,
+          items: [
+            {
+              title: ttt("Medication Instructions"),
+              url: "/d/education/instructions",
+            },
+            { title: ttt("Side Effects"), url: "/d/education/sideeffects" },
+            {
+              title: ttt("Compliance Monitoring"),
+              url: "/d/education/compliance",
+            },
+          ],
+        },
+        {
+          title: ttt("Inventory Support"),
+          url: "/d/inventory",
+          icon: Package,
+          items: [
+            { title: ttt("Stock Levels"), url: "/d/inventory/stock" },
+            { title: ttt("Expiry Tracking"), url: "/d/inventory/expiry" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      receptionist: [
+        {
+          title: ttt("Prescription Processing"),
+          url: "/d/prescriptions",
+          icon: FileText,
+          isActive: true,
+          items: [
+            { title: ttt("New Prescriptions"), url: "/d/prescriptions/new" },
+            { title: ttt("Refills"), url: "/d/prescriptions/refills" },
+            {
+              title: ttt("Insurance Verification"),
+              url: "/d/prescriptions/insurance",
+            },
+          ],
+        },
+        {
+          title: ttt("Customer Service"),
+          url: "/d/customers",
+          icon: Users,
+          items: [
+            {
+              title: ttt("Customer Registration"),
+              url: "/d/customers/register",
+            },
+            {
+              title: ttt("Pickup Notifications"),
+              url: "/d/customers/notifications",
+            },
+            { title: ttt("Payment Processing"), url: "/d/customers/payments" },
+          ],
+        },
+        {
+          title: ttt("Sales & Billing"),
+          url: "/d/sales",
+          icon: ShoppingCart,
+          items: [
+            { title: ttt("Point of Sale"), url: "/d/sales/pos" },
+            { title: ttt("Insurance Claims"), url: "/d/sales/claims" },
+            { title: ttt("Daily Reports"), url: "/d/sales/reports" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      administrator: [
+        {
+          title: ttt("Pharmacy Operations"),
+          url: "/d/operations",
+          icon: Package,
+          isActive: true,
+          items: [
+            {
+              title: ttt("Inventory Management"),
+              url: "/d/operations/inventory",
+            },
+            {
+              title: ttt("Supplier Relations"),
+              url: "/d/operations/suppliers",
+            },
+            {
+              title: ttt("Compliance Monitoring"),
+              url: "/d/operations/compliance",
+            },
+          ],
+        },
+        {
+          title: ttt("Staff Management"),
+          url: "/d/staff",
+          icon: UserCheck,
+          items: [
+            {
+              title: ttt("Pharmacist Scheduling"),
+              url: "/d/staff/pharmacists",
+            },
+            {
+              title: ttt("Technician Management"),
+              url: "/d/staff/technicians",
+            },
+            { title: ttt("Training Records"), url: "/d/staff/training" },
+          ],
+        },
+        {
+          title: ttt("Business Analytics"),
+          url: "/d/analytics",
+          icon: BarChart3,
+          items: [
+            { title: ttt("Sales Analytics"), url: "/d/analytics/sales" },
+            { title: ttt("Prescription Trends"), url: "/d/analytics/trends" },
+            { title: ttt("Financial Reports"), url: "/d/analytics/financial" },
+          ],
+        },
+        {
+          title: ttt("Admin Panel"),
+          url: "/d/admin",
+          icon: Settings,
+        },
+      ],
+    },
   };
+
+  // Get the navigation items for current workspace and role
+  const getNavigationItems = (): MenuItem[] => {
+    if (!workspace?.workspace.type || !workspace.role) {
+      // Fallback navigation if workspace or role is not available
+      return [
+        {
+          title: ttt("Dashboard"),
+          url: "/d/dashboard",
+          icon: BarChart3,
+          isActive: true,
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ];
+    }
+
+    return navigationConfig[workspace.workspace.type][workspace.role] || [];
+  };
+
+  const navItems = getNavigationItems();
 
   return (
     <>
       <SidebarGroup>
         <SidebarGroupLabel>{ttt("Workspace")}</SidebarGroupLabel>
         <SidebarMenu>
-          {data.navMain.map((item) => {
-            // Regular items with potential sub-items
+          {navItems.map((item) => {
+            // Items without sub-items - direct links
+            if (!item.items || item.items.length === 0) {
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.title}
+                    isActive={item.isActive}
+                  >
+                    <Link href={item.url}>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            }
+
+            // Items with sub-items - collapsible
             return (
               <Collapsible
                 key={item.title}
@@ -99,7 +697,10 @@ export function NavMain() {
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip={item.title}>
+                    <SidebarMenuButton
+                      tooltip={item.title}
+                      isActive={item.isActive}
+                    >
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -107,7 +708,7 @@ export function NavMain() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {item.items?.map((subItem) => (
+                      {item.items.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton asChild>
                             <Link href={subItem.url}>
