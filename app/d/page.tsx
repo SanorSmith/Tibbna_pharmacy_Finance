@@ -6,11 +6,11 @@ export default async function Home() {
   const user = await getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   if (user.permissions?.includes("admin")) {
-    redirect("/admin");
+    redirect("/d/admin");
   }
 
   const workspaces = await getUserWorkspaces(user.userid);

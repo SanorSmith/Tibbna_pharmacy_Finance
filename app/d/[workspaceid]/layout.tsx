@@ -16,7 +16,7 @@ export default async function HomeLayout({
 }) {
   const user = await getUser();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   const { workspaceid } = await params;
