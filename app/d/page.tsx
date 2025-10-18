@@ -16,7 +16,7 @@ export default async function Home() {
     if (user.permissions?.includes("admin")) {
       redirect("/d/admin");
     } else {
-      redirect("/d/new");
+      redirect("/d/empty");
     }
   }
 
