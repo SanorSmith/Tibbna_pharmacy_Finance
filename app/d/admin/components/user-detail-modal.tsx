@@ -1,17 +1,44 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Plus, Trash2, Building2, Edit, Save, X } from "lucide-react";
 import { User } from "@/lib/db/tables/user";
-import { Workspace, WorkspaceUserRole, WorkspaceUser } from "@/lib/db/tables/workspace";
-import { addUserToWorkspaceAction, removeUserFromWorkspaceAction, updateUserAction, getUserWorkspacesAction } from "../actions";
+import {
+  Workspace,
+  WorkspaceUserRole,
+  WorkspaceUser,
+} from "@/lib/db/tables/workspace";
+import {
+  addUserToWorkspaceAction,
+  removeUserFromWorkspaceAction,
+  updateUserAction,
+  getUserWorkspacesAction,
+} from "../actions";
 
 interface UserDetailModalProps {
   user: User | null;
@@ -30,8 +57,16 @@ const roleColors = {
 
 type UserWorkspaceWithDetails = WorkspaceUser & { workspace: Workspace };
 
-export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUpdate }: UserDetailModalProps) {
-  const [userWorkspaces, setUserWorkspaces] = useState<UserWorkspaceWithDetails[]>([]);
+export function UserDetailModal({
+  user,
+  isOpen,
+  onClose,
+  allWorkspaces,
+  onUserUpdate,
+}: UserDetailModalProps) {
+  const [userWorkspaces, setUserWorkspaces] = useState<
+    UserWorkspaceWithDetails[]
+  >([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState("");
   const [selectedRole, setSelectedRole] = useState<WorkspaceUserRole>("doctor");
   const [loading, setLoading] = useState(false);
@@ -114,7 +149,10 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
   };
 
   const availableWorkspaces = allWorkspaces.filter(
-    workspace => !userWorkspaces.some(uw => uw.workspace.workspaceid === workspace.workspaceid)
+    (workspace) =>
+      !userWorkspaces.some(
+        (uw) => uw.workspace.workspaceid === workspace.workspaceid,
+      ),
   );
 
   if (!user) return null;
@@ -132,13 +170,21 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">User Information</h3>
               {!isEditing ? (
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
               ) : (
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                  >
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
@@ -149,7 +195,7 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
                 </div>
               )}
             </div>
-            
+
             {!isEditing ? (
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -159,7 +205,8 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
                   <strong>Email:</strong> {user.email}
                 </div>
                 <div>
-                  <strong>Created:</strong> {new Date(user.createdat).toLocaleDateString()}
+                  <strong>Created:</strong>{" "}
+                  {new Date(user.createdat).toLocaleDateString()}
                 </div>
               </div>
             ) : (
@@ -169,7 +216,9 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
                   <Input
                     id="edit-name"
                     value={editForm.name}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                    }
                     placeholder="Enter name"
                   />
                 </div>
@@ -179,12 +228,18 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
                     id="edit-email"
                     type="email"
                     value={editForm.email}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
                     placeholder="Enter email"
                   />
                 </div>
                 <div>
-                  <strong>Created:</strong> {new Date(user.createdat).toLocaleDateString()}
+                  <strong>Created:</strong>{" "}
+                  {new Date(user.createdat).toLocaleDateString()}
                 </div>
               </div>
             )}
@@ -194,20 +249,31 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Add to Workspace</h3>
             <div className="flex items-center space-x-2">
-              <Select value={selectedWorkspace} onValueChange={setSelectedWorkspace}>
+              <Select
+                value={selectedWorkspace}
+                onValueChange={setSelectedWorkspace}
+              >
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Select workspace" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableWorkspaces.map((workspace) => (
-                    <SelectItem key={workspace.workspaceid} value={workspace.workspaceid}>
+                    <SelectItem
+                      key={workspace.workspaceid}
+                      value={workspace.workspaceid}
+                    >
                       {workspace.name} ({workspace.type})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as WorkspaceUserRole)}>
+              <Select
+                value={selectedRole}
+                onValueChange={(value) =>
+                  setSelectedRole(value as WorkspaceUserRole)
+                }
+              >
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
@@ -219,7 +285,10 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
                 </SelectContent>
               </Select>
 
-              <Button onClick={handleAddToWorkspace} disabled={!selectedWorkspace}>
+              <Button
+                onClick={handleAddToWorkspace}
+                disabled={!selectedWorkspace}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add
               </Button>
@@ -273,7 +342,11 @@ export function UserDetailModal({ user, isOpen, onClose, allWorkspaces, onUserUp
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRemoveFromWorkspace(userWorkspace.workspace.workspaceid)}
+                            onClick={() =>
+                              handleRemoveFromWorkspace(
+                                userWorkspace.workspace.workspaceid,
+                              )
+                            }
                             className="text-red-600 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />

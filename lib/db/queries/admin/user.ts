@@ -28,80 +28,89 @@ export const createNewUser = withAdminCheck(
       console.error("Error creating user:", error);
       return null;
     }
-  }
+  },
 );
 
 export const deleteUser = withAdminCheck(
   async (userid: string): Promise<boolean> => {
     try {
       // Prevent deleting admin users
-      await db.delete(users).where(
-        and(
-          eq(users.userid, userid),
-          or(
-            sql`${users.permissions} IS NULL`,
-            sql`${users.permissions} = '[]'::jsonb`,
-            not(sql`${users.permissions} ? 'admin'`)
-          )
-        )
-      );
+      await db
+        .delete(users)
+        .where(
+          and(
+            eq(users.userid, userid),
+            or(
+              sql`${users.permissions} IS NULL`,
+              sql`${users.permissions} = '[]'::jsonb`,
+              not(sql`${users.permissions} ? 'admin'`),
+            ),
+          ),
+        );
       return true;
     } catch (error) {
       console.error("Error deleting user:", error);
       return false;
     }
-  }
+  },
 );
 
-export const getAllUsers = withAdminCheck(async (limit: number = 50, offset: number = 0): Promise<User[]> => {
-  try {
-    return await db
-      .select()
-      .from(users)
-      .where(
-        or(
-          sql`${users.permissions} IS NULL`,
-          sql`${users.permissions} = '[]'::jsonb`,
-          not(sql`${users.permissions} ? 'admin'`)
-        )
-      )
-      .orderBy(desc(users.createdat))
-      .limit(limit)
-      .offset(offset);
-  } catch (error) {
-    console.error("Error getting users:", error);
-    return [];
-  }
-});
-
-export const searchUsers = withAdminCheck(async (query: string, limit: number = 50): Promise<User[]> => {
-  try {
-    return await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          or(
-            ilike(users.name, `%${query}%`),
-            ilike(users.email, `%${query}%`)
-          ),
+export const getAllUsers = withAdminCheck(
+  async (limit: number = 50, offset: number = 0): Promise<User[]> => {
+    try {
+      return await db
+        .select()
+        .from(users)
+        .where(
           or(
             sql`${users.permissions} IS NULL`,
             sql`${users.permissions} = '[]'::jsonb`,
-            not(sql`${users.permissions} ? 'admin'`)
-          )
+            not(sql`${users.permissions} ? 'admin'`),
+          ),
         )
-      )
-      .orderBy(desc(users.createdat))
-      .limit(limit);
-  } catch (error) {
-    console.error("Error searching users:", error);
-    return [];
-  }
-});
+        .orderBy(desc(users.createdat))
+        .limit(limit)
+        .offset(offset);
+    } catch (error) {
+      console.error("Error getting users:", error);
+      return [];
+    }
+  },
+);
+
+export const searchUsers = withAdminCheck(
+  async (query: string, limit: number = 50): Promise<User[]> => {
+    try {
+      return await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            or(
+              ilike(users.name, `%${query}%`),
+              ilike(users.email, `%${query}%`),
+            ),
+            or(
+              sql`${users.permissions} IS NULL`,
+              sql`${users.permissions} = '[]'::jsonb`,
+              not(sql`${users.permissions} ? 'admin'`),
+            ),
+          ),
+        )
+        .orderBy(desc(users.createdat))
+        .limit(limit);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      return [];
+    }
+  },
+);
 
 export const updateUser = withAdminCheck(
-  async (userid: string, updates: Partial<Pick<User, 'name' | 'email'>>): Promise<User | null> => {
+  async (
+    userid: string,
+    updates: Partial<Pick<User, "name" | "email">>,
+  ): Promise<User | null> => {
     try {
       // Prevent updating admin users
       const [existingUser] = await db
@@ -113,9 +122,9 @@ export const updateUser = withAdminCheck(
             or(
               sql`${users.permissions} IS NULL`,
               sql`${users.permissions} = '[]'::jsonb`,
-              not(sql`${users.permissions} ? 'admin'`)
-            )
-          )
+              not(sql`${users.permissions} ? 'admin'`),
+            ),
+          ),
         )
         .limit(1);
 
@@ -137,5 +146,5 @@ export const updateUser = withAdminCheck(
       console.error("Error updating user:", error);
       return null;
     }
-  }
+  },
 );

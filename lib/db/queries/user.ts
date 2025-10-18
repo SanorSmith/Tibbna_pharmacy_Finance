@@ -35,7 +35,7 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(
   password: string,
-  hashedPassword: string
+  hashedPassword: string,
 ): Promise<boolean> {
   const [salt, hash] = hashedPassword.split(":");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -49,7 +49,7 @@ export async function createUserSession(
   sessionToken: string,
   deviceInfo?: string,
   ipAddress?: string,
-  userAgent?: string
+  userAgent?: string,
 ): Promise<UserSession | null> {
   try {
     // Calculate expiration (365 days from now)
@@ -78,7 +78,7 @@ export async function createUserSession(
 }
 
 export async function getActiveSession(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<UserSession | null> {
   try {
     const session = await db
@@ -87,8 +87,8 @@ export async function getActiveSession(
       .where(
         and(
           eq(userSessions.sessiontoken, sessionToken),
-          gt(userSessions.expiresat, new Date())
-        )
+          gt(userSessions.expiresat, new Date()),
+        ),
       )
       .limit(1);
 
@@ -100,7 +100,7 @@ export async function getActiveSession(
 }
 
 export async function updateSessionActivity(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<boolean> {
   try {
     // First check if the session exists
@@ -113,7 +113,7 @@ export async function updateSessionActivity(
     if (existingSession.length === 0) {
       console.warn(
         "Session not found for activity update:",
-        sessionToken.substring(0, 8) + "..."
+        sessionToken.substring(0, 8) + "...",
       );
       return false;
     }
@@ -131,7 +131,7 @@ export async function updateSessionActivity(
 }
 
 export async function invalidateSession(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<boolean> {
   try {
     await db
@@ -146,7 +146,7 @@ export async function invalidateSession(
 }
 
 export async function invalidateAllUserSessions(
-  userid: string
+  userid: string,
 ): Promise<boolean> {
   try {
     await db.delete(userSessions).where(eq(userSessions.userid, userid));
@@ -159,7 +159,7 @@ export async function invalidateAllUserSessions(
 }
 
 export async function getUserActiveSessions(
-  userid: string
+  userid: string,
 ): Promise<UserSession[]> {
   try {
     const sessions = await db
@@ -168,8 +168,8 @@ export async function getUserActiveSessions(
       .where(
         and(
           eq(userSessions.userid, userid),
-          gt(userSessions.expiresat, new Date())
-        )
+          gt(userSessions.expiresat, new Date()),
+        ),
       )
       .orderBy(userSessions.lastactive);
 
@@ -204,7 +204,7 @@ export function generateSessionToken(): string {
  * @returns true if session is valid and active, false otherwise
  */
 export async function validateSessionToken(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<boolean> {
   try {
     const session = await getActiveSession(sessionToken);
@@ -223,7 +223,7 @@ export async function updateUserProfile(
   }: {
     name?: typeof users.$inferSelect.name;
     image?: typeof users.$inferSelect.image;
-  }
+  },
 ): Promise<boolean> {
   try {
     const dbUsers = await db

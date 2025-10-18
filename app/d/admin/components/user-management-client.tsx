@@ -4,8 +4,21 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Search, Plus, Trash2, Eye } from "lucide-react";
 import { createUserAction, deleteUserAction } from "../actions";
 import { User } from "@/lib/db/tables/user";
@@ -17,7 +30,10 @@ interface UserManagementClientProps {
   allWorkspaces: Workspace[];
 }
 
-export function UserManagementClient({ initialUsers, allWorkspaces }: UserManagementClientProps) {
+export function UserManagementClient({
+  initialUsers,
+  allWorkspaces,
+}: UserManagementClientProps) {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -30,10 +46,11 @@ export function UserManagementClient({ initialUsers, allWorkspaces }: UserManage
       setFilteredUsers(users);
       return;
     }
-    
-    const filtered = users.filter(user => 
-      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const filtered = users.filter(
+      (user) =>
+        user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()),
     );
     setFilteredUsers(filtered);
   };
@@ -43,22 +60,22 @@ export function UserManagementClient({ initialUsers, allWorkspaces }: UserManage
     if (result.success && result.data) {
       setIsCreateOpen(false);
       // Add new user to the state (SQL already prevents admin users)
-      setUsers(prev => [result.data, ...prev]);
-      setFilteredUsers(prev => [result.data, ...prev]);
+      setUsers((prev) => [result.data, ...prev]);
+      setFilteredUsers((prev) => [result.data, ...prev]);
     }
   };
 
   const handleDeleteUser = async (userid: string) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
-    
+
     const formData = new FormData();
     formData.append("userid", userid);
-    
+
     const result = await deleteUserAction(formData);
     if (result.success) {
       // Remove user from state instead of reloading
-      setUsers(prev => prev.filter(user => user.userid !== userid));
-      setFilteredUsers(prev => prev.filter(user => user.userid !== userid));
+      setUsers((prev) => prev.filter((user) => user.userid !== userid));
+      setFilteredUsers((prev) => prev.filter((user) => user.userid !== userid));
     }
   };
 
@@ -76,7 +93,7 @@ export function UserManagementClient({ initialUsers, allWorkspaces }: UserManage
             <Search className="h-4 w-4" />
           </Button>
         </div>
-        
+
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -125,9 +142,13 @@ export function UserManagementClient({ initialUsers, allWorkspaces }: UserManage
             ) : (
               filteredUsers.map((user) => (
                 <TableRow key={user.userid}>
-                  <TableCell className="font-medium">{user.name || "No name"}</TableCell>
+                  <TableCell className="font-medium">
+                    {user.name || "No name"}
+                  </TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{new Date(user.createdat).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    {new Date(user.createdat).toLocaleDateString()}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end space-x-2">
                       <Button
@@ -166,8 +187,16 @@ export function UserManagementClient({ initialUsers, allWorkspaces }: UserManage
         }}
         allWorkspaces={allWorkspaces}
         onUserUpdate={(updatedUser) => {
-          setUsers(prev => prev.map(u => u.userid === updatedUser.userid ? updatedUser : u));
-          setFilteredUsers(prev => prev.map(u => u.userid === updatedUser.userid ? updatedUser : u));
+          setUsers((prev) =>
+            prev.map((u) =>
+              u.userid === updatedUser.userid ? updatedUser : u,
+            ),
+          );
+          setFilteredUsers((prev) =>
+            prev.map((u) =>
+              u.userid === updatedUser.userid ? updatedUser : u,
+            ),
+          );
         }}
       />
     </div>

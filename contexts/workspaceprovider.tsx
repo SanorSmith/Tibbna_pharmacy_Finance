@@ -3,7 +3,7 @@ import React, { createContext, useContext } from "react";
 import { UserWorkspace } from "@/lib/db/tables/workspace";
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(
-  undefined
+  undefined,
 );
 
 interface WorkspaceContextType {
@@ -24,7 +24,7 @@ export function WorkspaceProvider({
   workspaceid,
 }: WorkspaceProviderProps) {
   const workspace = workspaces.find(
-    (w) => w.workspace.workspaceid === workspaceid
+    (w) => w.workspace.workspaceid === workspaceid,
   );
 
   if (!workspace) {
@@ -48,7 +48,7 @@ export function useWorkspaceContext(): WorkspaceContextType {
   const context = useContext(WorkspaceContext);
   if (context === undefined) {
     throw new Error(
-      "useWorkspaceContext must be used within a WorkspaceProvider"
+      "useWorkspaceContext must be used within a WorkspaceProvider",
     );
   }
   return context;

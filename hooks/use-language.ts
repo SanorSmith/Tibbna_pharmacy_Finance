@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback } from "react";
 import {
   useLanguageContext,
   TranslationKey,
@@ -13,13 +13,13 @@ export function useLanguage() {
       if (params) {
         return Object.entries(params).reduce(
           (str, [param, value]) => str.replace(`{{${param}}}`, value),
-          translation
+          translation,
         );
       }
 
       return translation;
     },
-    [language]
+    [language],
   );
 
   const translateText = useCallback(
@@ -28,19 +28,19 @@ export function useLanguage() {
       if (params) {
         return Object.entries(params).reduce(
           (str, [param, value]) => str.replace(`{{${param}}}`, value),
-          translation
+          translation,
         );
       }
 
       return translation;
     },
-    [language]
+    [language],
   );
 
   const ttrisky = useCallback(
     (key: string, params?: Record<string, string>) =>
       translateText(key, params),
-    [translateText]
+    [translateText],
   );
 
   return { language, setLanguage, ttt, ttrisky, isLoaded };

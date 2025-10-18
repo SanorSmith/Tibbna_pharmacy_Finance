@@ -25,9 +25,7 @@ export function ThemeProvider({
 function RadixThemeWrapper({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const [mounted, setMounted] = React.useState(false);
-  const [, setCurrentTheme] = React.useState<"light" | "dark">(
-    "light"
-  );
+  const [, setCurrentTheme] = React.useState<"light" | "dark">("light");
 
   React.useEffect(() => {
     setMounted(true);

@@ -55,7 +55,7 @@ export function SettingsDialog({
 }: SettingsDialogProps) {
   const isMobile = useIsMobile();
   const [activeSection, setActiveSection] = React.useState(
-    defaultSection || sections[0]
+    defaultSection || sections[0],
   );
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
 

@@ -41,15 +41,15 @@ export function LoginForm({
         case "NO_EMAIL":
           setError(
             ttt(
-              "No email address provided. Please try again with a valid email."
-            )
+              "No email address provided. Please try again with a valid email.",
+            ),
           );
           break;
         case "USER_NOT_FOUND":
           setError(
             ttt(
-              "User not found. Please contact your administrator to create an account."
-            )
+              "User not found. Please contact your administrator to create an account.",
+            ),
           );
           break;
         case "INVALID_PASSWORD":
@@ -57,8 +57,8 @@ export function LoginForm({
         default:
           setError(
             ttt(
-              "Invalid email or password. Please check your credentials and try again."
-            )
+              "Invalid email or password. Please check your credentials and try again.",
+            ),
           );
           break;
       }
@@ -96,8 +96,8 @@ export function LoginForm({
         if (result.error === "CredentialsSignin") {
           setError(
             ttt(
-              "Invalid email or password. Please check your credentials and try again."
-            )
+              "Invalid email or password. Please check your credentials and try again.",
+            ),
           );
         } else {
           setError(ttt("An error occurred during sign in. Please try again."));
@@ -111,7 +111,7 @@ export function LoginForm({
     } catch (error) {
       console.error("Login error:", error);
       setError(
-        ttt("Network error. Please check your connection and try again.")
+        ttt("Network error. Please check your connection and try again."),
       );
     } finally {
       setIsLoading(false);

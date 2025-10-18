@@ -54,7 +54,7 @@ export const workspaceusers = pgTable(
       foreignColumns: [users.userid],
       name: "workspaceuser_user_fk",
     }).onDelete("cascade"),
-  })
+  }),
 );
 
 export type WorkspaceUser = typeof workspaceusers.$inferSelect;

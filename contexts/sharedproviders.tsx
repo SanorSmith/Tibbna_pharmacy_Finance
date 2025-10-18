@@ -6,9 +6,7 @@ interface SharedProvidersProps {
   children: React.ReactNode;
 }
 
-export async function SharedProviders({
-  children,
-}: SharedProvidersProps) {
+export async function SharedProviders({ children }: SharedProvidersProps) {
   // Fetch user data server-side for initial theme/language only
   const user = await getUser();
 

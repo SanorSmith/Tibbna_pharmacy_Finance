@@ -9,7 +9,7 @@ import {
 import { eq, and, desc } from "drizzle-orm";
 
 export async function getWorkspaceById(
-  workspaceId: string
+  workspaceId: string,
 ): Promise<Workspace | null> {
   try {
     const [workspace] = await db
@@ -27,7 +27,7 @@ export async function getWorkspaceById(
 
 export async function getUserWorkspaces(
   userId: string,
-  role?: WorkspaceUserRole
+  role?: WorkspaceUserRole,
 ): Promise<UserWorkspace[]> {
   try {
     const results = await db
@@ -38,13 +38,13 @@ export async function getUserWorkspaces(
       .from(workspaceusers)
       .innerJoin(
         workspaces,
-        eq(workspaceusers.workspaceid, workspaces.workspaceid)
+        eq(workspaceusers.workspaceid, workspaces.workspaceid),
       )
       .where(
         and(
           eq(workspaceusers.userid, userId),
-          role ? eq(workspaceusers.role, role) : undefined
-        )
+          role ? eq(workspaceusers.role, role) : undefined,
+        ),
       )
       .orderBy(desc(workspaces.createdat));
 

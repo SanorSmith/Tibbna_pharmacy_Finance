@@ -6,7 +6,7 @@ export async function checkIsAdmin(): Promise<boolean> {
 }
 
 export function withAdminCheck<T extends unknown[], R>(
-  fn: (...args: T) => Promise<R>
+  fn: (...args: T) => Promise<R>,
 ) {
   return async (...args: T): Promise<R> => {
     if (!(await checkIsAdmin())) {

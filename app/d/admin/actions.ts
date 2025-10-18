@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createNewUser, deleteUser, updateUser } from "@/lib/db/queries/admin/user";
+import {
+  createNewUser,
+  deleteUser,
+  updateUser,
+} from "@/lib/db/queries/admin/user";
 import {
   createWorkspace,
   deleteWorkspace,
@@ -9,7 +13,7 @@ import {
   removeUserFromWorkspace,
   updateWorkspace,
   getWorkspaceUsers,
-  getUserWorkspaces
+  getUserWorkspaces,
 } from "@/lib/db/queries/admin/workspace";
 import { NewUser, UserPermissions } from "@/lib/db/tables/user";
 import { WorkspaceType, WorkspaceUserRole } from "@/lib/db/tables/workspace";
@@ -150,7 +154,11 @@ export async function updateWorkspaceAction(formData: FormData) {
     const type = formData.get("type") as WorkspaceType;
     const description = formData.get("description") as string;
 
-    const updates: Partial<{ name: string; type: WorkspaceType; description: string }> = {};
+    const updates: Partial<{
+      name: string;
+      type: WorkspaceType;
+      description: string;
+    }> = {};
     if (name) updates.name = name;
     if (type) updates.type = type;
     if (description !== undefined) updates.description = description;

@@ -22,7 +22,7 @@ export default async function HomeLayout({
   const { workspaceid } = await params;
   const workspaces = await getUserWorkspaces(user.userid);
   const workspace = workspaces.find(
-    (w) => w.workspace.workspaceid === workspaceid
+    (w) => w.workspace.workspaceid === workspaceid,
   );
 
   if (!workspace) {

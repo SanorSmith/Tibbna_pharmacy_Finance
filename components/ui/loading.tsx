@@ -20,7 +20,7 @@ export function LoadingSpinner({
       className={cn(
         "animate-spin rounded-full border-2 border-muted border-t-foreground",
         sizeClasses[size],
-        className
+        className,
       )}
     />
   );

@@ -29,7 +29,7 @@ export const deleteWorkspace = withAdminCheck(
       console.error("Error deleting workspace:", error);
       return false;
     }
-  }
+  },
 );
 
 export const createWorkspace = withAdminCheck(
@@ -37,7 +37,7 @@ export const createWorkspace = withAdminCheck(
     name: string,
     type: WorkspaceType,
     description?: string,
-    settings?: WorkspaceSettings
+    settings?: WorkspaceSettings,
   ): Promise<Workspace | null> => {
     try {
       const [workspace] = await db
@@ -55,7 +55,7 @@ export const createWorkspace = withAdminCheck(
       console.error("Error creating workspace:", error);
       return null;
     }
-  }
+  },
 );
 
 export const getWorkspaceUsers = withAdminCheck(
@@ -71,9 +71,9 @@ export const getWorkspaceUsers = withAdminCheck(
             or(
               sql`${users.permissions} IS NULL`,
               sql`${users.permissions} = '[]'::jsonb`,
-              not(sql`${users.permissions} ? 'admin'`)
-            )
-          )
+              not(sql`${users.permissions} ? 'admin'`),
+            ),
+          ),
         )
         .orderBy(workspaceusers.createdat);
 
@@ -85,14 +85,14 @@ export const getWorkspaceUsers = withAdminCheck(
       console.error("Error getting workspace users:", error);
       return [];
     }
-  }
+  },
 );
 
 export const addUserToWorkspace = withAdminCheck(
   async (
     workspaceId: string,
     userId: string,
-    role: WorkspaceUserRole
+    role: WorkspaceUserRole,
   ): Promise<WorkspaceUser | null> => {
     try {
       // First check if the user is an admin - prevent adding admin users
@@ -105,9 +105,9 @@ export const addUserToWorkspace = withAdminCheck(
             or(
               sql`${users.permissions} IS NULL`,
               sql`${users.permissions} = '[]'::jsonb`,
-              not(sql`${users.permissions} ? 'admin'`)
-            )
-          )
+              not(sql`${users.permissions} ? 'admin'`),
+            ),
+          ),
         )
         .limit(1);
 
@@ -129,7 +129,7 @@ export const addUserToWorkspace = withAdminCheck(
       console.error("Error adding user to workspace:", error);
       return null;
     }
-  }
+  },
 );
 
 export const removeUserFromWorkspace = withAdminCheck(
@@ -140,8 +140,8 @@ export const removeUserFromWorkspace = withAdminCheck(
         .where(
           and(
             eq(workspaceusers.workspaceid, workspaceId),
-            eq(workspaceusers.userid, userId)
-          )
+            eq(workspaceusers.userid, userId),
+          ),
         );
 
       return true;
@@ -149,14 +149,14 @@ export const removeUserFromWorkspace = withAdminCheck(
       console.error("Error removing user from workspace:", error);
       return false;
     }
-  }
+  },
 );
 
 export const updateUserWorkspaceRole = withAdminCheck(
   async (
     workspaceId: string,
     userId: string,
-    role: WorkspaceUserRole
+    role: WorkspaceUserRole,
   ): Promise<boolean> => {
     try {
       await db
@@ -165,8 +165,8 @@ export const updateUserWorkspaceRole = withAdminCheck(
         .where(
           and(
             eq(workspaceusers.workspaceid, workspaceId),
-            eq(workspaceusers.userid, userId)
-          )
+            eq(workspaceusers.userid, userId),
+          ),
         );
 
       return true;
@@ -174,12 +174,12 @@ export const updateUserWorkspaceRole = withAdminCheck(
       console.error("Error updating user workspace role:", error);
       return false;
     }
-  }
+  },
 );
 
 export async function checkUserWorkspaceAccess(
   userId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<WorkspaceUserRole | null> {
   try {
     const [result] = await db
@@ -188,8 +188,8 @@ export async function checkUserWorkspaceAccess(
       .where(
         and(
           eq(workspaceusers.userid, userId),
-          eq(workspaceusers.workspaceid, workspaceId)
-        )
+          eq(workspaceusers.workspaceid, workspaceId),
+        ),
       )
       .limit(1);
 
@@ -200,43 +200,47 @@ export async function checkUserWorkspaceAccess(
   }
 }
 
-export const getAllWorkspaces = withAdminCheck(async (limit: number = 50, offset: number = 0): Promise<Workspace[]> => {
-  try {
-    return await db
-      .select()
-      .from(workspaces)
-      .orderBy(desc(workspaces.createdat))
-      .limit(limit)
-      .offset(offset);
-  } catch (error) {
-    console.error("Error getting workspaces:", error);
-    return [];
-  }
-});
+export const getAllWorkspaces = withAdminCheck(
+  async (limit: number = 50, offset: number = 0): Promise<Workspace[]> => {
+    try {
+      return await db
+        .select()
+        .from(workspaces)
+        .orderBy(desc(workspaces.createdat))
+        .limit(limit)
+        .offset(offset);
+    } catch (error) {
+      console.error("Error getting workspaces:", error);
+      return [];
+    }
+  },
+);
 
-export const searchWorkspaces = withAdminCheck(async (query: string, limit: number = 50): Promise<Workspace[]> => {
-  try {
-    return await db
-      .select()
-      .from(workspaces)
-      .where(
-        or(
-          ilike(workspaces.name, `%${query}%`),
-          ilike(workspaces.description, `%${query}%`)
+export const searchWorkspaces = withAdminCheck(
+  async (query: string, limit: number = 50): Promise<Workspace[]> => {
+    try {
+      return await db
+        .select()
+        .from(workspaces)
+        .where(
+          or(
+            ilike(workspaces.name, `%${query}%`),
+            ilike(workspaces.description, `%${query}%`),
+          ),
         )
-      )
-      .orderBy(desc(workspaces.createdat))
-      .limit(limit);
-  } catch (error) {
-    console.error("Error searching workspaces:", error);
-    return [];
-  }
-});
+        .orderBy(desc(workspaces.createdat))
+        .limit(limit);
+    } catch (error) {
+      console.error("Error searching workspaces:", error);
+      return [];
+    }
+  },
+);
 
 export const updateWorkspace = withAdminCheck(
   async (
     workspaceId: string,
-    updates: Partial<Pick<Workspace, 'name' | 'type' | 'description'>>
+    updates: Partial<Pick<Workspace, "name" | "type" | "description">>,
   ): Promise<Workspace | null> => {
     try {
       const [updatedWorkspace] = await db
@@ -253,16 +257,21 @@ export const updateWorkspace = withAdminCheck(
       console.error("Error updating workspace:", error);
       return null;
     }
-  }
+  },
 );
 
 export const getUserWorkspaces = withAdminCheck(
-  async (userId: string): Promise<(WorkspaceUser & { workspace: Workspace })[]> => {
+  async (
+    userId: string,
+  ): Promise<(WorkspaceUser & { workspace: Workspace })[]> => {
     try {
       const results = await db
         .select()
         .from(workspaceusers)
-        .innerJoin(workspaces, eq(workspaceusers.workspaceid, workspaces.workspaceid))
+        .innerJoin(
+          workspaces,
+          eq(workspaceusers.workspaceid, workspaces.workspaceid),
+        )
         .where(eq(workspaceusers.userid, userId))
         .orderBy(workspaceusers.createdat);
 
@@ -274,5 +283,5 @@ export const getUserWorkspaces = withAdminCheck(
       console.error("Error getting user workspaces:", error);
       return [];
     }
-  }
+  },
 );

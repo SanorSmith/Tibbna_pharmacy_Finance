@@ -25,7 +25,7 @@ export function getWorkspaceIcon(type: WorkspaceType): LucideIcon {
 // Get translated label for workspace type
 export function getWorkspaceLabel(
   type: WorkspaceType,
-  ttt: (key: TranslationKey, params?: Record<string, string>) => string
+  ttt: (key: TranslationKey, params?: Record<string, string>) => string,
 ): string {
   const label = workspaceTypeLabels[type] || "Hospital";
   return ttt(label as TranslationKey);

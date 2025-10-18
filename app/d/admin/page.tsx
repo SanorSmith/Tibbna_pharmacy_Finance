@@ -39,7 +39,10 @@ export default async function AdminPage() {
               <CardTitle>User Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <UserManagementClient initialUsers={users} allWorkspaces={workspaces} />
+              <UserManagementClient
+                initialUsers={users}
+                allWorkspaces={workspaces}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -50,7 +53,10 @@ export default async function AdminPage() {
               <CardTitle>Workspace Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <WorkspaceManagementClient initialWorkspaces={workspaces} allUsers={users} />
+              <WorkspaceManagementClient
+                initialWorkspaces={workspaces}
+                allUsers={users}
+              />
             </CardContent>
           </Card>
         </TabsContent>

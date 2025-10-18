@@ -10,9 +10,7 @@ interface RootProvidersProps {
 export function RootProviders({ children }: RootProvidersProps) {
   return (
     <LanguageProvider>
-      <ThemeProvider>
-        {children}
-      </ThemeProvider>
+      <ThemeProvider>{children}</ThemeProvider>
     </LanguageProvider>
   );
 }

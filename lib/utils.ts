@@ -14,7 +14,7 @@ export function generateSessionToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
-    ""
+    "",
   );
 }
 
@@ -35,7 +35,7 @@ export const fetcher = async (url: string) => {
 
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: RequestInit,
 ) {
   try {
     const response = await fetch(input, init);
@@ -69,7 +69,7 @@ export async function redirect(url: string) {
 // Helper function to open Stripe Billing Portal in new tab
 export async function redirectNewTab(
   url: string,
-  onReturn?: () => void // Callback when user returns (for refreshing data)
+  onReturn?: () => void, // Callback when user returns (for refreshing data)
 ) {
   const portalWindow = window.open(url, "_blank");
 
@@ -83,8 +83,11 @@ export async function redirectNewTab(
     }, 1000);
 
     // Cleanup after 30 minutes to prevent memory leaks
-    setTimeout(() => {
-      clearInterval(checkClosed);
-    }, 30 * 60 * 1000);
+    setTimeout(
+      () => {
+        clearInterval(checkClosed);
+      },
+      30 * 60 * 1000,
+    );
   }
 }

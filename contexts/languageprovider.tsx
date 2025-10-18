@@ -42,7 +42,7 @@ type LanguageContextType = {
 };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(
-  undefined
+  undefined,
 );
 
 interface LanguageProviderProps {
@@ -56,7 +56,7 @@ export function LanguageProvider({
 }: LanguageProviderProps) {
   const { data: session } = useSession();
   const [language, setLanguageState] = useState<Language>(
-    initialLanguage || "en"
+    initialLanguage || "en",
   );
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -142,7 +142,7 @@ export function LanguageProvider({
         console.error("Failed to save language preference:", error);
       }
     },
-    [session]
+    [session],
   );
 
   return (
@@ -157,7 +157,7 @@ export function useLanguageContext() {
   const context = useContext(LanguageContext);
   if (context === undefined) {
     throw new Error(
-      "useLanguageContext must be used within a LanguageProvider"
+      "useLanguageContext must be used within a LanguageProvider",
     );
   }
   return context;

@@ -32,7 +32,7 @@ export async function GET() {
     console.error("Error fetching user preferences:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -51,14 +51,14 @@ export async function PATCH(request: NextRequest) {
     if (theme && !["light", "dark", "system"].includes(theme)) {
       return NextResponse.json(
         { error: "Invalid theme value" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (language && !LANGUAGE_IDS.includes(language)) {
       return NextResponse.json(
         { error: "Invalid language value" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -70,7 +70,7 @@ export async function PATCH(request: NextRequest) {
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
         { error: "No valid preferences provided" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
     console.error("Error updating user preferences:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

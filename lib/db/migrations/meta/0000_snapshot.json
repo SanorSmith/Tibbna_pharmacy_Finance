@@ -72,12 +72,8 @@
           "name": "usersessions_userid_users_userid_fk",
           "tableFrom": "usersessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "userid"
-          ],
-          "columnsTo": [
-            "userid"
-          ],
+          "columnsFrom": ["userid"],
+          "columnsTo": ["userid"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -87,9 +83,7 @@
         "usersessions_sessiontoken_unique": {
           "name": "usersessions_sessiontoken_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "sessiontoken"
-          ]
+          "columns": ["sessiontoken"]
         }
       }
     },
@@ -171,9 +165,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       }
     },
@@ -269,12 +261,8 @@
           "name": "workspaceuser_workspace_fk",
           "tableFrom": "workspaceusers",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspaceid"
-          ],
-          "columnsTo": [
-            "workspaceid"
-          ],
+          "columnsFrom": ["workspaceid"],
+          "columnsTo": ["workspaceid"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -282,12 +270,8 @@
           "name": "workspaceuser_user_fk",
           "tableFrom": "workspaceusers",
           "tableTo": "users",
-          "columnsFrom": [
-            "userid"
-          ],
-          "columnsTo": [
-            "userid"
-          ],
+          "columnsFrom": ["userid"],
+          "columnsTo": ["userid"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -295,10 +279,7 @@
       "compositePrimaryKeys": {
         "workspaceusers_workspaceid_userid_pk": {
           "name": "workspaceusers_workspaceid_userid_pk",
-          "columns": [
-            "workspaceid",
-            "userid"
-          ]
+          "columns": ["workspaceid", "userid"]
         }
       },
       "uniqueConstraints": {}

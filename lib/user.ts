@@ -73,7 +73,7 @@ const authOptions: NextAuthConfig = {
                 password: credentials.password,
               }),
               headers: { "Content-Type": "application/json" },
-            }
+            },
           );
 
           const response = await res.json();
@@ -156,7 +156,7 @@ const authOptions: NextAuthConfig = {
             sessionToken,
             "Web Browser", // Device info - could be enhanced with actual device detection
             undefined, // IP address - would need request context
-            undefined // User agent - would need request context
+            undefined, // User agent - would need request context
           );
         }
       }
@@ -182,7 +182,7 @@ const authOptions: NextAuthConfig = {
       if (!token.sessionToken && token.userid) {
         // First, check if user has any active sessions
         const activeSessions = await getUserActiveSessions(
-          token.userid as string
+          token.userid as string,
         );
 
         if (activeSessions.length > 0) {
@@ -200,7 +200,7 @@ const authOptions: NextAuthConfig = {
             sessionToken,
             "Web Browser",
             undefined,
-            undefined
+            undefined,
           );
         }
       }
@@ -210,7 +210,7 @@ const authOptions: NextAuthConfig = {
         const updated = await updateSessionActivity(token.sessionToken);
         if (!updated) {
           console.warn(
-            "Failed to update session activity, session may not exist in database"
+            "Failed to update session activity, session may not exist in database",
           );
         }
       }
@@ -255,7 +255,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);
  * @returns true if session is active, false otherwise
  */
 export async function isUserSessionActive(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<boolean> {
   try {
     const activeSession = await getActiveSession(sessionToken);
