@@ -9,15 +9,15 @@ export default async function Home() {
     redirect("/");
   }
 
-  if (user.permissions?.includes("admin")) {
-    redirect("/d/admin");
-  }
-
   const workspaces = await getUserWorkspaces(user.userid);
 
   // If user has no workspaces, redirect to new workspace creation
   if (!workspaces || workspaces.length === 0) {
-    redirect("/d/new");
+    if (user.permissions?.includes("admin")) {
+      redirect("/d/admin");
+    } else {
+      redirect("/d/new");
+    }
   }
 
   // If user has workspaces, redirect to the first workspace's dashboard
