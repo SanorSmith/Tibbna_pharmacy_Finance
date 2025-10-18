@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronsUpDown, Settings, HelpCircle, LogOut } from "lucide-react";
+import {
+  ChevronsUpDown,
+  Settings,
+  HelpCircle,
+  LogOut,
+  Shield,
+} from "lucide-react";
 
 import { signOut } from "next-auth/react";
 
@@ -24,12 +30,13 @@ import {
 import { User } from "@/lib/db/tables/user";
 import { useLanguage } from "@/hooks/use-language";
 import { UserSettingsModal } from "./user-settings-modal";
+import { useRouter } from "next/navigation";
 
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
   const { ttt } = useLanguage();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
+  const router = useRouter();
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -89,6 +96,12 @@ export function NavUser({ user }: { user: User }) {
                 <HelpCircle />
                 {ttt("Help")}
               </DropdownMenuItem>
+              {user.permissions?.includes("admin") && (
+                <DropdownMenuItem onClick={() => router.push("/d/admin")}>
+                  <Shield />
+                  {ttt("Admin Panel")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
