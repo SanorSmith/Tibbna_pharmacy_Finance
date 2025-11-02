@@ -38,7 +38,7 @@ import {
   removeUserFromWorkspaceAction,
   updateUserAction,
   getUserWorkspacesAction,
-} from "../actions";
+} from "../../actions";
 
 interface UserDetailModalProps {
   user: User | null;
@@ -151,8 +151,8 @@ export function UserDetailModal({
   const availableWorkspaces = allWorkspaces.filter(
     (workspace) =>
       !userWorkspaces.some(
-        (uw) => uw.workspace.workspaceid === workspace.workspaceid,
-      ),
+        (uw) => uw.workspace.workspaceid === workspace.workspaceid
+      )
   );
 
   if (!user) return null;
@@ -344,7 +344,7 @@ export function UserDetailModal({
                             size="sm"
                             onClick={() =>
                               handleRemoveFromWorkspace(
-                                userWorkspace.workspace.workspaceid,
+                                userWorkspace.workspace.workspaceid
                               )
                             }
                             className="text-red-600 hover:text-red-700"

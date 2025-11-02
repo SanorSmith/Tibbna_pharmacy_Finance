@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  ehrbase-postgres:
+    image: ehrbase/ehrbase-v2-postgres:16.2
+    container_name: ehrbase-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      PASSWORD: qhNsVQuLwMyf0bZcwNWw
+      EHRBASE_USER: ehrbase_restricted
+      EHRBASE_PASSWORD: xw2cKXQLywJtkYYs3f5B
+      EHRBASE_USER_ADMIN: ehrbase
+      EHRBASE_PASSWORD_ADMIN: Du5uhrEuxhfGCpFnULUh
+    expose:
+      - "5432"
+    volumes:
+      - ehrbase-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+
+  ehrbase:
+    image: ehrbase/ehrbase:latest
+    container_name: ehrbase
+    restart: always
+    depends_on:
+      ehrbase-postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://ehrbase-postgres:5432/ehrbase
+      DB_USER: ehrbase_restricted
+      DB_PASS: xw2cKXQLywJtkYYs3f5B
+      DB_USER_ADMIN: ehrbase
+      DB_PASS_ADMIN: Du5uhrEuxhfGCpFnULUh
+      SERVER_NODENAME: local.ehrbase.org
+      SECURITY_AUTHTYPE: BASIC
+      SECURITY_AUTHUSER: auto-speed-ranting
+      SECURITY_AUTHPASSWORD: KivLWsQgN4f8aiHAvwuq
+      SPRING_PROFILES_ACTIVE: local
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  ehrbase-db-data:

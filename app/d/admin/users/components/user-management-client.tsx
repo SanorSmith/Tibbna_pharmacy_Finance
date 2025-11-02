@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Plus, Trash2, Eye } from "lucide-react";
-import { createUserAction, deleteUserAction } from "../actions";
+import { createUserAction, deleteUserAction } from "../../actions";
 import { User } from "@/lib/db/tables/user";
 import { Workspace } from "@/lib/db/tables/workspace";
 import { UserDetailModal } from "./user-detail-modal";
@@ -50,7 +50,7 @@ export function UserManagementClient({
     const filtered = users.filter(
       (user) =>
         user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchQuery.toLowerCase()),
+        user.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredUsers(filtered);
   };
@@ -188,14 +188,10 @@ export function UserManagementClient({
         allWorkspaces={allWorkspaces}
         onUserUpdate={(updatedUser) => {
           setUsers((prev) =>
-            prev.map((u) =>
-              u.userid === updatedUser.userid ? updatedUser : u,
-            ),
+            prev.map((u) => (u.userid === updatedUser.userid ? updatedUser : u))
           );
           setFilteredUsers((prev) =>
-            prev.map((u) =>
-              u.userid === updatedUser.userid ? updatedUser : u,
-            ),
+            prev.map((u) => (u.userid === updatedUser.userid ? updatedUser : u))
           );
         }}
       />

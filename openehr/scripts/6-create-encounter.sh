@@ -1,0 +1,51 @@
+curl -X POST "https://base.tibbna.com/ehrbase/rest/openehr/v1/ehr/60fb6d3f-3538-47e6-ab17-91890ce21f75/composition?templateId=clinical_encounter_v1&format=FLAT" \
+  -H "X-API-Key: BgMxGMZk5isfCWezE5CF" \
+  -H "Authorization: Basic $(echo -n 'auto-speed-ranting:KivLWsQgN4f8aiHAvwuq' | base64)" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -H "Accept: application/json" \
+  -d '{
+  "clinical_encounter_v1/category|value" : "event",
+  "clinical_encounter_v1/category|terminology" : "openehr",
+  "clinical_encounter_v1/category|code" : "433",
+  "clinical_encounter_v1/context/start_time" : "2022-02-03T04:05:06",
+  "clinical_encounter_v1/context/setting|code" : "225",
+  "clinical_encounter_v1/context/setting|terminology" : "openehr",
+  "clinical_encounter_v1/context/setting|value" : "home",
+  "clinical_encounter_v1/context/_end_time" : "2022-02-03T04:05:06",
+  "clinical_encounter_v1/context/_health_care_facility|name" : "DOE, John",
+  "clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name" : "Lorem ipsum",
+  "clinical_encounter_v1/problem_diagnosis/variant:0" : "Lorem ipsum",
+  "clinical_encounter_v1/problem_diagnosis/clinical_description" : "Lorem ipsum",
+  "clinical_encounter_v1/problem_diagnosis/body_site:0" : "Lorem ipsum",
+  "clinical_encounter_v1/problem_diagnosis/cause:0" : "Lorem ipsum",
+  "clinical_encounter_v1/problem_diagnosis/date_time_of_onset" : "2022-02-03T04:05:06",
+  "clinical_encounter_v1/problem_diagnosis/date_time_clinically_recognised" : "2022-02-03T04:05:06",
+  "clinical_encounter_v1/problem_diagnosis/severity|code" : "at0047",
+  "clinical_encounter_v1/problem_diagnosis/severity|terminology" : "local",
+  "clinical_encounter_v1/problem_diagnosis/severity|value" : "Mild",
+  "clinical_encounter_v1/problem_diagnosis/course_description" : "Lorem ipsum",
+  "clinical_encounter_v1/problem_diagnosis/date_time_of_resolution" : "2022-02-03T04:05:06",
+  "clinical_encounter_v1/problem_diagnosis/diagnostic_certainty|code" : "at0074",
+  "clinical_encounter_v1/problem_diagnosis/diagnostic_certainty|terminology" : "local",
+  "clinical_encounter_v1/problem_diagnosis/diagnostic_certainty|value" : "Suspected",
+  "clinical_encounter_v1/problem_diagnosis/comment" : "Lorem ipsum",
+  "clinical_encounter_v1/problem_diagnosis/last_updated" : "2022-02-03T04:05:06",
+  "clinical_encounter_v1/problem_diagnosis/language|code" : "en",
+  "clinical_encounter_v1/problem_diagnosis/language|terminology" : "ISO_639-1",
+  "clinical_encounter_v1/problem_diagnosis/encoding|terminology" : "IANA_character-sets",
+  "clinical_encounter_v1/problem_diagnosis/encoding|code" : "UTF-8",
+  "clinical_encounter_v1/problem_diagnosis/_work_flow_id|id" : "a8de3e47-8bbe-35e2-817b-638c788852ec",
+  "clinical_encounter_v1/problem_diagnosis/_work_flow_id|id_scheme" : "scheme",
+  "clinical_encounter_v1/problem_diagnosis/_work_flow_id|namespace" : "unknown",
+  "clinical_encounter_v1/problem_diagnosis/_work_flow_id|type" : "ANY",
+  "clinical_encounter_v1/problem_diagnosis/_guideline_id|id" : "a4c2c78a-8ef3-36f8-9f9c-459453a773b5",
+  "clinical_encounter_v1/problem_diagnosis/_guideline_id|id_scheme" : "scheme",
+  "clinical_encounter_v1/problem_diagnosis/_guideline_id|namespace" : "unknown",
+  "clinical_encounter_v1/problem_diagnosis/_guideline_id|type" : "ANY",
+  "clinical_encounter_v1/language|code" : "en",
+  "clinical_encounter_v1/language|terminology" : "ISO_639-1",
+  "clinical_encounter_v1/territory|terminology" : "ISO_3166-1",
+  "clinical_encounter_v1/territory|code" : "DE",
+  "clinical_encounter_v1/composer|name" : "Max Mustermann"
+}'

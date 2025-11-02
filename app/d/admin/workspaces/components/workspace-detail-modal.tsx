@@ -40,7 +40,7 @@ import {
   removeUserFromWorkspaceAction,
   updateWorkspaceAction,
   getWorkspaceUsersAction,
-} from "../actions";
+} from "../../actions";
 import {
   WorkspaceIcon,
   getWorkspaceLabel,
@@ -177,7 +177,7 @@ export function WorkspaceDetailModal({
   };
 
   const availableUsers = allUsers.filter(
-    (user) => !workspaceUsers.some((wu) => wu.user.userid === user.userid),
+    (user) => !workspaceUsers.some((wu) => wu.user.userid === user.userid)
   );
 
   if (!workspace) return null;

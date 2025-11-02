@@ -1,6 +1,7 @@
 import { getUser } from "@/lib/user";
 import { redirect } from "next/navigation";
 import { checkIsAdmin } from "@/lib/db/queries/admin/shared";
+import { AdminNav } from "./components/admin-nav";
 
 export default async function AdminLayout({
   children,
@@ -16,5 +17,13 @@ export default async function AdminLayout({
     redirect("/d");
   }
 
-  return <div className="container mx-auto p-6 max-w-4xl">{children}</div>;
+  return (
+    <div className="container mx-auto p-6 max-w-6xl">
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Admin Panel</h1>
+        <AdminNav />
+        {children}
+      </div>
+    </div>
+  );
 }

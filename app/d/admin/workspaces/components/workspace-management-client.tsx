@@ -29,7 +29,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Trash2, Eye } from "lucide-react";
-import { createWorkspaceAction, deleteWorkspaceAction } from "../actions";
+import { createWorkspaceAction, deleteWorkspaceAction } from "../../actions";
 import { Workspace } from "@/lib/db/tables/workspace";
 import { User } from "@/lib/db/tables/user";
 import { WorkspaceDetailModal } from "./workspace-detail-modal";
@@ -61,7 +61,7 @@ export function WorkspaceManagementClient({
   const [filteredWorkspaces, setFilteredWorkspaces] =
     useState<Workspace[]>(initialWorkspaces);
   const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(
-    null,
+    null
   );
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
@@ -74,9 +74,7 @@ export function WorkspaceManagementClient({
     const filtered = workspaces.filter(
       (workspace) =>
         workspace.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        workspace.description
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()),
+        workspace.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredWorkspaces(filtered);
   };
@@ -101,10 +99,10 @@ export function WorkspaceManagementClient({
     if (result.success) {
       // Remove workspace from state instead of reloading
       setWorkspaces((prev) =>
-        prev.filter((workspace) => workspace.workspaceid !== workspaceid),
+        prev.filter((workspace) => workspace.workspaceid !== workspaceid)
       );
       setFilteredWorkspaces((prev) =>
-        prev.filter((workspace) => workspace.workspaceid !== workspaceid),
+        prev.filter((workspace) => workspace.workspaceid !== workspaceid)
       );
     }
   };
@@ -252,15 +250,15 @@ export function WorkspaceManagementClient({
             prev.map((w) =>
               w.workspaceid === updatedWorkspace.workspaceid
                 ? updatedWorkspace
-                : w,
-            ),
+                : w
+            )
           );
           setFilteredWorkspaces((prev) =>
             prev.map((w) =>
               w.workspaceid === updatedWorkspace.workspaceid
                 ? updatedWorkspace
-                : w,
-            ),
+                : w
+            )
           );
         }}
       />
