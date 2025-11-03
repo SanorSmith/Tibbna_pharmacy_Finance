@@ -1,6 +1,6 @@
 /* prettier-ignore */
 export const enTranslations = {
-  'ServiceName': 'IQMED',
+  'ServiceName': 'Tibbna',
   'Settings': 'Settings',
   'Projects': 'Projects',
   'Teams': 'Teams',

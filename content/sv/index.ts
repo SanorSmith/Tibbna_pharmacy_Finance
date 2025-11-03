@@ -1,7 +1,7 @@
 import { enTranslations } from "@/content/en/index";
 /* prettier-ignore */
 export const svTranslations: Record<keyof typeof enTranslations, string> = {
-  'ServiceName': 'IQMED',
+  'ServiceName': 'Tibbna',
   'Settings': 'Inställningar',
   'Projects': 'Projekt',
   'Teams': 'Team',
