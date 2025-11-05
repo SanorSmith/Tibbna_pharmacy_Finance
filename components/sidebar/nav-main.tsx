@@ -39,6 +39,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { useWorkspace } from "@/hooks/use-workspace";
 import Link from "next/link";
+import { useIsGlobalAdmin } from "@/hooks/use-admin";
 
 // Define types for workspace and role combinations
 type WorkspaceType = "hospital" | "laboratory" | "pharmacy";
@@ -61,6 +62,10 @@ type NavigationConfig = {
 export function NavMain() {
   const { ttt } = useLanguage();
   const { workspace } = useWorkspace();
+  const isGlobalAdmin = useIsGlobalAdmin();
+  const base = workspace?.workspace?.workspaceid
+    ? `/d/${workspace.workspace.workspaceid}`
+    : "/d";
 
   // Comprehensive navigation configuration for all workspace + role combinations
   const navigationConfig: NavigationConfig = {
@@ -74,12 +79,12 @@ export function NavMain() {
         },
         {
           title: ttt("Patients"),
-          url: "/d/patients",
+          url: `${base}/patients`,
           icon: Users,
           items: [
-            { title: ttt("Patient List"), url: "/d/patients" },
-            { title: ttt("New Patient"), url: "/d/patients/new" },
-            { title: ttt("Search Patient"), url: "/d/patients/search" },
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            ...(isGlobalAdmin ? [{ title: ttt("New Patient"), url: `${base}/patients/new` }] : []),
+            { title: ttt("Search Patient"), url: `${base}/patients/search` },
           ],
         },
         {
@@ -130,12 +135,13 @@ export function NavMain() {
         },
         {
           title: ttt("Patients"),
-          url: "/d/patients",
+          url: `${base}/patients`,
           icon: Users,
           items: [
-            { title: ttt("Patient List"), url: "/d/patients" },
-            { title: ttt("Vital Signs"), url: "/d/patients/vitals" },
-            { title: ttt("Medication Admin"), url: "/d/patients/medications" },
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            ...(isGlobalAdmin ? [{ title: ttt("New Patient"), url: `${base}/patients/new` }] : []),
+            { title: ttt("Vital Signs"), url: `${base}/patients/vitals` },
+            { title: ttt("Medication Admin"), url: `${base}/patients/medications` },
           ],
         },
         {
@@ -181,12 +187,12 @@ export function NavMain() {
         },
         {
           title: ttt("Patients"),
-          url: "/d/patients",
+          url: `${base}/patients`,
           icon: Users,
           items: [
-            { title: ttt("Patient Registration"), url: "/d/patients/register" },
-            { title: ttt("Patient List"), url: "/d/patients" },
-            { title: ttt("Check-in"), url: "/d/patients/checkin" },
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            ...(isGlobalAdmin ? [{ title: ttt("New Patient"), url: `${base}/patients/new` }] : []),
+            { title: ttt("Check-in"), url: `${base}/patients/checkin` },
           ],
         },
         {
@@ -221,6 +227,15 @@ export function NavMain() {
           url: "/d/dashboard",
           icon: BarChart3,
           isActive: true,
+        },
+        {
+          title: ttt("Patients"),
+          url: `${base}/patients`,
+          icon: Users,
+          items: [
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            { title: ttt("New Patient"), url: `${base}/patients/new` },
+          ],
         },
         {
           title: ttt("Staff Management"),
