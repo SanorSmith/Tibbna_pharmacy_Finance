@@ -34,3 +34,64 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Patients feature
+
+This module adds workspace-scoped patient registration and listing with role-based access.
+
+### Data model
+- Table: `patients` (Drizzle, PostgreSQL)
+  - `patientid` (uuid, pk)
+  - `workspaceid` (uuid, fk -> `workspaces.workspaceid`, cascade on delete)
+  - `firstname`, `middlename`, `lastname`
+  - `nationalid`, `dateofbirth`
+  - `phone`, `email`, `address`
+  - `medicalhistory` (jsonb)
+  - `createdat`, `updatedat`
+
+### API endpoints
+- `GET /api/d/[workspaceid]/patients`
+  - Auth required. Returns patients for the workspace.
+- `POST /api/d/[workspaceid]/patients`
+  - Requires workspace role `administrator` OR global permission `"admin"`.
+  - Body fields: `firstname`, `middlename?`, `lastname`, `nationalid?`, `dateofbirth? (YYYY-MM-DD)`, `phone?`, `email?`, `address?`, `medicalhistory?`.
+- `GET /api/d/[workspaceid]/admin-check` (diagnostic)
+  - Returns membership role, global admin detection, and `effectiveAdmin`.
+
+### Pages
+- `/d/[workspaceid]/patients`
+  - Lists patients. Shows "Register Patient" button if user is workspace admin or global admin.
+- `/d/[workspaceid]/patients/new`
+  - Patient registration form (Shadcn UI). Access restricted to workspace admin or global admin.
+
+### EHRbase linkage
+- On patient creation, the API generates a `patientid` (UUID) and creates an EHR in EHRbase using that UUID as the subject external_ref id.
+- The returned EHR identifier is stored on the patient as `ehrid`.
+- The Patients list shows `EHR: <ehrid>` when available.
+
+Environment variables (server-side):
+- `EHRBASE_URL` = base host only, e.g. `http://localhost:8080` (do not include `/ehrbase` here; the client adds it)
+- `EHRBASE_USER` / `EHRBASE_PASSWORD`
+- `EHRBASE_API_KEY` (optional; include only if your deployment requires it)
+
+Client (optional):
+- `NEXT_PUBLIC_EHRBASE_URL` can point to `http://localhost:8080/ehrbase` for client features.
+
+Notes:
+- If EHR creation fails (e.g., misconfigured URL or credentials), the patient is still created and the error is logged. You can retry EHR creation later by calling the EHR client manually with the patient's UUID.
+
+### Navigation
+- Sidebar shows workspace-aware Patients links. "New Patient" appears for:
+  - Workspace role `administrator`.
+  - Global admins (permission includes `"admin"`).
+
+### Setup and usage
+1) Ensure DATABASE_URL is configured.
+2) Apply migrations:
+   - `npm run migrate`
+   - `npm run migrate-push`
+3) Start dev server: `npm run dev` and open `http://localhost:3000`.
+4) Visit `/d/[workspaceid]/patients` and `/d/[workspaceid]/patients/new`.
+5) Required roles:
+   - Create: workspace `administrator` or global `"admin"`.
+   - List: any authenticated user in the workspace.
