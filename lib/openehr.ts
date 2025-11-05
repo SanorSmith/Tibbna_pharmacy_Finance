@@ -1,3 +1,10 @@
+/**
+ * OpenEHR (EHRbase) client utilities
+ * - Provides helpers to run AQL queries, list/create/update EHRs, list templates, fetch compositions.
+ * - Auth: Basic auth built from EHRBASE_USER/EHRBASE_PASSWORD; optional X-API-Key if your deployment requires it.
+ * - URL: Set EHRBASE_URL to the host base (e.g. http://localhost:8080). Functions add the `/ehrbase/rest/openehr/v1/...` path.
+ * - All requests send JSON (Content-Type) and prefer JSON responses (Accept).
+ */
 import axios from "axios";
 
 const username = process.env.EHRBASE_USER?.trim() || "";
@@ -16,9 +23,10 @@ export async function queryOpenEHR<T = Record<string, unknown>>(
     },
     {
       headers: {
-        "X-API-Key": process.env.EHRBASE_API_KEY!,
+       //"X-API-Key": process.env.EHRBASE_API_KEY!,
         Authorization: `Basic ${basicAuth}`,
         "Content-Type": "application/json",
+        "Accept": "application/json",
       },
     }
   );
