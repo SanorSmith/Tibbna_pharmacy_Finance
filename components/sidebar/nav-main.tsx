@@ -73,7 +73,7 @@ export function NavMain() {
       doctor: [
         {
           title: ttt("Schedule"),
-          url: "/d/schedule",
+          url: `${base}/schedule`,
           icon: Calendar,
           isActive: true,
         },
@@ -129,7 +129,7 @@ export function NavMain() {
       nurse: [
         {
           title: ttt("Schedule"),
-          url: "/d/schedule",
+          url: `${base}/schedule`,
           icon: Calendar,
           isActive: true,
         },
