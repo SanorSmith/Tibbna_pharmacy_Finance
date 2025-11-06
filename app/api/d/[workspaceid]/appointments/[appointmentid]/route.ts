@@ -26,7 +26,7 @@ export async function PATCH(
   if (!isDoctor && !isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const payload: Record<string, any> = {};
+  const payload: Record<string, unknown> = {};
   if (body.starttime) payload.starttime = new Date(String(body.starttime));
   if (body.endtime) payload.endtime = new Date(String(body.endtime));
   if (body.status) payload.status = String(body.status);

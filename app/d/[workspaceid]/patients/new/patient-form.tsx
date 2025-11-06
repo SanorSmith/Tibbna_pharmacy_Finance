@@ -46,8 +46,9 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
       }
       router.push(`/d/${workspaceid}/patients`);
       router.refresh();
-    } catch (e: any) {
-      setError(e.message || "Something went wrong");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Something went wrong";
+      setError(msg);
     } finally {
       setLoading(false);
     }

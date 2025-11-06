@@ -5,11 +5,21 @@
  * - Used by the server page at /d/[workspaceid]/patients.
  */
 "use client";
-import { log } from "console";
 import { useEffect, useState } from "react";
 
+type Patient = {
+  patientid: string;
+  firstname: string;
+  middlename?: string | null;
+  lastname: string;
+  nationalid?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  ehrid?: string | null;
+};
+
 export default function PatientsList({ workspaceid }: { workspaceid: string }) {
-  const [rows, setRows] = useState<any[] | null>(null);
+  const [rows, setRows] = useState<Patient[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,10 +31,11 @@ export default function PatientsList({ workspaceid }: { workspaceid: string }) {
         if (!res.ok) throw new Error("Failed to load patients");
         const data = await res.json();
         if (!active) return;
-        setRows(data.patients ?? []);
-      } catch (e: any) {
+        setRows((data.patients as Patient[]) ?? []);
+      } catch (e: unknown) {
         if (!active) return;
-        setError(e.message || "Failed to load patients");
+        const msg = e instanceof Error ? e.message : "Failed to load patients";
+        setError(msg);
       }
     }
     // Kick off initial load
@@ -47,7 +58,7 @@ export default function PatientsList({ workspaceid }: { workspaceid: string }) {
 
   return (
     <ul className="space-y-2">
-      {rows.map((p: any) => (
+      {rows.map((p: Patient) => (
         <li key={p.patientid} className="border rounded-md p-3">
           <div className="font-medium">
             {p.firstname} {p.middlename ? `${p.middlename} ` : ""}

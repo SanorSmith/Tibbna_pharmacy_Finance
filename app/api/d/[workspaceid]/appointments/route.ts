@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { appointments } from "@/lib/db/schema";
-import { and, between, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 
@@ -53,6 +53,13 @@ export async function GET(
   }
 }
 
+type AppointmentStatus =
+  | "scheduled"
+  | "checked_in"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ workspaceid: string }> },
@@ -78,7 +85,7 @@ export async function POST(
       starttime: new Date(String(body.starttime)),
       endtime: new Date(String(body.endtime)),
       location: body.location ?? null,
-      status: String(body.status || "scheduled") as any,
+      status: String(body.status || "scheduled") as AppointmentStatus,
       notes: body.notes ?? {},
     } as const;
 

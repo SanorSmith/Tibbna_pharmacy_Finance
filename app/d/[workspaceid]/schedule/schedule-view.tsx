@@ -5,7 +5,7 @@
  * - No live polling; loads on view/date changes and after edits.
  */
 "use client";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -31,10 +31,14 @@ type Patient = {
   nationalid?: string | null;
 };
 
+type EventChangeInfo = {
+  event: { id: string; start: Date | null; end: Date | null };
+  revert: () => void;
+};
+
 export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
   const [appts, setAppts] = useState<Appt[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const calendarRef = useRef<FullCalendar | null>(null);
   // Picker state
   const [pickerOpen, setPickerOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -42,6 +46,7 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
   const [pendingStart, setPendingStart] = useState<Date | null>(null);
   const [pendingEnd, setPendingEnd] = useState<Date | null>(null);
   const [creating, setCreating] = useState(false);
+  const [lastRange, setLastRange] = useState<{ start: Date; end: Date } | null>(null);
 
   const patientsById = useMemo(() => {
     const m = new Map<string, Patient>();
@@ -76,15 +81,16 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
         if (!res.ok) throw new Error("Failed to load appointments");
         const data = await res.json();
         setAppts(data.appointments || []);
-      } catch (e: any) {
-        setError(e.message || "Failed to load appointments");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Failed to load appointments";
+        setError(msg);
       }
     },
     [workspaceid],
   );
 
   const handleEventDrop = useCallback(
-    async (info: any) => {
+    async (info: EventChangeInfo) => {
       const id = info.event.id;
       try {
         const body = {
@@ -97,7 +103,7 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
           body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error("Failed to update appointment");
-      } catch (e) {
+      } catch {
         // Revert UI if failed
         info.revert();
       }
@@ -119,7 +125,7 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
           body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error("Failed to update appointment");
-      } catch (e) {
+      } catch {
         info.revert();
       }
     },
@@ -133,14 +139,16 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
       if (!res.ok) throw new Error("Failed to load patients");
       const data = await res.json();
       setPatients(data.patients || []);
-    } catch (e) {
-      setError((e as any)?.message || "Failed to load patients");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to load patients";
+      setError(msg);
     }
   }, [workspaceid, patients.length]);
 
   const handleDatesSet = useCallback(
     (arg: { start: Date; end: Date }) => {
       // Ensure patient list is available (for names) then load appts
+      setLastRange({ start: arg.start, end: arg.end });
       ensurePatientsLoaded().finally(() => loadRange(arg.start, arg.end));
     },
     [loadRange, ensurePatientsLoaded],
@@ -188,12 +196,12 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
       });
       if (!res.ok) throw new Error("Failed to create appointment");
       // Refresh current range
-      const api = (calendarRef.current as any)?.getApi?.();
-      if (api) await loadRange(api.view.currentStart, api.view.currentEnd);
+      if (lastRange) await loadRange(lastRange.start, lastRange.end);
       setPickerOpen(false);
       setSearch("");
-    } catch (e) {
-      setError((e as any)?.message || "Failed to create appointment");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to create appointment";
+      setError(msg);
     } finally {
       setCreating(false);
       setPendingStart(null);
@@ -209,7 +217,6 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="lg:col-span-2">
         <FullCalendar
-          ref={calendarRef as any}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="timeGridDay"
           headerToolbar={{ left: "prev,next today", center: "title", right: "timeGridDay,timeGridWeek,dayGridMonth" }}
