@@ -96,6 +96,35 @@ Notes:
    - Create: workspace `administrator` or global `"admin"`.
    - List: any authenticated user in the workspace.
 
+## Appointments enhancements
+
+Adds department (Unit) tracking and optional doctor selection when booking.
+
+### Data model
+- Table: `appointments`
+  - New column: `unit` (text, optional) — department where the appointment takes place
+
+### API changes
+- `POST /api/d/[workspaceid]/appointments`
+  - Accepts `unit?` (stored in column)
+  - Accepts `patientname?` (stored in `notes.patientname` for display)
+  - Still accepts `doctorid?` (defaults to current user if omitted)
+
+### New API
+- `GET /api/d/[workspaceid]/doctors`
+  - Returns users in the workspace with role `doctor` for booking selection
+
+### UI (Schedule)
+- `/d/[workspaceid]/schedule`
+  - Booking modal now includes:
+    - Unit/Department dropdown (optional)
+    - Doctor dropdown (optional; defaults to current user)
+  - Sends `unit`, `doctorid` (if selected), and `patientname` on create
+
+### Migration
+1) Generate migrations: `npm run migrate`
+2) Apply to DB: `npm run migrate-push`
+
 ## Staff feature
 
 Workspace-scoped staff registration and listing with admin-only creation and role-aware validation.
