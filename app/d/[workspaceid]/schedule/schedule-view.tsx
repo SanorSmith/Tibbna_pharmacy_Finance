@@ -176,7 +176,7 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
       if (!res.ok) throw new Error("Failed to load doctors");
       const data = await res.json();
       setDoctors(data.doctors || []);
-    } catch (e) {
+    } catch {
       // non-blocking; if it fails we'll default to current user
     }
   }, [workspaceid, doctors.length]);
