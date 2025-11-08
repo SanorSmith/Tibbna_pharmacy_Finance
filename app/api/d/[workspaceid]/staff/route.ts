@@ -1,3 +1,10 @@
+/**
+ * API: /api/d/[workspaceid]/staff
+ * - GET: List staff for a workspace (auth required)
+ * - POST: Create staff (requires workspace administrator OR global "admin")
+ * - Server-side validation:
+ *   - For roles nurse/lab_technician/pharmacist: require name, unit, and phone or email
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { staff, type StaffRole } from "@/lib/db/schema";
@@ -55,16 +62,38 @@ export async function POST(
 
   const body = await req.json();
   try {
+    const role = (String(body.role || "receptionist") as StaffRole);
+    const firstname = String(body.firstname || "").trim();
+    const middlename = body.middlename ? String(body.middlename) : null;
+    const lastname = String(body.lastname || "").trim();
+    const unit = body.unit ? String(body.unit) : null;
+    const specialty = body.specialty ? String(body.specialty) : null;
+    const phone = body.phone ? String(body.phone) : null;
+    const email = body.email ? String(body.email) : null;
+
+    // Role-based requirements: nurse, lab_technician, pharmacist
+    if (role === "nurse" || role === "lab_technician" || role === "pharmacist") {
+      if (!firstname || !lastname) {
+        return NextResponse.json({ error: "Name (first and last) is required for this role" }, { status: 400 });
+      }
+      if (!unit) {
+        return NextResponse.json({ error: "Unit is required for this role" }, { status: 400 });
+      }
+      if (!phone && !email) {
+        return NextResponse.json({ error: "Provide at least phone or email for this role" }, { status: 400 });
+      }
+    }
+
     const values = {
       workspaceid,
-      role: (String(body.role || "receptionist") as StaffRole),
-      firstname: String(body.firstname || ""),
-      middlename: body.middlename ?? null,
-      lastname: String(body.lastname || ""),
-      unit: body.unit ?? null,
-      specialty: body.specialty ?? null,
-      phone: body.phone ?? null,
-      email: body.email ?? null,
+      role,
+      firstname,
+      middlename,
+      lastname,
+      unit,
+      specialty,
+      phone,
+      email,
     } as const;
 
     const [row] = await db.insert(staff).values(values).returning();

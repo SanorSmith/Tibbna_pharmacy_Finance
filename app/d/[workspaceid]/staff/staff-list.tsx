@@ -1,3 +1,8 @@
+/**
+ * Client Component: StaffList
+ * - Fetches staff from GET /api/d/[workspaceid]/staff and renders a list
+ * - Shows loading, empty, and error states
+ */
 "use client";
 import { useEffect, useState } from "react";
 

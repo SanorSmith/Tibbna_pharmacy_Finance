@@ -95,3 +95,68 @@ Notes:
 5) Required roles:
    - Create: workspace `administrator` or global `"admin"`.
    - List: any authenticated user in the workspace.
+
+## Staff feature
+
+Workspace-scoped staff registration and listing with admin-only creation and role-aware validation.
+
+### Data model
+- Table: `staff` (Drizzle, PostgreSQL)
+  - `staffid` (uuid, pk)
+  - `workspaceid` (uuid, fk -> `workspaces.workspaceid`, cascade on delete)
+  - `role` (`doctor` | `nurse` | `lab_technician` | `pharmacist` | `receptionist`)
+  - `firstname`, `middlename?`, `lastname`
+  - `unit?` (department)
+  - `specialty?` (primarily for doctors)
+  - `phone?`, `email?`
+  - `createdat`, `updatedat`
+
+### API endpoints
+- `GET /api/d/[workspaceid]/staff`
+  - Auth required. Returns staff for the workspace.
+- `POST /api/d/[workspaceid]/staff`
+  - Requires workspace role `administrator` OR global permission `"admin"`.
+  - Body fields: `role`, `firstname`, `middlename?`, `lastname`, `unit?`, `specialty?`, `phone?`, `email?`.
+  - Server-side validation (role-based): for roles `nurse`, `lab_technician`, `pharmacist` require
+    - `firstname` and `lastname`
+    - `unit`
+    - at least one of `phone` or `email`
+
+### Pages
+- `/d/[workspaceid]/staff`
+  - Lists staff for the workspace, with basic info (name, role, unit, contact).
+- `/d/[workspaceid]/staff/new`
+  - Staff registration form (Shadcn UI). Admin-only.
+  - The `unit` field is a dropdown with common departments:
+    - Outpatient Department
+    - ENT (Ear, Nose, Throat)
+    - Cardiology
+    - Neurology
+    - Maternity & Obstetrics
+    - Obstetrics & Gynecology
+    - Psychiatry & Mental Health
+    - Oncology
+    - Dermatology
+    - Ophthalmology
+    - Intensive Care Unit
+    - Operating Theaters
+    - Pharmacy
+    - Laboratory
+
+### Navigation
+- Sidebar additions for admins:
+  - Hospital → Staff Management → `Staff List`, `Add Staff`
+  - Laboratory → Staff & Scheduling → Staff Management → `Staff List`, `Add Staff`
+  - Pharmacy → Staff Management → `Staff List`, `Add Staff`
+- For global admins not in a workspace admin role, an extra “Staff Management” group is appended with `Staff List` and `Add Staff`.
+
+### Setup and usage
+1) Ensure DATABASE_URL is configured.
+2) Apply migrations:
+   - `npm run migrate`
+   - `npm run migrate-push`
+3) Start dev server: `npm run dev` and open `http://localhost:3000`.
+4) Visit `/d/[workspaceid]/staff` and `/d/[workspaceid]/staff/new`.
+5) Required roles:
+   - Create: workspace `administrator` or global `"admin"`.
+   - List: any authenticated user in the workspace.

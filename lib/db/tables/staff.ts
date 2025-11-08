@@ -1,3 +1,9 @@
+/**
+ * Staff table (Drizzle ORM)
+ * - Workspace-scoped staff with role, name, unit (department) and contacts.
+ * - Used by API /api/d/[workspaceid]/staff for GET/POST.
+ * - Roles include doctor, nurse, lab_technician, pharmacist, receptionist.
+ */
 import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { workspaces } from "./workspace";
 

@@ -1,3 +1,8 @@
+/**
+ * Page: /d/[workspaceid]/staff
+ * - Lists staff for the workspace; shows "Add Staff" link for admins
+ * - Delegates data fetching/rendering to client component StaffList
+ */
 import { Header } from "@/components/sidebar/header";
 import Link from "next/link";
 import { getUser } from "@/lib/user";

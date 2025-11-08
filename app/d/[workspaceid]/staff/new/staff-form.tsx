@@ -1,3 +1,9 @@
+/**
+ * Client Component: StaffForm
+ * - Shadcn UI form to create workspace staff via POST /api/d/[workspaceid]/staff
+ * - Role-based client validation: for nurse/lab_technician/pharmacist require name, unit, and phone or email
+ * - On success: redirect to /d/[workspaceid]/staff
+ */
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -19,20 +25,52 @@ export default function StaffForm({ workspaceid }: { workspaceid: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<string>(roles[0].value);
+  const departments = [
+    "Outpatient Department",
+    "ENT (Ear, Nose, Throat)",
+    "Cardiology",
+    "Neurology",
+    "Maternity & Obstetrics",
+    "Obstetrics & Gynecology",
+    "Psychiatry & Mental Health",
+    "Oncology",
+    "Dermatology",
+    "Ophthalmology",
+    "Intensive Care Unit",
+    "Operating Theaters",
+    "Pharmacy",
+    "Laboratory",
+  ] as const;
+  const [unit, setUnit] = useState<string | undefined>(undefined);
+  const isNurseLabPharm = role === "nurse" || role === "lab_technician" || role === "pharmacist";
 
   async function onSubmit(formData: FormData) {
     setError(null);
     setLoading(true);
     try {
+      // Role-based required fields for nurse/lab_technician/pharmacist
+      const firstname = String(formData.get("firstname") || "").trim();
+      const middlename = (formData.get("middlename") as string) || undefined;
+      const lastname = String(formData.get("lastname") || "").trim();
+      const specialty = (formData.get("specialty") as string) || undefined;
+      const phone = (formData.get("phone") as string) || undefined;
+      const email = (formData.get("email") as string) || undefined;
+
+      if (isNurseLabPharm) {
+        if (!firstname || !lastname) throw new Error("Name is required for this role");
+        if (!unit) throw new Error("Unit is required for this role");
+        if (!phone && !email) throw new Error("Provide at least phone or email");
+      }
+
       const payload = {
         role,
-        firstname: String(formData.get("firstname") || ""),
-        middlename: (formData.get("middlename") as string) || undefined,
-        lastname: String(formData.get("lastname") || ""),
-        unit: (formData.get("unit") as string) || undefined,
-        specialty: (formData.get("specialty") as string) || undefined,
-        phone: (formData.get("phone") as string) || undefined,
-        email: (formData.get("email") as string) || undefined,
+        firstname,
+        middlename,
+        lastname,
+        unit,
+        specialty,
+        phone,
+        email,
       };
 
       const res = await fetch(`/api/d/${workspaceid}/staff`, {
@@ -72,7 +110,7 @@ export default function StaffForm({ workspaceid }: { workspaceid: string }) {
 
       <div className="space-y-2">
         <Label htmlFor="firstname">First name</Label>
-        <Input id="firstname" name="firstname" required placeholder="John" />
+        <Input id="firstname" name="firstname" required={isNurseLabPharm} placeholder="John" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="middlename">Middle name</Label>
@@ -80,11 +118,20 @@ export default function StaffForm({ workspaceid }: { workspaceid: string }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="lastname">Last name</Label>
-        <Input id="lastname" name="lastname" required placeholder="Doe" />
+        <Input id="lastname" name="lastname" required={isNurseLabPharm} placeholder="Doe" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="unit">Unit</Label>
-        <Input id="unit" name="unit" placeholder="Cardiology" />
+        <Label htmlFor="unit">Unit {isNurseLabPharm ? "(required)" : ""}</Label>
+        <Select value={unit} onValueChange={setUnit}>
+          <SelectTrigger id="unit">
+            <SelectValue placeholder="Select unit/department" />
+          </SelectTrigger>
+          <SelectContent>
+            {departments.map((d) => (
+              <SelectItem key={d} value={d}>{d}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label htmlFor="specialty">Specialty</Label>
@@ -95,7 +142,7 @@ export default function StaffForm({ workspaceid }: { workspaceid: string }) {
         <Input id="phone" name="phone" type="tel" placeholder="+1 555 555" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">Email {isNurseLabPharm ? "(phone or email required)" : ""}</Label>
         <Input id="email" name="email" type="email" placeholder="name@example.com" />
       </div>
 
