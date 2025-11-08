@@ -60,7 +60,7 @@ type NavigationConfig = {
 };
 
 export function NavMain() {
-  const { ttt } = useLanguage();
+  const { ttt, ttrisky } = useLanguage();
   const { workspace } = useWorkspace();
   const isGlobalAdmin = useIsGlobalAdmin();
   const base = workspace?.workspace?.workspaceid
@@ -242,7 +242,8 @@ export function NavMain() {
           url: "/d/staff",
           icon: UserCheck,
           items: [
-            { title: ttt("Staff List"), url: "/d/staff" },
+            { title: ttt("Staff List"), url: `${base}/staff` },
+            { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
             { title: ttt("Schedules"), url: "/d/staff/schedules" },
             { title: ttt("Roles & Permissions"), url: "/d/staff/roles" },
           ],
@@ -426,7 +427,8 @@ export function NavMain() {
           url: "/d/staff",
           icon: UserCheck,
           items: [
-            { title: ttt("Staff Management"), url: "/d/staff" },
+            { title: ttt("Staff Management"), url: `${base}/staff` },
+            { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
             { title: ttt("Shift Scheduling"), url: "/d/staff/shifts" },
             { title: ttt("Competency Tracking"), url: "/d/staff/competency" },
           ],
@@ -628,6 +630,7 @@ export function NavMain() {
               title: ttt("Pharmacist Scheduling"),
               url: "/d/staff/pharmacists",
             },
+            { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
             {
               title: ttt("Technician Management"),
               url: "/d/staff/technicians",
@@ -676,7 +679,18 @@ export function NavMain() {
     return navigationConfig[workspace.workspace.type][workspace.role] || [];
   };
 
-  const navItems = getNavigationItems();
+  const navItems = [...getNavigationItems()];
+  if (isGlobalAdmin && workspace?.workspace?.workspaceid) {
+    navItems.push({
+      title: ttt("Staff Management"),
+      url: "/d/staff",
+      icon: UserCheck,
+      items: [
+        { title: ttt("Staff List"), url: `${base}/staff` },
+        { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
+      ],
+    });
+  }
 
   return (
     <>
