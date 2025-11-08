@@ -30,6 +30,7 @@ export const appointments = pgTable("appointments", {
   starttime: timestamp("starttime", { withTimezone: true }).notNull(),
   endtime: timestamp("endtime", { withTimezone: true }).notNull(),
   location: text("location"),
+  unit: text("unit"), // department where the appointment will take place
   status: appointmentStatusEnum("status").notNull().default("scheduled"),
   notes: jsonb("notes").$type<Record<string, unknown>>().default({}),
   createdat: timestamp("createdat").defaultNow(),

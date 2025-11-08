@@ -85,8 +85,12 @@ export async function POST(
       starttime: new Date(String(body.starttime)),
       endtime: new Date(String(body.endtime)),
       location: body.location ?? null,
+      unit: body.unit ?? null,
       status: String(body.status || "scheduled") as AppointmentStatus,
-      notes: body.notes ?? {},
+      notes: {
+        ...(body.notes ?? {}),
+        ...(body.patientname ? { patientname: String(body.patientname) } : {}),
+      },
     } as const;
 
     const [row] = await db.insert(appointments).values(values).returning();

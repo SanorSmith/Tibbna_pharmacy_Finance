@@ -6,6 +6,7 @@
  */
 "use client";
 import { useCallback, useMemo, useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -19,6 +20,7 @@ type Appt = {
   starttime: string;
   endtime: string;
   location?: string | null;
+  unit?: string | null;
   status: "scheduled" | "checked_in" | "in_progress" | "completed" | "cancelled";
 };
 
@@ -47,6 +49,28 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
   const [pendingEnd, setPendingEnd] = useState<Date | null>(null);
   const [creating, setCreating] = useState(false);
   const [lastRange, setLastRange] = useState<{ start: Date; end: Date } | null>(null);
+  // Booking details
+  const departments = [
+    "Outpatient Department",
+    "ENT (Ear, Nose, Throat)",
+    "Cardiology",
+    "Neurology",
+    "Maternity & Obstetrics",
+    "Obstetrics & Gynecology",
+    "Psychiatry & Mental Health",
+    "Oncology",
+    "Dermatology",
+    "Ophthalmology",
+    "Intensive Care Unit",
+    "Operating Theaters",
+    "Pharmacy",
+    "Laboratory",
+  ] as const;
+  const [unit, setUnit] = useState<string | undefined>(undefined);
+  // Doctor selection
+  type Doctor = { userid: string; name: string | null; email: string | null };
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctorid, setDoctorId] = useState<string | undefined>(undefined);
 
   const patientsById = useMemo(() => {
     const m = new Map<string, Patient>();
@@ -145,6 +169,18 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
     }
   }, [workspaceid, patients.length]);
 
+  const ensureDoctorsLoaded = useCallback(async () => {
+    if (doctors.length) return;
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/doctors`, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load doctors");
+      const data = await res.json();
+      setDoctors(data.doctors || []);
+    } catch (e) {
+      // non-blocking; if it fails we'll default to current user
+    }
+  }, [workspaceid, doctors.length]);
+
   const handleDatesSet = useCallback(
     (arg: { start: Date; end: Date }) => {
       // Ensure patient list is available (for names) then load appts
@@ -160,10 +196,10 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
       const end = new Date(start.getTime() + 30 * 60 * 1000);
       setPendingStart(start);
       setPendingEnd(end);
-      await ensurePatientsLoaded();
+      await Promise.all([ensurePatientsLoaded(), ensureDoctorsLoaded()]);
       setPickerOpen(true);
     },
-    [ensurePatientsLoaded],
+    [ensurePatientsLoaded, ensureDoctorsLoaded],
   );
 
   const filteredPatients = useMemo(() => {
@@ -184,14 +220,19 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
     if (!pendingStart || !pendingEnd) return;
     try {
       setCreating(true);
+      const p = patientsById.get(patientid);
+      const patientname = p ? `${p.firstname} ${p.middlename ? p.middlename + " " : ""}${p.lastname}` : undefined;
       const res = await fetch(`/api/d/${workspaceid}/appointments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientid,
+          doctorid,
           starttime: pendingStart.toISOString(),
           endtime: pendingEnd.toISOString(),
           status: "scheduled",
+          unit,
+          patientname,
         }),
       });
       if (!res.ok) throw new Error("Failed to create appointment");
@@ -199,6 +240,8 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
       if (lastRange) await loadRange(lastRange.start, lastRange.end);
       setPickerOpen(false);
       setSearch("");
+      setUnit(undefined);
+      setDoctorId(undefined);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create appointment";
       setError(msg);
@@ -296,6 +339,34 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
               placeholder="Search by name, email, national ID, or UUID"
               className="w-full border rounded px-3 py-2 mb-3 bg-transparent"
             />
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Unit / Department</label>
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Optional: select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Doctor (optional)</label>
+              <Select value={doctorid} onValueChange={setDoctorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Default: current user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctors.map((d) => (
+                    <SelectItem key={d.userid} value={d.userid}>
+                      {d.name || d.email || d.userid}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="max-h-80 overflow-auto divide-y">
               {filteredPatients.map((p) => (
                 <button
