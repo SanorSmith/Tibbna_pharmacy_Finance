@@ -19,6 +19,7 @@ import {
   Settings,
   BarChart3,
   FileSearch,
+  Home,
 } from "lucide-react";
 
 import {
@@ -72,10 +73,15 @@ export function NavMain() {
     hospital: {
       doctor: [
         {
+          title: ttt("Dashboard"),
+          url: `${base}/doctor`,
+          icon: Home,
+          isActive: true,
+        },
+        {
           title: ttt("Schedule"),
           url: `${base}/schedule`,
           icon: Calendar,
-          isActive: true,
         },
         {
           title: ttt("Patients"),

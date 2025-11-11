@@ -43,7 +43,8 @@ export async function GET(
         and(
           eq(appointments.workspaceid, workspaceid),
           eq(appointments.doctorid, doctorid),
-          and(gte(appointments.starttime, new Date(from)), lte(appointments.endtime, new Date(to))),
+          gte(appointments.starttime, new Date(from)),
+          lte(appointments.starttime, new Date(to)),
         ),
       );
     return NextResponse.json({ appointments: rows });

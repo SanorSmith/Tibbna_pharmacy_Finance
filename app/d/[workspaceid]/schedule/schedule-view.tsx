@@ -6,6 +6,7 @@
  */
 "use client";
 import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -38,7 +39,14 @@ type EventChangeInfo = {
   revert: () => void;
 };
 
-export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
+export default function ScheduleView({ 
+  workspaceid, 
+  userRole 
+}: { 
+  workspaceid: string;
+  userRole?: "doctor" | "administrator";
+}) {
+  const router = useRouter();
   const [appts, setAppts] = useState<Appt[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Picker state
@@ -236,12 +244,18 @@ export default function ScheduleView({ workspaceid }: { workspaceid: string }) {
         }),
       });
       if (!res.ok) throw new Error("Failed to create appointment");
-      // Refresh current range
-      if (lastRange) await loadRange(lastRange.start, lastRange.end);
-      setPickerOpen(false);
-      setSearch("");
-      setUnit(undefined);
-      setDoctorId(undefined);
+      
+      // If user is a doctor, redirect to doctor dashboard
+      if (userRole === "doctor") {
+        router.push(`/d/${workspaceid}/doctor`);
+      } else {
+        // Otherwise, refresh current range
+        if (lastRange) await loadRange(lastRange.start, lastRange.end);
+        setPickerOpen(false);
+        setSearch("");
+        setUnit(undefined);
+        setDoctorId(undefined);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create appointment";
       setError(msg);

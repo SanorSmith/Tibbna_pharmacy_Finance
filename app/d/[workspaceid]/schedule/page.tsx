@@ -33,7 +33,7 @@ export default async function SchedulePage({ params }: PageProps) {
           <h1 className="text-xl font-semibold">My Schedule</h1>
         </div>
         <div className="bg-muted/50 rounded-xl p-4">
-          <ScheduleView workspaceid={workspaceid} />
+          <ScheduleView workspaceid={workspaceid} userRole={role} />
         </div>
       </div>
     </>
