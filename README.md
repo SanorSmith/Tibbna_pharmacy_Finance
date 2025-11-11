@@ -103,12 +103,16 @@ Adds department (Unit) tracking and optional doctor selection when booking.
 ### Data model
 - Table: `appointments`
   - New column: `unit` (text, optional) — department where the appointment takes place
+  - `notes` (jsonb) — stores patientname and comments array with timestamps
 
 ### API changes
 - `POST /api/d/[workspaceid]/appointments`
   - Accepts `unit?` (stored in column)
   - Accepts `patientname?` (stored in `notes.patientname` for display)
   - Still accepts `doctorid?` (defaults to current user if omitted)
+- `PATCH /api/d/[workspaceid]/appointments/[appointmentid]`
+  - Accepts `notes` object to update comments
+  - Comments structure: `{ comments: [{ timestamp: ISO string, text: string }] }`
 
 ### New API
 - `GET /api/d/[workspaceid]/doctors`
@@ -124,6 +128,87 @@ Adds department (Unit) tracking and optional doctor selection when booking.
 ### Migration
 1) Generate migrations: `npm run migrate`
 2) Apply to DB: `npm run migrate-push`
+
+## Doctor Dashboard
+
+Dedicated dashboard for doctors showing appointments, patients, and operations with note-taking capabilities.
+
+### Pages
+- `/d/[workspaceid]/doctor`
+  - Doctor-only dashboard (role check enforced)
+  - Displays doctor information card at top
+  - Tabs: Appointments, Patients, Operations, Contacts & Referrals
+  - Date selector for viewing appointments
+  - Summary cards: Upcoming, In Progress, Completed
+  - Manual refresh button
+
+### Features
+- **Doctor Information Card**
+  - Displays doctor's name, unit, ID, and specialist information
+  - Fetches from staff table if doctor is registered as staff
+  - Shows:
+    - Name
+    - ID (user UUID)
+    - Unit/Department (if available)
+    - Specialist (if available)
+
+- **Appointments View**
+  - Shows all appointments for selected date
+  - Displays patient name, time, unit/department, status
+  - Enhanced contact info display with icons:
+    - Patient ID
+    - Phone number (📞)
+    - Email address (✉️)
+  - Status badges (scheduled, in_progress, completed)
+
+- **Operations View**
+  - Dedicated tab for viewing patient operations
+  - Shows all scheduled operations for selected date
+  - For each operation displays:
+    - Patient name and appointment time
+    - Status badge
+    - Complete contact information section (ID, phone, email)
+    - Operation notes with timestamps
+  - Clean, organized layout for surgical/procedure planning
+  
+- **Notes System**
+  - Add timestamped notes to any appointment
+  - Each note includes:
+    - Date & Time (automatically captured)
+    - Comment text
+  - Notes are displayed chronologically
+  - Stored in `appointments.notes.comments` array
+
+- **Patient List**
+  - View all workspace patients
+  - Shows name, ID, phone, email
+  - Quick reference for patient information
+
+- **Contacts & Referrals**
+  - Quick access to hospital staff contact information
+  - **Quick Stats Cards** showing staff count by role:
+    - Reception (🏥)
+    - Nurses (👨‍⚕️)
+    - Laboratory (🔬)
+    - Pharmacy (💊)
+  - **Departments & Units View** - Staff organized by their unit/department:
+    - Shows all units (e.g., Cardiology, ENT, Laboratory, Pharmacy, etc.)
+    - Lists all staff members in each unit
+    - Each staff member shows:
+      - Full name with role prefix (Dr. for doctors)
+      - Role and specialty (if applicable)
+      - Clickable phone number (tel: link)
+      - Clickable email address (mailto: link)
+  - Enables quick communication and patient referrals to any department
+
+### Navigation
+- Added "Dashboard" link to doctor sidebar (hospital workspace)
+- Appears as first item in doctor navigation
+
+### Access Control
+- Only users with `doctor` role in workspace can access
+- Doctors see only their own appointments
+- Redirects non-doctors to workspace home
 
 ## Staff feature
 
