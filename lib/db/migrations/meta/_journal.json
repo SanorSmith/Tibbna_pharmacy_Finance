@@ -57,6 +57,13 @@
       "when": 1763030806780,
       "tag": "0007_quick_mister_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1763035169247,
+      "tag": "0008_kind_roxanne_simpson",
+      "breakpoints": true
     }
   ]
 }
