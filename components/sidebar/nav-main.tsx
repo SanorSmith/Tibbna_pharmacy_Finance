@@ -227,12 +227,12 @@ export function NavMain() {
       administrator: [
         {
           title: ttt("Appointments"),
-          url: `${base}/appointments`,
+          url: `${base}/schedule`,
           icon: Calendar,
           isActive: true,
           items: [
+            { title: ttt("Schedule"), url: `${base}/schedule` },
             { title: ttt("All Appointments"), url: `${base}/appointments` },
-            { title: ttt("Schedule"), url: `${base}/appointments/schedule` },
             { title: ttt("Calendar View"), url: `${base}/appointments/calendar` },
           ],
         },

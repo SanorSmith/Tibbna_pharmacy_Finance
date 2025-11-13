@@ -30,23 +30,32 @@ export async function GET(
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
-  const doctorid = searchParams.get("doctorid") || user.userid;
+  const doctoridParam = searchParams.get("doctorid");
   if (!from || !to) {
     return NextResponse.json({ error: "Missing 'from' or 'to'" }, { status: 400 });
   }
 
   try {
+    // Administrators can fetch all appointments with doctorid=all
+    const fetchAllAppointments = isAdmin && doctoridParam === "all";
+    const doctorid = fetchAllAppointments ? null : (doctoridParam || user.userid);
+
+    const conditions = [
+      eq(appointments.workspaceid, workspaceid),
+      gte(appointments.starttime, new Date(from)),
+      lte(appointments.starttime, new Date(to)),
+    ];
+
+    // Only filter by doctorid if not fetching all
+    if (doctorid) {
+      conditions.push(eq(appointments.doctorid, doctorid));
+    }
+
     const rows = await db
       .select()
       .from(appointments)
-      .where(
-        and(
-          eq(appointments.workspaceid, workspaceid),
-          eq(appointments.doctorid, doctorid),
-          gte(appointments.starttime, new Date(from)),
-          lte(appointments.starttime, new Date(to)),
-        ),
-      );
+      .where(and(...conditions));
+      
     return NextResponse.json({ appointments: rows });
   } catch (e) {
     console.error("[appointments][GET] error:", e);
