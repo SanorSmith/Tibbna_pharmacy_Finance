@@ -210,6 +210,69 @@ Dedicated dashboard for doctors showing appointments, patients, and operations w
 - Doctors see only their own appointments
 - Redirects non-doctors to workspace home
 
+## Patient Dashboard
+
+Comprehensive per-patient workspace dashboard with vitals, labs, orders, referrals, care plans, diagnostics, imaging, and notes.
+
+### Pages
+- `/d/[workspaceid]/patients/[patientid]`
+  - Server page with role check (doctor or administrator)
+  - Loads patient and renders PatientDashboard client component
+
+### API
+- `GET /api/d/[workspaceid]/patients/[patientid]/appointments`
+  - Lists this patient's appointments (doctor/admin access)
+
+### Features
+- **Patient Contact Card**
+  - Name, Patient ID, Age (calculated), Gender
+  - Height, Weight, BMI (auto-calculated), Blood Type
+  - National ID, Phone (tel link), Email (mailto), Address, Emergency contact
+
+- **Vital Signs**
+  - Blood Pressure, Heart Rate, Temperature
+  - Oxygen Saturation, Respiratory Rate, Blood Glucose
+  - BMI auto-calculation, Pain Scale
+
+- **Lab Results**
+  - Table with columns: Laboratory, Test Name, Result, Reference Range, Unit, Status, Date
+  - Clickable Test Name opens a dialog with:
+    - Laboratory name and Test date
+    - Results panel (Result, Reference, Status)
+    - Lab Notes and actions (Download Report)
+
+- **Test Orders**
+  - Orders list with status (Pending, In Progress, Completed)
+  - Ordered by, Order date, Priority, Laboratory, Instructions
+  - Action to view results when completed
+
+- **Referrals**
+  - Referred By/To, Date, Reason, Priority, Status, and session tracking
+  - Actions to view referral reports
+
+- **Care Plans**
+  - Goals, Interventions, Progress Notes
+  - Status badge and metadata (Created by, Start date)
+
+- **Diagnostics (openEHR-based Problem/Diagnosis)**
+  - List of diagnoses showing Status, Severity, Onset/Resolution, Body site, Clinician
+  - Add Diagnosis dialog with fields:
+    - Problem/Diagnosis name (coded where possible)
+    - Clinical status (active/inactive/resolved/remission)
+    - Severity (mild/moderate/severe)
+    - Date of onset and resolution
+    - Body site
+    - Clinical description and Comment
+
+- **Imaging**
+  - Placeholder for imaging and radiology results
+
+- **Notes**
+  - Placeholder for clinical notes
+
+### Navigation
+- From Doctor Dashboard or Patients list, clicking a patient navigates to `/d/[workspaceid]/patients/[patientid]`.
+
 ## Staff feature
 
 Workspace-scoped staff registration and listing with admin-only creation and role-aware validation.
