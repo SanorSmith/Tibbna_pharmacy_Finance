@@ -59,7 +59,11 @@ export default function PatientsList({ workspaceid }: { workspaceid: string }) {
   return (
     <ul className="space-y-2">
       {rows.map((p: Patient) => (
-        <li key={p.patientid} className="border rounded-md p-3">
+        <li 
+          key={p.patientid} 
+          className="border rounded-md p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => window.location.href = `/d/${workspaceid}/patients/${p.patientid}`}
+        >
           <div className="font-medium">
             {p.firstname} {p.middlename ? `${p.middlename} ` : ""}
             {p.lastname}

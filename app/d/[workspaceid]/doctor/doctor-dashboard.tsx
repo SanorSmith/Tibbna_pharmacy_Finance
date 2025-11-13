@@ -429,7 +429,11 @@ export default function DoctorDashboard({
               <p className="text-sm text-muted-foreground">No patients found.</p>
             ) : (
               patients.map((patient) => (
-                <Card key={patient.patientid}>
+                <Card 
+                  key={patient.patientid}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => window.location.href = `/d/${workspaceid}/patients/${patient.patientid}`}
+                >
                   <CardHeader>
                     <CardTitle className="text-base">
                       {patient.firstname} {patient.middlename ? `${patient.middlename} ` : ""}
