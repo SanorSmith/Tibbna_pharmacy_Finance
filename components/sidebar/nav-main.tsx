@@ -260,12 +260,6 @@ export function NavMain() {
           title: ttt("Pharmacy"),
           url: `${base}/pharmacy`,
           icon: Pill,
-          items: [
-            { title: ttt("Inventory"), url: `${base}/pharmacy/inventory` },
-            { title: ttt("Prescriptions"), url: `${base}/pharmacy/prescriptions` },
-            { title: ttt("Orders"), url: `${base}/pharmacy/orders` },
-            { title: ttt("Suppliers"), url: `${base}/pharmacy/suppliers` },
-          ],
         },
         {
           title: ttt("Lab"),

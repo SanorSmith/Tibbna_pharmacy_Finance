@@ -5,3 +5,4 @@ export * from "./tables/appointment";
 export * from "./tables/staff";
 export * from "./tables/department";
 export * from "./tables/lab";
+export * from "./tables/pharmacy";
