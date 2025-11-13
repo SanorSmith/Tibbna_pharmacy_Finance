@@ -4,7 +4,7 @@
  * - Route: /d/[workspaceid]/lab
  */
 "use client";
-import { useState, useEffect } from "react";
+import { use, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -28,10 +28,10 @@ type Lab = {
 export default function LabsPage({
   params,
 }: {
-  params: { workspaceid: string };
+  params: Promise<{ workspaceid: string }>;
 }) {
   const router = useRouter();
-  const { workspaceid } = params;
+  const { workspaceid } = use(params);
   const [labs, setLabs] = useState<Lab[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
