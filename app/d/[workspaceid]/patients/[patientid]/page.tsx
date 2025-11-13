@@ -1,7 +1,7 @@
 /**
  * Page: /d/[workspaceid]/patients/[patientid]
  * - Patient dashboard showing comprehensive patient information
- * - Accessible to doctors and administrators
+ * - Accessible to doctors and nurses only (not administrators)
  */
 import { Header } from "@/components/sidebar/header";
 import { getUser } from "@/lib/user";
@@ -30,6 +30,11 @@ export default async function PatientPage({ params }: PageProps) {
   
   if (!membership) {
     redirect(`/d/${workspaceid}`);
+  }
+
+  // Only doctors and nurses can view patient details
+  if (membership.role !== "doctor" && membership.role !== "nurse") {
+    redirect(`/d/${workspaceid}/patients`);
   }
 
   // Fetch patient data

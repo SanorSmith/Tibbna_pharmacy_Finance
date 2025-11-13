@@ -3,6 +3,7 @@
  * - Fetches patients via GET /api/d/[workspaceid]/patients and renders a simple list.
  * - Shows loading and basic error states; relies on same-origin cookies for auth.
  * - Used by the server page at /d/[workspaceid]/patients.
+ * - Only doctors and nurses can click to view patient details
  */
 "use client";
 import { useEffect, useState } from "react";
@@ -18,9 +19,20 @@ type Patient = {
   ehrid?: string | null;
 };
 
-export default function PatientsList({ workspaceid }: { workspaceid: string }) {
+type UserRole = "doctor" | "nurse" | "receptionist" | "administrator";
+
+export default function PatientsList({ 
+  workspaceid, 
+  userRole 
+}: { 
+  workspaceid: string;
+  userRole: UserRole;
+}) {
   const [rows, setRows] = useState<Patient[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Only doctors and nurses can view patient details
+  const canViewDetails = userRole === "doctor" || userRole === "nurse";
 
   useEffect(() => {
     let active = true;
@@ -61,8 +73,17 @@ export default function PatientsList({ workspaceid }: { workspaceid: string }) {
       {rows.map((p: Patient) => (
         <li 
           key={p.patientid} 
-          className="border rounded-md p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => window.location.href = `/d/${workspaceid}/patients/${p.patientid}`}
+          className={`border rounded-md p-3 transition-colors ${
+            canViewDetails 
+              ? "cursor-pointer hover:bg-muted/50" 
+              : "cursor-default"
+          }`}
+          onClick={() => {
+            if (canViewDetails) {
+              window.location.href = `/d/${workspaceid}/patients/${p.patientid}`;
+            }
+          }}
+          title={canViewDetails ? "Click to view patient details" : "Only doctors and nurses can view patient details"}
         >
           <div className="font-medium">
             {p.firstname} {p.middlename ? `${p.middlename} ` : ""}

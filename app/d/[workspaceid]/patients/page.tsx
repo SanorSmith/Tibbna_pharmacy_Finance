@@ -22,9 +22,16 @@ export default async function PatientsPage({ params }: PageProps) {
   const { workspaceid } = await params;
   const user = await getUser();
   let isAdmin = false;
+  let userRole: "doctor" | "nurse" | "receptionist" | "administrator" = "receptionist";
+  
   if (user) {
     const workspaces = await getUserWorkspaces(user.userid);
     const membership = workspaces.find((w) => w.workspace.workspaceid === workspaceid);
+    
+    if (membership) {
+      userRole = membership.role;
+    }
+    
     // Admin if role is workspace administrator...
     const isWorkspaceAdmin = membership?.role === "administrator";
     const normalizePerms = (perms: unknown): string[] => {
@@ -64,7 +71,7 @@ export default async function PatientsPage({ params }: PageProps) {
         </div>
         <div className="bg-muted/50 rounded-xl p-4">
           {/* Fetch and render list client-side to avoid server relative-URL issues */}
-          <PatientsList workspaceid={workspaceid} />
+          <PatientsList workspaceid={workspaceid} userRole={userRole} />
         </div>
       </div>
     </>
