@@ -89,7 +89,6 @@ export function NavMain() {
           icon: Users,
           items: [
             { title: ttt("Patient List"), url: `${base}/patients` },
-            ...(isGlobalAdmin ? [{ title: ttt("New Patient"), url: `${base}/patients/new` }] : []),
             { title: ttt("Search Patient"), url: `${base}/patients/search` },
           ],
         },
@@ -145,7 +144,6 @@ export function NavMain() {
           icon: Users,
           items: [
             { title: ttt("Patient List"), url: `${base}/patients` },
-            ...(isGlobalAdmin ? [{ title: ttt("New Patient"), url: `${base}/patients/new` }] : []),
             { title: ttt("Vital Signs"), url: `${base}/patients/vitals` },
             { title: ttt("Medication Admin"), url: `${base}/patients/medications` },
           ],
@@ -197,7 +195,6 @@ export function NavMain() {
           icon: Users,
           items: [
             { title: ttt("Patient List"), url: `${base}/patients` },
-            ...(isGlobalAdmin ? [{ title: ttt("New Patient"), url: `${base}/patients/new` }] : []),
             { title: ttt("Check-in"), url: `${base}/patients/checkin` },
           ],
         },
@@ -245,7 +242,6 @@ export function NavMain() {
           icon: Users,
           items: [
             { title: ttt("Patient List"), url: `${base}/patients` },
-            { title: ttt("New Patient"), url: `${base}/patients/new` },
             { title: ttt("Patient Records"), url: `${base}/patients/records` },
           ],
         },

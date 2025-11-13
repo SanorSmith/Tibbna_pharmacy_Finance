@@ -10,6 +10,8 @@ import Link from "next/link";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import PatientsList from "./patients-list";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
@@ -50,10 +52,13 @@ export default async function PatientsPage({ params }: PageProps) {
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Patients</h1>
-          {/* Show create link only to admins */}
+          {/* Show register button only to admins */}
           {isAdmin && (
-            <Link className="text-sm text-primary underline" href={`/d/${workspaceid}/patients/new`}>
-              Register Patient
+            <Link href={`/d/${workspaceid}/patients/new`}>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Register Patient
+              </Button>
             </Link>
           )}
         </div>
