@@ -43,6 +43,20 @@
       "when": 1762638395095,
       "tag": "0005_overjoyed_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1763030158063,
+      "tag": "0006_dry_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1763030806780,
+      "tag": "0007_quick_mister_sinister",
+      "breakpoints": true
     }
   ]
 }
