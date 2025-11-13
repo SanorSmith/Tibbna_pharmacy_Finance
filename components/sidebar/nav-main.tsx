@@ -713,17 +713,6 @@ export function NavMain() {
   };
 
   const navItems = [...getNavigationItems()];
-  if (isGlobalAdmin && workspace?.workspace?.workspaceid) {
-    navItems.push({
-      title: ttt("Staff Management"),
-      url: "/d/staff",
-      icon: UserCheck,
-      items: [
-        { title: ttt("Staff List"), url: `${base}/staff` },
-        { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
-      ],
-    });
-  }
 
   return (
     <>
