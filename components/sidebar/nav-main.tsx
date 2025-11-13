@@ -246,14 +246,14 @@ export function NavMain() {
           ],
         },
         {
-          title: ttt("Physicians"),
-          url: `${base}/physicians`,
-          icon: Stethoscope,
+          title: ttt("Staff Management"),
+          url: `${base}/staff`,
+          icon: UserCheck,
           items: [
-            { title: ttt("Physician List"), url: `${base}/physicians` },
-            { title: ttt("Add Physician"), url: `${base}/physicians/new` },
-            { title: ttt("Schedules"), url: `${base}/physicians/schedules` },
-            { title: ttt("Performance"), url: `${base}/physicians/performance` },
+            { title: ttt("Staff List"), url: `${base}/staff` },
+            { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
+            { title: ttt("Schedules"), url: `${base}/staff/schedules` },
+            { title: ttt("Roles & Permissions"), url: `${base}/staff/roles` },
           ],
         },
         {
