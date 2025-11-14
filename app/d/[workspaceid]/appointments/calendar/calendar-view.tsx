@@ -4,7 +4,7 @@
  * - Click on appointment to edit details
  */
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -46,10 +46,15 @@ export default function CalendarView({
   const [error, setError] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate fetches
+    if (hasFetched.current) return;
+    
     async function fetchAppointments() {
       try {
+        hasFetched.current = true;
         // Fetch appointments for a wide date range (last 3 months to next 3 months)
         const now = new Date();
         const from = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
@@ -65,6 +70,7 @@ export default function CalendarView({
       } catch (err) {
         console.error("Error fetching appointments:", err);
         setError(err instanceof Error ? err.message : "Failed to load appointments");
+        hasFetched.current = false; // Allow retry on error
       } finally {
         setLoading(false);
       }
@@ -100,8 +106,8 @@ export default function CalendarView({
     );
   }
 
-  const toEvents = useCallback((appts: Appointment[]): EventInput[] => {
-    return appts.map((a) => {
+  const events = useMemo<EventInput[]>(() => {
+    return appointments.map((a) => {
       const patientName = a.notes?.patientname || "Unknown Patient";
       const unit = a.unit ? ` - ${a.unit}` : "";
       
@@ -118,7 +124,7 @@ export default function CalendarView({
         },
       };
     });
-  }, []);
+  }, [appointments]);
 
   if (loading) {
     return (
@@ -146,7 +152,7 @@ export default function CalendarView({
           center: "title",
           right: "dayGridMonth,dayGridWeek",
         }}
-        events={toEvents(appointments)}
+        events={events}
         height="auto"
         eventDisplay="block"
         eventClick={handleEventClick}
