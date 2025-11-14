@@ -26,6 +26,9 @@ Department registration system based on the use case diagram with Registration (
 - `/app/api/d/[workspaceid]/departments/route.ts`
   - `GET` - List all departments for a workspace
   - `POST` - Create a new department
+- `/app/api/d/[workspaceid]/departments/[departmentid]/route.ts`
+  - `PATCH` - Update department information
+  - `DELETE` - Delete a department
 
 ### 3. Pages & Components
 - `/app/d/[workspaceid]/departments/page.tsx` - Single page with departments list and inline add dialog
@@ -35,19 +38,32 @@ Department registration system based on the use case diagram with Registration (
 ### All Departments Page
 - **List View** - Grid display of all departments with contact information
 - **Add Button** - Opens a dialog to register new department
+- **Edit Button** - Pencil icon on each card to edit department details
+- **Delete Button** - Trash icon on each card to delete department (with confirmation)
 - **Empty State** - Helpful message when no departments exist
-- **Real-time Updates** - List refreshes after adding new department
+- **Real-time Updates** - List refreshes after adding, editing, or deleting departments
 
-### Registration Dialog (Inline)
+### Add/Edit Dialog (Unified)
+The same dialog is used for both adding new departments and editing existing ones.
 
 #### Registration Section
 - **Department Name** (Required) - Text input for department name
-- **Department ID** - Auto-generated UUID (displayed as read-only)
+- **Department ID** - Auto-generated UUID (displayed as read-only in list view)
 
 #### Contact Details Section
 - **Phone** - Optional phone number
 - **Email** - Optional email address
 - **Address** - Optional physical location/address (textarea)
+
+#### Edit Mode
+- Dialog title changes to "Edit Department"
+- Form pre-fills with existing department data
+- Save button updates existing department
+
+#### Delete Confirmation
+- Professional AlertDialog confirmation
+- Warns that action cannot be undone
+- Shows department name being deleted
 
 ## Usage
 
