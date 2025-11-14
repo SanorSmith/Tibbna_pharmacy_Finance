@@ -1,14 +1,15 @@
 /**
  * Client Component: CalendarView
  * - Displays appointments in a monthly calendar using FullCalendar
- * - Shows appointment details on hover/click
+ * - Click on appointment to edit details
  */
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { EventInput } from "@fullcalendar/core";
+import { EventInput, EventClickArg } from "@fullcalendar/core";
+import EditAppointmentDialog from "../edit-appointment-dialog";
 
 type Appointment = {
   appointmentid: string;
@@ -33,10 +34,18 @@ const statusColors = {
   cancelled: "#ef4444",
 };
 
-export default function CalendarView({ workspaceid }: { workspaceid: string }) {
+export default function CalendarView({ 
+  workspaceid,
+  userRole 
+}: { 
+  workspaceid: string;
+  userRole?: string;
+}) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
     async function fetchAppointments() {
@@ -63,6 +72,33 @@ export default function CalendarView({ workspaceid }: { workspaceid: string }) {
 
     fetchAppointments();
   }, [workspaceid]);
+
+  const handleEventClick = useCallback((info: EventClickArg) => {
+    const appointmentId = info.event.id;
+    const appointment = appointments.find(a => a.appointmentid === appointmentId);
+    if (appointment) {
+      setEditingAppointment(appointment);
+      setEditDialogOpen(true);
+    }
+  }, [appointments]);
+
+  function handleSaveEdit(updatedAppointment: Appointment) {
+    // Update local state with the updated appointment
+    setAppointments(prev =>
+      prev.map(apt =>
+        apt.appointmentid === updatedAppointment.appointmentid
+          ? updatedAppointment
+          : apt
+      )
+    );
+  }
+
+  function handleDelete(appointmentId: string) {
+    // Remove appointment from local state
+    setAppointments(prev =>
+      prev.filter(apt => apt.appointmentid !== appointmentId)
+    );
+  }
 
   const toEvents = useCallback((appts: Appointment[]): EventInput[] => {
     return appts.map((a) => {
@@ -113,21 +149,7 @@ export default function CalendarView({ workspaceid }: { workspaceid: string }) {
         events={toEvents(appointments)}
         height="auto"
         eventDisplay="block"
-        eventClick={(info) => {
-          const event = info.event;
-          const props = event.extendedProps as Appointment & { patientName: string };
-          
-          alert(`
-Patient: ${props.patientName}
-Unit: ${props.unit || "Not specified"}
-Location: ${props.location || "Not specified"}
-Status: ${props.status}
-Time: ${new Date(event.start!).toLocaleString()} - ${new Date(event.end!).toLocaleString()}
-          `.trim());
-        }}
-        eventMouseEnter={(info) => {
-          info.el.style.cursor = "pointer";
-        }}
+        eventClick={handleEventClick}
       />
       
       {/* Legend */}
@@ -153,6 +175,17 @@ Time: ${new Date(event.start!).toLocaleString()} - ${new Date(event.end!).toLoca
           <span>Cancelled</span>
         </div>
       </div>
+
+      {/* Edit Appointment Dialog */}
+      <EditAppointmentDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        appointment={editingAppointment}
+        workspaceid={workspaceid}
+        onSave={handleSaveEdit}
+        userRole={userRole}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
