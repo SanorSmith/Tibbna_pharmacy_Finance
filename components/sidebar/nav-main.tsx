@@ -251,7 +251,6 @@ export function NavMain() {
           icon: UserCheck,
           items: [
             { title: ttt("Staff List"), url: `${base}/staff` },
-            { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
             { title: ttt("Schedules"), url: `${base}/staff/schedules` },
             { title: ttt("Roles & Permissions"), url: `${base}/staff/roles` },
           ],
@@ -455,7 +454,6 @@ export function NavMain() {
           icon: UserCheck,
           items: [
             { title: ttt("Staff Management"), url: `${base}/staff` },
-            { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
             { title: ttt("Shift Scheduling"), url: "/d/staff/shifts" },
             { title: ttt("Competency Tracking"), url: "/d/staff/competency" },
           ],
@@ -657,7 +655,6 @@ export function NavMain() {
               title: ttt("Pharmacist Scheduling"),
               url: "/d/staff/pharmacists",
             },
-            { title: ttrisky("Add Staff"), url: `${base}/staff/new` },
             {
               title: ttt("Technician Management"),
               url: "/d/staff/technicians",

@@ -1,10 +1,9 @@
 /**
  * Page: /d/[workspaceid]/staff
- * - Lists staff for the workspace; shows "Add Staff" link for admins
+ * - Lists staff for the workspace; shows "Add Staff" button for admins
  * - Delegates data fetching/rendering to client component StaffList
  */
 import { Header } from "@/components/sidebar/header";
-import Link from "next/link";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import StaffList from "./staff-list";
@@ -45,14 +44,9 @@ export default async function StaffPage({ params }: PageProps) {
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Staff</h1>
-          {isAdmin && (
-            <Link className="text-sm text-primary underline" href={`/d/${workspaceid}/staff/new`}>
-              Add Staff
-            </Link>
-          )}
         </div>
         <div className="bg-muted/50 rounded-xl p-4">
-          <StaffList workspaceid={workspaceid} />
+          <StaffList workspaceid={workspaceid} isAdmin={isAdmin} />
         </div>
       </div>
     </>
