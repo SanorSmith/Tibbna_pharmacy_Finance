@@ -14,8 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, User, Stethoscope } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, Clock, MapPin, User, Stethoscope, RefreshCw, CheckCircle, Edit } from "lucide-react";
 import { format } from "date-fns";
+import EditAppointmentDialog from "./edit-appointment-dialog";
 
 type Appointment = {
   appointmentid: string;
@@ -40,10 +42,19 @@ const statusConfig = {
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800 border-red-200" },
 };
 
-export default function AppointmentsList({ workspaceid }: { workspaceid: string }) {
+export default function AppointmentsList({ 
+  workspaceid, 
+  userRole 
+}: { 
+  workspaceid: string;
+  userRole?: string;
+}) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
     async function fetchAppointments() {
@@ -70,6 +81,97 @@ export default function AppointmentsList({ workspaceid }: { workspaceid: string 
 
     fetchAppointments();
   }, [workspaceid]);
+
+  async function handleReschedule(appointmentId: string) {
+    if (!confirm("Cancel this appointment? You can then create a new one at a different time.")) return;
+    
+    setUpdatingId(appointmentId);
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to cancel appointment");
+      }
+
+      const data = await res.json();
+      
+      // Update local state with server response
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.appointmentid === appointmentId
+            ? { ...apt, ...data.appointment }
+            : apt
+        )
+      );
+    } catch (err) {
+      console.error("Error cancelling:", err);
+      alert(err instanceof Error ? err.message : "Failed to cancel appointment");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleMarkDone(appointmentId: string) {
+    if (!confirm("Mark this appointment as completed?")) return;
+    
+    setUpdatingId(appointmentId);
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to mark appointment as done");
+      }
+
+      const data = await res.json();
+      
+      // Update local state with server response
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.appointmentid === appointmentId
+            ? { ...apt, ...data.appointment }
+            : apt
+        )
+      );
+    } catch (err) {
+      console.error("Error marking done:", err);
+      alert(err instanceof Error ? err.message : "Failed to mark appointment as done");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  function handleOpenEdit(appointment: Appointment) {
+    setEditingAppointment(appointment);
+    setEditDialogOpen(true);
+  }
+
+  function handleSaveEdit(updatedAppointment: Appointment) {
+    // Update local state with the updated appointment
+    setAppointments(prev =>
+      prev.map(apt =>
+        apt.appointmentid === updatedAppointment.appointmentid
+          ? updatedAppointment
+          : apt
+      )
+    );
+  }
+
+  function handleDelete(appointmentId: string) {
+    // Remove appointment from local state
+    setAppointments(prev =>
+      prev.filter(apt => apt.appointmentid !== appointmentId)
+    );
+  }
 
   if (loading) {
     return (
@@ -112,6 +214,7 @@ export default function AppointmentsList({ workspaceid }: { workspaceid: string 
             <TableHead className="w-[150px]">Unit/Department</TableHead>
             <TableHead className="w-[150px]">Location</TableHead>
             <TableHead className="w-[120px]">Status</TableHead>
+            <TableHead className="w-[180px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -120,6 +223,21 @@ export default function AppointmentsList({ workspaceid }: { workspaceid: string 
             const startDate = new Date(appointment.starttime);
             const endDate = new Date(appointment.endtime);
             const patientName = appointment.notes?.patientname || "Unknown Patient";
+            const now = new Date();
+            const hasTimePassed = endDate < now;
+            const isUpdating = updatingId === appointment.appointmentid;
+
+            // Determine which action to show
+            // Can reschedule if:
+            // 1. Scheduled and time hasn't passed yet (future appointment), OR
+            // 2. Scheduled and time has passed (patient didn't check in - needs rescheduling)
+            const canReschedule = appointment.status === "scheduled";
+            
+            // Can mark done if:
+            // Patient checked in or appointment is in progress and time has passed
+            const canMarkDone = hasTimePassed && 
+              (appointment.status === "checked_in" || 
+               appointment.status === "in_progress");
 
             return (
               <TableRow key={appointment.appointmentid} className="hover:bg-muted/50">
@@ -172,11 +290,57 @@ export default function AppointmentsList({ workspaceid }: { workspaceid: string 
                     {config.label}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleOpenEdit(appointment)}
+                      disabled={isUpdating}
+                      title="Edit date/time"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    {canReschedule && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleReschedule(appointment.appointmentid)}
+                        disabled={isUpdating}
+                      >
+                        <RefreshCw className={`h-3 w-3 mr-1 ${isUpdating ? "animate-spin" : ""}`} />
+                        Reschedule
+                      </Button>
+                    )}
+                    {canMarkDone && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleMarkDone(appointment.appointmentid)}
+                        disabled={isUpdating}
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Mark Done
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
+
+      {/* Edit Dialog */}
+      <EditAppointmentDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        appointment={editingAppointment}
+        workspaceid={workspaceid}
+        onSave={handleSaveEdit}
+        userRole={userRole}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
