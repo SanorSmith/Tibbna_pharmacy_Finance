@@ -11,7 +11,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Building, Mail, MapPin, Phone, Plus } from "lucide-react";
+import { Building, Mail, MapPin, Phone, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 
 type Department = {
@@ -37,6 +47,10 @@ export default function DepartmentsPage({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch departments
   useEffect(() => {
@@ -56,6 +70,23 @@ export default function DepartmentsPage({
     }
   }
 
+  function handleOpenAdd() {
+    setEditingDepartment(null);
+    setError(null);
+    setDialogOpen(true);
+  }
+
+  function handleOpenEdit(department: Department) {
+    setEditingDepartment(department);
+    setError(null);
+    setDialogOpen(true);
+  }
+
+  function handleOpenDelete(department: Department) {
+    setDepartmentToDelete(department);
+    setDeleteDialogOpen(true);
+  }
+
   async function handleSubmit(formData: FormData) {
     setError(null);
     setSubmitting(true);
@@ -70,27 +101,57 @@ export default function DepartmentsPage({
       }
 
       const payload = { name, phone, email, address };
+      const url = editingDepartment
+        ? `/api/d/${workspaceid}/departments/${editingDepartment.departmentid}`
+        : `/api/d/${workspaceid}/departments`;
+      const method = editingDepartment ? "PATCH" : "POST";
 
-      const res = await fetch(`/api/d/${workspaceid}/departments`, {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to register department");
+        throw new Error(data.error || `Failed to ${editingDepartment ? "update" : "register"} department`);
       }
 
       // Refresh the list
       await fetchDepartments();
       setDialogOpen(false);
+      setEditingDepartment(null);
       router.refresh();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setError(msg);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!departmentToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/departments/${departmentToDelete.departmentid}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete department");
+      }
+
+      await fetchDepartments();
+      setDeleteDialogOpen(false);
+      setDepartmentToDelete(null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Something went wrong";
+      alert(msg);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -114,18 +175,18 @@ export default function DepartmentsPage({
               Manage hospital departments and their contact information
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Department
-              </Button>
-            </DialogTrigger>
+          <Button onClick={handleOpenAdd}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Department
+          </Button>
+        </div>
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Register New Department</DialogTitle>
+                <DialogTitle>{editingDepartment ? "Edit Department" : "Register New Department"}</DialogTitle>
                 <DialogDescription>
-                  Add a new department with contact information
+                  {editingDepartment ? "Update department information" : "Add a new department with contact information"}
                 </DialogDescription>
               </DialogHeader>
               <form action={handleSubmit} className="space-y-6">
@@ -144,6 +205,7 @@ export default function DepartmentsPage({
                       id="name"
                       name="name"
                       placeholder="e.g., Cardiology, Emergency, Radiology"
+                      defaultValue={editingDepartment?.name || ""}
                       required
                     />
                   </div>
@@ -159,6 +221,7 @@ export default function DepartmentsPage({
                       name="phone"
                       type="tel"
                       placeholder="e.g., +1 (555) 123-4567"
+                      defaultValue={editingDepartment?.phone || ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -168,6 +231,7 @@ export default function DepartmentsPage({
                       name="email"
                       type="email"
                       placeholder="e.g., cardiology@hospital.com"
+                      defaultValue={editingDepartment?.email || ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -177,6 +241,7 @@ export default function DepartmentsPage({
                       name="address"
                       placeholder="e.g., Building A, Floor 3, Room 301"
                       rows={3}
+                      defaultValue={editingDepartment?.address || ""}
                     />
                   </div>
                 </div>
@@ -191,13 +256,12 @@ export default function DepartmentsPage({
                     Cancel
                   </Button>
                   <Button type="submit" disabled={submitting}>
-                    {submitting ? "Registering..." : "Register Department"}
+                    {submitting ? "Saving..." : editingDepartment ? "Save Changes" : "Register Department"}
                   </Button>
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
 
         {departments.length === 0 ? (
           <Card>
@@ -218,13 +282,33 @@ export default function DepartmentsPage({
             {departments.map((dept) => (
               <Card key={dept.departmentid} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building className="h-5 w-5" />
-                    {dept.name}
-                  </CardTitle>
-                  <CardDescription className="font-mono text-xs">
-                    ID: {dept.departmentid.slice(0, 8)}...
-                  </CardDescription>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <Building className="h-5 w-5" />
+                        {dept.name}
+                      </CardTitle>
+                      <CardDescription className="font-mono text-xs">
+                        ID: {dept.departmentid.slice(0, 8)}...
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEdit(dept)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenDelete(dept)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {dept.phone && (
@@ -255,6 +339,28 @@ export default function DepartmentsPage({
             ))}
           </div>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Department</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{departmentToDelete?.name}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

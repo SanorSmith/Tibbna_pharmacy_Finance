@@ -11,7 +11,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { TestTube, Mail, MapPin, Phone, Plus } from "lucide-react";
+import { TestTube, Mail, MapPin, Phone, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 
 type Lab = {
@@ -37,6 +47,10 @@ export default function LabsPage({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingLab, setEditingLab] = useState<Lab | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [labToDelete, setLabToDelete] = useState<Lab | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch labs
   useEffect(() => {
@@ -56,6 +70,23 @@ export default function LabsPage({
     }
   }
 
+  function handleOpenAdd() {
+    setEditingLab(null);
+    setError(null);
+    setDialogOpen(true);
+  }
+
+  function handleOpenEdit(lab: Lab) {
+    setEditingLab(lab);
+    setError(null);
+    setDialogOpen(true);
+  }
+
+  function handleOpenDelete(lab: Lab) {
+    setLabToDelete(lab);
+    setDeleteDialogOpen(true);
+  }
+
   async function handleSubmit(formData: FormData) {
     setError(null);
     setSubmitting(true);
@@ -70,27 +101,57 @@ export default function LabsPage({
       }
 
       const payload = { name, phone, email, address };
+      const url = editingLab
+        ? `/api/d/${workspaceid}/labs/${editingLab.labid}`
+        : `/api/d/${workspaceid}/labs`;
+      const method = editingLab ? "PATCH" : "POST";
 
-      const res = await fetch(`/api/d/${workspaceid}/labs`, {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to register lab");
+        throw new Error(data.error || `Failed to ${editingLab ? "update" : "register"} lab`);
       }
 
       // Refresh the list
       await fetchLabs();
       setDialogOpen(false);
+      setEditingLab(null);
       router.refresh();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setError(msg);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!labToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/labs/${labToDelete.labid}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete lab");
+      }
+
+      await fetchLabs();
+      setDeleteDialogOpen(false);
+      setLabToDelete(null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Something went wrong";
+      alert(msg);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -114,18 +175,18 @@ export default function LabsPage({
               Manage laboratory facilities and their contact information
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Lab
-              </Button>
-            </DialogTrigger>
+          <Button onClick={handleOpenAdd}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Lab
+          </Button>
+        </div>
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Register New Lab</DialogTitle>
+                <DialogTitle>{editingLab ? "Edit Lab" : "Register New Lab"}</DialogTitle>
                 <DialogDescription>
-                  Add a new laboratory facility with contact information
+                  {editingLab ? "Update laboratory facility information" : "Add a new laboratory facility with contact information"}
                 </DialogDescription>
               </DialogHeader>
               <form action={handleSubmit} className="space-y-6">
@@ -144,6 +205,7 @@ export default function LabsPage({
                       id="name"
                       name="name"
                       placeholder="e.g., Clinical Lab, Pathology Lab, Microbiology Lab"
+                      defaultValue={editingLab?.name || ""}
                       required
                     />
                   </div>
@@ -159,6 +221,7 @@ export default function LabsPage({
                       name="phone"
                       type="tel"
                       placeholder="e.g., +1 (555) 123-4567"
+                      defaultValue={editingLab?.phone || ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -168,6 +231,7 @@ export default function LabsPage({
                       name="email"
                       type="email"
                       placeholder="e.g., lab@hospital.com"
+                      defaultValue={editingLab?.email || ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -177,6 +241,7 @@ export default function LabsPage({
                       name="address"
                       placeholder="e.g., Building B, Floor 1, Room 105"
                       rows={3}
+                      defaultValue={editingLab?.address || ""}
                     />
                   </div>
                 </div>
@@ -191,13 +256,12 @@ export default function LabsPage({
                     Cancel
                   </Button>
                   <Button type="submit" disabled={submitting}>
-                    {submitting ? "Registering..." : "Register Lab"}
+                    {submitting ? "Saving..." : editingLab ? "Save Changes" : "Register Lab"}
                   </Button>
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
 
         {labs.length === 0 ? (
           <Card>
@@ -218,13 +282,33 @@ export default function LabsPage({
             {labs.map((lab) => (
               <Card key={lab.labid} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TestTube className="h-5 w-5" />
-                    {lab.name}
-                  </CardTitle>
-                  <CardDescription className="font-mono text-xs">
-                    ID: {lab.labid.slice(0, 8)}...
-                  </CardDescription>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <TestTube className="h-5 w-5" />
+                        {lab.name}
+                      </CardTitle>
+                      <CardDescription className="font-mono text-xs">
+                        ID: {lab.labid.slice(0, 8)}...
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEdit(lab)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenDelete(lab)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {lab.phone && (
@@ -255,6 +339,28 @@ export default function LabsPage({
             ))}
           </div>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Lab</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{labToDelete?.name}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
