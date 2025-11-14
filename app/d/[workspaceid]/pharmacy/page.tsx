@@ -11,7 +11,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Pill, Mail, MapPin, Phone, Plus } from "lucide-react";
+import { Pill, Mail, MapPin, Phone, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 
 type Pharmacy = {
@@ -37,6 +47,10 @@ export default function PharmaciesPage({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pharmacyToDelete, setPharmacyToDelete] = useState<Pharmacy | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch pharmacies
   useEffect(() => {
@@ -56,6 +70,23 @@ export default function PharmaciesPage({
     }
   }
 
+  function handleOpenAdd() {
+    setEditingPharmacy(null);
+    setError(null);
+    setDialogOpen(true);
+  }
+
+  function handleOpenEdit(pharmacy: Pharmacy) {
+    setEditingPharmacy(pharmacy);
+    setError(null);
+    setDialogOpen(true);
+  }
+
+  function handleOpenDelete(pharmacy: Pharmacy) {
+    setPharmacyToDelete(pharmacy);
+    setDeleteDialogOpen(true);
+  }
+
   async function handleSubmit(formData: FormData) {
     setError(null);
     setSubmitting(true);
@@ -70,27 +101,57 @@ export default function PharmaciesPage({
       }
 
       const payload = { name, phone, email, address };
+      const url = editingPharmacy
+        ? `/api/d/${workspaceid}/pharmacies/${editingPharmacy.pharmacyid}`
+        : `/api/d/${workspaceid}/pharmacies`;
+      const method = editingPharmacy ? "PATCH" : "POST";
 
-      const res = await fetch(`/api/d/${workspaceid}/pharmacies`, {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to register pharmacy");
+        throw new Error(data.error || `Failed to ${editingPharmacy ? "update" : "register"} pharmacy`);
       }
 
       // Refresh the list
       await fetchPharmacies();
       setDialogOpen(false);
+      setEditingPharmacy(null);
       router.refresh();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setError(msg);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!pharmacyToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/pharmacies/${pharmacyToDelete.pharmacyid}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete pharmacy");
+      }
+
+      await fetchPharmacies();
+      setDeleteDialogOpen(false);
+      setPharmacyToDelete(null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Something went wrong";
+      alert(msg);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -114,18 +175,18 @@ export default function PharmaciesPage({
               Manage pharmacy facilities and their contact information
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Pharmacy
-              </Button>
-            </DialogTrigger>
+          <Button onClick={handleOpenAdd}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Pharmacy
+          </Button>
+        </div>
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Register New Pharmacy</DialogTitle>
+                <DialogTitle>{editingPharmacy ? "Edit Pharmacy" : "Register New Pharmacy"}</DialogTitle>
                 <DialogDescription>
-                  Add a new pharmacy facility with contact information
+                  {editingPharmacy ? "Update pharmacy facility information" : "Add a new pharmacy facility with contact information"}
                 </DialogDescription>
               </DialogHeader>
               <form action={handleSubmit} className="space-y-6">
@@ -144,6 +205,7 @@ export default function PharmaciesPage({
                       id="name"
                       name="name"
                       placeholder="e.g., Central Pharmacy, Community Pharmacy"
+                      defaultValue={editingPharmacy?.name || ""}
                       required
                     />
                   </div>
@@ -159,6 +221,7 @@ export default function PharmaciesPage({
                       name="phone"
                       type="tel"
                       placeholder="e.g., +1 (555) 123-4567"
+                      defaultValue={editingPharmacy?.phone || ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -168,6 +231,7 @@ export default function PharmaciesPage({
                       name="email"
                       type="email"
                       placeholder="e.g., pharmacy@hospital.com"
+                      defaultValue={editingPharmacy?.email || ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -177,6 +241,7 @@ export default function PharmaciesPage({
                       name="address"
                       placeholder="e.g., Building C, Floor 1, Room 101"
                       rows={3}
+                      defaultValue={editingPharmacy?.address || ""}
                     />
                   </div>
                 </div>
@@ -191,13 +256,12 @@ export default function PharmaciesPage({
                     Cancel
                   </Button>
                   <Button type="submit" disabled={submitting}>
-                    {submitting ? "Registering..." : "Register Pharmacy"}
+                    {submitting ? "Saving..." : editingPharmacy ? "Save Changes" : "Register Pharmacy"}
                   </Button>
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
 
         {pharmacies.length === 0 ? (
           <Card>
@@ -218,13 +282,33 @@ export default function PharmaciesPage({
             {pharmacies.map((pharmacy) => (
               <Card key={pharmacy.pharmacyid} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Pill className="h-5 w-5" />
-                    {pharmacy.name}
-                  </CardTitle>
-                  <CardDescription className="font-mono text-xs">
-                    ID: {pharmacy.pharmacyid.slice(0, 8)}...
-                  </CardDescription>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <Pill className="h-5 w-5" />
+                        {pharmacy.name}
+                      </CardTitle>
+                      <CardDescription className="font-mono text-xs">
+                        ID: {pharmacy.pharmacyid.slice(0, 8)}...
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEdit(pharmacy)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenDelete(pharmacy)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {pharmacy.phone && (
@@ -255,6 +339,28 @@ export default function PharmaciesPage({
             ))}
           </div>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Pharmacy</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{pharmacyToDelete?.name}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
