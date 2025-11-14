@@ -1,18 +1,18 @@
 /**
  * Client Component: StaffList
- * - Fetches staff from GET /api/d/[workspaceid]/staff and renders a list
+ * - Fetches staff from GET /api/d/[workspaceid]/staff and renders a table
  * - Shows loading, empty, and error states
  * - Administrators can add and edit staff
  */
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Plus, UserCheck } from "lucide-react";
+import { Edit, Plus } from "lucide-react";
 
 type Staff = {
   staffid: string;
@@ -185,61 +185,48 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No staff found.</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rows.map((s: Staff) => (
-            <Card key={s.staffid} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <UserCheck className="h-5 w-5" />
-                      {s.firstname} {s.middlename ? `${s.middlename} ` : ""}
-                      {s.lastname}
-                    </CardTitle>
-                    <CardDescription className="mt-1 uppercase text-xs font-semibold">
-                      {s.role.replace('_', ' ')}
-                    </CardDescription>
-                  </div>
-                  {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenEdit(s)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {s.unit && (
-                  <div className="text-sm text-muted-foreground">
-                    🏥 {s.unit}
-                  </div>
-                )}
-                {s.specialty && (
-                  <div className="text-sm text-muted-foreground">
-                    🩺 {s.specialty}
-                  </div>
-                )}
-                {s.phone && (
-                  <div className="text-sm text-muted-foreground">
-                    📞 {s.phone}
-                  </div>
-                )}
-                {s.email && (
-                  <div className="text-sm text-muted-foreground">
-                    ✉️ {s.email}
-                  </div>
-                )}
-                {!s.unit && !s.specialty && !s.phone && !s.email && (
-                  <p className="text-sm text-muted-foreground italic">
-                    No additional details available
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[250px]">Name</TableHead>
+                <TableHead className="w-[150px]">Role</TableHead>
+                <TableHead className="w-[200px]">Unit/Department</TableHead>
+                <TableHead className="w-[150px]">Specialty</TableHead>
+                <TableHead className="w-[150px]">Phone</TableHead>
+                <TableHead className="w-[200px]">Email</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((s: Staff) => (
+                <TableRow key={s.staffid} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">
+                    {s.firstname} {s.middlename ? `${s.middlename} ` : ""}
+                    {s.lastname}
+                  </TableCell>
+                  <TableCell className="uppercase text-xs">
+                    {s.role.replace('_', ' ')}
+                  </TableCell>
+                  <TableCell>{s.unit || "-"}</TableCell>
+                  <TableCell>{s.specialty || "-"}</TableCell>
+                  <TableCell>{s.phone || "-"}</TableCell>
+                  <TableCell className="truncate max-w-[200px]">{s.email || "-"}</TableCell>
+                  <TableCell>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEdit(s)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 

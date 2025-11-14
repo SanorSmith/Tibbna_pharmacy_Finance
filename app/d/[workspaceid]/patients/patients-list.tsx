@@ -1,6 +1,6 @@
 /**
  * Client Component: PatientsList
- * - Fetches patients via GET /api/d/[workspaceid]/patients and renders a simple list.
+ * - Fetches patients via GET /api/d/[workspaceid]/patients and renders a table.
  * - Shows loading and basic error states; relies on same-origin cookies for auth.
  * - Used by the server page at /d/[workspaceid]/patients.
  * - Only doctors and nurses can click to view patient details
@@ -9,12 +9,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, User } from "lucide-react";
+import { Edit } from "lucide-react";
 
 type Patient = {
   patientid: string;
@@ -140,70 +140,56 @@ export default function PatientsList({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {rows.map((p: Patient) => (
-          <Card 
-            key={p.patientid} 
-            className={`transition-all ${canViewDetails ? "cursor-pointer hover:shadow-md" : ""}`}
-            onClick={() => {
-              if (canViewDetails) {
-                window.location.href = `/d/${workspaceid}/patients/${p.patientid}`;
-              }
-            }}
-            title={canViewDetails ? "Click to view patient details" : "Only doctors and nurses can view patient details"}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <User className="h-5 w-5" />
-                    {p.firstname} {p.middlename ? `${p.middlename} ` : ""}
-                    {p.lastname}
-                  </CardTitle>
-                  {p.nationalid && (
-                    <CardDescription className="mt-1">
-                      ID: {p.nationalid}
-                    </CardDescription>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[250px]">Name</TableHead>
+              <TableHead className="w-[150px]">National ID</TableHead>
+              <TableHead className="w-[150px]">Phone</TableHead>
+              <TableHead className="w-[200px]">Email</TableHead>
+              <TableHead className="w-[150px]">EHR ID</TableHead>
+              <TableHead className="w-[100px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((p: Patient) => (
+              <TableRow 
+                key={p.patientid}
+                className={canViewDetails ? "cursor-pointer hover:bg-muted/50" : ""}
+                onClick={() => {
+                  if (canViewDetails) {
+                    window.location.href = `/d/${workspaceid}/patients/${p.patientid}`;
+                  }
+                }}
+                title={canViewDetails ? "Click to view patient details" : "Only doctors and nurses can view patient details"}
+              >
+                <TableCell className="font-medium">
+                  {p.firstname} {p.middlename ? `${p.middlename} ` : ""}
+                  {p.lastname}
+                </TableCell>
+                <TableCell>{p.nationalid || "-"}</TableCell>
+                <TableCell>{p.phone || "-"}</TableCell>
+                <TableCell className="truncate max-w-[200px]">{p.email || "-"}</TableCell>
+                <TableCell>{p.ehrid || "-"}</TableCell>
+                <TableCell>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEdit(p);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   )}
-                </div>
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenEdit(p);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {p.phone && (
-                <div className="text-sm text-muted-foreground">
-                  📞 {p.phone}
-                </div>
-              )}
-              {p.email && (
-                <div className="text-sm text-muted-foreground">
-                  ✉️ {p.email}
-                </div>
-              )}
-              {p.ehrid && (
-                <div className="text-sm text-muted-foreground">
-                  🏥 EHR: {p.ehrid}
-                </div>
-              )}
-              {!p.phone && !p.email && !p.ehrid && (
-                <p className="text-sm text-muted-foreground italic">
-                  No contact details available
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Edit Patient Dialog */}
