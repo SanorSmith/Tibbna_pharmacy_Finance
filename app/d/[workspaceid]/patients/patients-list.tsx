@@ -9,11 +9,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit } from "lucide-react";
+import { Edit, User } from "lucide-react";
 
 type Patient = {
   patientid: string;
@@ -139,47 +140,71 @@ export default function PatientsList({
 
   return (
     <>
-      <ul className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rows.map((p: Patient) => (
-          <li 
+          <Card 
             key={p.patientid} 
-            className="border rounded-md p-3 transition-colors flex items-start justify-between gap-2"
+            className={`transition-all ${canViewDetails ? "cursor-pointer hover:shadow-md" : ""}`}
+            onClick={() => {
+              if (canViewDetails) {
+                window.location.href = `/d/${workspaceid}/patients/${p.patientid}`;
+              }
+            }}
+            title={canViewDetails ? "Click to view patient details" : "Only doctors and nurses can view patient details"}
           >
-            <div 
-              className={`flex-1 ${canViewDetails ? "cursor-pointer hover:opacity-80" : ""}`}
-              onClick={() => {
-                if (canViewDetails) {
-                  window.location.href = `/d/${workspaceid}/patients/${p.patientid}`;
-                }
-              }}
-              title={canViewDetails ? "Click to view patient details" : "Only doctors and nurses can view patient details"}
-            >
-              <div className="font-medium">
-                {p.firstname} {p.middlename ? `${p.middlename} ` : ""}
-                {p.lastname}
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <User className="h-5 w-5" />
+                    {p.firstname} {p.middlename ? `${p.middlename} ` : ""}
+                    {p.lastname}
+                  </CardTitle>
+                  {p.nationalid && (
+                    <CardDescription className="mt-1">
+                      ID: {p.nationalid}
+                    </CardDescription>
+                  )}
+                </div>
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenEdit(p);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {p.nationalid ? `ID: ${p.nationalid} • ` : ""}
-                {p.phone ? `Phone: ${p.phone} • ` : ""}
-                {p.email ? `Email: ${p.email}` : ""}
-                {p.ehrid ? ` • EHR: ${p.ehrid}` : ""}
-              </div>
-            </div>
-            {canEdit && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenEdit(p);
-                }}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
-          </li>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {p.phone && (
+                <div className="text-sm text-muted-foreground">
+                  📞 {p.phone}
+                </div>
+              )}
+              {p.email && (
+                <div className="text-sm text-muted-foreground">
+                  ✉️ {p.email}
+                </div>
+              )}
+              {p.ehrid && (
+                <div className="text-sm text-muted-foreground">
+                  🏥 EHR: {p.ehrid}
+                </div>
+              )}
+              {!p.phone && !p.email && !p.ehrid && (
+                <p className="text-sm text-muted-foreground italic">
+                  No contact details available
+                </p>
+              )}
+            </CardContent>
+          </Card>
         ))}
-      </ul>
+      </div>
 
       {/* Edit Patient Dialog */}
       {editingPatient && (

@@ -7,11 +7,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Plus } from "lucide-react";
+import { Edit, Plus, UserCheck } from "lucide-react";
 
 type Staff = {
   staffid: string;
@@ -184,33 +185,62 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No staff found.</p>
       ) : (
-        <ul className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {rows.map((s: Staff) => (
-            <li key={s.staffid} className="border rounded-md p-3 flex items-start justify-between gap-2">
-              <div className="flex-1">
-                <div className="font-medium">
-                  {s.firstname} {s.middlename ? `${s.middlename} ` : ""}
-                  {s.lastname} — <span className="uppercase text-xs">{s.role}</span>
+            <Card key={s.staffid} className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <UserCheck className="h-5 w-5" />
+                      {s.firstname} {s.middlename ? `${s.middlename} ` : ""}
+                      {s.lastname}
+                    </CardTitle>
+                    <CardDescription className="mt-1 uppercase text-xs font-semibold">
+                      {s.role.replace('_', ' ')}
+                    </CardDescription>
+                  </div>
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenEdit(s)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {s.unit ? `Unit: ${s.unit} • ` : ""}
-                  {s.specialty ? `Specialty: ${s.specialty} • ` : ""}
-                  {s.phone ? `Phone: ${s.phone} • ` : ""}
-                  {s.email ? `Email: ${s.email}` : ""}
-                </div>
-              </div>
-              {isAdmin && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenEdit(s)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-              )}
-            </li>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {s.unit && (
+                  <div className="text-sm text-muted-foreground">
+                    🏥 {s.unit}
+                  </div>
+                )}
+                {s.specialty && (
+                  <div className="text-sm text-muted-foreground">
+                    🩺 {s.specialty}
+                  </div>
+                )}
+                {s.phone && (
+                  <div className="text-sm text-muted-foreground">
+                    📞 {s.phone}
+                  </div>
+                )}
+                {s.email && (
+                  <div className="text-sm text-muted-foreground">
+                    ✉️ {s.email}
+                  </div>
+                )}
+                {!s.unit && !s.specialty && !s.phone && !s.email && (
+                  <p className="text-sm text-muted-foreground italic">
+                    No additional details available
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           ))}
-        </ul>
+        </div>
       )}
 
       {/* Add/Edit Staff Dialog */}
