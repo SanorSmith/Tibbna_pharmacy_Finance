@@ -20,6 +20,7 @@ import {
   BarChart3,
   FileSearch,
   Home,
+  LayoutDashboard,
 } from "lucide-react";
 
 import {
@@ -40,6 +41,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { useWorkspace } from "@/hooks/use-workspace";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useIsGlobalAdmin } from "@/hooks/use-admin";
 
 // Define types for workspace and role combinations
@@ -64,9 +66,24 @@ export function NavMain() {
   const { ttt, ttrisky } = useLanguage();
   const { workspace } = useWorkspace();
   const isGlobalAdmin = useIsGlobalAdmin();
+  const pathname = usePathname();
   const base = workspace?.workspace?.workspaceid
     ? `/d/${workspace.workspace.workspaceid}`
     : "/d";
+
+  // Helper function to check if a menu item is active
+  const isMenuItemActive = (item: MenuItem): boolean => {
+    // Exact match for the main URL
+    if (pathname === item.url) return true;
+    
+    // Check if any sub-item matches
+    if (item.items) {
+      return item.items.some(subItem => pathname === subItem.url || pathname.startsWith(subItem.url + '/'));
+    }
+    
+    // Check if pathname starts with item URL (for nested routes)
+    return pathname.startsWith(item.url + '/');
+  };
 
   // Comprehensive navigation configuration for all workspace + role combinations
   const navigationConfig: NavigationConfig = {
@@ -225,6 +242,11 @@ export function NavMain() {
         },
       ],
       administrator: [
+        {
+          title: ttt("Dashboard"),
+          url: `${base}/dashboard`,
+          icon: LayoutDashboard,
+        },
         {
           title: ttt("Appointments"),
           url: `${base}/schedule`,
@@ -711,6 +733,8 @@ export function NavMain() {
         <SidebarGroupLabel>{ttt("Workspace")}</SidebarGroupLabel>
         <SidebarMenu>
           {navItems.map((item) => {
+            const isActive = isMenuItemActive(item);
+            
             // Items without sub-items - direct links
             if (!item.items || item.items.length === 0) {
               return (
@@ -718,7 +742,7 @@ export function NavMain() {
                   <SidebarMenuButton
                     asChild
                     tooltip={item.title}
-                    isActive={item.isActive}
+                    isActive={isActive}
                   >
                     <Link href={item.url}>
                       {item.icon && <item.icon />}
@@ -734,14 +758,14 @@ export function NavMain() {
               <Collapsible
                 key={item.title}
                 asChild
-                defaultOpen={item.isActive}
+                defaultOpen={isActive}
                 className="group/collapsible"
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       tooltip={item.title}
-                      isActive={item.isActive}
+                      isActive={isActive}
                     >
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
@@ -752,7 +776,10 @@ export function NavMain() {
                     <SidebarMenuSub>
                       {item.items.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton asChild>
+                          <SidebarMenuSubButton 
+                            asChild
+                            isActive={pathname === subItem.url || pathname.startsWith(subItem.url + '/')}
+                          >
                             <Link href={subItem.url}>
                               <span>{subItem.title}</span>
                             </Link>
