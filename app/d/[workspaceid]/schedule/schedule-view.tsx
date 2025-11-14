@@ -2,6 +2,7 @@
  * Client Component: ScheduleView
  * - FullCalendar day/week views with date navigation.
  * - Drag & drop / resize to reschedule appointments.
+ * - Click on appointment to edit details.
  * - No live polling; loads on view/date changes and after edits.
  */
 "use client";
@@ -12,7 +13,8 @@ import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { DateClickArg, EventResizeDoneArg } from "@fullcalendar/interaction";
-import { EventInput } from "@fullcalendar/core";
+import { EventInput, EventClickArg } from "@fullcalendar/core";
+import EditAppointmentDialog from "../appointments/edit-appointment-dialog";
 
 type Appt = {
   appointmentid: string;
@@ -57,6 +59,9 @@ export default function ScheduleView({
   const [pendingEnd, setPendingEnd] = useState<Date | null>(null);
   const [creating, setCreating] = useState(false);
   const [lastRange, setLastRange] = useState<{ start: Date; end: Date } | null>(null);
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appt | null>(null);
   // Booking details
   const departments = [
     "Outpatient Department",
@@ -266,6 +271,33 @@ export default function ScheduleView({
     }
   }
 
+  const handleEventClick = useCallback((info: EventClickArg) => {
+    const appointmentId = info.event.id;
+    const appointment = appts.find(a => a.appointmentid === appointmentId);
+    if (appointment) {
+      setEditingAppointment(appointment);
+      setEditDialogOpen(true);
+    }
+  }, [appts]);
+
+  function handleSaveEdit(updatedAppointment: Appt) {
+    // Update local state with the updated appointment
+    setAppts(prev =>
+      prev.map(apt =>
+        apt.appointmentid === updatedAppointment.appointmentid
+          ? updatedAppointment
+          : apt
+      )
+    );
+  }
+
+  function handleDelete(appointmentId: string) {
+    // Remove appointment from local state
+    setAppts(prev =>
+      prev.filter(apt => apt.appointmentid !== appointmentId)
+    );
+  }
+
   const events = useMemo<EventInput[]>(() => toEvents(appts), [appts, toEvents]);
   const inProgress = useMemo(() => appts.filter((a) => a.status === "in_progress"), [appts]);
   const checkedIn = useMemo(() => appts.filter((a) => a.status === "checked_in"), [appts]);
@@ -286,6 +318,7 @@ export default function ScheduleView({
           eventDrop={handleEventDrop}
           eventResize={handleEventResize}
           dateClick={handleDateClick}
+          eventClick={handleEventClick}
           height="auto"
         />
       </div>
@@ -403,6 +436,17 @@ export default function ScheduleView({
           </div>
         </div>
       )}
+
+      {/* Edit Appointment Dialog */}
+      <EditAppointmentDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        appointment={editingAppointment}
+        workspaceid={workspaceid}
+        onSave={handleSaveEdit}
+        userRole={userRole}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
