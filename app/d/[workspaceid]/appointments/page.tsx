@@ -5,6 +5,9 @@
  */
 import { Header } from "@/components/sidebar/header";
 import AppointmentsList from "./appointments-list";
+import { getUser } from "@/lib/user";
+import { getUserWorkspaces } from "@/lib/db/queries/workspace";
+import { redirect } from "next/navigation";
 
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
@@ -12,6 +15,12 @@ interface PageProps {
 
 export default async function AppointmentsPage({ params }: PageProps) {
   const { workspaceid } = await params;
+  const user = await getUser();
+  if (!user) redirect("/sign-in");
+
+  const uws = await getUserWorkspaces(user.userid);
+  const membership = uws.find((w) => w.workspace.workspaceid === workspaceid);
+  const userRole = membership?.role;
 
   return (
     <>
@@ -26,7 +35,7 @@ export default async function AppointmentsPage({ params }: PageProps) {
           </div>
         </div>
         <div className="bg-background rounded-xl border">
-          <AppointmentsList workspaceid={workspaceid} />
+          <AppointmentsList workspaceid={workspaceid} userRole={userRole} />
         </div>
       </div>
     </>
