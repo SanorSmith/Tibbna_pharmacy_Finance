@@ -1,7 +1,8 @@
 /**
  * API: /api/d/[workspaceid]/patients/[patientid]
+ * - GET: fetch individual patient information
  * - PATCH: update patient information
- * - Role: administrator only
+ * - Role: GET - doctor, nurse, administrator; PATCH - administrator only
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -9,6 +10,41 @@ import { patients } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ workspaceid: string; patientid: string }> },
+) {
+  const { workspaceid, patientid } = await params;
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const uws = await getUserWorkspaces(user.userid);
+  const membership = uws.find((w) => w.workspace.workspaceid === workspaceid);
+  const role = membership?.role;
+  
+  // Allow doctors, nurses, and administrators to view patient data
+  if (role !== "doctor" && role !== "nurse" && role !== "administrator") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(and(eq(patients.workspaceid, workspaceid), eq(patients.patientid, patientid)))
+      .limit(1);
+      
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+    
+    return NextResponse.json({ patient });
+  } catch (e) {
+    console.error("[patients][GET] error:", e);
+    return NextResponse.json({ error: "Failed to fetch patient" }, { status: 500 });
+  }
+}
 
 export async function PATCH(
   req: NextRequest,

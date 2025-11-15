@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -123,9 +124,16 @@ export default function PatientDashboard({
           <h1 className="text-2xl font-bold">{fullName}</h1>
           <p className="text-sm text-muted-foreground">Patient ID: {patient.patientid.slice(0, 8)}...</p>
         </div>
-        <Button variant="outline" onClick={() => router.back()}>
-          ← Back
-        </Button>
+        <div className="flex gap-2">
+          <Link href={`/d/${workspaceid}/patients/${patient.patientid}/overview`}>
+            <Button variant="default">
+              📊 Patient Overview
+            </Button>
+          </Link>
+          <Button variant="outline" onClick={() => router.back()}>
+            ← Back
+          </Button>
+        </div>
       </div>
 
       {/* Patient Contact Information Card */}
