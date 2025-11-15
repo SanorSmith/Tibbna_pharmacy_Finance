@@ -71,6 +71,13 @@
       "when": 1763112465205,
       "tag": "0009_strange_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1763170360598,
+      "tag": "0010_loose_vampiro",
+      "breakpoints": true
     }
   ]
 }
