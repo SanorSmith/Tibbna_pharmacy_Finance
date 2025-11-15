@@ -30,7 +30,7 @@ export default async function SchedulePage({ params }: PageProps) {
       <Header />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">My Schedule</h1>
+          <h1 className="text-xl font-semibold">Appointments</h1>
         </div>
         <div className="bg-muted/50 rounded-xl p-4">
           <ScheduleView workspaceid={workspaceid} userRole={role} />

@@ -96,7 +96,7 @@ export function NavMain() {
           isActive: true,
         },
         {
-          title: ttt("Schedule"),
+          title: "Book Appointment",
           url: `${base}/schedule`,
           icon: Calendar,
         },
@@ -150,7 +150,7 @@ export function NavMain() {
       ],
       nurse: [
         {
-          title: ttt("Schedule"),
+          title: "Book Appointment",
           url: `${base}/schedule`,
           icon: Calendar,
           isActive: true,
@@ -253,7 +253,7 @@ export function NavMain() {
           icon: Calendar,
           isActive: true,
           items: [
-            { title: ttt("Schedule"), url: `${base}/schedule` },
+            { title: "Book Appointment", url: `${base}/schedule` },
             { title: ttt("All Appointments"), url: `${base}/appointments` },
             { title: ttt("Calendar View"), url: `${base}/appointments/calendar` },
           ],
@@ -273,7 +273,7 @@ export function NavMain() {
           icon: UserCheck,
           items: [
             { title: ttt("Staff List"), url: `${base}/staff` },
-            { title: ttt("Schedules"), url: `${base}/staff/schedules` },
+            { title: "Staff Schedules", url: `${base}/staff/schedules` },
             { title: ttt("Roles & Permissions"), url: `${base}/staff/roles` },
           ],
         },
