@@ -9,6 +9,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -84,6 +85,12 @@ export default function ScheduleView({
   type Doctor = { userid: string; name: string | null; email: string | null };
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [doctorid, setDoctorId] = useState<string | undefined>(undefined);
+  // New appointment fields
+  const [appointmentName, setAppointmentName] = useState<"new_patient" | "re_visit" | "follow_up">("new_patient");
+  const [appointmentType, setAppointmentType] = useState<"visiting" | "video_call" | "home_visit">("visiting");
+  const [clinicalIndication, setClinicalIndication] = useState("");
+  const [reasonForRequest, setReasonForRequest] = useState("");
+  const [description, setDescription] = useState("");
 
   const patientsById = useMemo(() => {
     const m = new Map<string, Patient>();
@@ -241,6 +248,11 @@ export default function ScheduleView({
         body: JSON.stringify({
           patientid,
           doctorid,
+          appointmentname: appointmentName,
+          appointmenttype: appointmentType,
+          clinicalindication: clinicalIndication || null,
+          reasonforrequest: reasonForRequest || null,
+          description: description || null,
           starttime: pendingStart.toISOString(),
           endtime: pendingEnd.toISOString(),
           status: "scheduled",
@@ -260,6 +272,11 @@ export default function ScheduleView({
         setSearch("");
         setUnit(undefined);
         setDoctorId(undefined);
+        setAppointmentName("new_patient");
+        setAppointmentType("visiting");
+        setClinicalIndication("");
+        setReasonForRequest("");
+        setDescription("");
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create appointment";
@@ -374,12 +391,13 @@ export default function ScheduleView({
 
       {/* Patient Picker Modal */}
       {pickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-lg w-full max-w-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-semibold">Select patient</h3>
-              <button className="text-sm" onClick={() => setPickerOpen(false)}>Close</button>
+              <button className="text-sm hover:underline" onClick={() => setPickerOpen(false)}>Close</button>
             </div>
+            <div className="overflow-y-auto p-4 flex-1">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -414,24 +432,84 @@ export default function ScheduleView({
                 </SelectContent>
               </Select>
             </div>
-            <div className="max-h-80 overflow-auto divide-y">
-              {filteredPatients.map((p) => (
-                <button
-                  key={p.patientid}
-                  className="w-full text-left p-3 hover:bg-muted/50"
-                  disabled={creating}
-                  onClick={() => createWithPatient(p.patientid)}
-                >
-                  <div className="font-medium">
-                    {p.firstname} {p.middlename ? `${p.middlename} ` : ""}{p.lastname}
-                  </div>
-                  <div className="text-xs text-muted-foreground">{p.email || "No email"} · {p.nationalid || "No ID"}</div>
-                  <div className="text-[10px] text-muted-foreground">{p.patientid}</div>
-                </button>
-              ))}
-              {filteredPatients.length === 0 && (
-                <div className="p-3 text-sm text-muted-foreground">No patients match your search.</div>
-              )}
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Appointment Name</label>
+              <Select value={appointmentName} onValueChange={(value: "new_patient" | "re_visit" | "follow_up") => setAppointmentName(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new_patient">New Patient</SelectItem>
+                  <SelectItem value="re_visit">Re-visit Patient</SelectItem>
+                  <SelectItem value="follow_up">Follow Up</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Appointment Type</label>
+              <Select value={appointmentType} onValueChange={(value: "visiting" | "video_call" | "home_visit") => setAppointmentType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="visiting">Visiting (In-Person)</SelectItem>
+                  <SelectItem value="video_call">Video Call</SelectItem>
+                  <SelectItem value="home_visit">Home Visit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Clinical Indication</label>
+              <Textarea
+                placeholder="Enter clinical indication..."
+                value={clinicalIndication}
+                onChange={(e) => setClinicalIndication(e.target.value)}
+                rows={2}
+                className="bg-transparent"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Reason for Request</label>
+              <Textarea
+                placeholder="Enter reason for appointment request..."
+                value={reasonForRequest}
+                onChange={(e) => setReasonForRequest(e.target.value)}
+                rows={2}
+                className="bg-transparent"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Description</label>
+              <Textarea
+                placeholder="Additional notes or description..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="bg-transparent"
+              />
+            </div>
+            <div className="border-t pt-3 mt-3">
+              <h4 className="text-sm font-medium mb-2">Select Patient:</h4>
+              <div className="max-h-60 overflow-auto divide-y border rounded">
+                {filteredPatients.map((p) => (
+                  <button
+                    key={p.patientid}
+                    className="w-full text-left p-3 hover:bg-muted/50"
+                    disabled={creating}
+                    onClick={() => createWithPatient(p.patientid)}
+                  >
+                    <div className="font-medium">
+                      {p.firstname} {p.middlename ? `${p.middlename} ` : ""}{p.lastname}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{p.email || "No email"} · {p.nationalid || "No ID"}</div>
+                    <div className="text-[10px] text-muted-foreground">{p.patientid}</div>
+                  </button>
+                ))}
+                {filteredPatients.length === 0 && (
+                  <div className="p-3 text-sm text-muted-foreground">No patients match your search.</div>
+                )}
+              </div>
+            </div>
             </div>
           </div>
         </div>
