@@ -21,6 +21,7 @@ import {
   FileSearch,
   Home,
   LayoutDashboard,
+  Scissors,
 } from "lucide-react";
 
 import {
@@ -99,6 +100,11 @@ export function NavMain() {
           title: "Book Appointment",
           url: `${base}/schedule`,
           icon: Calendar,
+        },
+        {
+          title: "Operative Procedures",
+          url: `${base}/operations`,
+          icon: Scissors,
         },
         {
           title: ttt("Patients"),
@@ -257,6 +263,11 @@ export function NavMain() {
             { title: ttt("All Appointments"), url: `${base}/appointments` },
             { title: ttt("Calendar View"), url: `${base}/appointments/calendar` },
           ],
+        },
+        {
+          title: "Operative Procedures",
+          url: `${base}/operations`,
+          icon: Scissors,
         },
         {
           title: ttt("Patients"),
