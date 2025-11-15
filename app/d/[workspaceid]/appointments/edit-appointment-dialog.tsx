@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 
@@ -26,6 +27,11 @@ type Appointment = {
   appointmentid: string;
   patientid: string;
   doctorid: string;
+  appointmentname?: "new_patient" | "re_visit" | "follow_up";
+  appointmenttype?: "visiting" | "video_call" | "home_visit";
+  clinicalindication?: string | null;
+  reasonforrequest?: string | null;
+  description?: string | null;
   starttime: string;
   endtime: string;
   location?: string | null;
@@ -96,6 +102,11 @@ export default function EditAppointmentDialog({
   // Form fields
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [appointmentName, setAppointmentName] = useState<"new_patient" | "re_visit" | "follow_up">("new_patient");
+  const [appointmentType, setAppointmentType] = useState<"visiting" | "video_call" | "home_visit">("visiting");
+  const [clinicalIndication, setClinicalIndication] = useState("");
+  const [reasonForRequest, setReasonForRequest] = useState("");
+  const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -142,6 +153,11 @@ export default function EditAppointmentDialog({
 
     setSelectedPatientId(appointment.patientid);
     setSelectedDoctorId(appointment.doctorid);
+    setAppointmentName(appointment.appointmentname || "new_patient");
+    setAppointmentType(appointment.appointmenttype || "visiting");
+    setClinicalIndication(appointment.clinicalindication || "");
+    setReasonForRequest(appointment.reasonforrequest || "");
+    setDescription(appointment.description || "");
     setStartDate(format(start, "yyyy-MM-dd"));
     setStartTime(format(start, "HH:mm"));
     setEndTime(format(end, "HH:mm"));
@@ -196,6 +212,11 @@ export default function EditAppointmentDialog({
       const payload = {
         patientid: selectedPatientId,
         doctorid: selectedDoctorId,
+        appointmentname: appointmentName,
+        appointmenttype: appointmentType,
+        clinicalindication: clinicalIndication || null,
+        reasonforrequest: reasonForRequest || null,
+        description: description || null,
         starttime: startDateTime.toISOString(),
         endtime: endDateTime.toISOString(),
         unit: unit || null,
@@ -288,6 +309,72 @@ export default function EditAppointmentDialog({
                   <p className="text-xs text-muted-foreground">Doctor cannot be changed</p>
                 </>
               )}
+            </div>
+
+            {/* Appointment Name */}
+            <div className="space-y-2">
+              <Label htmlFor="appointmentname">Appointment Name</Label>
+              <Select value={appointmentName} onValueChange={(value: "new_patient" | "re_visit" | "follow_up") => setAppointmentName(value)}>
+                <SelectTrigger id="appointmentname">
+                  <SelectValue placeholder="Select appointment type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new_patient">New Patient</SelectItem>
+                  <SelectItem value="re_visit">Re-visit Patient</SelectItem>
+                  <SelectItem value="follow_up">Follow Up</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Appointment Type */}
+            <div className="space-y-2">
+              <Label htmlFor="appointmenttype">Appointment Type</Label>
+              <Select value={appointmentType} onValueChange={(value: "visiting" | "video_call" | "home_visit") => setAppointmentType(value)}>
+                <SelectTrigger id="appointmenttype">
+                  <SelectValue placeholder="Select visit type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="visiting">Visiting (In-Person)</SelectItem>
+                  <SelectItem value="video_call">Video Call</SelectItem>
+                  <SelectItem value="home_visit">Home Visit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Clinical Indication */}
+            <div className="space-y-2">
+              <Label htmlFor="clinicalindication">Clinical Indication</Label>
+              <Textarea
+                id="clinicalindication"
+                placeholder="Enter clinical indication..."
+                value={clinicalIndication}
+                onChange={(e) => setClinicalIndication(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Reason for Request */}
+            <div className="space-y-2">
+              <Label htmlFor="reasonforrequest">Reason for Request</Label>
+              <Textarea
+                id="reasonforrequest"
+                placeholder="Enter reason for appointment request..."
+                value={reasonForRequest}
+                onChange={(e) => setReasonForRequest(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Additional notes or description..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
             </div>
 
             {/* Date */}
