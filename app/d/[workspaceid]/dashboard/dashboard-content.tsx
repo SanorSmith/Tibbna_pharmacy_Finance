@@ -1,10 +1,10 @@
 /**
  * Client Component: DashboardContent
- * - Displays statistics cards and quick actions
+ * - Displays overview statistics for the administrator dashboard
  * - Fetches data from various endpoints
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -35,10 +35,15 @@ type DashboardStats = {
 export default function DashboardContent({ workspaceid }: { workspaceid: string }) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate fetches
+    if (hasFetched.current) return;
+    
     async function fetchStats() {
       try {
+        hasFetched.current = true;
         // Fetch all data in parallel
         const [patientsRes, staffRes, appointmentsRes, departmentsRes, labsRes, pharmaciesRes] = await Promise.all([
           fetch(`/api/d/${workspaceid}/patients`),

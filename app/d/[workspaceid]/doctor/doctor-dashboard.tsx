@@ -8,7 +8,7 @@
  * - Updates notes via PATCH /api/d/[workspaceid]/appointments/[id]
  */
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +77,7 @@ export default function DoctorDashboard({
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [noteText, setNoteText] = useState("");
   const [addingNote, setAddingNote] = useState<string | null>(null);
+  const lastLoadedParams = useRef<string | null>(null);
 
   const patientsById = useMemo(() => {
     const map = new Map<string, Patient>();
@@ -85,6 +86,15 @@ export default function DoctorDashboard({
   }, [patients]);
 
   useEffect(() => {
+    // Create unique key for current params
+    const paramsKey = `${selectedDate}-${workspaceid}-${doctorid}`;
+    
+    // Skip if we've already loaded this combination
+    if (lastLoadedParams.current === paramsKey) {
+      return;
+    }
+    
+    lastLoadedParams.current = paramsKey;
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, workspaceid, doctorid]);

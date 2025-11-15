@@ -6,7 +6,7 @@
  * - No live polling; loads on view/date changes and after edits.
  */
 "use client";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,8 @@ export default function ScheduleView({
   const [pendingEnd, setPendingEnd] = useState<Date | null>(null);
   const [creating, setCreating] = useState(false);
   const [lastRange, setLastRange] = useState<{ start: Date; end: Date } | null>(null);
+  // Ref to prevent duplicate API calls for the same range
+  const lastLoadedRangeRef = useRef<string | null>(null);
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appt | null>(null);
@@ -118,6 +120,16 @@ export default function ScheduleView({
 
   const loadRange = useCallback(
     async (start: Date, end: Date) => {
+      // Create a unique key for this range to prevent duplicate calls
+      const rangeKey = `${start.toISOString()}-${end.toISOString()}`;
+      
+      // Skip if we've already loaded this exact range
+      if (lastLoadedRangeRef.current === rangeKey) {
+        return;
+      }
+      
+      lastLoadedRangeRef.current = rangeKey;
+      
       try {
         setError(null);
         const url = `/api/d/${workspaceid}/appointments?from=${encodeURIComponent(start.toISOString())}&to=${encodeURIComponent(end.toISOString())}`;

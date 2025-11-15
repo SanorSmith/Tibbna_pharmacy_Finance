@@ -4,7 +4,7 @@
  * - Shows patient info, doctor, time, status, and location
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -55,10 +55,15 @@ export default function AppointmentsList({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate fetches
+    if (hasFetched.current) return;
+    
     async function fetchAppointments() {
       try {
+        hasFetched.current = true;
         // Fetch appointments for a wide date range (last 3 months to next 3 months)
         const now = new Date();
         const from = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
@@ -74,6 +79,7 @@ export default function AppointmentsList({
       } catch (err) {
         console.error("Error fetching appointments:", err);
         setError(err instanceof Error ? err.message : "Failed to load appointments");
+        hasFetched.current = false; // Allow retry on error
       } finally {
         setLoading(false);
       }
