@@ -16,6 +16,18 @@ export const appointmentStatusEnum = pgEnum("appointment_status", [
   "cancelled",
 ]);
 
+export const appointmentNameEnum = pgEnum("appointment_name", [
+  "new_patient",
+  "re_visit",
+  "follow_up",
+]);
+
+export const appointmentTypeEnum = pgEnum("appointment_type", [
+  "visiting",
+  "video_call",
+  "home_visit",
+]);
+
 export const appointments = pgTable("appointments", {
   appointmentid: uuid("appointmentid").primaryKey().defaultRandom(),
   workspaceid: uuid("workspaceid")
@@ -27,6 +39,11 @@ export const appointments = pgTable("appointments", {
   doctorid: uuid("doctorid")
     .notNull()
     .references(() => users.userid, { onDelete: "cascade" }),
+  appointmentname: appointmentNameEnum("appointmentname").notNull().default("new_patient"),
+  appointmenttype: appointmentTypeEnum("appointmenttype").notNull().default("visiting"),
+  clinicalindication: text("clinicalindication"),
+  reasonforrequest: text("reasonforrequest"),
+  description: text("description"),
   starttime: timestamp("starttime", { withTimezone: true }).notNull(),
   endtime: timestamp("endtime", { withTimezone: true }).notNull(),
   location: text("location"),
