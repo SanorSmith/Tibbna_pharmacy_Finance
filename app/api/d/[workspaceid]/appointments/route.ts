@@ -70,6 +70,9 @@ type AppointmentStatus =
   | "completed"
   | "cancelled";
 
+type AppointmentName = "new_patient" | "re_visit" | "follow_up";
+type AppointmentType = "visiting" | "video_call" | "home_visit";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ workspaceid: string }> },
@@ -91,7 +94,12 @@ export async function POST(
     const values = {
       workspaceid,
       patientid: String(body.patientid),
-      doctorid: String(body.doctorid || user.userid),
+      doctorid: String(body.doctorid || user.userid), // Auto-fill with current user if doctor
+      appointmentname: (body.appointmentname || "new_patient") as AppointmentName,
+      appointmenttype: (body.appointmenttype || "visiting") as AppointmentType,
+      clinicalindication: body.clinicalindication ?? null,
+      reasonforrequest: body.reasonforrequest ?? null,
+      description: body.description ?? null,
       starttime: new Date(String(body.starttime)),
       endtime: new Date(String(body.endtime)),
       location: body.location ?? null,
@@ -101,7 +109,7 @@ export async function POST(
         ...(body.notes ?? {}),
         ...(body.patientname ? { patientname: String(body.patientname) } : {}),
       },
-    } as const;
+    };
 
     const [row] = await db.insert(appointments).values(values).returning();
     return NextResponse.json({ appointment: row }, { status: 201 });

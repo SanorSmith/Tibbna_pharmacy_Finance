@@ -32,6 +32,11 @@ export async function PATCH(
   if (body.starttime) payload.starttime = new Date(String(body.starttime));
   if (body.endtime) payload.endtime = new Date(String(body.endtime));
   if (body.status) payload.status = String(body.status);
+  if (body.appointmentname) payload.appointmentname = String(body.appointmentname);
+  if (body.appointmenttype) payload.appointmenttype = String(body.appointmenttype);
+  if ("clinicalindication" in body) payload.clinicalindication = body.clinicalindication ?? null;
+  if ("reasonforrequest" in body) payload.reasonforrequest = body.reasonforrequest ?? null;
+  if ("description" in body) payload.description = body.description ?? null;
   if ("location" in body) payload.location = body.location ?? null;
   if ("notes" in body) payload.notes = body.notes ?? {};
   if ("unit" in body) payload.unit = body.unit ?? null;
