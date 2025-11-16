@@ -55,7 +55,6 @@ export default async function PatientPage({ params }: PageProps) {
         <PatientDashboard 
           workspaceid={workspaceid} 
           patient={patient}
-          userRole={membership.role}
         />
       </div>
     </>

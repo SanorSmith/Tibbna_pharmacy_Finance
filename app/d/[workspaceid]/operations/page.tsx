@@ -34,7 +34,7 @@ export default async function OperationsPage({ params }: PageProps) {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Operative Procedures</h1>
         </div>
-        <OperationsList workspaceid={workspaceid} userRole={role} userId={user.userid} />
+        <OperationsList workspaceid={workspaceid} userId={user.userid} />
       </div>
     </>
   );
