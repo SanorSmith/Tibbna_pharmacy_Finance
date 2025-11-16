@@ -19,6 +19,9 @@ import {
   Settings,
   BarChart3,
   FileSearch,
+  Home,
+  LayoutDashboard,
+  Scissors,
 } from "lucide-react";
 
 import {
@@ -39,6 +42,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { useWorkspace } from "@/hooks/use-workspace";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 // Define types for workspace and role combinations
 type WorkspaceType = "hospital" | "laboratory" | "pharmacy";
@@ -61,25 +65,52 @@ type NavigationConfig = {
 export function NavMain() {
   const { ttt } = useLanguage();
   const { workspace } = useWorkspace();
+  const pathname = usePathname();
+  const base = workspace?.workspace?.workspaceid
+    ? `/d/${workspace.workspace.workspaceid}`
+    : "/d";
+
+  // Helper function to check if a menu item is active
+  const isMenuItemActive = (item: MenuItem): boolean => {
+    // Exact match for the main URL
+    if (pathname === item.url) return true;
+    
+    // Check if any sub-item matches
+    if (item.items) {
+      return item.items.some(subItem => pathname === subItem.url || pathname.startsWith(subItem.url + '/'));
+    }
+    
+    // Check if pathname starts with item URL (for nested routes)
+    return pathname.startsWith(item.url + '/');
+  };
 
   // Comprehensive navigation configuration for all workspace + role combinations
   const navigationConfig: NavigationConfig = {
     hospital: {
       doctor: [
         {
-          title: ttt("Schedule"),
-          url: "/d/schedule",
-          icon: Calendar,
+          title: ttt("Dashboard"),
+          url: `${base}/doctor`,
+          icon: Home,
           isActive: true,
         },
         {
+          title: "Book Appointment",
+          url: `${base}/schedule`,
+          icon: Calendar,
+        },
+        {
+          title: "Operative Procedures",
+          url: `${base}/operations`,
+          icon: Scissors,
+        },
+        {
           title: ttt("Patients"),
-          url: "/d/patients",
+          url: `${base}/patients`,
           icon: Users,
           items: [
-            { title: ttt("Patient List"), url: "/d/patients" },
-            { title: ttt("New Patient"), url: "/d/patients/new" },
-            { title: ttt("Search Patient"), url: "/d/patients/search" },
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            { title: ttt("Search Patient"), url: `${base}/patients/search` },
           ],
         },
         {
@@ -123,19 +154,19 @@ export function NavMain() {
       ],
       nurse: [
         {
-          title: ttt("Schedule"),
-          url: "/d/schedule",
+          title: "Book Appointment",
+          url: `${base}/schedule`,
           icon: Calendar,
           isActive: true,
         },
         {
           title: ttt("Patients"),
-          url: "/d/patients",
+          url: `${base}/patients`,
           icon: Users,
           items: [
-            { title: ttt("Patient List"), url: "/d/patients" },
-            { title: ttt("Vital Signs"), url: "/d/patients/vitals" },
-            { title: ttt("Medication Admin"), url: "/d/patients/medications" },
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            { title: ttt("Vital Signs"), url: `${base}/patients/vitals` },
+            { title: ttt("Medication Admin"), url: `${base}/patients/medications` },
           ],
         },
         {
@@ -181,12 +212,11 @@ export function NavMain() {
         },
         {
           title: ttt("Patients"),
-          url: "/d/patients",
+          url: `${base}/patients`,
           icon: Users,
           items: [
-            { title: ttt("Patient Registration"), url: "/d/patients/register" },
-            { title: ttt("Patient List"), url: "/d/patients" },
-            { title: ttt("Check-in"), url: "/d/patients/checkin" },
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            { title: ttt("Check-in"), url: `${base}/patients/checkin` },
           ],
         },
         {
@@ -218,46 +248,89 @@ export function NavMain() {
       administrator: [
         {
           title: ttt("Dashboard"),
-          url: "/d/dashboard",
-          icon: BarChart3,
+          url: `${base}/dashboard`,
+          icon: LayoutDashboard,
+        },
+        {
+          title: ttt("Appointments"),
+          url: `${base}/schedule`,
+          icon: Calendar,
           isActive: true,
+          items: [
+            { title: "Book Appointment", url: `${base}/schedule` },
+            { title: ttt("All Appointments"), url: `${base}/appointments` },
+            { title: ttt("Calendar View"), url: `${base}/appointments/calendar` },
+          ],
+        },
+        {
+          title: "Operative Procedures",
+          url: `${base}/operations`,
+          icon: Scissors,
+        },
+        {
+          title: ttt("Patients"),
+          url: `${base}/patients`,
+          icon: Users,
+          items: [
+            { title: ttt("Patient List"), url: `${base}/patients` },
+            { title: ttt("Patient Records"), url: `${base}/patients/records` },
+          ],
         },
         {
           title: ttt("Staff Management"),
-          url: "/d/staff",
+          url: `${base}/staff`,
           icon: UserCheck,
           items: [
-            { title: ttt("Staff List"), url: "/d/staff" },
-            { title: ttt("Schedules"), url: "/d/staff/schedules" },
-            { title: ttt("Roles & Permissions"), url: "/d/staff/roles" },
+            { title: ttt("Staff List"), url: `${base}/staff` },
+            { title: "Staff Schedules", url: `${base}/staff/schedules` },
+            { title: ttt("Roles & Permissions"), url: `${base}/staff/roles` },
           ],
         },
         {
-          title: ttt("Department Management"),
-          url: "/d/departments",
+          title: ttt("Pharmacy"),
+          url: `${base}/pharmacy`,
+          icon: Pill,
+        },
+        {
+          title: ttt("Lab"),
+          url: `${base}/lab`,
+          icon: TestTube,
+        },
+        {
+          title: ttt("Department"),
+          url: `${base}/departments`,
           icon: Heart,
           items: [
-            { title: ttt("Departments"), url: "/d/departments" },
-            { title: ttt("Resources"), url: "/d/departments/resources" },
-            { title: ttt("Capacity Planning"), url: "/d/departments/capacity" },
+            { title: ttt("All Departments"), url: `${base}/departments` },
+            { title: ttt("Resources"), url: `${base}/departments/resources` },
+            { title: ttt("Staff Assignment"), url: `${base}/departments/staff` },
           ],
         },
         {
-          title: ttt("Reports & Analytics"),
-          url: "/d/analytics",
-          icon: BarChart3,
+          title: ttt("Insurance"),
+          url: `${base}/insurance`,
+          icon: ClipboardList,
           items: [
-            {
-              title: ttt("Performance Metrics"),
-              url: "/d/analytics/performance",
-            },
-            { title: ttt("Financial Reports"), url: "/d/analytics/financial" },
-            { title: ttt("Quality Metrics"), url: "/d/analytics/quality" },
+            { title: ttt("Insurance Plans"), url: `${base}/insurance/plans` },
+            { title: ttt("Claims"), url: `${base}/insurance/claims` },
+            { title: ttt("Verification"), url: `${base}/insurance/verification` },
+            { title: ttt("Providers"), url: `${base}/insurance/providers` },
           ],
         },
         {
-          title: ttt("Admin Panel"),
-          url: "/d/admin",
+          title: ttt("Billing"),
+          url: `${base}/billing`,
+          icon: FileText,
+          items: [
+            { title: ttt("Invoices"), url: `${base}/billing/invoices` },
+            { title: ttt("Payments"), url: `${base}/billing/payments` },
+            { title: ttt("Reports"), url: `${base}/billing/reports` },
+            { title: ttt("Outstanding"), url: `${base}/billing/outstanding` },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
           icon: Settings,
         },
       ],
@@ -411,7 +484,7 @@ export function NavMain() {
           url: "/d/staff",
           icon: UserCheck,
           items: [
-            { title: ttt("Staff Management"), url: "/d/staff" },
+            { title: ttt("Staff Management"), url: `${base}/staff` },
             { title: ttt("Shift Scheduling"), url: "/d/staff/shifts" },
             { title: ttt("Competency Tracking"), url: "/d/staff/competency" },
           ],
@@ -661,7 +734,7 @@ export function NavMain() {
     return navigationConfig[workspace.workspace.type][workspace.role] || [];
   };
 
-  const navItems = getNavigationItems();
+  const navItems = [...getNavigationItems()];
 
   return (
     <>
@@ -669,6 +742,8 @@ export function NavMain() {
         <SidebarGroupLabel>{ttt("Workspace")}</SidebarGroupLabel>
         <SidebarMenu>
           {navItems.map((item) => {
+            const isActive = isMenuItemActive(item);
+            
             // Items without sub-items - direct links
             if (!item.items || item.items.length === 0) {
               return (
@@ -676,7 +751,7 @@ export function NavMain() {
                   <SidebarMenuButton
                     asChild
                     tooltip={item.title}
-                    isActive={item.isActive}
+                    isActive={isActive}
                   >
                     <Link href={item.url}>
                       {item.icon && <item.icon />}
@@ -692,14 +767,14 @@ export function NavMain() {
               <Collapsible
                 key={item.title}
                 asChild
-                defaultOpen={item.isActive}
+                defaultOpen={isActive}
                 className="group/collapsible"
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       tooltip={item.title}
-                      isActive={item.isActive}
+                      isActive={isActive}
                     >
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
@@ -710,7 +785,10 @@ export function NavMain() {
                     <SidebarMenuSub>
                       {item.items.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton asChild>
+                          <SidebarMenuSubButton 
+                            asChild
+                            isActive={pathname === subItem.url || pathname.startsWith(subItem.url + '/')}
+                          >
                             <Link href={subItem.url}>
                               <span>{subItem.title}</span>
                             </Link>

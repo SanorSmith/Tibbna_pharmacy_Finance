@@ -1,0 +1,659 @@
+{
+  "id": "5445f133-030f-41ae-889c-f3fbbc05341b",
+  "prevId": "40a32a83-ad88-4677-a79d-210ee9b09e40",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.appointments": {
+      "name": "appointments",
+      "schema": "",
+      "columns": {
+        "appointmentid": {
+          "name": "appointmentid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patientid": {
+          "name": "patientid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "doctorid": {
+          "name": "doctorid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "starttime": {
+          "name": "starttime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "endtime": {
+          "name": "endtime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "appointment_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scheduled'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "appointments_workspaceid_workspaces_workspaceid_fk": {
+          "name": "appointments_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "appointments",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointments_patientid_patients_patientid_fk": {
+          "name": "appointments_patientid_patients_patientid_fk",
+          "tableFrom": "appointments",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patientid"
+          ],
+          "columnsTo": [
+            "patientid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointments_doctorid_users_userid_fk": {
+          "name": "appointments_doctorid_users_userid_fk",
+          "tableFrom": "appointments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "doctorid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.patients": {
+      "name": "patients",
+      "schema": "",
+      "columns": {
+        "patientid": {
+          "name": "patientid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "firstname": {
+          "name": "firstname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "middlename": {
+          "name": "middlename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastname": {
+          "name": "lastname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nationalid": {
+          "name": "nationalid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dateofbirth": {
+          "name": "dateofbirth",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ehrid": {
+          "name": "ehrid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medicalhistory": {
+          "name": "medicalhistory",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "patients_workspaceid_workspaces_workspaceid_fk": {
+          "name": "patients_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "patients",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.staff": {
+      "name": "staff",
+      "schema": "",
+      "columns": {
+        "staffid": {
+          "name": "staffid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "firstname": {
+          "name": "firstname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "middlename": {
+          "name": "middlename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastname": {
+          "name": "lastname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "specialty": {
+          "name": "specialty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "staff_workspaceid_workspaces_workspaceid_fk": {
+          "name": "staff_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "staff",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.usersessions": {
+      "name": "usersessions",
+      "schema": "",
+      "columns": {
+        "sessionid": {
+          "name": "sessionid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessiontoken": {
+          "name": "sessiontoken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deviceinfo": {
+          "name": "deviceinfo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ipaddress": {
+          "name": "ipaddress",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "useragent": {
+          "name": "useragent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lastactive": {
+          "name": "lastactive",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expiresat": {
+          "name": "expiresat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "usersessions_userid_users_userid_fk": {
+          "name": "usersessions_userid_users_userid_fk",
+          "tableFrom": "usersessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "usersessions_sessiontoken_unique": {
+          "name": "usersessions_sessiontoken_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "sessiontoken"
+          ]
+        }
+      }
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'system'"
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'en'"
+        },
+        "permissions": {
+          "name": "permissions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      }
+    },
+    "public.workspaces": {
+      "name": "workspaces",
+      "schema": "",
+      "columns": {
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "settings": {
+          "name": "settings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.workspaceusers": {
+      "name": "workspaceusers",
+      "schema": "",
+      "columns": {
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "workspaceuser_workspace_fk": {
+          "name": "workspaceuser_workspace_fk",
+          "tableFrom": "workspaceusers",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspaceuser_user_fk": {
+          "name": "workspaceuser_user_fk",
+          "tableFrom": "workspaceusers",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workspaceusers_workspaceid_userid_pk": {
+          "name": "workspaceusers_workspaceid_userid_pk",
+          "columns": [
+            "workspaceid",
+            "userid"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    }
+  },
+  "enums": {
+    "public.appointment_status": {
+      "name": "appointment_status",
+      "schema": "public",
+      "values": [
+        "scheduled",
+        "checked_in",
+        "in_progress",
+        "completed",
+        "cancelled"
+      ]
+    }
+  },
+  "schemas": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

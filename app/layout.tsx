@@ -82,6 +82,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6/index.global.min.css"
+        />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6/index.global.min.css"
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <SessionProvider>
           <RootProviders>{children}</RootProviders>
