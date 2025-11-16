@@ -21,8 +21,7 @@ import {
   TestTube, 
   Pill, 
   UserCircle,
-  CheckCircle2,
-  XCircle
+  CheckCircle2
 } from "lucide-react";
 
 type Staff = {

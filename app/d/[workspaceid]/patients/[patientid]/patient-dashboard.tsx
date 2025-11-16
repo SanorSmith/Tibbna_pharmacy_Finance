@@ -5,7 +5,7 @@
  * - Based on patient page use case diagram
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ type Patient = {
   firstname: string;
   middlename?: string | null;
   lastname: string;
-  dateofbirth?: Date | null;
+  dateofbirth?: string | null;
   gender?: string | null;
   nationalid?: string | null;
   phone?: string | null;
@@ -43,21 +43,20 @@ type Appointment = {
   status: string;
   location?: string | null;
   unit?: string | null;
-  notes?: any;
+  notes?: string | null;
 };
 
 export default function PatientDashboard({
   workspaceid,
   patient,
-  userRole,
 }: {
   workspaceid: string;
   patient: Patient;
-  userRole?: string;
 }) {
   const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [selectedTest, setSelectedTest] = useState<any>(null);
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [showDiagnosisForm, setShowDiagnosisForm] = useState(false);
@@ -79,11 +78,7 @@ export default function PatientDashboard({
     ? Math.floor((new Date().getTime() - new Date(patient.dateofbirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
 
-  useEffect(() => {
-    loadAppointments();
-  }, []);
-
-  async function loadAppointments() {
+  const loadAppointments = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(
@@ -100,12 +95,12 @@ export default function PatientDashboard({
     } finally {
       setLoading(false);
     }
-  }
+  }, [workspaceid, patient.patientid]);
 
-  function formatDate(date: Date | string | null) {
-    if (!date) return "N/A";
-    return new Date(date).toLocaleDateString();
-  }
+  useEffect(() => {
+    loadAppointments();
+  }, [loadAppointments]);
+
 
   function formatDateTime(date: string) {
     return new Date(date).toLocaleString([], {

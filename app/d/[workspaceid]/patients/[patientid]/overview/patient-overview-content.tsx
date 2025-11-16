@@ -19,9 +19,7 @@ import {
   Pill, 
   Stethoscope,
   Bell,
-  Clock,
-  TrendingUp,
-  FileText
+  Clock
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import Link from "next/link";
@@ -76,11 +74,9 @@ type DoctorNote = {
 export default function PatientOverviewContent({
   workspaceid,
   patientid,
-  userRole,
 }: {
   workspaceid: string;
   patientid: string;
-  userRole?: string;
 }) {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -285,7 +281,7 @@ export default function PatientOverviewContent({
             <CardHeader>
               <CardTitle>Visit History</CardTitle>
               <CardDescription>
-                Patient's visit records and diagnoses
+                Patient&apos;s visit records and diagnoses
               </CardDescription>
             </CardHeader>
             <CardContent>

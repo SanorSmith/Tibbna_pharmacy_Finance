@@ -4,10 +4,10 @@
  * - Route: /d/[workspaceid]/pharmacy
  */
 "use client";
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,22 +53,22 @@ export default function PharmaciesPage({
   const [deleting, setDeleting] = useState(false);
 
   // Fetch pharmacies
-  useEffect(() => {
-    fetchPharmacies();
-  }, [workspaceid]);
-
-  async function fetchPharmacies() {
+  const fetchPharmacies = useCallback(async () => {
     try {
       const res = await fetch(`/api/d/${workspaceid}/pharmacies`);
       if (!res.ok) throw new Error("Failed to fetch pharmacies");
       const data = await res.json();
       setPharmacies(data.pharmacies || []);
-    } catch (err) {
-      console.error("Error fetching pharmacies:", err);
+    } catch (error) {
+      console.error("Error fetching pharmacies:", error);
     } finally {
       setLoading(false);
     }
-  }
+  }, [workspaceid]);
+
+  useEffect(() => {
+    fetchPharmacies();
+  }, [fetchPharmacies]);
 
   function handleOpenAdd() {
     setEditingPharmacy(null);
@@ -346,7 +346,7 @@ export default function PharmaciesPage({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Pharmacy</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete "{pharmacyToDelete?.name}"? This action cannot be undone.
+                Are you sure you want to delete &quot;{pharmacyToDelete?.name}&quot;? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

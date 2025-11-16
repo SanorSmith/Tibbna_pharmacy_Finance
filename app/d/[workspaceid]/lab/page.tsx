@@ -4,10 +4,10 @@
  * - Route: /d/[workspaceid]/lab
  */
 "use client";
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,22 +53,22 @@ export default function LabsPage({
   const [deleting, setDeleting] = useState(false);
 
   // Fetch labs
-  useEffect(() => {
-    fetchLabs();
-  }, [workspaceid]);
-
-  async function fetchLabs() {
+  const fetchLabs = useCallback(async () => {
     try {
       const res = await fetch(`/api/d/${workspaceid}/labs`);
       if (!res.ok) throw new Error("Failed to fetch labs");
       const data = await res.json();
       setLabs(data.labs || []);
-    } catch (err) {
-      console.error("Error fetching labs:", err);
+    } catch (error) {
+      console.error("Error fetching labs:", error);
     } finally {
       setLoading(false);
     }
-  }
+  }, [workspaceid]);
+
+  useEffect(() => {
+    fetchLabs();
+  }, [fetchLabs]);
 
   function handleOpenAdd() {
     setEditingLab(null);
@@ -346,7 +346,7 @@ export default function LabsPage({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Lab</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete "{labToDelete?.name}"? This action cannot be undone.
+                Are you sure you want to delete &quot;{labToDelete?.name}&quot;? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

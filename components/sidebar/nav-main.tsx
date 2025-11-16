@@ -43,7 +43,6 @@ import { useLanguage } from "@/hooks/use-language";
 import { useWorkspace } from "@/hooks/use-workspace";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useIsGlobalAdmin } from "@/hooks/use-admin";
 
 // Define types for workspace and role combinations
 type WorkspaceType = "hospital" | "laboratory" | "pharmacy";
@@ -64,9 +63,8 @@ type NavigationConfig = {
 };
 
 export function NavMain() {
-  const { ttt, ttrisky } = useLanguage();
+  const { ttt } = useLanguage();
   const { workspace } = useWorkspace();
-  const isGlobalAdmin = useIsGlobalAdmin();
   const pathname = usePathname();
   const base = workspace?.workspace?.workspaceid
     ? `/d/${workspace.workspace.workspaceid}`

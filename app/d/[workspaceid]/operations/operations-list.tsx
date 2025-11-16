@@ -69,11 +69,9 @@ const typeConfig = {
 
 export default function OperationsList({
   workspaceid,
-  userRole,
   userId,
 }: {
   workspaceid: string;
-  userRole?: string;
   userId: string;
 }) {
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -250,7 +248,7 @@ export default function OperationsList({
               {/* Operation Type */}
               <div className="space-y-2">
                 <Label htmlFor="operationtype">Operation Type</Label>
-                <Select value={operationType} onValueChange={(v: any) => setOperationType(v)}>
+                <Select value={operationType} onValueChange={(v) => setOperationType(v as "emergency" | "elective" | "urgent")}>
                   <SelectTrigger id="operationtype">
                     <SelectValue />
                   </SelectTrigger>
@@ -368,7 +366,7 @@ export default function OperationsList({
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Scissors className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No operations scheduled</p>
-            <p className="text-sm text-muted-foreground">Click "Book Operation" to schedule a new procedure</p>
+            <p className="text-sm text-muted-foreground">Click &quot;Book Operation&quot; to schedule a new procedure</p>
           </CardContent>
         </Card>
       ) : (

@@ -69,12 +69,12 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        const todayAppointments = appointments.appointments?.filter((apt: any) => {
+        const todayAppointments = appointments.appointments?.filter((apt: { starttime: string }) => {
           const aptDate = new Date(apt.starttime);
           return aptDate >= today && aptDate < tomorrow;
         }).length || 0;
 
-        const pendingAppointments = appointments.appointments?.filter((apt: any) => 
+        const pendingAppointments = appointments.appointments?.filter((apt: { status: string }) => 
           apt.status === "scheduled"
         ).length || 0;
 
@@ -168,11 +168,11 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
 
       {/* Today's Activity */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Today's Activity</h2>
+        <h2 className="text-xl font-semibold mb-4">Today&apos;s Activity</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Today's Appointments</CardTitle>
+              <CardTitle className="text-sm font-medium">Today&apos;s Appointments</CardTitle>
               <Clock className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
