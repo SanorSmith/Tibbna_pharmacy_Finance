@@ -104,12 +104,81 @@ export default function PatientOverviewContent({
         const patientData = await patientRes.json();
         setPatient(patientData.patient);
 
-        // TODO: Fetch visits, lab results, pharmacy notes, doctor notes
-        // For now, using mock data structure
-        setVisits([]);
-        setLabResults([]);
-        setPharmacyNotes([]);
-        setDoctorNotes([]);
+        // TODO: Replace with real API calls for visits, lab results, pharmacy notes, doctor notes
+        // For now, use realistic example data so the overview is populated.
+        const today = new Date();
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(today.getDate() - 14);
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(today.getMonth() - 3);
+
+        setVisits([
+          {
+            visitid: "demo-visit-1",
+            visitdate: today.toISOString(),
+            reason: "Follow-up for hyperlipidaemia and prediabetes",
+            diagnosis: "Hyperlipidaemia, Prediabetes",
+            notes: "Reviewed lifestyle changes, adjusted statin dose, ordered fasting lipid profile.",
+          },
+          {
+            visitid: "demo-visit-2",
+            visitdate: threeMonthsAgo.toISOString(),
+            reason: "Initial assessment",
+            diagnosis: "Overweight, family history of CAD",
+            notes: "Baseline workup requested including CBC, ESR, lipid profile, fasting glucose.",
+          },
+        ]);
+
+        setLabResults([
+          {
+            labresultid: "demo-lab-1",
+            testname: "Fasting Lipid Profile",
+            result: "LDL 160 mg/dL (High), HDL 38 mg/dL (Low)",
+            status: "acute",
+            resultdate: twoWeeksAgo.toISOString(),
+            notes: "Consider intensifying statin therapy and reinforcing diet/exercise.",
+          },
+          {
+            labresultid: "demo-lab-2",
+            testname: "CBC, ESR",
+            result: "Within normal limits",
+            status: "completed",
+            resultdate: threeMonthsAgo.toISOString(),
+            notes: "No evidence of anaemia or inflammatory process.",
+          },
+        ]);
+
+        setPharmacyNotes([
+          {
+            pharmacynoteid: "demo-pharm-1",
+            medication: "Atorvastatin 20 mg tablet",
+            dosage: "20 mg orally at night",
+            notes: "Patient counselled on adherence and possible myalgia; advised to report symptoms.",
+            prescribeddate: twoWeeksAgo.toISOString(),
+          },
+          {
+            pharmacynoteid: "demo-pharm-2",
+            medication: "Metformin 500 mg tablet",
+            dosage: "500 mg orally twice daily with meals",
+            notes: "Start low and titrate; monitor GI tolerance and fasting glucose.",
+            prescribeddate: threeMonthsAgo.toISOString(),
+          },
+        ]);
+
+        setDoctorNotes([
+          {
+            doctornoteid: "demo-note-1",
+            note: "Patient appears well. Discussed cardiovascular risk factors and agreed on lifestyle goals.",
+            createdby: "Example, MD",
+            createdat: today.toISOString(),
+          },
+          {
+            doctornoteid: "demo-note-2",
+            note: "Family history of premature CAD noted. Baseline labs ordered and follow-up arranged.",
+            createdby: "Example, MD",
+            createdat: threeMonthsAgo.toISOString(),
+          },
+        ]);
         
       } catch (err) {
         console.error("Error fetching patient overview:", err);
@@ -305,6 +374,9 @@ export default function PatientOverviewContent({
                       )}
                     </div>
                   ))}
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Example data for demonstration. Real visit history will appear here once connected to the backend.
+                  </p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -354,6 +426,9 @@ export default function PatientOverviewContent({
                       )}
                     </div>
                   ))}
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Example data for demonstration. Real laboratory results will appear here once connected to the backend.
+                  </p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -388,6 +463,9 @@ export default function PatientOverviewContent({
                       )}
                     </div>
                   ))}
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Example data for demonstration. Real pharmacy notes will appear here once connected to the backend.
+                  </p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -421,6 +499,9 @@ export default function PatientOverviewContent({
                       <div className="text-sm mt-2">{note.note}</div>
                     </div>
                   ))}
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Example data for demonstration. Real doctor notes will appear here once connected to the backend.
+                  </p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
