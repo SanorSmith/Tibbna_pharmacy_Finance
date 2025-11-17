@@ -77,6 +77,7 @@ export default function DoctorDashboard({
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [noteText, setNoteText] = useState("");
   const [addingNote, setAddingNote] = useState<string | null>(null);
+  const [contactSearchQuery, setContactSearchQuery] = useState("");
   const lastLoadedParams = useRef<string | null>(null);
 
   const patientsById = useMemo(() => {
@@ -193,10 +194,34 @@ export default function DoctorDashboard({
     return todayAppointments.filter((a) => a.status === "completed");
   }, [todayAppointments]);
 
-  // Group staff by unit/department
+  // Filter staff based on search query
+  const filteredStaff = useMemo(() => {
+    if (!contactSearchQuery.trim()) {
+      return staff;
+    }
+
+    const query = contactSearchQuery.toLowerCase();
+    return staff.filter((member) => {
+      const fullName = `${member.firstname} ${member.middlename || ""} ${member.lastname}`.toLowerCase();
+      const role = member.role.toLowerCase();
+      const unit = (member.unit || "").toLowerCase();
+      const specialty = (member.specialty || "").toLowerCase();
+      const staffId = member.staffid.toLowerCase();
+
+      return (
+        fullName.includes(query) ||
+        role.includes(query) ||
+        unit.includes(query) ||
+        specialty.includes(query) ||
+        staffId.includes(query)
+      );
+    });
+  }, [staff, contactSearchQuery]);
+
+  // Group filtered staff by unit/department
   const staffByUnit = useMemo(() => {
     const grouped = new Map<string, StaffMember[]>();
-    staff.forEach((member) => {
+    filteredStaff.forEach((member) => {
       const unit = member.unit || "General";
       if (!grouped.has(unit)) {
         grouped.set(unit, []);
@@ -204,7 +229,7 @@ export default function DoctorDashboard({
       grouped.get(unit)!.push(member);
     });
     return grouped;
-  }, [staff]);
+  }, [filteredStaff]);
 
   function formatTime(isoString: string) {
     return new Date(isoString).toLocaleTimeString([], {
@@ -561,57 +586,126 @@ export default function DoctorDashboard({
         </TabsContent>
 
         <TabsContent value="contacts" className="space-y-4">
+          {/* Search Bar */}
+          <Card className="border-2 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Search Staff Directory</label>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Search by name, role, department, specialty, or ID..."
+                    value={contactSearchQuery}
+                    onChange={(e) => setContactSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    🔍
+                  </span>
+                  {contactSearchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2"
+                      onClick={() => setContactSearchQuery("")}
+                    >
+                      ✕
+                    </Button>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {contactSearchQuery ? (
+                    <span>
+                      Found <strong>{filteredStaff.length}</strong> staff member{filteredStaff.length !== 1 ? "s" : ""}
+                    </span>
+                  ) : (
+                    <span>
+                      Total: <strong>{staff.length}</strong> staff members
+                    </span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Quick Contacts by Role */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-            <Card className="bg-blue-50">
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-2xl mb-1">🏥</div>
-                  <div className="text-sm font-medium">Reception</div>
-                  <div className="text-xs text-muted-foreground">
-                    {staff.filter((s) => s.role === "receptionist").length} staff
+          {!contactSearchQuery && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+              <Card 
+                className="bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors"
+                onClick={() => setContactSearchQuery("receptionist")}
+              >
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <div className="text-2xl mb-1">🏥</div>
+                    <div className="text-sm font-medium">Reception</div>
+                    <div className="text-xs text-muted-foreground">
+                      {staff.filter((s) => s.role === "receptionist").length} staff
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-green-50">
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-2xl mb-1">👨‍⚕️</div>
-                  <div className="text-sm font-medium">Nurses</div>
-                  <div className="text-xs text-muted-foreground">
-                    {staff.filter((s) => s.role === "nurse").length} staff
+                </CardContent>
+              </Card>
+              <Card 
+                className="bg-green-50 cursor-pointer hover:bg-green-100 transition-colors"
+                onClick={() => setContactSearchQuery("nurse")}
+              >
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <div className="text-2xl mb-1">👨‍⚕️</div>
+                    <div className="text-sm font-medium">Nurses</div>
+                    <div className="text-xs text-muted-foreground">
+                      {staff.filter((s) => s.role === "nurse").length} staff
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-purple-50">
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-2xl mb-1">🔬</div>
-                  <div className="text-sm font-medium">Laboratory</div>
-                  <div className="text-xs text-muted-foreground">
-                    {staff.filter((s) => s.role === "lab_technician").length} staff
+                </CardContent>
+              </Card>
+              <Card 
+                className="bg-purple-50 cursor-pointer hover:bg-purple-100 transition-colors"
+                onClick={() => setContactSearchQuery("lab")}
+              >
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <div className="text-2xl mb-1">🔬</div>
+                    <div className="text-sm font-medium">Laboratory</div>
+                    <div className="text-xs text-muted-foreground">
+                      {staff.filter((s) => s.role === "lab_technician").length} staff
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-orange-50">
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-2xl mb-1">💊</div>
-                  <div className="text-sm font-medium">Pharmacy</div>
-                  <div className="text-xs text-muted-foreground">
-                    {staff.filter((s) => s.role === "pharmacist").length} staff
+                </CardContent>
+              </Card>
+              <Card 
+                className="bg-orange-50 cursor-pointer hover:bg-orange-100 transition-colors"
+                onClick={() => setContactSearchQuery("pharmacist")}
+              >
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <div className="text-2xl mb-1">💊</div>
+                    <div className="text-sm font-medium">Pharmacy</div>
+                    <div className="text-xs text-muted-foreground">
+                      {staff.filter((s) => s.role === "pharmacist").length} staff
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Staff by Units/Departments */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Departments & Units</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">
+                {contactSearchQuery ? "Search Results" : "Departments & Units"}
+              </h3>
+              {contactSearchQuery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setContactSearchQuery("")}
+                >
+                  Clear Search
+                </Button>
+              )}
+            </div>
             {staffByUnit.size === 0 ? (
               <p className="text-sm text-muted-foreground">No staff available</p>
             ) : (
@@ -641,6 +735,11 @@ export default function DoctorDashboard({
                                   {member.role.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                                   {member.specialty && ` • ${member.specialty}`}
                                 </div>
+                                {contactSearchQuery && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    ID: {member.staffid.slice(0, 8)}...
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="text-sm text-muted-foreground space-y-1 mt-2">
