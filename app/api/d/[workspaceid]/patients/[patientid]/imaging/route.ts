@@ -62,8 +62,278 @@ interface ImagingResult {
   result_status: string; // preliminary, final, amended
 }
 
-const imagingRequestStore: Record<string, ImagingRequest[]> = {};
-const imagingResultStore: Record<string, ImagingResult[]> = {};
+// Initialize with dummy data for demonstration
+const imagingRequestStore: Record<string, ImagingRequest[]> = {
+  // Sample patient ID with dummy imaging requests
+  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
+    {
+      composition_uid: "imaging-request-1731847200000-xray001",
+      recorded_time: "2024-11-16T09:00:00.000Z",
+      request_name: "Chest X-Ray (PA and Lateral)",
+      description: "Two-view chest radiograph to evaluate respiratory symptoms",
+      clinical_indication: "Patient presents with persistent cough for 3 weeks, fever, and shortness of breath. Rule out pneumonia or other pulmonary pathology.",
+      urgency: "urgent",
+      supporting_doc_image: "",
+      patient_requirement: "Patient can stand for upright films",
+      comment: "Please perform both PA and lateral views. Patient has difficulty taking deep breath.",
+      target_body_site: "Chest",
+      structured_target_body_site: "Thorax",
+      contrast_use: "no",
+      requested_by: "Dr. Sarah Mitchell, MD",
+      request_status: "completed"
+    },
+    {
+      composition_uid: "imaging-request-1731760800000-ct001",
+      recorded_time: "2024-11-15T14:30:00.000Z",
+      request_name: "CT Scan - Abdomen and Pelvis with Contrast",
+      description: "Contrast-enhanced CT of abdomen and pelvis",
+      clinical_indication: "Acute abdominal pain in right lower quadrant for 12 hours. Suspected appendicitis. Elevated WBC count (15,000). Rebound tenderness on examination.",
+      urgency: "emergency",
+      supporting_doc_image: "",
+      patient_requirement: "NPO for 4 hours. IV access established.",
+      comment: "STAT examination requested. Patient in ER. Creatinine normal (0.9 mg/dL). No contrast allergies.",
+      target_body_site: "Abdomen and Pelvis",
+      structured_target_body_site: "Abdominal cavity and pelvic cavity",
+      contrast_use: "yes",
+      requested_by: "Dr. James Rodriguez, MD",
+      request_status: "completed"
+    },
+    {
+      composition_uid: "imaging-request-1731674400000-mri001",
+      recorded_time: "2024-11-14T10:15:00.000Z",
+      request_name: "MRI Brain without Contrast",
+      description: "Non-contrast MRI of brain to evaluate neurological symptoms",
+      clinical_indication: "New onset headaches for 2 months, progressively worsening. Associated with visual disturbances and occasional dizziness. No history of head trauma.",
+      urgency: "routine",
+      supporting_doc_image: "",
+      patient_requirement: "No metallic implants. Patient claustrophobic - may need sedation.",
+      comment: "Patient reports metal allergy, hence no contrast. Consider sedation if needed.",
+      target_body_site: "Brain",
+      structured_target_body_site: "Cerebrum",
+      contrast_use: "no",
+      requested_by: "Dr. Emily Chen, MD",
+      request_status: "in-progress"
+    },
+    {
+      composition_uid: "imaging-request-1731588000000-us001",
+      recorded_time: "2024-11-13T08:45:00.000Z",
+      request_name: "Ultrasound - Thyroid",
+      description: "Thyroid ultrasound with Doppler",
+      clinical_indication: "Palpable thyroid nodule discovered on physical examination. TSH elevated at 8.5 mIU/L. Patient reports difficulty swallowing.",
+      urgency: "routine",
+      supporting_doc_image: "",
+      patient_requirement: "None",
+      comment: "Please evaluate size, characteristics, and vascularity of nodule. Consider FNA if suspicious features.",
+      target_body_site: "Neck - Thyroid gland",
+      structured_target_body_site: "Thyroid gland",
+      contrast_use: "no",
+      requested_by: "Dr. Amanda Foster, MD",
+      request_status: "requested"
+    }
+  ]
+};
+
+const imagingResultStore: Record<string, ImagingResult[]> = {
+  // Sample patient ID with dummy imaging results
+  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
+    {
+      composition_uid: "imaging-result-1731847200000-xray001",
+      recorded_time: "2024-11-16T10:30:00.000Z",
+      request_uid: "imaging-request-1731847200000-xray001",
+      examination_name: "Chest X-Ray (PA and Lateral)",
+      body_structure: "Thorax",
+      body_site: "Chest",
+      structured_body_site: "Thoracic cavity",
+      imaging_findings: `PA and lateral views of the chest were obtained.
+
+LUNGS: There is a focal area of consolidation in the right lower lobe, measuring approximately 4 x 3 cm. The consolidation has air bronchograms within it. No pleural effusion is identified. The left lung is clear.
+
+HEART: Heart size is normal. Cardiomediastinal silhouette is unremarkable.
+
+BONES: No acute osseous abnormality. Degenerative changes noted in the thoracic spine.
+
+SOFT TISSUES: Unremarkable.`,
+      additional_details: "Comparison: No prior chest radiographs available for comparison.\n\nTechnique: PA and lateral chest radiographs obtained in the upright position. Adequate inspiration and penetration.",
+      impression: `1. Right lower lobe pneumonia with air bronchograms.
+2. No pleural effusion or pneumothorax.
+3. Normal cardiac silhouette.
+
+RECOMMENDATION: Clinical correlation recommended. Consider antibiotic therapy. Follow-up chest X-ray in 4-6 weeks to document resolution.`,
+      comment: "Patient tolerated procedure well. Images are of diagnostic quality.",
+      performed_by: "Radiologic Technologist: Mary Johnson, RT(R)",
+      reported_by: "Dr. Robert Anderson, MD - Radiologist",
+      report_date: "2024-11-16T10:30:00.000Z",
+      result_status: "final"
+    },
+    {
+      composition_uid: "imaging-result-1731760800000-ct001",
+      recorded_time: "2024-11-15T15:45:00.000Z",
+      request_uid: "imaging-request-1731760800000-ct001",
+      examination_name: "CT Scan - Abdomen and Pelvis with IV Contrast",
+      body_structure: "Abdomen and Pelvis",
+      body_site: "Abdominal and pelvic cavities",
+      structured_body_site: "Abdominal cavity and pelvic cavity",
+      imaging_findings: `TECHNIQUE: Axial CT images of the abdomen and pelvis were obtained following administration of 100 mL of intravenous Omnipaque 350. Oral contrast was not administered due to emergent nature of examination.
+
+ABDOMEN:
+LIVER: Normal size and attenuation. No focal lesions.
+GALLBLADDER: Unremarkable. No stones or wall thickening.
+PANCREAS: Normal in size and attenuation.
+SPLEEN: Normal size. No focal lesions.
+KIDNEYS: Both kidneys enhance symmetrically. No hydronephrosis or stones.
+ADRENALS: Normal.
+
+APPENDIX: The appendix is dilated, measuring 12 mm in diameter. There is surrounding fat stranding and fluid. An appendicolith is present. The appendiceal wall is thickened and enhances with contrast.
+
+BOWEL: Small and large bowel are unremarkable. No obstruction.
+
+PELVIS:
+BLADDER: Normal. Well-distended.
+UTERUS/OVARIES (if applicable): Not applicable - male patient.
+PROSTATE: Normal size.
+
+LYMPH NODES: No pathologically enlarged lymph nodes.
+
+VESSELS: Aorta and IVC are normal in caliber. No aneurysm.
+
+BONES: No acute fracture or destructive lesion.`,
+      additional_details: `COMPARISON: None available.
+
+CONTRAST: 100 mL Omnipaque 350 IV. Patient tolerated contrast without adverse reaction.
+
+RADIATION DOSE: DLP 850 mGy-cm, CTDIvol 12 mGy`,
+      impression: `1. ACUTE APPENDICITIS with appendicolith and periappendiceal inflammation. Surgical consultation recommended.
+
+2. No evidence of perforation or abscess formation at this time.
+
+3. No other acute abdominal pathology identified.
+
+CRITICAL RESULT: This finding was communicated to Dr. James Rodriguez in the Emergency Department at 3:50 PM on 11/15/2024 by Dr. Patricia Williams.`,
+      comment: "STAT examination. Critical finding communicated to ordering physician.",
+      performed_by: "CT Technologist: David Lee, RT(R)(CT)",
+      reported_by: "Dr. Patricia Williams, MD - Radiologist",
+      report_date: "2024-11-15T15:45:00.000Z",
+      result_status: "final"
+    },
+    {
+      composition_uid: "imaging-result-1731501600000-mri002",
+      recorded_time: "2024-11-12T16:20:00.000Z",
+      request_uid: "",
+      examination_name: "MRI Lumbar Spine without Contrast",
+      body_structure: "Lumbar spine",
+      body_site: "Lower back",
+      structured_body_site: "Lumbar vertebral column",
+      imaging_findings: `TECHNIQUE: Multiplanar, multisequence MRI of the lumbar spine was performed without intravenous contrast.
+
+ALIGNMENT: Normal lumbar lordosis. No spondylolisthesis.
+
+VERTEBRAL BODIES: Normal marrow signal. No compression fractures. Normal vertebral body heights.
+
+INTERVERTEBRAL DISCS:
+L1-L2: Normal disc height and signal. No herniation.
+L2-L3: Normal disc height and signal. No herniation.
+L3-L4: Mild disc desiccation. Small central disc protrusion without significant canal stenosis.
+L4-L5: Moderate disc desiccation. Large left paracentral disc extrusion measuring 8 mm, causing severe left lateral recess stenosis and impingement of the left L5 nerve root. Mild central canal stenosis.
+L5-S1: Mild disc desiccation. Broad-based disc bulge without significant stenosis.
+
+SPINAL CANAL: Patent except as noted above at L4-L5.
+
+NEURAL FORAMINA: 
+Bilateral neural foramina are patent at all levels except moderate left foraminal stenosis at L4-L5 due to disc extrusion.
+
+CONUS MEDULLARIS: Normal position at L1. Normal signal.
+
+PARASPINAL SOFT TISSUES: Unremarkable.`,
+      additional_details: `COMPARISON: None available.
+
+SEQUENCES: Sagittal T1, T2, and STIR. Axial T2 through the lumbar spine.`,
+      impression: `1. Large left paracentral disc extrusion at L4-L5 with severe left lateral recess stenosis and impingement of the left L5 nerve root. This correlates with the patient's left lower extremity radiculopathy.
+
+2. Moderate left neural foraminal stenosis at L4-L5.
+
+3. Mild degenerative disc disease at L3-L4 and L5-S1 without significant stenosis.
+
+RECOMMENDATION: Neurosurgical or spine surgery consultation for consideration of surgical intervention given the size of the disc extrusion and clinical symptoms.`,
+      comment: "Patient completed examination without sedation. Good quality images obtained.",
+      performed_by: "MRI Technologist: Jennifer Martinez, RT(R)(MR)",
+      reported_by: "Dr. Michael Thompson, MD - Neuroradiologist",
+      report_date: "2024-11-12T16:20:00.000Z",
+      result_status: "final"
+    },
+    {
+      composition_uid: "imaging-result-1731415200000-us001",
+      recorded_time: "2024-11-11T11:30:00.000Z",
+      request_uid: "",
+      examination_name: "Ultrasound - Abdomen (Right Upper Quadrant)",
+      body_structure: "Abdomen",
+      body_site: "Right upper quadrant",
+      structured_body_site: "Right upper abdominal quadrant",
+      imaging_findings: `INDICATION: Right upper quadrant pain, elevated liver enzymes.
+
+LIVER: The liver measures 16 cm in craniocaudal dimension (upper limit of normal). Echotexture is normal. No focal lesions identified. Portal vein is patent with normal hepatopetal flow.
+
+GALLBLADDER: The gallbladder is distended and contains multiple small stones, the largest measuring 8 mm. The gallbladder wall measures 5 mm (thickened, normal <3 mm). Positive sonographic Murphy's sign elicited during examination. No pericholecystic fluid.
+
+BILE DUCTS: Common bile duct measures 5 mm (normal). No intrahepatic biliary dilatation.
+
+PANCREAS: Partially visualized due to overlying bowel gas. Visualized portions appear normal.
+
+RIGHT KIDNEY: Measures 11 cm. Normal cortical thickness. No hydronephrosis or stones. No masses.
+
+SPLEEN: Normal size and echotexture.`,
+      additional_details: `TECHNIQUE: Real-time ultrasound examination of the right upper quadrant was performed using a curvilinear transducer.
+
+COMPARISON: None available.`,
+      impression: `1. ACUTE CHOLECYSTITIS - Gallbladder wall thickening, gallstones, and positive sonographic Murphy's sign.
+
+2. Normal common bile duct caliber - no evidence of choledocholithiasis.
+
+3. Mild hepatomegaly.
+
+RECOMMENDATION: Surgical consultation for cholecystectomy. Clinical correlation with laboratory values recommended.`,
+      comment: "Patient experienced significant tenderness during gallbladder examination (positive Murphy's sign).",
+      performed_by: "Sonographer: Lisa Chen, RDMS",
+      reported_by: "Dr. Kevin Park, MD - Radiologist",
+      report_date: "2024-11-11T11:30:00.000Z",
+      result_status: "final"
+    },
+    {
+      composition_uid: "imaging-result-1731328800000-xray002",
+      recorded_time: "2024-11-10T14:00:00.000Z",
+      request_uid: "",
+      examination_name: "X-Ray - Left Knee (AP, Lateral, Sunrise)",
+      body_structure: "Left knee joint",
+      body_site: "Left knee",
+      structured_body_site: "Left knee joint",
+      imaging_findings: `Three views of the left knee were obtained.
+
+BONES: There is moderate narrowing of the medial compartment joint space. Subchondral sclerosis is present in the medial femoral condyle and medial tibial plateau. Multiple small osteophytes are noted at the joint margins, particularly at the medial femoral condyle and tibial spines.
+
+JOINT SPACE: Medial compartment narrowing as described above. Lateral compartment and patellofemoral compartment are preserved.
+
+SOFT TISSUES: Moderate joint effusion is present. No soft tissue calcifications.
+
+PATELLA: Sunrise view shows normal patellar tracking. No patellar fracture or dislocation.
+
+ALIGNMENT: Mild varus alignment of the knee.`,
+      additional_details: `COMPARISON: Left knee radiographs from 2 years ago (November 2022) show progression of medial compartment narrowing and osteophyte formation.
+
+TECHNIQUE: AP, lateral, and sunrise views of the left knee obtained.`,
+      impression: `1. Moderate osteoarthritis of the left knee, predominantly affecting the medial compartment, with progression compared to prior examination.
+
+2. Moderate joint effusion.
+
+3. Mild varus deformity.
+
+RECOMMENDATION: Clinical correlation. Consider orthopedic consultation for management options including physical therapy, intra-articular injections, or surgical intervention if conservative management fails.`,
+      comment: "Weight-bearing AP view obtained as requested.",
+      performed_by: "Radiologic Technologist: Thomas Wilson, RT(R)",
+      reported_by: "Dr. Susan Martinez, MD - Musculoskeletal Radiologist",
+      report_date: "2024-11-10T14:00:00.000Z",
+      result_status: "final"
+    }
+  ]
+};
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/imaging
