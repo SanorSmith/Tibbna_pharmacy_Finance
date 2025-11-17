@@ -130,6 +130,12 @@ export async function getOpenEHREHRs(): Promise<OpenEHREHRResponse[]> {
   return queryOpenEHR<OpenEHREHRResponse>(query);
 }
 
+export async function getOpenEHREHRBySubjectId(subjectId: string): Promise<string | null> {
+  const query = `SELECT e/ehr_id/value AS ehr_id FROM EHR e WHERE e/ehr_status/subject/external_ref/id/value = '${subjectId}'`;
+  const results = await queryOpenEHR<{ ehr_id: string }>(query);
+  return results.length > 0 ? results[0].ehr_id : null;
+}
+
 export async function getOpenEHRCompositions(
   ehrId: string
 ): Promise<OpenEHRCompositionsResponse[]> {
