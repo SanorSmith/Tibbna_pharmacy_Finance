@@ -57,7 +57,7 @@ export default function PatientDashboard({
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [selectedTest, setSelectedTest] = useState<any>(null);
+  const [selectedTest] = useState<any>(null);
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [showDiagnosisForm, setShowDiagnosisForm] = useState(false);
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -302,11 +302,8 @@ export default function PatientDashboard({
     report_date: string;
   }
 
-  const [showLabResultForm, setShowLabResultForm] = useState(false);
   const [labResultRecords, setLabResultRecords] = useState<LabTestResult[]>([]);
   const [loadingLabResults, setLoadingLabResults] = useState(false);
-  const [selectedLabResult, setSelectedLabResult] = useState<LabTestResult | null>(null);
-  const [showLabResultDetails, setShowLabResultDetails] = useState(false);
 
   // Imaging state management (openEHR compliant)
   interface ImagingRequest {
@@ -2216,7 +2213,7 @@ export default function PatientDashboard({
                 <div className="text-center py-8 text-muted-foreground">Loading medical history...</div>
               ) : medicalHistoryRecords.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No medical history records found. Click "+ Add Record" to create one.
+                  No medical history records found. Click &quot;+ Add Record&quot; to create one.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -2608,12 +2605,12 @@ export default function PatientDashboard({
                         </div>
                         <button
                           onClick={() => {
-                            setSelectedLabResult(result);
-                            setShowLabResultDetails(true);
+                            // TODO: Implement lab result details view
+                            console.log('View lab result:', result);
                           }}
                           className="text-primary hover:underline"
                         >
-                          View Full Report
+                          View Details
                         </button>
                       </div>
                     </div>
@@ -2643,7 +2640,7 @@ export default function PatientDashboard({
                 <div className="text-center py-8 text-muted-foreground">Loading test orders...</div>
               ) : testOrderRecords.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No test orders found. Click "+ New Test Order" to create one.
+                  No test orders found. Click &quot;+ New Test Order&quot; to create one.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -3278,7 +3275,7 @@ export default function PatientDashboard({
                 <div className="text-center py-8 text-muted-foreground">Loading imaging requests...</div>
               ) : imagingRequests.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No imaging requests found. Click "+ New Imaging Request" to create one.
+                  No imaging requests found. Click &quot;+ New Imaging Request&quot; to create one.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -3589,7 +3586,7 @@ export default function PatientDashboard({
                 <div className="text-center py-8 text-muted-foreground">Loading care plans...</div>
               ) : carePlans.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No care plans found. Click "+ New Care Plan" to create one.
+                  No care plans found. Click &quot;+ New Care Plan&quot; to create one.
                 </div>
               ) : (
               <div className="space-y-4">
@@ -3677,7 +3674,7 @@ export default function PatientDashboard({
                 <div className="text-center py-8 text-muted-foreground">Loading clinical notes...</div>
               ) : clinicalNotes.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No clinical notes recorded. Click "+ New Note" to create one.
+                  No clinical notes recorded. Click &quot;+ New Note&quot; to create one.
                 </div>
               ) : (
               <div className="space-y-4">

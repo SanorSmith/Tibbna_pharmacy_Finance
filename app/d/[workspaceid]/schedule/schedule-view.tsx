@@ -361,7 +361,6 @@ export default function ScheduleView({
   const checkedIn = useMemo(() => appts.filter((a) => a.status === "checked_in"), [appts]);
   const inProgress = useMemo(() => appts.filter((a) => a.status === "in_progress"), [appts]);
   const completed = useMemo(() => appts.filter((a) => a.status === "completed"), [appts]);
-  const cancelled = useMemo(() => appts.filter((a) => a.status === "cancelled"), [appts]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

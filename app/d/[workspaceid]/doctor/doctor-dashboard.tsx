@@ -323,7 +323,7 @@ export default function DoctorDashboard({
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <span>📅</span> Today's Schedule
+              <span>📅</span> Today&apos;s Schedule
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -376,7 +376,7 @@ export default function DoctorDashboard({
 
       <Tabs defaultValue="schedule" className="w-full">
         <TabsList>
-          <TabsTrigger value="schedule">Today's Schedule</TabsTrigger>
+          <TabsTrigger value="schedule">Today&apos;s Schedule</TabsTrigger>
           <TabsTrigger value="patients">My Patients</TabsTrigger>
           <TabsTrigger value="contacts">Staff Directory</TabsTrigger>
           <TabsTrigger value="operations">Clinical Notes</TabsTrigger>
@@ -415,7 +415,6 @@ export default function DoctorDashboard({
 
                 const appointmentTime = new Date(appt.starttime);
                 const now = new Date();
-                const isUpcoming = appointmentTime > now && appt.status === "scheduled";
                 const isNow = appt.status === "in_progress";
                 const isPast = appointmentTime < now && appt.status === "scheduled";
 
@@ -757,7 +756,7 @@ export default function DoctorDashboard({
           {/* Regular Appointments Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Today's Appointments</CardTitle>
+              <CardTitle className="text-base">Today&apos;s Appointments</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">

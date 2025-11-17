@@ -5,14 +5,6 @@
  */
 "use client";
 import { useEffect, useState, useRef } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, MapPin, User, Stethoscope, RefreshCw, CheckCircle, Edit } from "lucide-react";
@@ -300,7 +292,6 @@ export default function AppointmentsList({
         const dateObj = new Date(date);
         const isToday = format(now, "yyyy-MM-dd") === date;
         const isPast = dateObj < new Date(format(now, "yyyy-MM-dd"));
-        const isFuture = dateObj > new Date(format(now, "yyyy-MM-dd"));
 
         return (
           <div key={date} className="space-y-3">
