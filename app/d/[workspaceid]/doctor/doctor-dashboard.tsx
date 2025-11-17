@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Appointment = {
   appointmentid: string;
@@ -78,6 +81,7 @@ export default function DoctorDashboard({
   const [noteText, setNoteText] = useState("");
   const [addingNote, setAddingNote] = useState<string | null>(null);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
+  const [bookOperationOpen, setBookOperationOpen] = useState(false);
   const lastLoadedParams = useRef<string | null>(null);
 
   const patientsById = useMemo(() => {
@@ -617,14 +621,148 @@ export default function DoctorDashboard({
         </TabsContent>
 
         <TabsContent value="operations" className="space-y-4">
+          {/* Header with Book Operation Button */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold">Operative Procedures</h2>
+              <p className="text-sm text-muted-foreground">Scheduled surgeries and procedures</p>
+            </div>
+            <Button
+              onClick={() => setBookOperationOpen(true)}
+              className="bg-black hover:bg-gray-800 text-white"
+            >
+              <span className="mr-2">➕</span>
+              Book Operation
+            </Button>
+          </div>
+
+          {/* Operative Procedures Section */}
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <span>🏥</span> Scheduled Operative Procedures
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Dummy Operative Procedure 1 - Emergency Appendectomy */}
+                <div className="border-l-4 border-l-red-500 bg-red-50/30 rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">URGENT</span>
+                        <h3 className="font-semibold text-lg">Emergency Appendectomy</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Patient:</span>
+                          <div className="font-medium">Sarah Johnson</div>
+                          <div className="text-xs text-muted-foreground">ID: MRN-2024-001</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Scheduled:</span>
+                          <div className="font-medium">{new Date().toLocaleDateString()} - 14:00</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Procedure:</span>
+                          <div className="font-medium">Laparoscopic Appendectomy</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Duration:</span>
+                          <div className="font-medium">60-90 minutes</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Operating Room:</span>
+                          <div className="font-medium">OR-3</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Anesthesia:</span>
+                          <div className="font-medium">General</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 p-3 bg-white rounded border">
+                        <div className="text-xs font-semibold text-gray-700 mb-1">Clinical Indication:</div>
+                        <div className="text-sm">Acute appendicitis with peritonitis. Patient presented with RLQ pain, fever (38.5°C), elevated WBC (15,000). CT scan confirms inflamed appendix with fluid collection.</div>
+                      </div>
+                      <div className="mt-2 p-3 bg-white rounded border">
+                        <div className="text-xs font-semibold text-gray-700 mb-1">Pre-op Checklist:</div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ Consent Signed</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ NPO 8hrs</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ Labs Complete</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ IV Access</span>
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">⏳ Pending: Anesthesia Review</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dummy Operative Procedure 2 - Total Knee Replacement */}
+                <div className="border-l-4 border-l-blue-500 bg-blue-50/30 rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-500 text-white text-xs font-bold rounded">SCHEDULED</span>
+                        <h3 className="font-semibold text-lg">Total Knee Replacement</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Patient:</span>
+                          <div className="font-medium">Robert Martinez</div>
+                          <div className="text-xs text-muted-foreground">ID: MRN-2024-002</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Scheduled:</span>
+                          <div className="font-medium">{new Date(Date.now() + 86400000).toLocaleDateString()} - 08:00</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Procedure:</span>
+                          <div className="font-medium">Right Total Knee Arthroplasty</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Duration:</span>
+                          <div className="font-medium">120-150 minutes</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Operating Room:</span>
+                          <div className="font-medium">OR-1 (Orthopedic Suite)</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Anesthesia:</span>
+                          <div className="font-medium">Spinal + Sedation</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 p-3 bg-white rounded border">
+                        <div className="text-xs font-semibold text-gray-700 mb-1">Clinical Indication:</div>
+                        <div className="text-sm">Severe osteoarthritis of right knee, Grade IV. Conservative management failed. Patient reports severe pain (8/10) limiting mobility and ADLs. X-ray shows complete joint space narrowing with bone-on-bone contact.</div>
+                      </div>
+                      <div className="mt-2 p-3 bg-white rounded border">
+                        <div className="text-xs font-semibold text-gray-700 mb-1">Pre-op Checklist:</div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ Consent Signed</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ Pre-op Assessment</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ Blood Typed & Crossmatched</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ ECG Normal</span>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded">✓ Implant Ready</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Regular Appointments Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Patient Operations</CardTitle>
+              <CardTitle className="text-base">Today's Appointments</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {todayAppointments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No operations scheduled for this date.</p>
+                  <p className="text-sm text-muted-foreground">No regular appointments scheduled for this date.</p>
                 ) : (
                   todayAppointments.map((appt) => {
                     const patient = patientsById.get(appt.patientid);
@@ -893,6 +1031,149 @@ export default function DoctorDashboard({
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Book Operation Dialog */}
+      <Dialog open={bookOperationOpen} onOpenChange={setBookOperationOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Book New Operation</DialogTitle>
+            <DialogDescription>Schedule a new operative procedure for a patient</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Patient Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-patient">Patient *</Label>
+              <Select>
+                <SelectTrigger id="operation-patient">
+                  <SelectValue placeholder="Select patient" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map((p) => (
+                    <SelectItem key={p.patientid} value={p.patientid}>
+                      {p.firstname} {p.middlename || ""} {p.lastname}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Scheduled Date */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-date">Scheduled Date & Time *</Label>
+              <Input
+                id="operation-date"
+                type="datetime-local"
+              />
+            </div>
+
+            {/* Operation Name */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-name">Operation Name *</Label>
+              <Input
+                id="operation-name"
+                placeholder="e.g., Appendectomy, Knee Replacement"
+              />
+            </div>
+
+            {/* Operation Type */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-type">Operation Type *</Label>
+              <Select>
+                <SelectTrigger id="operation-type">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="emergency">Emergency</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="elective">Elective</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Duration */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-duration">Estimated Duration</Label>
+              <Input
+                id="operation-duration"
+                placeholder="e.g., 60-90 minutes"
+              />
+            </div>
+
+            {/* Theater */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-theater">Operating Theater</Label>
+              <Input
+                id="operation-theater"
+                placeholder="e.g., OR-1, OR-2"
+              />
+            </div>
+
+            {/* Anesthesia Type */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-anesthesia">Anesthesia Type</Label>
+              <Select>
+                <SelectTrigger id="operation-anesthesia">
+                  <SelectValue placeholder="Select anesthesia type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="spinal">Spinal</SelectItem>
+                  <SelectItem value="epidural">Epidural</SelectItem>
+                  <SelectItem value="local">Local</SelectItem>
+                  <SelectItem value="sedation">Sedation</SelectItem>
+                  <SelectItem value="spinal_sedation">Spinal + Sedation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Diagnosis */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-diagnosis">Diagnosis</Label>
+              <Textarea
+                id="operation-diagnosis"
+                placeholder="Enter primary diagnosis..."
+                rows={2}
+              />
+            </div>
+
+            {/* Pre-operative Assessment */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-assessment">Pre-operative Assessment</Label>
+              <Textarea
+                id="operation-assessment"
+                placeholder="Enter pre-operative assessment findings..."
+                rows={3}
+              />
+            </div>
+
+            {/* Operation Details */}
+            <div className="space-y-2">
+              <Label htmlFor="operation-details">Operation Details</Label>
+              <Textarea
+                id="operation-details"
+                placeholder="Enter surgical technique, approach, etc..."
+                rows={3}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setBookOperationOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                className="bg-black hover:bg-gray-800 text-white"
+                onClick={() => {
+                  // For now, just redirect to operations page
+                  window.location.href = `/d/${workspaceid}/operations`;
+                }}
+              >
+                Book Operation
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
