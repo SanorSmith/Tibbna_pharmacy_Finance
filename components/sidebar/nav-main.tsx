@@ -110,7 +110,6 @@ export function NavMain() {
           icon: Users,
           items: [
             { title: ttt("Patient List"), url: `${base}/patients` },
-            { title: ttt("Search Patient"), url: `${base}/patients/search` },
           ],
         },
         {
