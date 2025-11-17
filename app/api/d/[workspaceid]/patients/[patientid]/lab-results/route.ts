@@ -51,7 +51,288 @@ interface LabTestResult {
   report_date: string;
 }
 
-const labResultsStore: Record<string, LabTestResult[]> = {};
+// Initialize with dummy data for demonstration
+const labResultsStore: Record<string, LabTestResult[]> = {
+  // Sample patient ID with dummy lab results
+  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
+    {
+      composition_uid: "lab-result-1731847200000-cbc001",
+      recorded_time: "2024-11-15T09:30:00.000Z",
+      test_name: "Complete Blood Count (CBC)",
+      test_name_code: "58410-2",
+      protocol: "LAB-2024-001234",
+      specimen_type: "Blood (EDTA tube)",
+      specimen_collection_time: "2024-11-15T08:00:00.000Z",
+      specimen_received_time: "2024-11-15T08:30:00.000Z",
+      specimen_id: "SPEC-2024-001234",
+      overall_test_status: "final",
+      clinical_information_provided: "Routine annual physical examination. Patient reports feeling well with no specific complaints.",
+      test_results: [
+        {
+          analyte_name: "Hemoglobin",
+          analyte_code: "718-7",
+          result_value: 14.5,
+          result_unit: "g/dL",
+          reference_range: "13.0 - 17.0",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "White Blood Cell Count",
+          analyte_code: "6690-2",
+          result_value: 7.2,
+          result_unit: "×10³/μL",
+          reference_range: "4.0 - 11.0",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "Platelet Count",
+          analyte_code: "777-3",
+          result_value: 250,
+          result_unit: "×10³/μL",
+          reference_range: "150 - 400",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "Hematocrit",
+          analyte_code: "4544-3",
+          result_value: 42.5,
+          result_unit: "%",
+          reference_range: "38.0 - 50.0",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "MCV (Mean Corpuscular Volume)",
+          analyte_code: "787-2",
+          result_value: 88,
+          result_unit: "fL",
+          reference_range: "80 - 100",
+          result_status: "normal",
+          result_flag: "N"
+        }
+      ],
+      conclusion: "All CBC parameters within normal limits. No evidence of anemia, infection, or clotting disorders.",
+      test_diagnosis: "Normal complete blood count",
+      laboratory_name: "Central Haematology Laboratory",
+      reported_by: "Dr. Sarah Johnson, MD",
+      verified_by: "Dr. Michael Chen, MD",
+      report_date: "2024-11-15T10:00:00.000Z"
+    },
+    {
+      composition_uid: "lab-result-1731760800000-lipid001",
+      recorded_time: "2024-11-14T14:20:00.000Z",
+      test_name: "Lipid Panel",
+      test_name_code: "24331-1",
+      protocol: "LAB-2024-001198",
+      specimen_type: "Blood (Serum)",
+      specimen_collection_time: "2024-11-14T07:30:00.000Z",
+      specimen_received_time: "2024-11-14T08:00:00.000Z",
+      specimen_id: "SPEC-2024-001198",
+      overall_test_status: "final",
+      clinical_information_provided: "Cardiovascular risk assessment. Patient has family history of heart disease. Fasting for 12 hours confirmed.",
+      test_results: [
+        {
+          analyte_name: "Total Cholesterol",
+          analyte_code: "2093-3",
+          result_value: 220,
+          result_unit: "mg/dL",
+          reference_range: "< 200",
+          result_status: "high",
+          result_flag: "H"
+        },
+        {
+          analyte_name: "HDL Cholesterol",
+          analyte_code: "2085-9",
+          result_value: 55,
+          result_unit: "mg/dL",
+          reference_range: "> 40",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "LDL Cholesterol",
+          analyte_code: "18262-6",
+          result_value: 145,
+          result_unit: "mg/dL",
+          reference_range: "< 100",
+          result_status: "high",
+          result_flag: "H"
+        },
+        {
+          analyte_name: "Triglycerides",
+          analyte_code: "2571-8",
+          result_value: 180,
+          result_unit: "mg/dL",
+          reference_range: "< 150",
+          result_status: "high",
+          result_flag: "H"
+        },
+        {
+          analyte_name: "VLDL Cholesterol",
+          analyte_code: "13458-5",
+          result_value: 36,
+          result_unit: "mg/dL",
+          reference_range: "5 - 40",
+          result_status: "normal",
+          result_flag: "N"
+        }
+      ],
+      conclusion: "Elevated total cholesterol, LDL cholesterol, and triglycerides. HDL cholesterol is adequate. Increased cardiovascular risk.",
+      test_diagnosis: "Hyperlipidemia - recommend lifestyle modifications and consider statin therapy. Follow-up lipid panel in 3 months.",
+      laboratory_name: "Lipid & Metabolic Laboratory",
+      reported_by: "Dr. Emily Rodriguez, PhD",
+      verified_by: "Dr. James Wilson, MD",
+      report_date: "2024-11-14T15:00:00.000Z"
+    },
+    {
+      composition_uid: "lab-result-1731674400000-glucose001",
+      recorded_time: "2024-11-13T11:45:00.000Z",
+      test_name: "Fasting Blood Glucose",
+      test_name_code: "1558-6",
+      protocol: "LAB-2024-001165",
+      specimen_type: "Blood (Plasma)",
+      specimen_collection_time: "2024-11-13T07:00:00.000Z",
+      specimen_received_time: "2024-11-13T07:30:00.000Z",
+      specimen_id: "SPEC-2024-001165",
+      overall_test_status: "final",
+      clinical_information_provided: "Diabetes screening. Patient reports increased thirst and frequent urination. Fasting for 10 hours confirmed.",
+      test_results: [
+        {
+          analyte_name: "Glucose (Fasting)",
+          analyte_code: "1558-6",
+          result_value: 142,
+          result_unit: "mg/dL",
+          reference_range: "70 - 100",
+          result_status: "critical",
+          result_flag: "HH"
+        }
+      ],
+      conclusion: "Significantly elevated fasting blood glucose level, consistent with diabetes mellitus.",
+      test_diagnosis: "Hyperglycemia - Diabetes mellitus suspected. Recommend HbA1c test for confirmation and endocrinology referral. Immediate lifestyle counseling and possible pharmacotherapy indicated.",
+      laboratory_name: "Clinical Chemistry Laboratory",
+      reported_by: "Dr. Patricia Lee, MD",
+      verified_by: "Dr. Robert Kumar, MD",
+      report_date: "2024-11-13T12:00:00.000Z"
+    },
+    {
+      composition_uid: "lab-result-1731588000000-thyroid001",
+      recorded_time: "2024-11-12T16:30:00.000Z",
+      test_name: "Thyroid Function Panel",
+      test_name_code: "24348-5",
+      protocol: "LAB-2024-001132",
+      specimen_type: "Blood (Serum)",
+      specimen_collection_time: "2024-11-12T09:00:00.000Z",
+      specimen_received_time: "2024-11-12T09:30:00.000Z",
+      specimen_id: "SPEC-2024-001132",
+      overall_test_status: "final",
+      clinical_information_provided: "Patient presents with fatigue, weight gain, and cold intolerance. Suspected hypothyroidism.",
+      test_results: [
+        {
+          analyte_name: "TSH (Thyroid Stimulating Hormone)",
+          analyte_code: "3016-3",
+          result_value: 8.5,
+          result_unit: "mIU/L",
+          reference_range: "0.4 - 4.0",
+          result_status: "high",
+          result_flag: "H"
+        },
+        {
+          analyte_name: "Free T4 (Thyroxine)",
+          analyte_code: "3024-7",
+          result_value: 0.7,
+          result_unit: "ng/dL",
+          reference_range: "0.8 - 1.8",
+          result_status: "low",
+          result_flag: "L"
+        },
+        {
+          analyte_name: "Free T3 (Triiodothyronine)",
+          analyte_code: "3051-0",
+          result_value: 2.1,
+          result_unit: "pg/mL",
+          reference_range: "2.3 - 4.2",
+          result_status: "low",
+          result_flag: "L"
+        }
+      ],
+      conclusion: "Elevated TSH with decreased free T4 and T3 levels, consistent with primary hypothyroidism.",
+      test_diagnosis: "Primary hypothyroidism - recommend levothyroxine therapy. Start with 50 mcg daily and recheck thyroid function in 6 weeks.",
+      laboratory_name: "Endocrine Laboratory",
+      reported_by: "Dr. Amanda Foster, MD",
+      verified_by: "Dr. David Martinez, MD",
+      report_date: "2024-11-12T17:00:00.000Z"
+    },
+    {
+      composition_uid: "lab-result-1731501600000-renal001",
+      recorded_time: "2024-11-11T13:15:00.000Z",
+      test_name: "Renal Function Panel",
+      test_name_code: "24362-6",
+      protocol: "LAB-2024-001089",
+      specimen_type: "Blood (Serum)",
+      specimen_collection_time: "2024-11-11T08:30:00.000Z",
+      specimen_received_time: "2024-11-11T09:00:00.000Z",
+      specimen_id: "SPEC-2024-001089",
+      overall_test_status: "final",
+      clinical_information_provided: "Routine monitoring for patient with hypertension on ACE inhibitor therapy.",
+      test_results: [
+        {
+          analyte_name: "Creatinine",
+          analyte_code: "2160-0",
+          result_value: 1.1,
+          result_unit: "mg/dL",
+          reference_range: "0.7 - 1.3",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "BUN (Blood Urea Nitrogen)",
+          analyte_code: "3094-0",
+          result_value: 18,
+          result_unit: "mg/dL",
+          reference_range: "7 - 20",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "eGFR (Estimated Glomerular Filtration Rate)",
+          analyte_code: "33914-3",
+          result_value: 85,
+          result_unit: "mL/min/1.73m²",
+          reference_range: "> 60",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "Sodium",
+          analyte_code: "2951-2",
+          result_value: 140,
+          result_unit: "mmol/L",
+          reference_range: "136 - 145",
+          result_status: "normal",
+          result_flag: "N"
+        },
+        {
+          analyte_name: "Potassium",
+          analyte_code: "2823-3",
+          result_value: 4.2,
+          result_unit: "mmol/L",
+          reference_range: "3.5 - 5.0",
+          result_status: "normal",
+          result_flag: "N"
+        }
+      ],
+      conclusion: "All renal function parameters within normal limits. Kidney function is adequate.",
+      test_diagnosis: "Normal renal function - continue current medication regimen. Repeat in 6 months.",
+      laboratory_name: "Clinical Chemistry Laboratory",
+      reported_by: "Dr. Lisa Thompson, MD",
+      verified_by: "Dr. Mark Anderson, MD",
+      report_date: "2024-11-11T14:00:00.000Z"
+    }
+  ]
+};
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/lab-results
