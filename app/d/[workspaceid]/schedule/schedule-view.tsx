@@ -366,6 +366,88 @@ export default function ScheduleView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="lg:col-span-2">
+        {/* Custom Healthcare-themed Calendar Styles */}
+        <style jsx global>{`
+          /* Navigation buttons - Soothing teal/blue theme */
+          .fc .fc-button-primary {
+            background-color: #14b8a6 !important;
+            border-color: #0d9488 !important;
+            color: white !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+          }
+          
+          .fc .fc-button-primary:hover {
+            background-color: #0d9488 !important;
+            border-color: #0f766e !important;
+          }
+          
+          .fc .fc-button-primary:not(:disabled):active,
+          .fc .fc-button-primary:not(:disabled).fc-button-active {
+            background-color: #0f766e !important;
+            border-color: #115e59 !important;
+          }
+          
+          /* Today button - Soft blue */
+          .fc .fc-today-button {
+            background-color: #3b82f6 !important;
+            border-color: #2563eb !important;
+          }
+          
+          .fc .fc-today-button:hover {
+            background-color: #2563eb !important;
+            border-color: #1d4ed8 !important;
+          }
+          
+          /* Calendar header title */
+          .fc .fc-toolbar-title {
+            color: #0f766e !important;
+            font-weight: 600 !important;
+            font-size: 1.5rem !important;
+          }
+          
+          /* Today's date highlight - Soft teal */
+          .fc .fc-day-today {
+            background-color: #ccfbf1 !important;
+          }
+          
+          /* Time grid styling */
+          .fc-theme-standard td,
+          .fc-theme-standard th {
+            border-color: #d1d5db !important;
+          }
+          
+          /* Slot labels */
+          .fc .fc-timegrid-slot-label {
+            color: #4b5563 !important;
+            font-weight: 500 !important;
+          }
+          
+          /* Calendar background */
+          .fc {
+            background-color: white !important;
+            border-radius: 0.5rem !important;
+            padding: 1rem !important;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1) !important;
+          }
+          
+          /* View buttons (day/week/month) - Emerald theme */
+          .fc .fc-button-group > .fc-button {
+            background-color: #10b981 !important;
+            border-color: #059669 !important;
+          }
+          
+          .fc .fc-button-group > .fc-button:hover {
+            background-color: #059669 !important;
+            border-color: #047857 !important;
+          }
+          
+          .fc .fc-button-group > .fc-button.fc-button-active {
+            background-color: #047857 !important;
+            border-color: #065f46 !important;
+          }
+        `}</style>
+        
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="timeGridDay"
