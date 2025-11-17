@@ -40,8 +40,20 @@
    - Workflow integration
    - Testing and troubleshooting
 
+#### Clinical Notes Feature
+5. **[CLINICAL_NOTES.md](./CLINICAL_NOTES.md)** - Clinical notes with SOAP format documentation
+   - Complete feature overview
+   - openEHR compliance (EVALUATION.clinical_synopsis)
+   - SOAP format explanation and examples
+   - User interface and workflow
+   - Data model and API endpoints
+   - Authorization and role-based access
+   - Note types and use cases
+   - Usage guide for physicians
+   - Clinical documentation best practices
+
 #### Production Deployment
-5. **[OPENEHR_PRODUCTION_DEPLOYMENT.md](./OPENEHR_PRODUCTION_DEPLOYMENT.md)** - EHRbase production deployment guide
+6. **[OPENEHR_PRODUCTION_DEPLOYMENT.md](./OPENEHR_PRODUCTION_DEPLOYMENT.md)** - EHRbase production deployment guide
    - Current state vs production requirements
    - EHRbase architecture and setup
    - Data model enhancements for full openEHR compliance
@@ -56,7 +68,7 @@
    - Monitoring & maintenance
 
 #### Project Documentation
-6. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
+7. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
    - Release notes
    - Breaking changes
    - Feature additions

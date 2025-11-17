@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - November 17, 2024
+
+#### Clinical Notes Feature
+- **Clinical Notes with SOAP Format**: Complete clinical documentation system
+  - openEHR-compliant (EVALUATION.clinical_synopsis archetype)
+  - SOAP format support (Subjective, Objective, Assessment, Plan)
+  - 4 note types: Progress Note, Consultation Note, Discharge Summary, Clinical Synopsis
+  - Role-based authorization (doctors create, doctors/nurses view)
+  - Status tracking (Draft, Final, Amended)
+  - Author attribution with role tracking
+  - 3 comprehensive dummy notes with realistic clinical scenarios
+  - Professional UI with color-coded sections
+  - Form dialog with validation
+  - API endpoints: GET and POST with authorization
+
+#### Patient Dashboard Improvements
+- **Clinical Summary Section**: At-a-glance critical information
+  - Active Diagnoses (red highlight)
+  - Current Medications (blue highlight)
+  - Allergies & Alerts (yellow highlight with warning icon)
+  - Recent Activity (last visit and latest vitals)
+- **Tab Reorganization**: Workflow-based organization following medical best practices
+  - Clinical Documentation first (Notes, Vitals)
+  - Assessment & History (History, Diagnoses)
+  - Diagnostic Studies (Labs, Imaging, Orders)
+  - Treatment & Management (Meds, Care Plans)
+  - Preventive Care & Coordination (Vaccines, Referrals, Appts)
+- **Shortened Tab Labels**: Medical standard abbreviations (Meds, Vitals, Appts, etc.)
+- **Default Tab**: Notes tab as primary landing for clinical workflow
+
+#### Dummy Data Additions
+- **Vital Signs**: 5 recent measurements with complete vitals
+- **Vaccinations**: 5 immunization records (Flu, Td, COVID, Pneumococcal, Hep B)
+- **Referrals**: 5 specialist referrals (Cardiology, Endocrinology, GI, Ortho, Derm)
+- **Clinical Notes**: 3 professional SOAP-formatted notes
+
+#### Documentation
+- **CLINICAL_NOTES.md**: 680+ lines comprehensive documentation
+  - Feature overview and capabilities
+  - openEHR compliance details
+  - SOAP format explanation with examples
+  - UI documentation
+  - Data model and API reference
+  - Authorization matrix
+  - Usage guide for physicians
+  - Clinical documentation best practices
+- **Updated docs/README.md**: Added clinical notes section
+
+### Changed - November 17, 2024
+- **Patient Dashboard**: Reorganized according to medical best practices
+- **Tab Order**: Clinical workflow-based instead of alphabetical
+- **Default Tab**: Changed from "Appointments" to "Notes"
+- **Tab Labels**: Shortened for better UX (Prescriptions → Meds, etc.)
+
+## [Previous Releases]
+
 ### Added
 - openEHR-compliant prescription form with Medication Order archetype support
 - SNOMED CT and ICD-10 terminology binding fields
