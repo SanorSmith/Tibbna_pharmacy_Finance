@@ -100,17 +100,46 @@ export default function ScheduleView({
     return m;
   }, [patients]);
 
+  // Healthcare standard color coding
+  const getEventColor = (status: string) => {
+    switch (status) {
+      case "scheduled":
+        return { backgroundColor: "#3b82f6", borderColor: "#2563eb" }; // Blue
+      case "checked_in":
+        return { backgroundColor: "#10b981", borderColor: "#059669" }; // Green
+      case "in_progress":
+        return { backgroundColor: "#f59e0b", borderColor: "#d97706" }; // Amber
+      case "completed":
+        return { backgroundColor: "#10b981", borderColor: "#059669" }; // Emerald
+      case "cancelled":
+        return { backgroundColor: "#ef4444", borderColor: "#dc2626" }; // Red
+      default:
+        return { backgroundColor: "#6b7280", borderColor: "#4b5563" }; // Gray
+    }
+  };
+
   const toEvents = useCallback(
     (rows: Appt[]): EventInput[] => {
       return rows.map((a) => {
         const p = patientsById.get(a.patientid);
         const name = p ? `${p.firstname} ${p.middlename ? p.middlename + " " : ""}${p.lastname}` : a.patientid;
         const pidLabel = p?.nationalid ?? a.patientid;
+        const colors = getEventColor(a.status);
+        
+        // Add status icon to title
+        const statusIcon = 
+          a.status === "scheduled" ? "📅" :
+          a.status === "checked_in" ? "✓" :
+          a.status === "in_progress" ? "⏱️" :
+          a.status === "completed" ? "✅" :
+          a.status === "cancelled" ? "❌" : "";
+        
         return {
           id: a.appointmentid,
           start: a.starttime,
           end: a.endtime,
-          title: p ? `${name} (${pidLabel})` : `Patient ${pidLabel}`,
+          title: `${statusIcon} ${p ? `${name} (${pidLabel})` : `Patient ${pidLabel}`}`,
+          ...colors,
           extendedProps: a,
         };
       });
@@ -328,8 +357,11 @@ export default function ScheduleView({
   }
 
   const events = useMemo<EventInput[]>(() => toEvents(appts), [appts, toEvents]);
-  const inProgress = useMemo(() => appts.filter((a) => a.status === "in_progress"), [appts]);
+  const scheduled = useMemo(() => appts.filter((a) => a.status === "scheduled"), [appts]);
   const checkedIn = useMemo(() => appts.filter((a) => a.status === "checked_in"), [appts]);
+  const inProgress = useMemo(() => appts.filter((a) => a.status === "in_progress"), [appts]);
+  const completed = useMemo(() => appts.filter((a) => a.status === "completed"), [appts]);
+  const cancelled = useMemo(() => appts.filter((a) => a.status === "cancelled"), [appts]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -351,16 +383,40 @@ export default function ScheduleView({
           height="auto"
         />
       </div>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+        
+        {/* Status Summary Dashboard */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="text-xs font-medium text-blue-700 mb-1">📅 Scheduled</div>
+            <div className="text-2xl font-bold text-blue-900">{scheduled.length}</div>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="text-xs font-medium text-green-700 mb-1">✓ Checked In</div>
+            <div className="text-2xl font-bold text-green-900">{checkedIn.length}</div>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="text-xs font-medium text-amber-700 mb-1">⏱️ In Progress</div>
+            <div className="text-2xl font-bold text-amber-900">{inProgress.length}</div>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+            <div className="text-xs font-medium text-emerald-700 mb-1">✅ Completed</div>
+            <div className="text-2xl font-bold text-emerald-900">{completed.length}</div>
+          </div>
+        </div>
+
         <section>
-          <h2 className="font-semibold mb-2">In Progress ({inProgress.length})</h2>
+          <h2 className="font-semibold mb-2 flex items-center gap-2">
+            <span className="text-amber-600">⏱️</span>
+            In Progress ({inProgress.length})
+          </h2>
           <ul className="space-y-2">
             {inProgress.map((a) => (
-              <li key={a.appointmentid} className="border rounded p-2 text-sm">
-                <div className="font-medium">{formatRange(a.starttime, a.endtime)}</div>
-                <div className="text-muted-foreground">
-                  Patient: {(() => {
+              <li key={a.appointmentid} className="border-l-4 border-l-amber-500 bg-amber-50/50 rounded p-3 text-sm hover:shadow-md transition-shadow">
+                <div className="font-semibold text-amber-900">{formatRange(a.starttime, a.endtime)}</div>
+                <div className="text-sm mt-1">
+                  <span className="font-medium">Patient:</span> {(() => {
                     const p = patientsById.get(a.patientid);
                     const pidLabel = p?.nationalid ?? a.patientid;
                     return p
@@ -368,22 +424,26 @@ export default function ScheduleView({
                       : pidLabel;
                   })()}
                 </div>
-                {a.location ? <div className="text-muted-foreground">Location: {a.location}</div> : null}
+                {a.unit && <div className="text-xs text-amber-700 mt-1">🏥 {a.unit}</div>}
+                {a.location && <div className="text-xs text-amber-700">📍 {a.location}</div>}
               </li>
             ))}
             {inProgress.length === 0 && (
-              <li className="text-sm text-muted-foreground">No ongoing appointments.</li>
+              <li className="text-sm text-muted-foreground p-3 bg-gray-50 rounded text-center">No ongoing appointments.</li>
             )}
           </ul>
         </section>
         <section>
-          <h2 className="font-semibold mb-2">Checked In ({checkedIn.length})</h2>
+          <h2 className="font-semibold mb-2 flex items-center gap-2">
+            <span className="text-green-600">✓</span>
+            Checked In ({checkedIn.length})
+          </h2>
           <ul className="space-y-2">
             {checkedIn.map((a) => (
-              <li key={a.appointmentid} className="border rounded p-2 text-sm">
-                <div className="font-medium">{formatRange(a.starttime, a.endtime)}</div>
-                <div className="text-muted-foreground">
-                  Patient: {(() => {
+              <li key={a.appointmentid} className="border-l-4 border-l-green-500 bg-green-50/50 rounded p-3 text-sm hover:shadow-md transition-shadow">
+                <div className="font-semibold text-green-900">{formatRange(a.starttime, a.endtime)}</div>
+                <div className="text-sm mt-1">
+                  <span className="font-medium">Patient:</span> {(() => {
                     const p = patientsById.get(a.patientid);
                     const pidLabel = p?.nationalid ?? a.patientid;
                     return p
@@ -391,11 +451,12 @@ export default function ScheduleView({
                       : pidLabel;
                   })()}
                 </div>
-                {a.location ? <div className="text-muted-foreground">Location: {a.location}</div> : null}
+                {a.unit && <div className="text-xs text-green-700 mt-1">🏥 {a.unit}</div>}
+                {a.location && <div className="text-xs text-green-700">📍 {a.location}</div>}
               </li>
             ))}
             {checkedIn.length === 0 && (
-              <li className="text-sm text-muted-foreground">No patients checked in.</li>
+              <li className="text-sm text-muted-foreground p-3 bg-gray-50 rounded text-center">No patients checked in.</li>
             )}
           </ul>
         </section>
