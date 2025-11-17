@@ -60,6 +60,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tab Order**: Clinical workflow-based instead of alphabetical
 - **Default Tab**: Changed from "Appointments" to "Notes"
 - **Tab Labels**: Shortened for better UX (Prescriptions → Meds, etc.)
+- **Workspace Routing**: Implemented role-based dashboard routing
+  - Doctors automatically redirected to doctor dashboard
+  - Nurses redirected to nurse dashboard
+  - Admins redirected to admin dashboard
+  - Other roles redirected to their specific dashboards
+  - Improved user experience with role-appropriate interfaces
 
 ## [Previous Releases]
 
