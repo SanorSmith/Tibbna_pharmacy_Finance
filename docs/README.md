@@ -40,8 +40,23 @@
    - Workflow integration
    - Testing and troubleshooting
 
+#### Production Deployment
+5. **[OPENEHR_PRODUCTION_DEPLOYMENT.md](./OPENEHR_PRODUCTION_DEPLOYMENT.md)** - EHRbase production deployment guide
+   - Current state vs production requirements
+   - EHRbase architecture and setup
+   - Data model enhancements for full openEHR compliance
+   - Archetype implementation and registration
+   - Composition structure with complete examples
+   - Terminology integration (SNOMED CT, LOINC, ICD-10)
+   - API integration layer
+   - Migration strategy (4-phase approach)
+   - Security & compliance (GDPR, HIPAA)
+   - Testing & validation
+   - Performance optimization
+   - Monitoring & maintenance
+
 #### Project Documentation
-5. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
+6. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
    - Release notes
    - Breaking changes
    - Feature additions
