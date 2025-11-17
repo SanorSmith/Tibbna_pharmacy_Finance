@@ -83,6 +83,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Status filter display
   - 2-column patient panel layout
   - Color-coded borders and status badges
+- **Appointments Calendar - Complete Redesign**: Healthcare color coding and calendar view
+  - Healthcare standard color palette (blue, green, amber, emerald, red)
+  - Status icons for quick identification (📅, ✓, ⏱️, ✅, ❌)
+  - Summary dashboard with 5 status count cards
+  - Calendar-style grouping by date with sticky headers
+  - TODAY badge for current date
+  - NOW badge (animated) for current appointments
+  - OVERDUE badge for missed appointments
+  - Card-based layout replacing table
+  - Color-coded left borders for priority
+  - Location and unit as colored badges
+  - Improved sorting (upcoming first, then past)
+  - Enhanced visual hierarchy and spacing
 
 ## [Previous Releases]
 
