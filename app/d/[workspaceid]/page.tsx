@@ -13,7 +13,7 @@ export default async function Dashboard({ params }: CompanyDashboardProps) {
   const user = await getUser();
   
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   // Get user's workspaces to find their role

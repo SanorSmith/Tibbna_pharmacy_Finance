@@ -19,7 +19,7 @@ export default async function DashboardPage({ params }: PageProps) {
   const user = await getUser();
   
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   // Check if user is administrator
