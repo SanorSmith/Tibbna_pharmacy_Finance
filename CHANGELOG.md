@@ -96,6 +96,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Location and unit as colored badges
   - Improved sorting (upcoming first, then past)
   - Enhanced visual hierarchy and spacing
+- **Schedule Calendar View**: Healthcare color coding applied
+  - FullCalendar events with status-based colors
+  - Status icons in event titles
+  - 4-card status summary dashboard in sidebar
+  - Enhanced sidebar sections with color-coded borders
+  - Consistent color palette across all views
+  - Improved visual hierarchy and readability
 
 ## [Previous Releases]
 
