@@ -66,6 +66,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Admins redirected to admin dashboard
   - Other roles redirected to their specific dashboards
   - Improved user experience with role-appropriate interfaces
+- **Doctor Dashboard - Contact Section**: Enhanced with comprehensive search
+  - Search staff by name, role, department, specialty, or ID
+  - Real-time filtering with instant results
+  - Quick filter cards for common roles (clickable)
+  - Staff ID display in search results
+  - Clear search functionality
+  - Improved UI with search bar and result counter
 
 ## [Previous Releases]
 
