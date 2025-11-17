@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test order status tracking (pending, in-progress, completed, cancelled)
 - Specimen request and clinical indication fields
 - Comprehensive test orders documentation
+- Imaging requests and results feature with API endpoints
+- Support for multiple imaging modalities (X-Ray, CT, MRI, Ultrasound)
+- Imaging request form with urgency levels (routine, urgent, emergency)
+- Imaging result display with findings and impressions
+- Contrast use management (yes, no, unknown)
+- Professional radiology report format
+- Comprehensive imaging documentation
 
 ### Changed
 - Migrated from single `dosage` field to `dose_amount` + `dose_unit` structure

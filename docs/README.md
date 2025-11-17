@@ -29,8 +29,19 @@
    - Workflow integration
    - Testing and troubleshooting
 
+#### Imaging Feature
+4. **[IMAGING.md](./IMAGING.md)** - Imaging requests and results documentation
+   - Complete feature overview
+   - openEHR compliance details
+   - API reference and examples
+   - Data models and interfaces
+   - Imaging modalities and examples
+   - Radiology report structure
+   - Workflow integration
+   - Testing and troubleshooting
+
 #### Project Documentation
-4. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
+5. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
    - Release notes
    - Breaking changes
    - Feature additions
@@ -40,16 +51,19 @@
 #### For Developers
 - **Prescriptions**: Start with `PRESCRIPTION_FORM.md` for technical details
 - **Test Orders**: Start with `TEST_ORDERS.md` for complete feature documentation
+- **Imaging**: Start with `IMAGING.md` for imaging requests and results
 - **Implementation**: Review `PRESCRIPTION_IMPLEMENTATION_SUMMARY.md` for patterns
 
 #### For Project Managers
 - Read `PRESCRIPTION_IMPLEMENTATION_SUMMARY.md` for overview
 - Check `TEST_ORDERS.md` for test orders feature scope
+- Check `IMAGING.md` for imaging feature scope
 - Review `CHANGELOG.md` for version history
 
 #### For Users
 - Refer to UI sections in `PRESCRIPTION_FORM.md` for prescriptions
 - Refer to UI sections in `TEST_ORDERS.md` for test orders
+- Refer to UI sections in `IMAGING.md` for imaging requests and results
 - Check workflow sections for clinical processes
 
 ### Feature Status
@@ -61,7 +75,10 @@
 - Laboratory test orders feature
 - Test order form with 5 lab types
 - Priority and status management
-- Comprehensive documentation for both features
+- Imaging requests and results feature
+- Support for multiple imaging modalities
+- Professional radiology report format
+- Comprehensive documentation for all features
 
 ### Standards Compliance
 
@@ -73,6 +90,12 @@
 #### Test Orders
 - **Laboratory Types**: Clinic chemistry, Haematology, Microbiology, Immunology, X-Ray
 - **Priority Levels**: Routine, Urgent, STAT
+- **Security**: Role-based access control (doctor creates, doctor/nurse view)
+
+#### Imaging
+- **openEHR**: Imaging exam request and result archetypes
+- **Modalities**: X-Ray, CT, MRI, Ultrasound, Nuclear Medicine
+- **Urgency Levels**: Routine, Urgent, Emergency
 - **Security**: Role-based access control (doctor creates, doctor/nurse view)
 
 ### Support
