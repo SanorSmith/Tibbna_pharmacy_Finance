@@ -4,7 +4,18 @@ import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 
 // In-memory storage for vital signs (dummy data)
 // In production, this would be stored in EHRbase or a database
-const vitalSignsStore: Record<string, any[]> = {};
+interface VitalSignsRecord {
+  composition_uid: string;
+  recorded_time: string;
+  temperature?: number;
+  systolic?: number;
+  diastolic?: number;
+  heart_rate?: number;
+  respiratory_rate?: number;
+  spo2?: number;
+}
+
+const vitalSignsStore: Record<string, VitalSignsRecord[]> = {};
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vital-signs

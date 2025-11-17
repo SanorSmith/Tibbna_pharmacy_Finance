@@ -72,8 +72,19 @@ export default function PatientDashboard({
   });
   
   // Vital Signs state management
+  interface VitalSignsRecord {
+    composition_uid: string;
+    recorded_time: string;
+    temperature?: number;
+    systolic?: number;
+    diastolic?: number;
+    heart_rate?: number;
+    respiratory_rate?: number;
+    spo2?: number;
+  }
+  
   const [showVitalSignsForm, setShowVitalSignsForm] = useState(false);
-  const [vitalSignsRecords, setVitalSignsRecords] = useState<any[]>([]);
+  const [vitalSignsRecords, setVitalSignsRecords] = useState<VitalSignsRecord[]>([]);
   const [loadingVitalSigns, setLoadingVitalSigns] = useState(false);
   const [vitalSignsForm, setVitalSignsForm] = useState({
     temperature: "",
@@ -85,8 +96,21 @@ export default function PatientDashboard({
   });
 
   // Vaccination state management
+  interface VaccinationRecord {
+    composition_uid: string;
+    recorded_time: string;
+    vaccine_name: string;
+    targeted_disease: string;
+    description?: string;
+    total_administrations?: number;
+    last_vaccine_date?: string;
+    next_vaccine_due?: string;
+    additional_details?: string;
+    comment?: string;
+  }
+  
   const [showVaccinationForm, setShowVaccinationForm] = useState(false);
-  const [vaccinationRecords, setVaccinationRecords] = useState<any[]>([]);
+  const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
   const [loadingVaccinations, setLoadingVaccinations] = useState(false);
   const [vaccinationForm, setVaccinationForm] = useState({
     vaccineName: "",
@@ -100,8 +124,19 @@ export default function PatientDashboard({
   });
 
   // Referral state management
+  interface ReferralRecord {
+    composition_uid: string;
+    recorded_time: string;
+    physician_department: string;
+    clinical_indication: string;
+    urgency: string;
+    comment?: string;
+    referred_by: string;
+    status: string;
+  }
+  
   const [showReferralForm, setShowReferralForm] = useState(false);
-  const [referralRecords, setReferralRecords] = useState<any[]>([]);
+  const [referralRecords, setReferralRecords] = useState<ReferralRecord[]>([]);
   const [loadingReferrals, setLoadingReferrals] = useState(false);
   const [referralForm, setReferralForm] = useState({
     physicianDepartment: "",

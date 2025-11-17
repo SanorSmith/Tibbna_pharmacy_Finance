@@ -4,7 +4,18 @@ import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 
 // In-memory storage for referrals (dummy data)
 // In production, this would be stored in EHRbase or a database
-const referralStore: Record<string, any[]> = {};
+interface ReferralRecord {
+  composition_uid: string;
+  recorded_time: string;
+  physician_department: string;
+  clinical_indication: string;
+  urgency: string;
+  comment?: string;
+  referred_by: string;
+  status: string;
+}
+
+const referralStore: Record<string, ReferralRecord[]> = {};
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/referrals

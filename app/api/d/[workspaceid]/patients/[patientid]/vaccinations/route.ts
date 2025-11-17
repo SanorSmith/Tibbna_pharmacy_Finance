@@ -4,7 +4,20 @@ import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 
 // In-memory storage for vaccinations (dummy data)
 // In production, this would be stored in EHRbase or a database
-const vaccinationStore: Record<string, any[]> = {};
+interface VaccinationRecord {
+  composition_uid: string;
+  recorded_time: string;
+  vaccine_name: string;
+  targeted_disease: string;
+  description?: string;
+  total_administrations?: number;
+  last_vaccine_date?: string;
+  next_vaccine_due?: string;
+  additional_details?: string;
+  comment?: string;
+}
+
+const vaccinationStore: Record<string, VaccinationRecord[]> = {};
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vaccinations
