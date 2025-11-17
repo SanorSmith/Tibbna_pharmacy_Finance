@@ -3526,161 +3526,6 @@ export default function PatientDashboard({
               )}
             </CardContent>
           </Card>
-
-          {/* Care Plan Form Dialog */}
-          <Dialog open={showCarePlanForm} onOpenChange={setShowCarePlanForm}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>New Care Plan</DialogTitle>
-                <DialogDescription>
-                  Create a new care plan for {fullName}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                {/* Care Plan Name */}
-                <div>
-                  <label className="text-sm font-medium">Care Plan Name *</label>
-                  <input
-                    type="text"
-                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                    placeholder="e.g., Cardiovascular Risk Management"
-                    id="carePlanName"
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="text-sm font-medium">Description</label>
-                  <textarea
-                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                    rows={3}
-                    placeholder="Comprehensive description of the care plan..."
-                    id="carePlanDescription"
-                  />
-                </div>
-
-                {/* Reason */}
-                <div>
-                  <label className="text-sm font-medium">Reason</label>
-                  <textarea
-                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                    rows={2}
-                    placeholder="Reason for this care plan..."
-                    id="carePlanReason"
-                  />
-                </div>
-
-                {/* Care Plan Schedule */}
-                <div>
-                  <label className="text-sm font-medium">Care Plan Schedule</label>
-                  <textarea
-                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                    rows={2}
-                    placeholder="Schedule and frequency of interventions..."
-                    id="carePlanSchedule"
-                  />
-                </div>
-
-                {/* Dates */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium">Expire Date</label>
-                    <input
-                      type="date"
-                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                      id="carePlanExpire"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Status</label>
-                    <select
-                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                      id="carePlanStatus"
-                      defaultValue="active"
-                    >
-                      <option value="active">Active</option>
-                      <option value="completed">Completed</option>
-                      <option value="on-hold">On Hold</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Comment */}
-                <div>
-                  <label className="text-sm font-medium">Comment</label>
-                  <textarea
-                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                    rows={2}
-                    placeholder="Additional comments..."
-                    id="carePlanComment"
-                  />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowCarePlanForm(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={async () => {
-                      const carePlanName = (document.getElementById('carePlanName') as HTMLInputElement)?.value;
-                      
-                      if (!carePlanName) {
-                        alert("Please fill in the care plan name");
-                        return;
-                      }
-
-                      try {
-                        const res = await fetch(
-                          `/api/d/${workspaceid}/patients/${patient.patientid}/care-plans`,
-                          {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ 
-                              carePlan: {
-                                carePlanName,
-                                description: (document.getElementById('carePlanDescription') as HTMLTextAreaElement)?.value,
-                                reason: (document.getElementById('carePlanReason') as HTMLTextAreaElement)?.value,
-                                carePlanSchedule: (document.getElementById('carePlanSchedule') as HTMLTextAreaElement)?.value,
-                                carePlanExpire: (document.getElementById('carePlanExpire') as HTMLInputElement)?.value ?
-                                  new Date((document.getElementById('carePlanExpire') as HTMLInputElement).value).toISOString() : undefined,
-                                comment: (document.getElementById('carePlanComment') as HTMLTextAreaElement)?.value,
-                                status: (document.getElementById('carePlanStatus') as HTMLSelectElement)?.value,
-                              }
-                            }),
-                          }
-                        );
-
-                        if (res.ok) {
-                          await loadCarePlans();
-                          setShowCarePlanForm(false);
-                          // Clear form
-                          (document.getElementById('carePlanName') as HTMLInputElement).value = '';
-                          (document.getElementById('carePlanDescription') as HTMLTextAreaElement).value = '';
-                          (document.getElementById('carePlanReason') as HTMLTextAreaElement).value = '';
-                          (document.getElementById('carePlanSchedule') as HTMLTextAreaElement).value = '';
-                          (document.getElementById('carePlanExpire') as HTMLInputElement).value = '';
-                          (document.getElementById('carePlanComment') as HTMLTextAreaElement).value = '';
-                        } else {
-                          const error = await res.json();
-                          alert(`Failed to create care plan: ${error.error}`);
-                        }
-                      } catch (error) {
-                        console.error("Error creating care plan:", error);
-                        alert("Failed to create care plan");
-                      }
-                    }}
-                  >
-                    Create Care Plan
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         </TabsContent>
 
         {/* Notes Tab */}
@@ -3695,6 +3540,161 @@ export default function PatientDashboard({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Care Plan Form Dialog */}
+      <Dialog open={showCarePlanForm} onOpenChange={setShowCarePlanForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>New Care Plan</DialogTitle>
+            <DialogDescription>
+              Create a new care plan for {fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Care Plan Name */}
+            <div>
+              <label className="text-sm font-medium">Care Plan Name *</label>
+              <input
+                type="text"
+                className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                placeholder="e.g., Cardiovascular Risk Management"
+                id="carePlanName"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <textarea
+                className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                rows={3}
+                placeholder="Comprehensive description of the care plan..."
+                id="carePlanDescription"
+              />
+            </div>
+
+            {/* Reason */}
+            <div>
+              <label className="text-sm font-medium">Reason</label>
+              <textarea
+                className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                rows={2}
+                placeholder="Reason for this care plan..."
+                id="carePlanReason"
+              />
+            </div>
+
+            {/* Care Plan Schedule */}
+            <div>
+              <label className="text-sm font-medium">Care Plan Schedule</label>
+              <textarea
+                className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                rows={2}
+                placeholder="Schedule and frequency of interventions..."
+                id="carePlanSchedule"
+              />
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Expire Date</label>
+                <input
+                  type="date"
+                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                  id="carePlanExpire"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Status</label>
+                <select
+                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                  id="carePlanStatus"
+                  defaultValue="active"
+                >
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="on-hold">On Hold</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Comment */}
+            <div>
+              <label className="text-sm font-medium">Comment</label>
+              <textarea
+                className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                rows={2}
+                placeholder="Additional comments..."
+                id="carePlanComment"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCarePlanForm(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={async () => {
+                  const carePlanName = (document.getElementById('carePlanName') as HTMLInputElement)?.value;
+                  
+                  if (!carePlanName) {
+                    alert("Please fill in the care plan name");
+                    return;
+                  }
+
+                  try {
+                    const res = await fetch(
+                      `/api/d/${workspaceid}/patients/${patient.patientid}/care-plans`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          carePlan: {
+                            carePlanName,
+                            description: (document.getElementById('carePlanDescription') as HTMLTextAreaElement)?.value,
+                            reason: (document.getElementById('carePlanReason') as HTMLTextAreaElement)?.value,
+                            carePlanSchedule: (document.getElementById('carePlanSchedule') as HTMLTextAreaElement)?.value,
+                            carePlanExpire: (document.getElementById('carePlanExpire') as HTMLInputElement)?.value ?
+                              new Date((document.getElementById('carePlanExpire') as HTMLInputElement).value).toISOString() : undefined,
+                            comment: (document.getElementById('carePlanComment') as HTMLTextAreaElement)?.value,
+                            status: (document.getElementById('carePlanStatus') as HTMLSelectElement)?.value,
+                          }
+                        }),
+                      }
+                    );
+
+                    if (res.ok) {
+                      await loadCarePlans();
+                      setShowCarePlanForm(false);
+                      // Clear form
+                      (document.getElementById('carePlanName') as HTMLInputElement).value = '';
+                      (document.getElementById('carePlanDescription') as HTMLTextAreaElement).value = '';
+                      (document.getElementById('carePlanReason') as HTMLTextAreaElement).value = '';
+                      (document.getElementById('carePlanSchedule') as HTMLTextAreaElement).value = '';
+                      (document.getElementById('carePlanExpire') as HTMLInputElement).value = '';
+                      (document.getElementById('carePlanComment') as HTMLTextAreaElement).value = '';
+                    } else {
+                      const error = await res.json();
+                      alert(`Failed to create care plan: ${error.error}`);
+                    }
+                  } catch (error) {
+                    console.error("Error creating care plan:", error);
+                    alert("Failed to create care plan");
+                  }
+                }}
+              >
+                Create Care Plan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Test Details Dialog */}
       <Dialog open={showTestDetails} onOpenChange={setShowTestDetails}>
