@@ -70,6 +70,19 @@ export default function PatientDashboard({
     bodySite: "",
     comment: "",
   });
+  
+  // Vital Signs state management
+  const [showVitalSignsForm, setShowVitalSignsForm] = useState(false);
+  const [vitalSignsRecords, setVitalSignsRecords] = useState<any[]>([]);
+  const [loadingVitalSigns, setLoadingVitalSigns] = useState(false);
+  const [vitalSignsForm, setVitalSignsForm] = useState({
+    temperature: "",
+    systolic: "",
+    diastolic: "",
+    heartRate: "",
+    respiratoryRate: "",
+    spO2: "",
+  });
 
   const fullName = `${patient.firstname} ${patient.middlename ? patient.middlename + " " : ""}${patient.lastname}`;
   
@@ -97,9 +110,29 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
+  const loadVitalSigns = useCallback(async () => {
+    try {
+      setLoadingVitalSigns(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/vital-signs`,
+        { cache: "no-store" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setVitalSignsRecords(data.vitalSigns || []);
+      }
+    } catch (e) {
+      console.error("Failed to load vital signs:", e);
+    } finally {
+      setLoadingVitalSigns(false);
+    }
+  }, [workspaceid, patient.patientid]);
+
   useEffect(() => {
     loadAppointments();
-  }, [loadAppointments]);
+    loadVitalSigns();
+  }, [loadAppointments, loadVitalSigns]);
 
 
   function formatDateTime(date: string) {
@@ -209,65 +242,116 @@ export default function PatientDashboard({
       {/* Vital Signs Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Vital Signs</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Vital Signs</CardTitle>
+            {vitalSignsRecords.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Latest: {new Date(vitalSignsRecords[0].recorded_time).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Blood Pressure</div>
-              <div className="text-lg font-semibold">--/--</div>
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-purple-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>💉</span> Blood Pressure
+              </div>
+              <div className="text-lg font-semibold text-purple-700">
+                {vitalSignsRecords.length > 0 && vitalSignsRecords[0].systolic && vitalSignsRecords[0].diastolic
+                  ? `${vitalSignsRecords[0].systolic}/${vitalSignsRecords[0].diastolic}`
+                  : "--/--"}
+              </div>
               <div className="text-xs text-muted-foreground">mmHg</div>
             </div>
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Heart Rate</div>
-              <div className="text-lg font-semibold">--</div>
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-pink-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>❤️</span> Heart Rate
+              </div>
+              <div className="text-lg font-semibold text-pink-700">
+                {vitalSignsRecords.length > 0 && vitalSignsRecords[0].heart_rate
+                  ? vitalSignsRecords[0].heart_rate
+                  : "--"}
+              </div>
               <div className="text-xs text-muted-foreground">bpm</div>
             </div>
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Temperature</div>
-              <div className="text-lg font-semibold">--</div>
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-red-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>🌡️</span> Temperature
+              </div>
+              <div className="text-lg font-semibold text-red-700">
+                {vitalSignsRecords.length > 0 && vitalSignsRecords[0].temperature
+                  ? vitalSignsRecords[0].temperature
+                  : "--"}
+              </div>
               <div className="text-xs text-muted-foreground">°C</div>
             </div>
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Oxygen Saturation</div>
-              <div className="text-lg font-semibold">--</div>
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-blue-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>💨</span> Oxygen Saturation
+              </div>
+              <div className="text-lg font-semibold text-blue-700">
+                {vitalSignsRecords.length > 0 && vitalSignsRecords[0].spo2
+                  ? vitalSignsRecords[0].spo2
+                  : "--"}
+              </div>
               <div className="text-xs text-muted-foreground">%</div>
             </div>
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Respiratory Rate</div>
-              <div className="text-lg font-semibold">--</div>
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-cyan-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>🫁</span> Respiratory Rate
+              </div>
+              <div className="text-lg font-semibold text-cyan-700">
+                {vitalSignsRecords.length > 0 && vitalSignsRecords[0].respiratory_rate
+                  ? vitalSignsRecords[0].respiratory_rate
+                  : "--"}
+              </div>
               <div className="text-xs text-muted-foreground">breaths/min</div>
             </div>
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Blood Glucose</div>
-              <div className="text-lg font-semibold">--</div>
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-amber-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>🩸</span> Blood Glucose
+              </div>
+              <div className="text-lg font-semibold text-amber-700">--</div>
               <div className="text-xs text-muted-foreground">mg/dL</div>
             </div>
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">BMI</div>
-              <div className="text-lg font-semibold">
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-green-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>⚖️</span> BMI
+              </div>
+              <div className="text-lg font-semibold text-green-700">
                 {patient.height && patient.weight
                   ? ((patient.weight / Math.pow(patient.height / 100, 2)).toFixed(1))
                   : "--"}
               </div>
               <div className="text-xs text-muted-foreground">kg/m²</div>
             </div>
-            <div className="border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Pain Scale</div>
-              <div className="text-lg font-semibold">--</div>
+            <div className="border rounded-lg p-3 bg-gradient-to-br from-white to-orange-50">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <span>😣</span> Pain Scale
+              </div>
+              <div className="text-lg font-semibold text-orange-700">--</div>
               <div className="text-xs text-muted-foreground">0-10</div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            Last updated: Not recorded
-          </p>
+          {vitalSignsRecords.length === 0 && (
+            <div className="text-xs text-muted-foreground mt-4 text-center py-2 bg-gray-50 rounded">
+              No vital signs recorded yet. Click on the Vital Signs tab to record measurements.
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Tabs for different sections */}
       <Tabs defaultValue="appointments" className="w-full">
-        <TabsList className="grid w-full grid-cols-10 lg:grid-cols-10">
+        <TabsList className="grid w-full grid-cols-11 lg:grid-cols-11">
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
+          <TabsTrigger value="vitalsigns">Vital Signs</TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="medical">Medical History</TabsTrigger>
           <TabsTrigger value="lab">Lab Results</TabsTrigger>
@@ -324,6 +408,270 @@ export default function PatientDashboard({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Vital Signs Tab - openEHR Compliant */}
+        <TabsContent value="vitalsigns" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl">Vital Signs Monitor</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Track essential health metrics</p>
+                </div>
+                <Button size="sm" onClick={() => setShowVitalSignsForm(true)} className="bg-blue-600 hover:bg-blue-700">
+                  <span className="mr-1">+</span> Record New
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingVitalSigns ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading vital signs...</p>
+                  </div>
+                </div>
+              ) : vitalSignsRecords.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">No Vital Signs Recorded</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Start monitoring patient health by recording their first vital signs</p>
+                  <Button onClick={() => setShowVitalSignsForm(true)} variant="outline">
+                    Record First Measurement
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {vitalSignsRecords.map((record, index) => (
+                    <div key={index} className="border rounded-xl p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-blue-50/30">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <div className="font-semibold text-lg">Vital Signs Record</div>
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {record.recorded_time ? new Date(record.recorded_time).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : 'Date not recorded'}
+                          </div>
+                        </div>
+                        <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+                          ✓ Recorded
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        {record.temperature && (
+                          <div className="bg-white rounded-lg p-3 border border-red-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-red-500">🌡️</span>
+                              <div className="text-xs text-muted-foreground font-medium">Temperature</div>
+                            </div>
+                            <div className="text-xl font-bold text-red-600">{record.temperature}°C</div>
+                          </div>
+                        )}
+                        {(record.systolic || record.diastolic) && (
+                          <div className="bg-white rounded-lg p-3 border border-purple-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-purple-500">💉</span>
+                              <div className="text-xs text-muted-foreground font-medium">Blood Pressure</div>
+                            </div>
+                            <div className="text-xl font-bold text-purple-600">{record.systolic}/{record.diastolic}</div>
+                            <div className="text-xs text-muted-foreground">mmHg</div>
+                          </div>
+                        )}
+                        {record.heart_rate && (
+                          <div className="bg-white rounded-lg p-3 border border-pink-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-pink-500">❤️</span>
+                              <div className="text-xs text-muted-foreground font-medium">Heart Rate</div>
+                            </div>
+                            <div className="text-xl font-bold text-pink-600">{record.heart_rate}</div>
+                            <div className="text-xs text-muted-foreground">bpm</div>
+                          </div>
+                        )}
+                        {record.respiratory_rate && (
+                          <div className="bg-white rounded-lg p-3 border border-cyan-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-cyan-500">🫁</span>
+                              <div className="text-xs text-muted-foreground font-medium">Respiratory</div>
+                            </div>
+                            <div className="text-xl font-bold text-cyan-600">{record.respiratory_rate}</div>
+                            <div className="text-xs text-muted-foreground">/min</div>
+                          </div>
+                        )}
+                        {record.spo2 && (
+                          <div className="bg-white rounded-lg p-3 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-blue-500">💨</span>
+                              <div className="text-xs text-muted-foreground font-medium">SpO2</div>
+                            </div>
+                            <div className="text-xl font-bold text-blue-600">{record.spo2}%</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Vital Signs Form Dialog */}
+          <Dialog open={showVitalSignsForm} onOpenChange={setShowVitalSignsForm}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Record Vital Signs</DialogTitle>
+                <DialogDescription>
+                  Essential vital signs following openEHR standards
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {/* Simplified Essential Vital Signs */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Temperature (°C)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                      placeholder="36.5"
+                      value={vitalSignsForm.temperature}
+                      onChange={(e) => setVitalSignsForm({...vitalSignsForm, temperature: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Heart Rate (bpm)</label>
+                    <input
+                      type="number"
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                      placeholder="72"
+                      value={vitalSignsForm.heartRate}
+                      onChange={(e) => setVitalSignsForm({...vitalSignsForm, heartRate: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Systolic BP (mmHg)</label>
+                    <input
+                      type="number"
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                      placeholder="120"
+                      value={vitalSignsForm.systolic}
+                      onChange={(e) => setVitalSignsForm({...vitalSignsForm, systolic: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Diastolic BP (mmHg)</label>
+                    <input
+                      type="number"
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                      placeholder="80"
+                      value={vitalSignsForm.diastolic}
+                      onChange={(e) => setVitalSignsForm({...vitalSignsForm, diastolic: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Respiratory Rate (/min)</label>
+                    <input
+                      type="number"
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                      placeholder="16"
+                      value={vitalSignsForm.respiratoryRate}
+                      onChange={(e) => setVitalSignsForm({...vitalSignsForm, respiratoryRate: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">SpO2 (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                      placeholder="98"
+                      value={vitalSignsForm.spO2}
+                      onChange={(e) => setVitalSignsForm({...vitalSignsForm, spO2: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowVitalSignsForm(false);
+                      setVitalSignsForm({
+                        temperature: "",
+                        systolic: "",
+                        diastolic: "",
+                        heartRate: "",
+                        respiratoryRate: "",
+                        spO2: "",
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={async () => {
+                    try {
+                      const vitalSigns = {
+                        temperature: vitalSignsForm.temperature ? parseFloat(vitalSignsForm.temperature) : undefined,
+                        systolic: vitalSignsForm.systolic ? parseInt(vitalSignsForm.systolic) : undefined,
+                        diastolic: vitalSignsForm.diastolic ? parseInt(vitalSignsForm.diastolic) : undefined,
+                        heartRate: vitalSignsForm.heartRate ? parseInt(vitalSignsForm.heartRate) : undefined,
+                        respiratoryRate: vitalSignsForm.respiratoryRate ? parseInt(vitalSignsForm.respiratoryRate) : undefined,
+                        spO2: vitalSignsForm.spO2 ? parseFloat(vitalSignsForm.spO2) : undefined,
+                      };
+
+                      const response = await fetch(
+                        `/api/d/${workspaceid}/patients/${patient.patientid}/vital-signs`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ vitalSigns }),
+                        }
+                      );
+
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || "Failed to save vital signs");
+                      }
+
+                      // Close form and reset
+                      setShowVitalSignsForm(false);
+                      setVitalSignsForm({
+                        temperature: "",
+                        systolic: "",
+                        diastolic: "",
+                        heartRate: "",
+                        respiratoryRate: "",
+                        spO2: "",
+                      });
+                      // Reload vital signs from EHRbase
+                      loadVitalSigns();
+                    } catch (error) {
+                      console.error("Error saving vital signs:", error);
+                      alert(error instanceof Error ? error.message : "Failed to save vital signs");
+                    }
+                  }}>
+                    Save Vital Signs
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Diagnostics Tab - Based on openEHR Problem/Diagnosis */}
