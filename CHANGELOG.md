@@ -16,12 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clinical indication field with terminology support
 - Dose direction with amount and unit fields
 - Comprehensive prescription form documentation
+- Laboratory test orders feature with API endpoints
+- Test order form with 5 lab types (Clinic chemistry, Haematology, Microbiology, Immunology, X-Ray)
+- Test selection: individual test name or test package
+- Priority management: Routine, Urgent, STAT orders
+- Test order status tracking (pending, in-progress, completed, cancelled)
+- Specimen request and clinical indication fields
+- Comprehensive test orders documentation
 
 ### Changed
 - Migrated from single `dosage` field to `dose_amount` + `dose_unit` structure
 - Simplified prescription form UI to focus on essential fields
 - Updated prescription data model to align with openEHR standards
 - Improved form validation and user feedback
+- Replaced static test orders with functional form and list
 
 ### Fixed
 - Authentication issues in prescription API (user.id → user.userid)

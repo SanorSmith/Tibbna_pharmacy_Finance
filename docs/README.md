@@ -1,9 +1,10 @@
 # IQMed Documentation
 
-## Prescription Feature Documentation
+## Feature Documentation
 
 ### Quick Links
 
+#### Prescription Feature
 1. **[PRESCRIPTION_FORM.md](./PRESCRIPTION_FORM.md)** - Complete technical documentation
    - openEHR compliance details
    - API reference and examples
@@ -19,18 +20,37 @@
    - Future roadmap
    - Team notes
 
-3. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
+#### Test Orders Feature
+3. **[TEST_ORDERS.md](./TEST_ORDERS.md)** - Laboratory test orders documentation
+   - Complete feature overview
+   - API reference and examples
+   - Data models and interfaces
+   - Laboratory types and test examples
+   - Workflow integration
+   - Testing and troubleshooting
+
+#### Project Documentation
+4. **[../CHANGELOG.md](../CHANGELOG.md)** - Version history
    - Release notes
    - Breaking changes
    - Feature additions
 
 ### Getting Started
 
-To understand the prescription feature:
+#### For Developers
+- **Prescriptions**: Start with `PRESCRIPTION_FORM.md` for technical details
+- **Test Orders**: Start with `TEST_ORDERS.md` for complete feature documentation
+- **Implementation**: Review `PRESCRIPTION_IMPLEMENTATION_SUMMARY.md` for patterns
 
-1. **For Developers**: Start with `PRESCRIPTION_FORM.md` for technical details
-2. **For Project Managers**: Read `PRESCRIPTION_IMPLEMENTATION_SUMMARY.md` for overview
-3. **For Users**: Refer to the UI sections in `PRESCRIPTION_FORM.md`
+#### For Project Managers
+- Read `PRESCRIPTION_IMPLEMENTATION_SUMMARY.md` for overview
+- Check `TEST_ORDERS.md` for test orders feature scope
+- Review `CHANGELOG.md` for version history
+
+#### For Users
+- Refer to UI sections in `PRESCRIPTION_FORM.md` for prescriptions
+- Refer to UI sections in `TEST_ORDERS.md` for test orders
+- Check workflow sections for clinical processes
 
 ### Feature Status
 
@@ -38,18 +58,27 @@ To understand the prescription feature:
 - openEHR-compliant prescription form
 - API endpoints with authorization
 - Simplified UI with essential fields
-- Comprehensive documentation
+- Laboratory test orders feature
+- Test order form with 5 lab types
+- Priority and status management
+- Comprehensive documentation for both features
 
 ### Standards Compliance
 
+#### Prescriptions
 - **openEHR**: Medication Order archetype v3
 - **Terminologies**: SNOMED CT, ICD-10, RxNorm, dm+d, AMT
-- **Security**: Role-based access control
+- **Security**: Role-based access control (doctor only)
+
+#### Test Orders
+- **Laboratory Types**: Clinic chemistry, Haematology, Microbiology, Immunology, X-Ray
+- **Priority Levels**: Routine, Urgent, STAT
+- **Security**: Role-based access control (doctor creates, doctor/nurse view)
 
 ### Support
 
 For questions:
-1. Check the documentation files
+1. Check the relevant documentation file
 2. Review git commit messages
-3. Consult openEHR specifications
+3. Consult the CHANGELOG
 4. Contact the development team
