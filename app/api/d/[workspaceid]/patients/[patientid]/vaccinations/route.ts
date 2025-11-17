@@ -17,7 +17,71 @@ interface VaccinationRecord {
   comment?: string;
 }
 
-const vaccinationStore: Record<string, VaccinationRecord[]> = {};
+// Initialize with dummy data for demonstration
+const vaccinationStore: Record<string, VaccinationRecord[]> = {
+  // Sample patient ID with dummy vaccinations
+  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
+    {
+      composition_uid: "vaccination-1731847200000-001",
+      recorded_time: "2024-03-15T10:00:00.000Z",
+      vaccine_name: "Influenza Vaccine (Quadrivalent)",
+      targeted_disease: "Influenza",
+      description: "Seasonal flu vaccine for 2023-2024 season",
+      total_administrations: 1,
+      last_vaccine_date: "2024-03-15",
+      next_vaccine_due: "2025-03-15",
+      additional_details: "Administered in left deltoid muscle. No adverse reactions reported.",
+      comment: "Patient tolerated vaccine well. Advised to monitor for any reactions."
+    },
+    {
+      composition_uid: "vaccination-1715097600000-002",
+      recorded_time: "2023-05-07T14:30:00.000Z",
+      vaccine_name: "Tetanus-Diphtheria (Td) Booster",
+      targeted_disease: "Tetanus and Diphtheria",
+      description: "Routine Td booster vaccination",
+      total_administrations: 1,
+      last_vaccine_date: "2023-05-07",
+      next_vaccine_due: "2033-05-07",
+      additional_details: "Administered in right deltoid. Patient reported mild soreness at injection site.",
+      comment: "Next booster due in 10 years. Patient counseled on wound care."
+    },
+    {
+      composition_uid: "vaccination-1698451200000-003",
+      recorded_time: "2022-10-28T09:15:00.000Z",
+      vaccine_name: "COVID-19 Vaccine (Bivalent Booster)",
+      targeted_disease: "COVID-19",
+      description: "Updated bivalent COVID-19 booster dose",
+      total_administrations: 5,
+      last_vaccine_date: "2022-10-28",
+      next_vaccine_due: "2023-10-28",
+      additional_details: "Fifth dose (bivalent booster). Administered in left arm. No immediate adverse reactions.",
+      comment: "Patient completed primary series and boosters. Annual boosters recommended."
+    },
+    {
+      composition_uid: "vaccination-1672531200000-004",
+      recorded_time: "2021-01-01T11:00:00.000Z",
+      vaccine_name: "Pneumococcal Polysaccharide Vaccine (PPSV23)",
+      targeted_disease: "Pneumococcal Disease",
+      description: "Pneumococcal vaccination for adults",
+      total_administrations: 1,
+      last_vaccine_date: "2021-01-01",
+      next_vaccine_due: "2026-01-01",
+      additional_details: "Administered subcutaneously in left arm. Patient has history of asthma.",
+      comment: "Recommended for patients with chronic respiratory conditions. Next dose in 5 years."
+    },
+    {
+      composition_uid: "vaccination-1609459200000-005",
+      recorded_time: "2020-01-01T10:30:00.000Z",
+      vaccine_name: "Hepatitis B Vaccine",
+      targeted_disease: "Hepatitis B",
+      description: "Hepatitis B vaccination series - Dose 3 of 3",
+      total_administrations: 3,
+      last_vaccine_date: "2020-01-01",
+      additional_details: "Completed 3-dose series. Administered in right deltoid. Series started in 2019.",
+      comment: "Series complete. Post-vaccination serology recommended to confirm immunity."
+    }
+  ]
+};
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vaccinations
