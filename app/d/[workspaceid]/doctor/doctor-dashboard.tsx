@@ -314,41 +314,88 @@ export default function DoctorDashboard({
         </Button>
       </div>
 
-      <Tabs defaultValue="appointments" className="w-full">
+      {/* Clinical Summary Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span>📅</span> Today's Schedule
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{todayAppointments.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {upcomingAppointments.length} upcoming • {inProgressAppointments.length} in progress
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span>✅</span> Completed Today
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{completedAppointments.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {todayAppointments.length > 0 ? Math.round((completedAppointments.length / todayAppointments.length) * 100) : 0}% completion rate
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span>👥</span> Total Patients
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{patients.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              In your care
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-orange-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span>🔔</span> Pending Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{inProgressAppointments.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Require attention
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="schedule" className="w-full">
         <TabsList>
-          <TabsTrigger value="appointments">Appointments</TabsTrigger>
-          <TabsTrigger value="patients">Patients</TabsTrigger>
-          <TabsTrigger value="operations">Operations</TabsTrigger>
-          <TabsTrigger value="contacts">Contacts & Referrals</TabsTrigger>
+          <TabsTrigger value="schedule">Today's Schedule</TabsTrigger>
+          <TabsTrigger value="patients">My Patients</TabsTrigger>
+          <TabsTrigger value="contacts">Staff Directory</TabsTrigger>
+          <TabsTrigger value="operations">Clinical Notes</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="appointments" className="space-y-4">
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{upcomingAppointments.length}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{inProgressAppointments.length}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{completedAppointments.length}</div>
-              </CardContent>
-            </Card>
+        <TabsContent value="schedule" className="space-y-4">
+          {/* Appointment Status Filters */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm font-medium">Filter by status:</span>
+            <div className="flex gap-2">
+              <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-800">
+                All ({todayAppointments.length})
+              </span>
+              <span className="text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                Upcoming ({upcomingAppointments.length})
+              </span>
+              <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800">
+                In Progress ({inProgressAppointments.length})
+              </span>
+              <span className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-800">
+                Completed ({completedAppointments.length})
+              </span>
+            </div>
           </div>
 
           {/* Appointments list */}
@@ -362,40 +409,76 @@ export default function DoctorDashboard({
                   ? `${patient.firstname} ${patient.middlename ? patient.middlename + " " : ""}${patient.lastname}`
                   : appt.notes?.patientname || "Unknown Patient";
 
+                const appointmentTime = new Date(appt.starttime);
+                const now = new Date();
+                const isUpcoming = appointmentTime > now && appt.status === "scheduled";
+                const isNow = appt.status === "in_progress";
+                const isPast = appointmentTime < now && appt.status === "scheduled";
+
                 return (
-                  <Card key={appt.appointmentid}>
+                  <Card key={appt.appointmentid} className={`${
+                    isNow ? "border-l-4 border-l-blue-500 bg-blue-50/30" : 
+                    isPast ? "border-l-4 border-l-red-500" : ""
+                  }`}>
                     <CardHeader>
                       <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-base">{patientName}</CardTitle>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {formatTime(appt.starttime)} - {formatTime(appt.endtime)}
-                            {appt.unit && ` • ${appt.unit}`}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-base">{patientName}</CardTitle>
+                            {isNow && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500 text-white animate-pulse">NOW</span>}
+                            {isPast && <span className="text-xs px-2 py-0.5 rounded-full bg-red-500 text-white">OVERDUE</span>}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                            <span className="font-medium">{formatTime(appt.starttime)} - {formatTime(appt.endtime)}</span>
+                            {appt.unit && <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">📍 {appt.unit}</span>}
                           </div>
                           {patient && (
-                            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                              <div>
-                                {patient.nationalid && `ID: ${patient.nationalid}`}
+                            <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">ID:</span>
+                                <span>{patient.nationalid || "N/A"}</span>
                               </div>
-                              <div className="flex gap-2">
-                                {patient.phone && <span>📞 {patient.phone}</span>}
-                                {patient.email && <span>✉️ {patient.email}</span>}
+                              <div className="flex gap-3">
+                                {patient.phone && (
+                                  <a href={`tel:${patient.phone}`} className="flex items-center gap-1 hover:underline">
+                                    <span>📞</span> {patient.phone}
+                                  </a>
+                                )}
+                                {patient.email && (
+                                  <a href={`mailto:${patient.email}`} className="flex items-center gap-1 hover:underline">
+                                    <span>✉️</span> {patient.email}
+                                  </a>
+                                )}
                               </div>
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end gap-2">
                           <span
-                            className={`text-xs px-2 py-1 rounded ${
+                            className={`text-xs px-3 py-1 rounded-full font-medium ${
                               appt.status === "completed"
                                 ? "bg-green-100 text-green-800"
                                 : appt.status === "in_progress"
                                   ? "bg-blue-100 text-blue-800"
-                                  : "bg-gray-100 text-gray-800"
+                                  : "bg-yellow-100 text-yellow-800"
                             }`}
                           >
-                            {appt.status}
+                            {appt.status === "scheduled" ? "Scheduled" : 
+                             appt.status === "in_progress" ? "In Progress" : "Completed"}
                           </span>
+                          {patient && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.location.href = `/d/${workspaceid}/patients/${patient.patientid}`;
+                              }}
+                              className="text-xs"
+                            >
+                              View Chart
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -459,32 +542,71 @@ export default function DoctorDashboard({
         </TabsContent>
 
         <TabsContent value="patients" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold mb-2">My Patient Panel</h3>
+            <p className="text-sm text-muted-foreground">
+              {patients.length} patient{patients.length !== 1 ? "s" : ""} under your care
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {patients.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No patients found.</p>
+              <p className="text-sm text-muted-foreground col-span-2">No patients found.</p>
             ) : (
               patients.map((patient) => (
                 <Card 
                   key={patient.patientid}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-purple-500"
                   onClick={() => window.location.href = `/d/${workspaceid}/patients/${patient.patientid}`}
                 >
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      {patient.firstname} {patient.middlename ? `${patient.middlename} ` : ""}
-                      {patient.lastname}
-                    </CardTitle>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-base">
+                          {patient.firstname} {patient.middlename ? `${patient.middlename} ` : ""}
+                          {patient.lastname}
+                        </CardTitle>
+                        {patient.nationalid && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            ID: {patient.nationalid}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.location.href = `/d/${workspaceid}/patients/${patient.patientid}`;
+                        }}
+                      >
+                        Open Chart →
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-sm space-y-1">
-                      {patient.nationalid && (
-                        <div className="text-muted-foreground">ID: {patient.nationalid}</div>
-                      )}
-                      {patient.phone && (
-                        <div className="text-muted-foreground">Phone: {patient.phone}</div>
-                      )}
+                    <div className="text-sm space-y-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        {patient.phone && (
+                          <a 
+                            href={`tel:${patient.phone}`} 
+                            className="flex items-center gap-1 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span>📞</span> {patient.phone}
+                          </a>
+                        )}
+                      </div>
                       {patient.email && (
-                        <div className="text-muted-foreground">Email: {patient.email}</div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <a 
+                            href={`mailto:${patient.email}`} 
+                            className="flex items-center gap-1 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span>✉️</span> {patient.email}
+                          </a>
+                        </div>
                       )}
                     </div>
                   </CardContent>
