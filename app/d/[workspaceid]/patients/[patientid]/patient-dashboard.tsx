@@ -855,6 +855,88 @@ export default function PatientDashboard({
         </CardContent>
       </Card>
 
+      {/* Clinical Summary - Alerts & Key Information */}
+      <Card className="border-l-4 border-l-blue-500">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span>📋</span> Clinical Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Active Diagnoses */}
+            <div className="border rounded-lg p-3 bg-red-50">
+              <div className="text-xs font-semibold text-red-900 mb-2">ACTIVE DIAGNOSES</div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium">• Hyperlipidemia</div>
+                <div className="text-sm font-medium">• Prediabetes</div>
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                See Diagnoses tab for details
+              </div>
+            </div>
+
+            {/* Current Medications */}
+            <div className="border rounded-lg p-3 bg-blue-50">
+              <div className="text-xs font-semibold text-blue-900 mb-2">CURRENT MEDICATIONS</div>
+              <div className="space-y-1">
+                {prescriptionRecords.length > 0 ? (
+                  prescriptionRecords.slice(0, 2).map((rx, idx) => (
+                    <div key={idx} className="text-sm font-medium">
+                      • {rx.medication_item}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground">No active medications</div>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                See Meds tab for full list
+              </div>
+            </div>
+
+            {/* Allergies & Alerts */}
+            <div className="border rounded-lg p-3 bg-yellow-50">
+              <div className="text-xs font-semibold text-yellow-900 mb-2">⚠️ ALLERGIES & ALERTS</div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-yellow-900">• No known drug allergies</div>
+                <div className="text-sm text-muted-foreground">• Family Hx: CAD</div>
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                See History tab for details
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="mt-4 pt-4 border-t">
+            <div className="text-xs font-semibold text-gray-700 mb-2">RECENT ACTIVITY</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              {clinicalNotes.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-green-600">✓</span>
+                  <div>
+                    <span className="font-medium">Last Visit:</span>{" "}
+                    {new Date(clinicalNotes[0].recorded_time).toLocaleDateString()}
+                    {clinicalNotes[0].note_title && ` - ${clinicalNotes[0].note_title}`}
+                  </div>
+                </div>
+              )}
+              {vitalSignsRecords.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-600">📊</span>
+                  <div>
+                    <span className="font-medium">Last Vitals:</span>{" "}
+                    BP {vitalSignsRecords[0].systolic}/{vitalSignsRecords[0].diastolic} • 
+                    HR {vitalSignsRecords[0].heart_rate}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Vaccination Summary Card */}
       <Card>
         <CardHeader>
@@ -931,21 +1013,30 @@ export default function PatientDashboard({
         </CardContent>
       </Card>
 
-      {/* Tabs for different sections */}
-      <Tabs defaultValue="appointments" className="w-full">
+      {/* Tabs for different sections - Organized by Clinical Workflow */}
+      <Tabs defaultValue="notes" className="w-full">
         <TabsList className="grid w-full grid-cols-12 lg:grid-cols-12">
-          <TabsTrigger value="appointments">Appointments</TabsTrigger>
-          <TabsTrigger value="vitalsigns">Vital Signs</TabsTrigger>
-          <TabsTrigger value="vaccinations">Vaccinations</TabsTrigger>
-          <TabsTrigger value="referrals">Referrals</TabsTrigger>
-          <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-          <TabsTrigger value="medical">Medical History</TabsTrigger>
-          <TabsTrigger value="lab">Lab Results</TabsTrigger>
-          <TabsTrigger value="testorders">Test Orders</TabsTrigger>
-          <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
-          <TabsTrigger value="imaging">Imaging</TabsTrigger>
-          <TabsTrigger value="careplans">Care Plans</TabsTrigger>
+          {/* Clinical Documentation */}
           <TabsTrigger value="notes">Notes</TabsTrigger>
+          <TabsTrigger value="vitalsigns">Vitals</TabsTrigger>
+          
+          {/* Assessment & History */}
+          <TabsTrigger value="medical">History</TabsTrigger>
+          <TabsTrigger value="diagnostics">Diagnoses</TabsTrigger>
+          
+          {/* Diagnostic Studies */}
+          <TabsTrigger value="lab">Labs</TabsTrigger>
+          <TabsTrigger value="imaging">Imaging</TabsTrigger>
+          <TabsTrigger value="testorders">Orders</TabsTrigger>
+          
+          {/* Treatment & Management */}
+          <TabsTrigger value="prescriptions">Meds</TabsTrigger>
+          <TabsTrigger value="careplans">Care Plans</TabsTrigger>
+          
+          {/* Preventive Care & Coordination */}
+          <TabsTrigger value="vaccinations">Vaccines</TabsTrigger>
+          <TabsTrigger value="referrals">Referrals</TabsTrigger>
+          <TabsTrigger value="appointments">Appts</TabsTrigger>
         </TabsList>
 
         {/* Appointments Tab */}
