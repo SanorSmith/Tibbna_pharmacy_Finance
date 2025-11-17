@@ -222,6 +222,40 @@ Comprehensive per-patient workspace dashboard with vitals, labs, orders, referra
 ### API
 - `GET /api/d/[workspaceid]/patients/[patientid]/appointments`
   - Lists this patient's appointments (doctor/admin access)
+- `GET /api/d/[workspaceid]/patients/[patientid]/vital-signs`
+  - Dummy in-memory vital signs history (6 essential measurements). Doctors/nurses only.
+- `POST /api/d/[workspaceid]/patients/[patientid]/vital-signs`
+  - Stores a new vital signs record in memory. Body shape:
+    ```json
+    {
+      "vitalSigns": {
+        "temperature": 37.1,
+        "systolic": 120,
+        "diastolic": 80,
+        "heartRate": 72,
+        "respiratoryRate": 15,
+        "spO2": 98
+      }
+    }
+    ```
+- `GET /api/d/[workspaceid]/patients/[patientid]/vaccinations`
+  - Dummy in-memory vaccination summary list aligned with openEHR Vaccination Summary archetype.
+- `POST /api/d/[workspaceid]/patients/[patientid]/vaccinations`
+  - Stores a vaccination summary record. Body shape:
+    ```json
+    {
+      "vaccination": {
+        "vaccineName": "COVID-19 mRNA",
+        "targetedDisease": "COVID-19",
+        "description": "Dose 2",
+        "totalAdministrations": "2",
+        "lastVaccineDate": "2025-11-01",
+        "nextVaccineDue": "2026-11-01",
+        "additionalDetails": "Pfizer",
+        "comment": "No adverse events"
+      }
+    }
+    ```
 
 ### Features
 - **Patient Contact Card**
@@ -229,10 +263,15 @@ Comprehensive per-patient workspace dashboard with vitals, labs, orders, referra
   - Height, Weight, BMI (auto-calculated), Blood Type
   - National ID, Phone (tel link), Email (mailto), Address, Emergency contact
 
-- **Vital Signs**
-  - Blood Pressure, Heart Rate, Temperature
-  - Oxygen Saturation, Respiratory Rate, Blood Glucose
-  - BMI auto-calculation, Pain Scale
+- **Vital Signs (demo CDR flow)**
+  - Top card shows the latest vitals from the in-memory API, color-coded per metric
+  - Vital Signs tab lists history, includes gradients/icons, and supplies a simplified 6-field form dialog
+  - Data is currently stored in memory for demos; API contract mirrors openEHR naming for future CDR wiring
+
+- **Vaccinations (openEHR vaccination summary)**
+  - Summary card highlights latest vaccine name, targeted disease, last dose, next due
+  - Vaccinations tab lists history with targeted disease, total administrations, last/next dates, description/additional notes
+  - Form dialog captures the openEHR vaccination summary fields (vaccine name, targeted disease, description, total administrations, last vaccine date, next vaccine due, additional details, comment)
 
 - **Lab Results**
   - Table with columns: Laboratory, Test Name, Result, Reference Range, Unit, Status, Date
