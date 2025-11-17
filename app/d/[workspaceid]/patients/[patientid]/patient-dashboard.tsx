@@ -236,6 +236,40 @@ export default function PatientDashboard({
     comment: "",
   });
 
+  // Test Orders state management
+  interface TestOrderRecord {
+    composition_uid: string;
+    recorded_time: string;
+    lab_type: string;
+    test_select: string;
+    test_name?: string;
+    test_package?: string;
+    fasting_status: string;
+    order_type: string;
+    specimen_request?: string;
+    clinical_indication?: string;
+    billing_guidance?: string;
+    comment?: string;
+    ordered_by: string;
+    status: string;
+  }
+
+  const [showTestOrderForm, setShowTestOrderForm] = useState(false);
+  const [testOrderRecords, setTestOrderRecords] = useState<TestOrderRecord[]>([]);
+  const [loadingTestOrders, setLoadingTestOrders] = useState(false);
+  const [testOrderForm, setTestOrderForm] = useState({
+    labType: "",
+    testSelect: "test_name", // test_name or test_package
+    testName: "",
+    testPackage: "",
+    fastingStatus: "Routine",
+    orderType: "Routine",
+    specimenRequest: "",
+    clinicalIndication: "",
+    billingGuidance: "",
+    comment: "",
+  });
+
   const fullName = `${patient.firstname} ${patient.middlename ? patient.middlename + " " : ""}${patient.lastname}`;
   
   // Calculate age from date of birth
@@ -338,13 +372,33 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
+  const loadTestOrders = useCallback(async () => {
+    try {
+      setLoadingTestOrders(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/test-orders`,
+        { cache: "no-store" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setTestOrderRecords(data.testOrders || []);
+      }
+    } catch (e) {
+      console.error("Failed to load test orders:", e);
+    } finally {
+      setLoadingTestOrders(false);
+    }
+  }, [workspaceid, patient.patientid]);
+
   useEffect(() => {
     loadAppointments();
     loadVitalSigns();
     loadVaccinations();
     loadReferrals();
     loadPrescriptions();
-  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions]);
+    loadTestOrders();
+  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions, loadTestOrders]);
 
 
   function formatDateTime(date: string) {
@@ -2149,116 +2203,311 @@ export default function PatientDashboard({
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Test Orders</CardTitle>
-                <Button size="sm">+ New Order</Button>
+                <CardTitle>Laboratory Test Orders</CardTitle>
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowTestOrderForm(true)}
+                >
+                  + New Test Order
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {/* Sample test orders */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium">Complete Blood Count (CBC)</div>
-                      <div className="text-sm text-muted-foreground">Order #TO-2024-001</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">
-                      Pending
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Ordered By</div>
-                      <div>Dr. Smith</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Order Date</div>
-                      <div>Nov 11, 2024</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Priority</div>
-                      <div>Routine</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Laboratory</div>
-                      <div>Central Lab</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Instructions</div>
-                    <div>Fasting required. Patient should not eat or drink (except water) for 8-12 hours before test.</div>
-                  </div>
+              {loadingTestOrders ? (
+                <div className="text-center py-8 text-muted-foreground">Loading test orders...</div>
+              ) : testOrderRecords.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No test orders found. Click "+ New Test Order" to create one.
                 </div>
-
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium">Lipid Panel</div>
-                      <div className="text-sm text-muted-foreground">Order #TO-2024-002</div>
+              ) : (
+                <div className="space-y-3">
+                  {testOrderRecords.map((order) => (
+                    <div key={order.composition_uid} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="font-medium">
+                            {order.test_name || order.test_package || order.test_select}
+                          </div>
+                          <div className="text-sm text-muted-foreground">{order.lab_type}</div>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          order.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                          order.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                          order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <div className="text-muted-foreground text-xs">Ordered By</div>
+                          <div>{order.ordered_by}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs">Order Date</div>
+                          <div>{new Date(order.recorded_time).toLocaleDateString()}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs">Priority</div>
+                          <div>{order.fasting_status}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs">Order Type</div>
+                          <div>{order.order_type}</div>
+                        </div>
+                      </div>
+                      {order.clinical_indication && (
+                        <div className="mt-3 text-sm">
+                          <div className="text-muted-foreground text-xs mb-1">Clinical Indication</div>
+                          <div>{order.clinical_indication}</div>
+                        </div>
+                      )}
+                      {order.specimen_request && (
+                        <div className="mt-2 text-sm">
+                          <div className="text-muted-foreground text-xs mb-1">Specimen Request</div>
+                          <div>{order.specimen_request}</div>
+                        </div>
+                      )}
+                      {order.comment && (
+                        <div className="mt-2 text-sm">
+                          <div className="text-muted-foreground text-xs mb-1">Comment</div>
+                          <div>{order.comment}</div>
+                        </div>
+                      )}
                     </div>
-                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                      Completed
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Ordered By</div>
-                      <div>Dr. Smith</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Order Date</div>
-                      <div>Nov 8, 2024</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Priority</div>
-                      <div>Routine</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Laboratory</div>
-                      <div>Lipid Lab</div>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <Button variant="outline" size="sm">View Results</Button>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium">HbA1c Test</div>
-                      <div className="text-sm text-muted-foreground">Order #TO-2024-003</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">
-                      In Progress
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Ordered By</div>
-                      <div>Dr. Smith</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Order Date</div>
-                      <div>Nov 9, 2024</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Priority</div>
-                      <div>Urgent</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Laboratory</div>
-                      <div>Biochemistry Lab</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Instructions</div>
-                    <div>No special preparation required. Sample collected on Nov 10, 2024.</div>
-                  </div>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Test Order Form Dialog */}
+          <Dialog open={showTestOrderForm} onOpenChange={setShowTestOrderForm}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>New Laboratory Test Order</DialogTitle>
+                <DialogDescription>
+                  Create a laboratory test order for {fullName}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {/* Lab Type */}
+                <div>
+                  <label className="text-sm font-medium">Lab Type *</label>
+                  <select
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    value={testOrderForm.labType}
+                    onChange={(e) => setTestOrderForm({...testOrderForm, labType: e.target.value})}
+                  >
+                    <option value="">Select lab type...</option>
+                    <option value="Clinic chemistry">Clinic chemistry</option>
+                    <option value="Haematology">Haematology</option>
+                    <option value="Microbiology">Microbiology</option>
+                    <option value="Immunology">Immunology</option>
+                    <option value="X-Ray">X-Ray</option>
+                  </select>
+                </div>
+
+                {/* Test Select */}
+                <div>
+                  <label className="text-sm font-medium">Test Select *</label>
+                  <div className="flex gap-4 mt-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="testSelect"
+                        value="test_name"
+                        checked={testOrderForm.testSelect === "test_name"}
+                        onChange={(e) => setTestOrderForm({...testOrderForm, testSelect: e.target.value})}
+                      />
+                      <span className="text-sm">Test Name</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="testSelect"
+                        value="test_package"
+                        checked={testOrderForm.testSelect === "test_package"}
+                        onChange={(e) => setTestOrderForm({...testOrderForm, testSelect: e.target.value})}
+                      />
+                      <span className="text-sm">Test Package</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Test Name or Package */}
+                {testOrderForm.testSelect === "test_name" ? (
+                  <div>
+                    <label className="text-sm font-medium">Test Name *</label>
+                    <input
+                      type="text"
+                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                      placeholder="e.g., Complete Blood Count, HbA1c"
+                      value={testOrderForm.testName}
+                      onChange={(e) => setTestOrderForm({...testOrderForm, testName: e.target.value})}
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-sm font-medium">Test Package *</label>
+                    <input
+                      type="text"
+                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                      placeholder="e.g., Lipid Panel, Metabolic Panel"
+                      value={testOrderForm.testPackage}
+                      onChange={(e) => setTestOrderForm({...testOrderForm, testPackage: e.target.value})}
+                    />
+                  </div>
+                )}
+
+                {/* Fasting Status & Order Type */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Fasting Status *</label>
+                    <select
+                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                      value={testOrderForm.fastingStatus}
+                      onChange={(e) => setTestOrderForm({...testOrderForm, fastingStatus: e.target.value})}
+                    >
+                      <option value="Routine">Routine</option>
+                      <option value="Urgent">Urgent</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Order Type *</label>
+                    <select
+                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                      value={testOrderForm.orderType}
+                      onChange={(e) => setTestOrderForm({...testOrderForm, orderType: e.target.value})}
+                    >
+                      <option value="Routine">Routine</option>
+                      <option value="Urgent">Urgent</option>
+                      <option value="STAT">STAT</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Specimen Request */}
+                <div>
+                  <label className="text-sm font-medium">Specimen Request</label>
+                  <input
+                    type="text"
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    placeholder="e.g., Blood sample, Urine sample"
+                    value={testOrderForm.specimenRequest}
+                    onChange={(e) => setTestOrderForm({...testOrderForm, specimenRequest: e.target.value})}
+                  />
+                </div>
+
+                {/* Clinical Indication */}
+                <div>
+                  <label className="text-sm font-medium">Clinical Indication</label>
+                  <textarea
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    rows={2}
+                    placeholder="Reason for test order..."
+                    value={testOrderForm.clinicalIndication}
+                    onChange={(e) => setTestOrderForm({...testOrderForm, clinicalIndication: e.target.value})}
+                  />
+                </div>
+
+                {/* Billing Guidance */}
+                <div>
+                  <label className="text-sm font-medium">Billing Guidance</label>
+                  <input
+                    type="text"
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    placeholder="Billing information..."
+                    value={testOrderForm.billingGuidance}
+                    onChange={(e) => setTestOrderForm({...testOrderForm, billingGuidance: e.target.value})}
+                  />
+                </div>
+
+                {/* Comment */}
+                <div>
+                  <label className="text-sm font-medium">Comment</label>
+                  <textarea
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    rows={2}
+                    placeholder="Additional notes..."
+                    value={testOrderForm.comment}
+                    onChange={(e) => setTestOrderForm({...testOrderForm, comment: e.target.value})}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowTestOrderForm(false);
+                      setTestOrderForm({
+                        labType: "",
+                        testSelect: "test_name",
+                        testName: "",
+                        testPackage: "",
+                        fastingStatus: "Routine",
+                        orderType: "Routine",
+                        specimenRequest: "",
+                        clinicalIndication: "",
+                        billingGuidance: "",
+                        comment: "",
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={async () => {
+                      if (!testOrderForm.labType || 
+                          (testOrderForm.testSelect === "test_name" && !testOrderForm.testName) ||
+                          (testOrderForm.testSelect === "test_package" && !testOrderForm.testPackage)) {
+                        alert("Please fill in all required fields");
+                        return;
+                      }
+
+                      try {
+                        const res = await fetch(
+                          `/api/d/${workspaceid}/patients/${patient.patientid}/test-orders`,
+                          {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ testOrder: testOrderForm }),
+                          }
+                        );
+
+                        if (res.ok) {
+                          await loadTestOrders();
+                          setShowTestOrderForm(false);
+                          setTestOrderForm({
+                            labType: "",
+                            testSelect: "test_name",
+                            testName: "",
+                            testPackage: "",
+                            fastingStatus: "Routine",
+                            orderType: "Routine",
+                            specimenRequest: "",
+                            clinicalIndication: "",
+                            billingGuidance: "",
+                            comment: "",
+                          });
+                        } else {
+                          const error = await res.json();
+                          alert(`Failed to create test order: ${error.error}`);
+                        }
+                      } catch (error) {
+                        console.error("Error creating test order:", error);
+                        alert("Failed to create test order");
+                      }
+                    }}
+                  >
+                    Create Test Order
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Prescriptions Tab */}
