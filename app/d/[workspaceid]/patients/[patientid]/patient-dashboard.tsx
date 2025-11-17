@@ -99,6 +99,17 @@ export default function PatientDashboard({
     comment: "",
   });
 
+  // Referral state management
+  const [showReferralForm, setShowReferralForm] = useState(false);
+  const [referralRecords, setReferralRecords] = useState<any[]>([]);
+  const [loadingReferrals, setLoadingReferrals] = useState(false);
+  const [referralForm, setReferralForm] = useState({
+    physicianDepartment: "",
+    clinicalIndication: "",
+    urgency: "no",
+    comment: "",
+  });
+
   const fullName = `${patient.firstname} ${patient.middlename ? patient.middlename + " " : ""}${patient.lastname}`;
   
   // Calculate age from date of birth
@@ -163,11 +174,31 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
+  const loadReferrals = useCallback(async () => {
+    try {
+      setLoadingReferrals(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/referrals`,
+        { cache: "no-store" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setReferralRecords(data.referrals || []);
+      }
+    } catch (e) {
+      console.error("Failed to load referrals:", e);
+    } finally {
+      setLoadingReferrals(false);
+    }
+  }, [workspaceid, patient.patientid]);
+
   useEffect(() => {
     loadAppointments();
     loadVitalSigns();
     loadVaccinations();
-  }, [loadAppointments, loadVitalSigns, loadVaccinations]);
+    loadReferrals();
+  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals]);
 
 
   function formatDateTime(date: string) {
@@ -464,13 +495,13 @@ export default function PatientDashboard({
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="vitalsigns">Vital Signs</TabsTrigger>
           <TabsTrigger value="vaccinations">Vaccinations</TabsTrigger>
+          <TabsTrigger value="referrals">Referrals</TabsTrigger>
           <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
           <TabsTrigger value="medical">Medical History</TabsTrigger>
           <TabsTrigger value="lab">Lab Results</TabsTrigger>
           <TabsTrigger value="testorders">Test Orders</TabsTrigger>
           <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
           <TabsTrigger value="imaging">Imaging</TabsTrigger>
-          <TabsTrigger value="referrals">Referrals</TabsTrigger>
           <TabsTrigger value="careplans">Care Plans</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
         </TabsList>
@@ -1085,6 +1116,239 @@ export default function PatientDashboard({
                     }}
                   >
                     Save Vaccination
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
+        {/* Referrals Tab - openEHR Referral */}
+        <TabsContent value="referrals" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl">Referrals</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Manage patient referrals to specialists</p>
+                </div>
+                <Button size="sm" onClick={() => setShowReferralForm(true)} className="bg-teal-600 hover:bg-teal-700">
+                  <span className="mr-1">+</span> New Referral
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingReferrals ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading referrals...</p>
+                  </div>
+                </div>
+              ) : referralRecords.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mb-4">
+                    <span className="text-3xl">🏥</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">No Referrals</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Create a referral to another physician or department</p>
+                  <Button onClick={() => setShowReferralForm(true)} variant="outline">
+                    Create First Referral
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {referralRecords.map((record, index) => (
+                    <div key={index} className="border rounded-xl p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-teal-50/30">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse"></div>
+                            <div className="font-semibold text-lg">Referral to {record.physician_department || "Specialist"}</div>
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {record.recorded_time ? new Date(record.recorded_time).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : 'Date not recorded'}
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          record.urgency === "yes" 
+                            ? "bg-red-100 text-red-700" 
+                            : "bg-green-100 text-green-700"
+                        }`}>
+                          {record.urgency === "yes" ? "⚠️ Urgent" : "✓ Routine"}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div className="bg-white rounded-lg p-3 border border-teal-100">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-teal-500">🏥</span>
+                            <div className="text-xs text-muted-foreground font-medium">Physician/Department</div>
+                          </div>
+                          <div className="text-base font-bold text-teal-600">{record.physician_department}</div>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border border-blue-100">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-blue-500">📋</span>
+                            <div className="text-xs text-muted-foreground font-medium">Clinical Indication</div>
+                          </div>
+                          <div className="text-base font-bold text-blue-600">{record.clinical_indication}</div>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border border-gray-100">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-gray-500">👨‍⚕️</span>
+                            <div className="text-xs text-muted-foreground font-medium">Referred By</div>
+                          </div>
+                          <div className="text-base font-bold text-gray-600">{record.referred_by || "Unknown"}</div>
+                        </div>
+                      </div>
+
+                      {record.comment && (
+                        <div className="text-sm">
+                          <div className="text-xs text-muted-foreground font-medium mb-1">Additional Comments</div>
+                          <div className="text-gray-700 bg-white p-3 rounded-lg border">{record.comment}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Referral Form Dialog */}
+          <Dialog open={showReferralForm} onOpenChange={setShowReferralForm}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create Referral</DialogTitle>
+                <DialogDescription>
+                  Refer patient to another physician or department
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Physician / Department *</label>
+                  <input
+                    type="text"
+                    className="w-full mt-1 px-3 py-2 border rounded-md"
+                    placeholder="e.g., Cardiology, Dr. Smith"
+                    value={referralForm.physicianDepartment}
+                    onChange={(e) => setReferralForm({...referralForm, physicianDepartment: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Clinical Indication *</label>
+                  <textarea
+                    className="w-full mt-1 px-3 py-2 border rounded-md"
+                    rows={3}
+                    placeholder="Reason for referral and relevant clinical information"
+                    value={referralForm.clinicalIndication}
+                    onChange={(e) => setReferralForm({...referralForm, clinicalIndication: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Urgency *</label>
+                  <div className="flex gap-4 mt-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="urgency"
+                        value="no"
+                        checked={referralForm.urgency === "no"}
+                        onChange={(e) => setReferralForm({...referralForm, urgency: e.target.value})}
+                        className="w-4 h-4"
+                      />
+                      <span>Routine</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="urgency"
+                        value="yes"
+                        checked={referralForm.urgency === "yes"}
+                        onChange={(e) => setReferralForm({...referralForm, urgency: e.target.value})}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-red-600 font-medium">Urgent</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Comment</label>
+                  <textarea
+                    className="w-full mt-1 px-3 py-2 border rounded-md"
+                    rows={3}
+                    placeholder="Additional notes or instructions"
+                    value={referralForm.comment}
+                    onChange={(e) => setReferralForm({...referralForm, comment: e.target.value})}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowReferralForm(false);
+                      setReferralForm({
+                        physicianDepartment: "",
+                        clinicalIndication: "",
+                        urgency: "no",
+                        comment: "",
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    className="bg-teal-600 hover:bg-teal-700"
+                    onClick={async () => {
+                      try {
+                        if (!referralForm.physicianDepartment || !referralForm.clinicalIndication) {
+                          alert("Please fill in required fields: Physician/Department and Clinical Indication");
+                          return;
+                        }
+
+                        const response = await fetch(
+                          `/api/d/${workspaceid}/patients/${patient.patientid}/referrals`,
+                          {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ referral: referralForm }),
+                          }
+                        );
+
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          throw new Error(errorData.error || "Failed to create referral");
+                        }
+
+                        setShowReferralForm(false);
+                        setReferralForm({
+                          physicianDepartment: "",
+                          clinicalIndication: "",
+                          urgency: "no",
+                          comment: "",
+                        });
+                        loadReferrals();
+                      } catch (error) {
+                        console.error("Error creating referral:", error);
+                        alert(error instanceof Error ? error.message : "Failed to create referral");
+                      }
+                    }}
+                  >
+                    Create Referral
                   </Button>
                 </div>
               </div>
@@ -1871,127 +2135,6 @@ export default function PatientDashboard({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">No imaging results available</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Referrals Tab */}
-        <TabsContent value="referrals" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Referrals</CardTitle>
-                <Button size="sm">+ New Referral</Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {/* Sample referrals */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium">Cardiology Consultation</div>
-                      <div className="text-sm text-muted-foreground">Referral #REF-2024-001</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">
-                      Pending
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Referred By</div>
-                      <div>Dr. Smith (General Medicine)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Referred To</div>
-                      <div>Dr. Johnson (Cardiology)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Date</div>
-                      <div>Nov 11, 2024</div>
-                    </div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Reason for Referral</div>
-                    <div>Patient presenting with chest pain and elevated cholesterol. Requires cardiac evaluation and stress test.</div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Priority</div>
-                    <div className="font-medium text-yellow-700">Urgent - Within 2 weeks</div>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium">Endocrinology Consultation</div>
-                      <div className="text-sm text-muted-foreground">Referral #REF-2024-002</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                      Completed
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Referred By</div>
-                      <div>Dr. Smith (General Medicine)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Referred To</div>
-                      <div>Dr. Williams (Endocrinology)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Date</div>
-                      <div>Nov 5, 2024</div>
-                    </div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Reason for Referral</div>
-                    <div>Elevated fasting glucose levels. Diabetes management and HbA1c monitoring required.</div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Consultation Date</div>
-                    <div>Nov 9, 2024</div>
-                  </div>
-                  <div className="mt-2">
-                    <Button variant="outline" size="sm">View Report</Button>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium">Physical Therapy</div>
-                      <div className="text-sm text-muted-foreground">Referral #REF-2024-003</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">
-                      In Progress
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Referred By</div>
-                      <div>Dr. Smith (General Medicine)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Referred To</div>
-                      <div>Rehabilitation Center</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Date</div>
-                      <div>Nov 8, 2024</div>
-                    </div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Reason for Referral</div>
-                    <div>Lower back pain management. 12 sessions recommended for strengthening and pain relief.</div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Sessions Completed</div>
-                    <div>4 of 12 sessions</div>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
