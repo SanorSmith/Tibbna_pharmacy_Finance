@@ -45,11 +45,23 @@ export default function PatientsList({
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Only doctors and nurses can view patient details
   const canViewDetails = userRole === "doctor" || userRole === "nurse";
   // Only administrators can edit
   const canEdit = userRole === "administrator";
+
+  // Filter patients based on search query
+  const filteredPatients = rows ? rows.filter((patient) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const fullName = `${patient.firstname} ${patient.middlename || ""} ${patient.lastname}`.toLowerCase();
+    const nationalId = (patient.nationalid || "").toLowerCase();
+    
+    return fullName.includes(query) || nationalId.includes(query);
+  }) : [];
 
   useEffect(() => {
     let active = true;
@@ -140,20 +152,71 @@ export default function PatientsList({
 
   return (
     <>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[250px]">Name</TableHead>
-              <TableHead className="w-[150px]">National ID</TableHead>
-              <TableHead className="w-[150px]">Phone</TableHead>
-              <TableHead className="w-[200px]">Email</TableHead>
-              <TableHead className="w-[150px]">EHR ID</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((p: Patient) => (
+      {/* Search Bar */}
+      <div className="mb-4">
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder="Search by patient name or National ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 max-w-md"
+          />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            🔍
+          </span>
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2"
+              onClick={() => setSearchQuery("")}
+            >
+              ✕
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          {searchQuery ? (
+            <span>
+              Found <strong>{filteredPatients.length}</strong> patient{filteredPatients.length !== 1 ? "s" : ""}
+            </span>
+          ) : (
+            <span>
+              Total: <strong>{rows.length}</strong> patient{rows.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </p>
+      </div>
+
+      {/* Patients Table */}
+      {filteredPatients.length === 0 ? (
+        <div className="text-center py-8 border rounded-md">
+          <p className="text-sm text-muted-foreground">No patients match your search.</p>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => setSearchQuery("")}
+            className="mt-2"
+          >
+            Clear search
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[250px]">Name</TableHead>
+                <TableHead className="w-[150px]">National ID</TableHead>
+                <TableHead className="w-[150px]">Phone</TableHead>
+                <TableHead className="w-[200px]">Email</TableHead>
+                <TableHead className="w-[150px]">EHR ID</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPatients.map((p: Patient) => (
               <TableRow 
                 key={p.patientid}
                 className={canViewDetails ? "cursor-pointer hover:bg-muted/50" : ""}
@@ -187,10 +250,11 @@ export default function PatientsList({
                   )}
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Edit Patient Dialog */}
       {editingPatient && (
