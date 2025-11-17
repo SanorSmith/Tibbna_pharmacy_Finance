@@ -270,6 +270,44 @@ export default function PatientDashboard({
     comment: "",
   });
 
+  // Lab Results state management (openEHR compliant)
+  interface LabTestAnalyte {
+    analyte_name: string;
+    analyte_code?: string;
+    result_value: string | number;
+    result_unit?: string;
+    reference_range?: string;
+    result_status: string;
+    result_flag?: string;
+  }
+
+  interface LabTestResult {
+    composition_uid: string;
+    recorded_time: string;
+    test_name: string;
+    test_name_code?: string;
+    protocol: string;
+    specimen_type?: string;
+    specimen_collection_time?: string;
+    specimen_received_time?: string;
+    specimen_id?: string;
+    overall_test_status: string;
+    clinical_information_provided?: string;
+    test_results: LabTestAnalyte[];
+    conclusion?: string;
+    test_diagnosis?: string;
+    laboratory_name: string;
+    reported_by?: string;
+    verified_by?: string;
+    report_date: string;
+  }
+
+  const [showLabResultForm, setShowLabResultForm] = useState(false);
+  const [labResultRecords, setLabResultRecords] = useState<LabTestResult[]>([]);
+  const [loadingLabResults, setLoadingLabResults] = useState(false);
+  const [selectedLabResult, setSelectedLabResult] = useState<LabTestResult | null>(null);
+  const [showLabResultDetails, setShowLabResultDetails] = useState(false);
+
   const fullName = `${patient.firstname} ${patient.middlename ? patient.middlename + " " : ""}${patient.lastname}`;
   
   // Calculate age from date of birth
@@ -391,6 +429,25 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
+  const loadLabResults = useCallback(async () => {
+    try {
+      setLoadingLabResults(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/lab-results`,
+        { cache: "no-store" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setLabResultRecords(data.labResults || []);
+      }
+    } catch (e) {
+      console.error("Failed to load lab results:", e);
+    } finally {
+      setLoadingLabResults(false);
+    }
+  }, [workspaceid, patient.patientid]);
+
   useEffect(() => {
     loadAppointments();
     loadVitalSigns();
@@ -398,7 +455,8 @@ export default function PatientDashboard({
     loadReferrals();
     loadPrescriptions();
     loadTestOrders();
-  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions, loadTestOrders]);
+    loadLabResults();
+  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions, loadTestOrders, loadLabResults]);
 
 
   function formatDateTime(date: string) {
@@ -1878,322 +1936,147 @@ export default function PatientDashboard({
           </Card>
         </TabsContent>
 
-        {/* Lab Results Tab */}
+        {/* Lab Results Tab - openEHR Compliant */}
         <TabsContent value="lab" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Laboratory Results</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Laboratory Test Results</CardTitle>
+                <p className="text-sm text-muted-foreground">openEHR: Laboratory test result</p>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="p-3 text-left text-sm font-medium">Laboratory Name</th>
-                      <th className="p-3 text-left text-sm font-medium">Test Name</th>
-                      <th className="p-3 text-left text-sm font-medium">Result</th>
-                      <th className="p-3 text-left text-sm font-medium">Reference Range</th>
-                      <th className="p-3 text-left text-sm font-medium">Unit</th>
-                      <th className="p-3 text-left text-sm font-medium">Status</th>
-                      <th className="p-3 text-left text-sm font-medium">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Sample lab results - replace with actual data */}
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Central Lab</td>
-                      <td className="p-3 text-sm">
+              {loadingLabResults ? (
+                <div className="text-center py-8 text-muted-foreground">Loading lab results...</div>
+              ) : labResultRecords.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No lab results found.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {labResultRecords.map((result) => (
+                    <div key={result.composition_uid} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold text-lg">{result.test_name}</h3>
+                          <p className="text-sm text-muted-foreground">Protocol: {result.protocol}</p>
+                          <p className="text-sm text-muted-foreground">{result.laboratory_name}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            result.overall_test_status === 'final' ? 'bg-green-100 text-green-800' :
+                            result.overall_test_status === 'preliminary' ? 'bg-yellow-100 text-yellow-800' :
+                            result.overall_test_status === 'amended' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {result.overall_test_status.charAt(0).toUpperCase() + result.overall_test_status.slice(1)}
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(result.report_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Specimen Details */}
+                      {result.specimen_type && (
+                        <div className="mb-3 p-2 bg-muted/30 rounded">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Specimen Details</p>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Type:</span> {result.specimen_type}
+                            </div>
+                            {result.specimen_collection_time && (
+                              <div>
+                                <span className="text-muted-foreground">Collected:</span> {new Date(result.specimen_collection_time).toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Test Results with Traffic Light Colors */}
+                      <div className="mb-3">
+                        <p className="text-sm font-medium mb-2">Test Results</p>
+                        <div className="rounded-md border overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b bg-muted/50">
+                                <th className="p-2 text-left text-xs font-medium">Analyte</th>
+                                <th className="p-2 text-left text-xs font-medium">Result</th>
+                                <th className="p-2 text-left text-xs font-medium">Range</th>
+                                <th className="p-2 text-left text-xs font-medium">Unit</th>
+                                <th className="p-2 text-left text-xs font-medium">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {result.test_results.map((analyte, idx) => (
+                                <tr key={idx} className="border-b last:border-0 hover:bg-muted/30">
+                                  <td className="p-2 text-sm font-medium">{analyte.analyte_name}</td>
+                                  <td className="p-2 text-sm font-semibold">{analyte.result_value}</td>
+                                  <td className="p-2 text-sm text-muted-foreground">{analyte.reference_range || 'N/A'}</td>
+                                  <td className="p-2 text-sm">{analyte.result_unit || '-'}</td>
+                                  <td className="p-2 text-sm">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      analyte.result_status === 'normal' ? 'bg-green-100 text-green-800' :
+                                      analyte.result_status === 'high' || analyte.result_status === 'low' ? 'bg-yellow-100 text-yellow-800' :
+                                      analyte.result_status === 'critical' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {analyte.result_flag || analyte.result_status.toUpperCase()}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Clinical Information */}
+                      {result.clinical_information_provided && (
+                        <div className="mb-3 p-2 bg-blue-50 rounded">
+                          <p className="text-xs font-medium text-blue-900 mb-1">Clinical Information Provided</p>
+                          <p className="text-sm">{result.clinical_information_provided}</p>
+                        </div>
+                      )}
+
+                      {/* Conclusion */}
+                      {result.conclusion && (
+                        <div className="mb-3 p-2 bg-purple-50 rounded">
+                          <p className="text-xs font-medium text-purple-900 mb-1">Conclusion</p>
+                          <p className="text-sm">{result.conclusion}</p>
+                        </div>
+                      )}
+
+                      {/* Test Diagnosis */}
+                      {result.test_diagnosis && (
+                        <div className="mb-3 p-2 bg-orange-50 rounded">
+                          <p className="text-xs font-medium text-orange-900 mb-1">Test Diagnosis</p>
+                          <p className="text-sm">{result.test_diagnosis}</p>
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                        <div>
+                          {result.reported_by && <span>Reported by: {result.reported_by}</span>}
+                          {result.verified_by && <span className="ml-3">Verified by: {result.verified_by}</span>}
+                        </div>
                         <button
                           onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Central Lab",
-                              testName: "Hemoglobin",
-                              result: "14.5",
-                              referenceRange: "13.0 - 17.0",
-                              unit: "g/dL",
-                              status: "Normal",
-                              date: "2024-11-10",
-                              notes: "Patient fasting. Sample collected at 8:00 AM. No hemolysis observed.",
-                            });
-                            setShowTestDetails(true);
+                            setSelectedLabResult(result);
+                            setShowLabResultDetails(true);
                           }}
-                          className="text-primary hover:underline cursor-pointer"
+                          className="text-primary hover:underline"
                         >
-                          Hemoglobin
+                          View Full Report
                         </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">14.5</td>
-                      <td className="p-3 text-sm text-muted-foreground">13.0 - 17.0</td>
-                      <td className="p-3 text-sm">g/dL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                          Normal
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 10, 2024</td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Central Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Central Lab",
-                              testName: "White Blood Cell Count",
-                              result: "7.2",
-                              referenceRange: "4.0 - 11.0",
-                              unit: "×10³/μL",
-                              status: "Normal",
-                              date: "2024-11-10",
-                              notes: "Complete blood count performed. Normal WBC distribution observed.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          White Blood Cell Count
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">7.2</td>
-                      <td className="p-3 text-sm text-muted-foreground">4.0 - 11.0</td>
-                      <td className="p-3 text-sm">×10³/μL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                          Normal
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 10, 2024</td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Central Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Central Lab",
-                              testName: "Platelet Count",
-                              result: "250",
-                              referenceRange: "150 - 400",
-                              unit: "×10³/μL",
-                              status: "Normal",
-                              date: "2024-11-10",
-                              notes: "Platelet count within normal range. No clumping observed.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          Platelet Count
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">250</td>
-                      <td className="p-3 text-sm text-muted-foreground">150 - 400</td>
-                      <td className="p-3 text-sm">×10³/μL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                          Normal
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 10, 2024</td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Biochemistry Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Biochemistry Lab",
-                              testName: "Blood Glucose (Fasting)",
-                              result: "105",
-                              referenceRange: "70 - 100",
-                              unit: "mg/dL",
-                              status: "High",
-                              date: "2024-11-09",
-                              notes: "Slightly elevated fasting glucose. Patient confirmed 8-hour fast. Recommend lifestyle modifications and retest in 3 months.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          Blood Glucose (Fasting)
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">105</td>
-                      <td className="p-3 text-sm text-muted-foreground">70 - 100</td>
-                      <td className="p-3 text-sm">mg/dL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">
-                          High
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 9, 2024</td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Biochemistry Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Biochemistry Lab",
-                              testName: "Creatinine",
-                              result: "1.0",
-                              referenceRange: "0.7 - 1.3",
-                              unit: "mg/dL",
-                              status: "Normal",
-                              date: "2024-11-09",
-                              notes: "Kidney function normal. Creatinine clearance adequate.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          Creatinine
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">1.0</td>
-                      <td className="p-3 text-sm text-muted-foreground">0.7 - 1.3</td>
-                      <td className="p-3 text-sm">mg/dL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                          Normal
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 9, 2024</td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Biochemistry Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Biochemistry Lab",
-                              testName: "ALT (SGPT)",
-                              result: "28",
-                              referenceRange: "7 - 56",
-                              unit: "U/L",
-                              status: "Normal",
-                              date: "2024-11-09",
-                              notes: "Liver enzyme levels normal. No signs of hepatic dysfunction.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          ALT (SGPT)
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">28</td>
-                      <td className="p-3 text-sm text-muted-foreground">7 - 56</td>
-                      <td className="p-3 text-sm">U/L</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                          Normal
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 9, 2024</td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Lipid Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Lipid Lab",
-                              testName: "Total Cholesterol",
-                              result: "220",
-                              referenceRange: "< 200",
-                              unit: "mg/dL",
-                              status: "High",
-                              date: "2024-11-08",
-                              notes: "Borderline high cholesterol. Recommend dietary changes and increased physical activity. Follow-up in 6 months.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          Total Cholesterol
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">220</td>
-                      <td className="p-3 text-sm text-muted-foreground">&lt; 200</td>
-                      <td className="p-3 text-sm">mg/dL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">
-                          High
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 8, 2024</td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/30">
-                      <td className="p-3 text-sm">Lipid Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Lipid Lab",
-                              testName: "HDL Cholesterol",
-                              result: "55",
-                              referenceRange: "> 40",
-                              unit: "mg/dL",
-                              status: "Normal",
-                              date: "2024-11-08",
-                              notes: "Good HDL cholesterol level. Protective against cardiovascular disease.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          HDL Cholesterol
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">55</td>
-                      <td className="p-3 text-sm text-muted-foreground">&gt; 40</td>
-                      <td className="p-3 text-sm">mg/dL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                          Normal
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 8, 2024</td>
-                    </tr>
-                    <tr className="hover:bg-muted/30">
-                      <td className="p-3 text-sm">Lipid Lab</td>
-                      <td className="p-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedTest({
-                              laboratory: "Lipid Lab",
-                              testName: "LDL Cholesterol",
-                              result: "140",
-                              referenceRange: "< 100",
-                              unit: "mg/dL",
-                              status: "High",
-                              date: "2024-11-08",
-                              notes: "Elevated LDL cholesterol. High risk for cardiovascular disease. Recommend statin therapy and lifestyle modifications. Follow-up in 3 months.",
-                            });
-                            setShowTestDetails(true);
-                          }}
-                          className="text-primary hover:underline cursor-pointer"
-                        >
-                          LDL Cholesterol
-                        </button>
-                      </td>
-                      <td className="p-3 text-sm font-medium">140</td>
-                      <td className="p-3 text-sm text-muted-foreground">&lt; 100</td>
-                      <td className="p-3 text-sm">mg/dL</td>
-                      <td className="p-3 text-sm">
-                        <span className="px-2 py-1 rounded bg-red-100 text-red-800 text-xs">
-                          High
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">Nov 8, 2024</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                * Sample data shown. Replace with actual lab results from database.
-              </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
