@@ -370,6 +370,25 @@ export default function PatientDashboard({
   const [loadingMedicalHistory, setLoadingMedicalHistory] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
+  // Care Plans state management (openEHR compliant)
+  interface CarePlan {
+    composition_uid: string;
+    recorded_time: string;
+    care_plan_name: string;
+    description?: string;
+    reason?: string;
+    care_plan_schedule?: string;
+    care_plan_expire?: string;
+    care_plan_completed?: string;
+    comment?: string;
+    created_by: string;
+    status: string;
+  }
+
+  const [showCarePlanForm, setShowCarePlanForm] = useState(false);
+  const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
+  const [loadingCarePlans, setLoadingCarePlans] = useState(false);
+
   const fullName = `${patient.firstname} ${patient.middlename ? patient.middlename + " " : ""}${patient.lastname}`;
   
   // Calculate age from date of birth
@@ -549,6 +568,25 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
+  const loadCarePlans = useCallback(async () => {
+    try {
+      setLoadingCarePlans(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/care-plans`,
+        { cache: "no-store" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setCarePlans(data.carePlans || []);
+      }
+    } catch (e) {
+      console.error("Failed to load care plans:", e);
+    } finally {
+      setLoadingCarePlans(false);
+    }
+  }, [workspaceid, patient.patientid]);
+
   useEffect(() => {
     loadAppointments();
     loadVitalSigns();
@@ -559,7 +597,8 @@ export default function PatientDashboard({
     loadLabResults();
     loadImaging();
     loadMedicalHistory();
-  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions, loadTestOrders, loadLabResults, loadImaging, loadMedicalHistory]);
+    loadCarePlans();
+  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions, loadTestOrders, loadLabResults, loadImaging, loadMedicalHistory, loadCarePlans]);
 
 
   function formatDateTime(date: string) {
@@ -3398,124 +3437,250 @@ export default function PatientDashboard({
           </Dialog>
         </TabsContent>
 
-        {/* Care Plans Tab */}
+        {/* Care Plans Tab - openEHR Compliant */}
         <TabsContent value="careplans" className="space-y-4">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Care Plans</CardTitle>
-                <Button size="sm">+ New Care Plan</Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowCarePlanForm(true)}
+                >
+                  + New Care Plan
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
+              {loadingCarePlans ? (
+                <div className="text-center py-8 text-muted-foreground">Loading care plans...</div>
+              ) : carePlans.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No care plans found. Click "+ New Care Plan" to create one.
+                </div>
+              ) : (
               <div className="space-y-4">
-                {/* Sample care plans */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium text-lg">Cardiovascular Risk Management</div>
-                      <div className="text-sm text-muted-foreground">Plan ID: CP-2024-001</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                      Active
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Created By</div>
-                      <div>Dr. Smith</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Start Date</div>
-                      <div>Nov 8, 2024</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 mt-4">
-                    <div>
-                      <div className="font-medium text-sm mb-2">Goals</div>
-                      <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                        <li>Reduce LDL cholesterol to below 100 mg/dL</li>
-                        <li>Maintain blood pressure below 130/80 mmHg</li>
-                        <li>Achieve 30 minutes of moderate exercise 5 days per week</li>
-                        <li>Reduce body weight by 5-10%</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="font-medium text-sm mb-2">Interventions</div>
-                      <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                        <li>Statin therapy (Atorvastatin 20mg daily)</li>
-                        <li>Low-fat, Mediterranean-style diet</li>
-                        <li>Regular cardiovascular exercise program</li>
-                        <li>Monthly lipid panel monitoring</li>
-                        <li>Cardiology follow-up in 3 months</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="font-medium text-sm mb-2">Progress Notes</div>
-                      <div className="text-sm text-muted-foreground">
-                        Patient showing good compliance with medication. Started walking program. Next review scheduled for Dec 8, 2024.
+                {carePlans.map((plan) => (
+                  <div key={plan.composition_uid} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-lg mb-1">{plan.care_plan_name}</h4>
+                        <p className="text-xs text-muted-foreground">Created: {new Date(plan.recorded_time).toLocaleDateString()}</p>
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium text-lg">Diabetes Management Plan</div>
-                      <div className="text-sm text-muted-foreground">Plan ID: CP-2024-002</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">
-                      Active
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Created By</div>
-                      <div>Dr. Williams (Endocrinology)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Start Date</div>
-                      <div>Nov 9, 2024</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 mt-4">
-                    <div>
-                      <div className="font-medium text-sm mb-2">Goals</div>
-                      <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                        <li>Maintain HbA1c below 7%</li>
-                        <li>Fasting blood glucose 80-130 mg/dL</li>
-                        <li>Post-meal glucose below 180 mg/dL</li>
-                        <li>Prevent diabetes complications</li>
-                      </ul>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        plan.status === 'active' ? 'bg-green-100 text-green-800' :
+                        plan.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                        plan.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
+                      </span>
                     </div>
 
-                    <div>
-                      <div className="font-medium text-sm mb-2">Interventions</div>
-                      <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                        <li>Metformin 500mg twice daily</li>
-                        <li>Carbohydrate counting and meal planning</li>
-                        <li>Daily blood glucose monitoring</li>
-                        <li>HbA1c testing every 3 months</li>
-                        <li>Annual eye and foot examinations</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="font-medium text-sm mb-2">Progress Notes</div>
-                      <div className="text-sm text-muted-foreground">
-                        Patient educated on glucose monitoring. Provided with glucometer and supplies. Dietitian consultation scheduled.
+                    {plan.reason && (
+                      <div className="mb-3 p-2 bg-amber-50 rounded text-sm">
+                        <p className="font-medium text-amber-900 text-xs mb-1">Reason</p>
+                        <p>{plan.reason}</p>
                       </div>
+                    )}
+
+                    {plan.description && (
+                      <div className="mb-3 p-2 bg-blue-50 rounded text-sm">
+                        <p className="font-medium text-blue-900 text-xs mb-1">Description</p>
+                        <p>{plan.description}</p>
+                      </div>
+                    )}
+
+                    {plan.care_plan_schedule && (
+                      <div className="mb-3 p-2 bg-purple-50 rounded text-sm">
+                        <p className="font-medium text-purple-900 text-xs mb-1">Schedule</p>
+                        <p>{plan.care_plan_schedule}</p>
+                      </div>
+                    )}
+
+                    {plan.comment && (
+                      <div className="mb-3 p-2 bg-green-50 rounded text-sm">
+                        <p className="font-medium text-green-900 text-xs mb-1">Comment</p>
+                        <p>{plan.comment}</p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground pt-2 border-t">
+                      <div>
+                        <span className="font-medium">Created by:</span> {plan.created_by}
+                      </div>
+                      {plan.care_plan_expire && (
+                        <div>
+                          <span className="font-medium">Expires:</span> {new Date(plan.care_plan_expire).toLocaleDateString()}
+                        </div>
+                      )}
+                      {plan.care_plan_completed && (
+                        <div className="col-span-2">
+                          <span className="font-medium">Completed:</span> {new Date(plan.care_plan_completed).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Care Plan Form Dialog */}
+          <Dialog open={showCarePlanForm} onOpenChange={setShowCarePlanForm}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>New Care Plan</DialogTitle>
+                <DialogDescription>
+                  Create a new care plan for {fullName}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {/* Care Plan Name */}
+                <div>
+                  <label className="text-sm font-medium">Care Plan Name *</label>
+                  <input
+                    type="text"
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    placeholder="e.g., Cardiovascular Risk Management"
+                    id="carePlanName"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="text-sm font-medium">Description</label>
+                  <textarea
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    rows={3}
+                    placeholder="Comprehensive description of the care plan..."
+                    id="carePlanDescription"
+                  />
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="text-sm font-medium">Reason</label>
+                  <textarea
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    rows={2}
+                    placeholder="Reason for this care plan..."
+                    id="carePlanReason"
+                  />
+                </div>
+
+                {/* Care Plan Schedule */}
+                <div>
+                  <label className="text-sm font-medium">Care Plan Schedule</label>
+                  <textarea
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    rows={2}
+                    placeholder="Schedule and frequency of interventions..."
+                    id="carePlanSchedule"
+                  />
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Expire Date</label>
+                    <input
+                      type="date"
+                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                      id="carePlanExpire"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Status</label>
+                    <select
+                      className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                      id="carePlanStatus"
+                      defaultValue="active"
+                    >
+                      <option value="active">Active</option>
+                      <option value="completed">Completed</option>
+                      <option value="on-hold">On Hold</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Comment */}
+                <div>
+                  <label className="text-sm font-medium">Comment</label>
+                  <textarea
+                    className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                    rows={2}
+                    placeholder="Additional comments..."
+                    id="carePlanComment"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowCarePlanForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={async () => {
+                      const carePlanName = (document.getElementById('carePlanName') as HTMLInputElement)?.value;
+                      
+                      if (!carePlanName) {
+                        alert("Please fill in the care plan name");
+                        return;
+                      }
+
+                      try {
+                        const res = await fetch(
+                          `/api/d/${workspaceid}/patients/${patient.patientid}/care-plans`,
+                          {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              carePlan: {
+                                carePlanName,
+                                description: (document.getElementById('carePlanDescription') as HTMLTextAreaElement)?.value,
+                                reason: (document.getElementById('carePlanReason') as HTMLTextAreaElement)?.value,
+                                carePlanSchedule: (document.getElementById('carePlanSchedule') as HTMLTextAreaElement)?.value,
+                                carePlanExpire: (document.getElementById('carePlanExpire') as HTMLInputElement)?.value ?
+                                  new Date((document.getElementById('carePlanExpire') as HTMLInputElement).value).toISOString() : undefined,
+                                comment: (document.getElementById('carePlanComment') as HTMLTextAreaElement)?.value,
+                                status: (document.getElementById('carePlanStatus') as HTMLSelectElement)?.value,
+                              }
+                            }),
+                          }
+                        );
+
+                        if (res.ok) {
+                          await loadCarePlans();
+                          setShowCarePlanForm(false);
+                          // Clear form
+                          (document.getElementById('carePlanName') as HTMLInputElement).value = '';
+                          (document.getElementById('carePlanDescription') as HTMLTextAreaElement).value = '';
+                          (document.getElementById('carePlanReason') as HTMLTextAreaElement).value = '';
+                          (document.getElementById('carePlanSchedule') as HTMLTextAreaElement).value = '';
+                          (document.getElementById('carePlanExpire') as HTMLInputElement).value = '';
+                          (document.getElementById('carePlanComment') as HTMLTextAreaElement).value = '';
+                        } else {
+                          const error = await res.json();
+                          alert(`Failed to create care plan: ${error.error}`);
+                        }
+                      } catch (error) {
+                        console.error("Error creating care plan:", error);
+                        alert("Failed to create care plan");
+                      }
+                    }}
+                  >
+                    Create Care Plan
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Notes Tab */}
