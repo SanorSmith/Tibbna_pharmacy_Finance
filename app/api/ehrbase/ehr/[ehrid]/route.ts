@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkIsAdmin } from "@/lib/db/queries/admin/shared";
-import { updateOpenEHREHR } from "@/lib/openehr";
+import { updateOpenEHREHR } from "@/lib/openehr/openehr";
 
 interface RouteParams {
   params: Promise<{
