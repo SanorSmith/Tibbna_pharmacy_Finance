@@ -2012,117 +2012,17 @@ export default function PatientDashboard({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {/* Sample diagnoses */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium text-lg">Hyperlipidemia</div>
-                      <div className="text-sm text-muted-foreground">ICD-10: E78.5</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-red-100 text-red-800 text-xs font-medium">
-                      Active
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Severity</div>
-                      <div className="font-medium">Moderate</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Date of Onset</div>
-                      <div>Nov 8, 2024</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Body Site</div>
-                      <div>Systemic</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Diagnosed By</div>
-                      <div>Dr. Smith</div>
-                    </div>
-                  </div>
-                  <div className="text-sm mb-3">
-                    <div className="text-muted-foreground text-xs mb-1">Clinical Description</div>
-                    <div>Elevated LDL cholesterol (140 mg/dL) and total cholesterol (220 mg/dL). Patient presents with family history of cardiovascular disease.</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Comment</div>
-                    <div>Started on statin therapy. Lifestyle modifications recommended. Follow-up lipid panel in 3 months.</div>
-                  </div>
+              <div className="text-center py-12">
+                <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
                 </div>
-
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium text-lg">Prediabetes</div>
-                      <div className="text-sm text-muted-foreground">ICD-10: R73.03</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs font-medium">
-                      Active
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Severity</div>
-                      <div className="font-medium">Mild</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Date of Onset</div>
-                      <div>Nov 9, 2024</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Body Site</div>
-                      <div>Systemic</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Diagnosed By</div>
-                      <div>Dr. Williams</div>
-                    </div>
-                  </div>
-                  <div className="text-sm mb-3">
-                    <div className="text-muted-foreground text-xs mb-1">Clinical Description</div>
-                    <div>Fasting blood glucose 105 mg/dL. Patient at risk for developing Type 2 Diabetes Mellitus.</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Comment</div>
-                    <div>Referred to endocrinology. Dietary counseling provided. HbA1c monitoring every 3 months.</div>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4 bg-muted/20">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium text-lg">Acute Upper Respiratory Infection</div>
-                      <div className="text-sm text-muted-foreground">ICD-10: J06.9</div>
-                    </div>
-                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs font-medium">
-                      Resolved
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
-                    <div>
-                      <div className="text-muted-foreground text-xs">Severity</div>
-                      <div className="font-medium">Mild</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Date of Onset</div>
-                      <div>Oct 15, 2024</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Date of Resolution</div>
-                      <div>Oct 22, 2024</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">Diagnosed By</div>
-                      <div>Dr. Smith</div>
-                    </div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground text-xs mb-1">Clinical Description</div>
-                    <div>Patient presented with sore throat, nasal congestion, and mild fever. Symptoms resolved with symptomatic treatment.</div>
-                  </div>
-                </div>
+                <h3 className="text-lg font-semibold mb-2">No Diagnoses</h3>
+                <p className="text-sm text-muted-foreground mb-4">No diagnoses have been recorded yet</p>
+                <Button onClick={() => setShowDiagnosisForm(true)} variant="outline">
+                  Add First Diagnosis
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -2753,74 +2653,17 @@ export default function PatientDashboard({
               {loadingTestOrders ? (
                 <div className="text-center py-8 text-muted-foreground">Loading test orders...</div>
               ) : testOrderRecords.length === 0 ? (
-                <div className="space-y-3">
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="font-medium">CBC, ESR</div>
-                        <div className="text-sm text-muted-foreground">Haematology</div>
-                      </div>
-                      <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">Pending</span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                      <div>
-                        <div className="text-muted-foreground text-xs">Ordered By</div>
-                        <div>Dr. Example</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Order Date</div>
-                        <div>{new Date().toLocaleDateString()}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Priority</div>
-                        <div>Fasting</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Order Type</div>
-                        <div>Outpatient</div>
-                      </div>
-                    </div>
-                    <div className="mt-3 text-sm">
-                      <div className="text-muted-foreground text-xs mb-1">Clinical Indication</div>
-                      <div>Baseline workup for dyslipidaemia / prediabetes.</div>
-                    </div>
+                <div className="text-center py-12">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                   </div>
-
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="font-medium">Fasting Lipid Profile</div>
-                        <div className="text-sm text-muted-foreground">Clinical chemistry</div>
-                      </div>
-                      <span className="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">In-progress</span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                      <div>
-                        <div className="text-muted-foreground text-xs">Ordered By</div>
-                        <div>Dr. Example</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Order Date</div>
-                        <div>{new Date().toLocaleDateString()}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Priority</div>
-                        <div>Routine</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Order Type</div>
-                        <div>Outpatient</div>
-                      </div>
-                    </div>
-                    <div className="mt-3 text-sm">
-                      <div className="text-muted-foreground text-xs mb-1">Clinical Indication</div>
-                      <div>Hyperlipidaemia follow-up.</div>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground text-center pt-2">
-                    Example data for demonstration. Real laboratory test orders will appear here once created.
-                  </p>
+                  <h3 className="text-lg font-semibold mb-2">No Test Orders</h3>
+                  <p className="text-sm text-muted-foreground mb-4">No laboratory test orders have been created yet</p>
+                  <Button onClick={() => setShowTestOrderForm(true)} variant="outline">
+                    Create First Test Order
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -3131,49 +2974,17 @@ export default function PatientDashboard({
               {loadingPrescriptions ? (
                 <p className="text-sm text-muted-foreground">Loading prescriptions...</p>
               ) : prescriptionRecords.length === 0 ? (
-                <div className="space-y-2">
-                  <div className="rounded-md border overflow-x-auto">
-                    <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="p-3 text-left text-sm font-medium">Medication</th>
-                        <th className="p-3 text-left text-sm font-medium">Dosage</th>
-                        <th className="p-3 text-left text-sm font-medium">Route</th>
-                        <th className="p-3 text-left text-sm font-medium">Timing</th>
-                        <th className="p-3 text-left text-sm font-medium">Prescribed By</th>
-                        <th className="p-3 text-left text-sm font-medium">Date</th>
-                        <th className="p-3 text-left text-sm font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr key="dummy-rx-1" className="border-b hover:bg-muted/30">
-                        <td className="p-3 text-sm font-medium">Atorvastatin 20 mg</td>
-                        <td className="p-3 text-sm">20 mg</td>
-                        <td className="p-3 text-sm">Oral</td>
-                        <td className="p-3 text-sm">Once daily at night</td>
-                        <td className="p-3 text-sm">Dr. Example</td>
-                        <td className="p-3 text-sm text-muted-foreground">{new Date().toLocaleDateString()}</td>
-                        <td className="p-3 text-sm">
-                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">active</span>
-                        </td>
-                      </tr>
-                      <tr key="dummy-rx-2" className="border-b hover:bg-muted/30">
-                        <td className="p-3 text-sm font-medium">Metformin 500 mg</td>
-                        <td className="p-3 text-sm">500 mg</td>
-                        <td className="p-3 text-sm">Oral</td>
-                        <td className="p-3 text-sm">Twice daily with food</td>
-                        <td className="p-3 text-sm">Dr. Example</td>
-                        <td className="p-3 text-sm text-muted-foreground">{new Date().toLocaleDateString()}</td>
-                        <td className="p-3 text-sm">
-                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">active</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="text-center py-12">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Example data for demonstration. Real prescriptions will appear here once recorded.
-                  </p>
+                  <h3 className="text-lg font-semibold mb-2">No Prescriptions</h3>
+                  <p className="text-sm text-muted-foreground mb-4">No prescriptions have been recorded yet</p>
+                  <Button onClick={() => setShowPrescriptionForm(true)} variant="outline">
+                    Create First Prescription
+                  </Button>
                 </div>
               ) : (
                 <div className="rounded-md border overflow-x-auto">
