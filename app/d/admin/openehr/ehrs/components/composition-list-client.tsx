@@ -23,9 +23,13 @@ interface Composition {
 
 interface CompositionListClientProps {
   ehrId: string;
+  onRefreshReady?: (refreshFn: () => void) => void;
 }
 
-export function CompositionListClient({ ehrId }: CompositionListClientProps) {
+export function CompositionListClient({
+  ehrId,
+  onRefreshReady,
+}: CompositionListClientProps) {
   const router = useRouter();
   const [compositions, setCompositions] = useState<Composition[]>([]);
   const [filteredCompositions, setFilteredCompositions] = useState<
@@ -60,6 +64,10 @@ export function CompositionListClient({ ehrId }: CompositionListClientProps) {
 
   useEffect(() => {
     loadCompositions();
+    // Expose refresh function to parent
+    if (onRefreshReady) {
+      onRefreshReady(loadCompositions);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ehrId]);
 

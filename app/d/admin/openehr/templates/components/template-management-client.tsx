@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, RefreshCw } from "lucide-react";
-import { OpenEHRTemplateResponse } from "@/lib/openehr";
+import { OpenEHRTemplateResponse } from "@/lib/openehr/openehr";
 
 export function TemplateManagementClient() {
   const [templates, setTemplates] = useState<OpenEHRTemplateResponse[]>([]);

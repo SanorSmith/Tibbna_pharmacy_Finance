@@ -4,7 +4,7 @@ import {
   getOpenEHREHRs,
   createOpenEHREHR,
   updateOpenEHREHR,
-} from "@/lib/openehr";
+} from "@/lib/openehr/openehr";
 
 export async function GET() {
   try {
