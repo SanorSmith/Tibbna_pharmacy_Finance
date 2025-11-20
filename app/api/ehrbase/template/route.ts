@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkIsAdmin } from "@/lib/db/queries/admin/shared";
-import { getOpenEHRTemplates } from "@/lib/openehr";
+import { getOpenEHRTemplates } from "@/lib/openehr/openehr";
 
 export async function GET() {
   try {
