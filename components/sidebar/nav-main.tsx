@@ -95,24 +95,21 @@ export function NavMain() {
           isActive: true,
         },
         {
-          title: "Book Appointment",
+          title: "Appointments",
           url: `${base}/schedule`,
           icon: Calendar,
-        },
-        {
-          title: "Operative Procedures",
-          url: `${base}/operations`,
-          icon: Scissors,
         },
         {
           title: ttt("Patients"),
           url: `${base}/patients`,
           icon: Users,
-          items: [
-            { title: ttt("Patient List"), url: `${base}/patients` },
-          ],
         },
         {
+          title: "Operations",
+          url: `${base}/operations`,
+          icon: Scissors,
+        },
+        /* {
           title: ttt("Medical Records"),
           url: "/d/records",
           icon: FileText,
@@ -121,7 +118,7 @@ export function NavMain() {
             { title: ttt("Create Record"), url: "/d/records/new" },
             { title: ttt("Lab Results"), url: "/d/records/lab-results" },
           ],
-        },
+        }, */
         {
           title: ttt("Prescriptions"),
           url: "/d/prescriptions",
@@ -145,11 +142,11 @@ export function NavMain() {
             { title: ttt("Imaging"), url: "/d/diagnostics/imaging" },
           ],
         },
-        {
+       /*  {
           title: ttt("Settings"),
           url: "/d/settings",
           icon: Settings,
-        },
+        }, */
       ],
       nurse: [
         {

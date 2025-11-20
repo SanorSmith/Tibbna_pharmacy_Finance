@@ -60,6 +60,7 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>(roles[0].value);
   const [selectedUnit, setSelectedUnit] = useState<string | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -169,6 +170,22 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (rows === null) return <p className="text-sm text-muted-foreground">Loading...</p>;
 
+  const filteredStaff = rows.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const fullName = `${s.firstname} ${s.middlename || ""} ${s.lastname}`.toLowerCase();
+    const role = s.role.toLowerCase().replace("_", " ");
+    const unit = (s.unit || "").toLowerCase();
+    const specialty = (s.specialty || "").toLowerCase();
+
+    return (
+      fullName.includes(q) ||
+      role.includes(q) ||
+      unit.includes(q) ||
+      specialty.includes(q)
+    );
+  });
+
   const isNurseLabPharm = selectedRole === "nurse" || selectedRole === "lab_technician" || selectedRole === "pharmacist";
 
   return (
@@ -185,49 +202,104 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No staff found.</p>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[250px]">Name</TableHead>
-                <TableHead className="w-[150px]">Role</TableHead>
-                <TableHead className="w-[200px]">Unit/Department</TableHead>
-                <TableHead className="w-[150px]">Specialty</TableHead>
-                <TableHead className="w-[150px]">Phone</TableHead>
-                <TableHead className="w-[200px]">Email</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((s: Staff) => (
-                <TableRow key={s.staffid} className="hover:bg-muted/50">
-                  <TableCell className="font-medium">
-                    {s.firstname} {s.middlename ? `${s.middlename} ` : ""}
-                    {s.lastname}
-                  </TableCell>
-                  <TableCell className="uppercase text-xs">
-                    {s.role.replace('_', ' ')}
-                  </TableCell>
-                  <TableCell>{s.unit || "-"}</TableCell>
-                  <TableCell>{s.specialty || "-"}</TableCell>
-                  <TableCell>{s.phone || "-"}</TableCell>
-                  <TableCell className="truncate max-w-[200px]">{s.email || "-"}</TableCell>
-                  <TableCell>
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(s)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <>
+          {/* Search Bar */}
+          <div className="mb-4">
+            <div className="relative max-w-md">
+              <Input
+                type="text"
+                placeholder="Search by name, role, unit, or specialty..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                🔍
+              </span>
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2"
+                  onClick={() => setSearchQuery("")}
+                >
+                  ✕
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {searchQuery ? (
+                <span>
+                  Found <strong>{filteredStaff.length}</strong> staff member
+                  {filteredStaff.length !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span>
+                  Total: <strong>{rows.length}</strong> staff member
+                  {rows.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </p>
+          </div>
+
+          {filteredStaff.length === 0 ? (
+            <div className="text-center py-8 border rounded-md">
+              <p className="text-sm text-muted-foreground">No staff match your search.</p>
+              <Button
+                variant="link"
+                size="sm"
+                className="mt-2"
+                onClick={() => setSearchQuery("")}
+              >
+                Clear search
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[250px]">Name</TableHead>
+                    <TableHead className="w-[150px]">Role</TableHead>
+                    <TableHead className="w-[200px]">Unit/Department</TableHead>
+                    <TableHead className="w-[150px]">Specialty</TableHead>
+                    <TableHead className="w-[150px]">Phone</TableHead>
+                    <TableHead className="w-[200px]">Email</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStaff.map((s: Staff) => (
+                    <TableRow key={s.staffid} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">
+                        {s.firstname} {s.middlename ? `${s.middlename} ` : ""}
+                        {s.lastname}
+                      </TableCell>
+                      <TableCell className="uppercase text-xs">
+                        {s.role.replace("_", " ")}
+                      </TableCell>
+                      <TableCell>{s.unit || "-"}</TableCell>
+                      <TableCell>{s.specialty || "-"}</TableCell>
+                      <TableCell>{s.phone || "-"}</TableCell>
+                      <TableCell className="truncate max-w-[200px]">{s.email || "-"}</TableCell>
+                      <TableCell>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEdit(s)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </>
       )}
 
       {/* Add/Edit Staff Dialog */}

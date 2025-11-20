@@ -669,7 +669,7 @@ export default function PatientDashboard({
         <div className="flex gap-2">
           <Link href={`/d/${workspaceid}/patients/${patient.patientid}/overview`}>
             <Button variant="default">
-              📊 Patient Overview
+              Patient Overview
             </Button>
           </Link>
           <Button variant="outline" onClick={() => router.back()}>
@@ -745,7 +745,7 @@ export default function PatientDashboard({
             </Card>
 
             {/* Compact Vital Signs Summary */}
-            <Card>
+            <Card className="vital-box">
               <CardHeader>
                 <CardTitle>Key Vitals</CardTitle>
               </CardHeader>
@@ -960,7 +960,7 @@ export default function PatientDashboard({
 
         {/* Vital Signs Tab - openEHR Compliant */}
         <TabsContent value="vitalsigns" className="space-y-4">
-          <Card>
+          <Card className="vital-box">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -980,14 +980,14 @@ export default function PatientDashboard({
               {loadingVitalSigns ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
                     <p className="text-sm text-muted-foreground">Loading vital signs...</p>
                   </div>
                 </div>
               ) : vitalSignsRecords.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="mx-auto w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="mx-auto w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
@@ -1000,11 +1000,11 @@ export default function PatientDashboard({
               ) : (
                 <div className="space-y-4">
                   {vitalSignsRecords.map((record, index) => (
-                    <div key={index} className="border rounded-xl p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-blue-50/30">
+                    <div key={index} className="vital-box border rounded-xl p-5 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                             <div className="font-semibold text-lg">Vital Signs Record</div>
                           </div>
                           <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">

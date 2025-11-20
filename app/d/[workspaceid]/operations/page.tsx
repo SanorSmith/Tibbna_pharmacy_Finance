@@ -9,7 +9,9 @@ import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
 import OperationsList from "./operations-list";
-
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
 }
@@ -29,11 +31,20 @@ export default async function OperationsPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
+      {/* <Header /> */}
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Operative Procedures</h1>
+          <h1 className="text-xl font-semibold">Operations </h1>
         </div>
+        <div className="flex items-center justify-between">
+  {/* existing title / actions */}
+  <Link href={`/d/${workspaceid}/doctor`}>
+    <Button variant="outline" size="sm">
+      <ArrowLeft className="h-4 w-4 mr-2" />
+      Back
+    </Button>
+  </Link>
+</div>
         <OperationsList workspaceid={workspaceid} userId={user.userid} />
       </div>
     </>

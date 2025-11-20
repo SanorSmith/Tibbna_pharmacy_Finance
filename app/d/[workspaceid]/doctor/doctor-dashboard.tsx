@@ -262,7 +262,7 @@ export default function DoctorDashboard({
   return (
     <div className="space-y-4">
       {/* Doctor Information Card */}
-      <Card>
+     {/*  <Card>
         <CardHeader>
           <CardTitle className="text-base">Doctor Information</CardTitle>
         </CardHeader>
@@ -290,10 +290,10 @@ export default function DoctorDashboard({
             )}
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Date selector */}
-      <div className="flex items-center gap-4">
+     {/*  <div className="flex items-center gap-4">
         <label className="text-sm font-medium">Date:</label>
         <Input
           type="date"
@@ -316,10 +316,75 @@ export default function DoctorDashboard({
         >
           {loading ? "Loading..." : "Refresh"}
         </Button>
+      </div> */}
+
+      {/* Quick Access Cards - 3x3 style grid */}
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card
+          className="bg-sky-50 hover:bg-sky-100 transition-colors cursor-pointer"
+          onClick={() => (window.location.href = `/d/${workspaceid}/schedule`)}
+        >
+          <CardContent className="flex items-center justify-center py-6">
+            <span className="text-sm font-semibold text-sky-900"></span>
+            <div>
+              <div className="text-lg font-semibold mb-4">Appointments</div>
+           <div className="text-2xl font-bold">{todayAppointments.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {upcomingAppointments.length} upcoming • {inProgressAppointments.length} in progress
+            </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className="bg-sky-50 hover:bg-sky-100 transition-colors cursor-pointer"
+          onClick={() => (window.location.href = `/d/${workspaceid}/patients`)}
+        >
+          <CardContent className="flex items-center justify-center py-6">
+            <div>
+              <div className="text-lg font-semibold mb-4">Patients</div>
+              <div className="text-2xl font-bold">{patients.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              In your care
+            </div>
+            </div>
+            </CardContent>
+        </Card>
+        <Card
+          className="bg-sky-50 hover:bg-sky-100 transition-colors cursor-pointer"
+          onClick={() => (window.location.href = `/d/${workspaceid}/operations`)}
+        >
+          <CardContent className="flex items-center justify-center py-6">
+            <span className="text-sm font-semibold text-sky-900">Operation</span>
+          </CardContent>
+        </Card>
+        <Card
+          className="bg-sky-50 hover:bg-sky-100 transition-colors cursor-pointer"
+          onClick={() => (window.location.href = `#clinical-notes`) }
+        >
+          <CardContent className="flex items-center justify-center py-6">
+            <span className="text-sm font-semibold text-sky-900">Notification</span>
+          </CardContent>
+        </Card>
+        <Card
+          className="bg-sky-50 hover:bg-sky-100 transition-colors cursor-pointer"
+          onClick={() => (window.location.href = `/d/${workspaceid}/staff`)}
+        >
+          <CardContent className="flex items-center justify-center py-6">
+            <span className="text-sm font-semibold text-sky-900">Contacts</span>
+          </CardContent>
+        </Card>
+        <Card
+          className="bg-sky-50 hover:bg-sky-100 transition-colors cursor-pointer"
+          onClick={() => (window.location.href = `/d/${workspaceid}/doctor/todos`)}
+        >
+          <CardContent className="flex items-center justify-center py-6">
+            <span className="text-sm font-semibold text-sky-900">To do</span>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Clinical Summary Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -356,19 +421,6 @@ export default function DoctorDashboard({
             <div className="text-2xl font-bold">{patients.length}</div>
             <div className="text-xs text-muted-foreground mt-1">
               In your care
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-orange-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <span>🔔</span> Pending Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{inProgressAppointments.length}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Require attention
             </div>
           </CardContent>
         </Card>

@@ -157,7 +157,7 @@ export default function VitalSignsForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Body Temperature */}
-      <Card>
+      <Card className="vital-box">
         <CardHeader>
           <CardTitle>Body Temperature</CardTitle>
         </CardHeader>
@@ -227,7 +227,7 @@ export default function VitalSignsForm({
       </Card>
 
       {/* Blood Pressure */}
-      <Card>
+      <Card className="vital-box">
         <CardHeader>
           <CardTitle>Blood Pressure</CardTitle>
         </CardHeader>
@@ -346,7 +346,7 @@ export default function VitalSignsForm({
       </Card>
 
       {/* Pulse/Heart Rate */}
-      <Card>
+      <Card className="vital-box">
         <CardHeader>
           <CardTitle>Pulse/Heart Rate</CardTitle>
         </CardHeader>
@@ -491,7 +491,7 @@ export default function VitalSignsForm({
       </Card>
 
       {/* Respiration */}
-      <Card>
+      <Card className="vital-box">
         <CardHeader>
           <CardTitle>Respiration</CardTitle>
         </CardHeader>
@@ -643,7 +643,7 @@ export default function VitalSignsForm({
       </Card>
 
       {/* Oximetry */}
-      <Card>
+      <Card className="vital-box">
         <CardHeader>
           <CardTitle>Oximetry</CardTitle>
         </CardHeader>

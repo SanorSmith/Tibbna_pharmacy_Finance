@@ -8,6 +8,7 @@ import AppointmentsList from "./appointments-list";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
@@ -33,6 +34,13 @@ export default async function AppointmentsPage({ params }: PageProps) {
               View and manage all appointments in the workspace
             </p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => (window.location.href = `/d/${workspaceid}/doctor`)}
+          >
+            Back to dashboard
+          </Button>
         </div>
         <div className="bg-background rounded-xl border">
           <AppointmentsList workspaceid={workspaceid} userRole={userRole} />
