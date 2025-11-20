@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit } from "lucide-react";
+import { Edit, RefreshCw } from "lucide-react";
 
 type Patient = {
   patientid: string;
@@ -30,6 +30,12 @@ type Patient = {
   medicalhistory?: { notes?: string } | null;
 };
 
+type OpenEHREHR = {
+  ehr_id: string;
+  subject_id: string;
+  created_time: string;
+};
+
 type UserRole = "doctor" | "nurse" | "receptionist" | "administrator";
 
 export default function PatientsList({ 
@@ -40,17 +46,31 @@ export default function PatientsList({
   userRole: UserRole;
 }) {
   const [rows, setRows] = useState<Patient[] | null>(null);
+  const [ehrs, setEhrs] = useState<OpenEHREHR[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   
   // Only doctors and nurses can view patient details
   const canViewDetails = userRole === "doctor" || userRole === "nurse";
   // Only administrators can edit
   const canEdit = userRole === "administrator";
+
+  // Helper to find matching EHR for a patient
+  // Match by National ID first (preferred), then fall back to patient UUID
+  const getEHRForPatient = (patient: Patient): OpenEHREHR | undefined => {
+    if (patient.nationalid) {
+      // Try to match by National ID first
+      const ehrByNationalId = ehrs.find((ehr) => ehr.subject_id === patient.nationalid);
+      if (ehrByNationalId) return ehrByNationalId;
+    }
+    // Fall back to matching by patient UUID
+    return ehrs.find((ehr) => ehr.subject_id === patient.patientid);
+  };
 
   // Filter patients based on search query
   const filteredPatients = rows ? rows.filter((patient) => {
@@ -63,27 +83,45 @@ export default function PatientsList({
     return fullName.includes(query) || nationalId.includes(query);
   }) : [];
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
+  const loadData = async () => {
+    try {
+      setRefreshing(true);
+      // Query the workspace-scoped patients endpoint; cookies carry auth
+      const res = await fetch(`/api/d/${workspaceid}/patients`, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load patients");
+      const data = await res.json();
+      setRows((data.patients as Patient[]) ?? []);
+
+      // Also fetch OpenEHR EHRs
       try {
-        // Query the workspace-scoped patients endpoint; cookies carry auth
-        const res = await fetch(`/api/d/${workspaceid}/patients`, { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to load patients");
-        const data = await res.json();
-        if (!active) return;
-        setRows((data.patients as Patient[]) ?? []);
-      } catch (e: unknown) {
-        if (!active) return;
-        const msg = e instanceof Error ? e.message : "Failed to load patients";
-        setError(msg);
+        const ehrRes = await fetch("/api/ehrbase/ehr", { cache: "no-store" });
+        if (ehrRes.ok) {
+          const ehrData = await ehrRes.json();
+          setEhrs(ehrData ?? []);
+        }
+      } catch (ehrErr) {
+        // Silently fail if OpenEHR is not available
+        console.warn("Could not fetch OpenEHR EHRs:", ehrErr);
       }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to load patients";
+      setError(msg);
+    } finally {
+      setRefreshing(false);
     }
-    // Kick off initial load
-    load();
+  };
+
+  useEffect(() => {
+    loadData();
+
+    // Reload when window regains focus (e.g., after navigating back)
+    const handleFocus = () => {
+      loadData();
+    };
+    window.addEventListener("focus", handleFocus);
+
     return () => {
-      // Guard against setState after unmount
-      active = false;
+      window.removeEventListener("focus", handleFocus);
     };
   }, [workspaceid]);
 
@@ -154,6 +192,17 @@ export default function PatientsList({
     <>
       {/* Search Bar */}
       <div className="mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadData}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
         <div className="relative">
           <Input
             type="text"
@@ -234,7 +283,24 @@ export default function PatientsList({
                 <TableCell>{p.nationalid || "-"}</TableCell>
                 <TableCell>{p.phone || "-"}</TableCell>
                 <TableCell className="truncate max-w-[200px]">{p.email || "-"}</TableCell>
-                <TableCell>{p.ehrid || "-"}</TableCell>
+                <TableCell>
+                  {(() => {
+                    const ehr = getEHRForPatient(p);
+                    if (ehr) {
+                      return (
+                        <a
+                          href={`/d/admin/openehr/ehrs/${ehr.ehr_id}`}
+                          className="text-blue-600 hover:underline text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                          title="View compositions in OpenEHR"
+                        >
+                          {ehr.ehr_id.substring(0, 8)}...
+                        </a>
+                      );
+                    }
+                    return <span className="text-muted-foreground text-xs">No EHR</span>;
+                  })()}
+                </TableCell>
                 <TableCell>
                   {canEdit && (
                     <Button

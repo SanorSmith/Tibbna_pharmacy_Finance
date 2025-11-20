@@ -46,6 +46,13 @@ type Appointment = {
   notes?: string | null;
 };
 
+type Encounter = {
+  composition_uid: string;
+  composition_name: string;
+  start_time: string;
+  details?: any; // Full composition data including vitals
+};
+
 export default function PatientDashboard({
   workspaceid,
   patient,
@@ -55,6 +62,9 @@ export default function PatientDashboard({
 }) {
   const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [encounters, setEncounters] = useState<Encounter[]>([]);
+  const [ehrId, setEhrId] = useState<string | null>(null);
+  const [loadingEncounters, setLoadingEncounters] = useState(false);
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [selectedTest] = useState<any>(null);
@@ -434,6 +444,26 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
+  const loadEncounters = useCallback(async () => {
+    try {
+      setLoadingEncounters(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/encounters`,
+        { cache: "no-store" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setEncounters(data.encounters || []);
+        setEhrId(data.ehrId || null);
+      }
+    } catch (e) {
+      console.error("Failed to load encounters:", e);
+    } finally {
+      setLoadingEncounters(false);
+    }
+  }, [workspaceid, patient.patientid]);
+
   const loadVitalSigns = useCallback(async () => {
     try {
       setLoadingVitalSigns(true);
@@ -627,6 +657,7 @@ export default function PatientDashboard({
 
   useEffect(() => {
     loadAppointments();
+    loadEncounters();
     loadVitalSigns();
     loadVaccinations();
     loadReferrals();
@@ -637,7 +668,7 @@ export default function PatientDashboard({
     loadMedicalHistory();
     loadCarePlans();
     loadClinicalNotes();
-  }, [loadAppointments, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions, loadTestOrders, loadLabResults, loadImaging, loadMedicalHistory, loadCarePlans, loadClinicalNotes]);
+  }, [loadAppointments, loadEncounters, loadVitalSigns, loadVaccinations, loadReferrals, loadPrescriptions, loadTestOrders, loadLabResults, loadImaging, loadMedicalHistory, loadCarePlans, loadClinicalNotes]);
 
 
   function formatDateTime(date: string) {
@@ -683,6 +714,7 @@ export default function PatientDashboard({
         <TabsList className="flex w-full overflow-x-auto space-x-1">
           {/* Clinical Documentation & Encounters */}
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="encounters">Encounters</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="vitalsigns">Vitals</TabsTrigger>
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
@@ -911,6 +943,163 @@ export default function PatientDashboard({
           </Card>
         </TabsContent>
 
+        {/* Encounters Tab - OpenEHR Clinical Encounters */}
+        <TabsContent value="encounters" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Clinical Encounters (OpenEHR)</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadEncounters}
+                  disabled={loadingEncounters}
+                >
+                  {loadingEncounters ? "Loading..." : "Refresh"}
+                </Button>
+              </div>
+              {ehrId && (
+                <p className="text-sm text-muted-foreground">
+                  EHR ID: <span className="font-mono text-xs">{ehrId}</span>
+                </p>
+              )}
+            </CardHeader>
+            <CardContent>
+              {loadingEncounters ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading encounters...
+                </div>
+              ) : encounters.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-2">
+                    No clinical encounters found in OpenEHR
+                  </p>
+                  {!ehrId && (
+                    <p className="text-sm text-muted-foreground">
+                      No EHR record exists for this patient
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {encounters.map((encounter) => {
+                    // Extract vitals from the composition details
+                    const details = encounter.details;
+                    
+                    // Debug: Log the composition structure
+                    if (details) {
+                      console.log("Composition details:", details);
+                      console.log("Available keys:", Object.keys(details));
+                    }
+                    
+                    const vitals = details ? {
+                      temperature: details["vital_signs/body_temperature:0/any_event:0/temperature|magnitude"] || 
+                                   details["vital_signs/body_temperature/any_event/temperature|magnitude"],
+                      systolic: details["vital_signs/blood_pressure:0/any_event:0/systolic|magnitude"] ||
+                                details["vital_signs/blood_pressure/any_event/systolic|magnitude"],
+                      diastolic: details["vital_signs/blood_pressure:0/any_event:0/diastolic|magnitude"] ||
+                                 details["vital_signs/blood_pressure/any_event/diastolic|magnitude"],
+                      heartRate: details["vital_signs/pulse_heart_beat:0/any_event:0/rate|magnitude"] ||
+                                 details["vital_signs/pulse_heart_beat/any_event/rate|magnitude"],
+                      respiratoryRate: details["vital_signs/respirations:0/any_event:0/rate|magnitude"] ||
+                                       details["vital_signs/respirations/any_event/rate|magnitude"],
+                      spO2: details["vital_signs/pulse_oximetry:0/any_event:0/spo2|numerator"] ||
+                            details["vital_signs/pulse_oximetry/any_event/spo2|numerator"],
+                    } : null;
+
+                    return (
+                      <Card key={encounter.composition_uid} className="border-l-4 border-l-green-500">
+                        <CardContent className="pt-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-base mb-1">
+                                  {encounter.composition_name}
+                                </h4>
+                                <div className="text-sm text-muted-foreground">
+                                  <span className="font-medium">Date:</span>{" "}
+                                  {new Date(encounter.start_time).toLocaleString()}
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  window.open(
+                                    `/d/admin/openehr/ehrs/${ehrId}/composition/${encounter.composition_uid}`,
+                                    "_blank"
+                                  );
+                                }}
+                              >
+                                View Full Details →
+                              </Button>
+                            </div>
+
+                            {/* Debug: Show all available fields */}
+                            {details && (
+                              <div className="border-t pt-3">
+                                <details className="mb-3">
+                                  <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
+                                    🔍 Debug: View Raw Composition Data
+                                  </summary>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded text-xs font-mono overflow-auto max-h-60">
+                                    <pre>{JSON.stringify(details, null, 2)}</pre>
+                                  </div>
+                                </details>
+                              </div>
+                            )}
+
+                            {/* Display Vitals if available */}
+                            {vitals && (vitals.temperature || vitals.systolic || vitals.heartRate || vitals.respiratoryRate || vitals.spO2) && (
+                              <div className="border-t pt-3">
+                                <h5 className="font-semibold text-sm mb-2">Vital Signs</h5>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                  {vitals.temperature && (
+                                    <div className="bg-red-50 rounded p-2">
+                                      <div className="text-xs text-muted-foreground">Temperature</div>
+                                      <div className="font-semibold">{vitals.temperature}°C</div>
+                                    </div>
+                                  )}
+                                  {(vitals.systolic || vitals.diastolic) && (
+                                    <div className="bg-blue-50 rounded p-2">
+                                      <div className="text-xs text-muted-foreground">Blood Pressure</div>
+                                      <div className="font-semibold">
+                                        {vitals.systolic || "?"}/{vitals.diastolic || "?"} mmHg
+                                      </div>
+                                    </div>
+                                  )}
+                                  {vitals.heartRate && (
+                                    <div className="bg-purple-50 rounded p-2">
+                                      <div className="text-xs text-muted-foreground">Heart Rate</div>
+                                      <div className="font-semibold">{vitals.heartRate} bpm</div>
+                                    </div>
+                                  )}
+                                  {vitals.respiratoryRate && (
+                                    <div className="bg-green-50 rounded p-2">
+                                      <div className="text-xs text-muted-foreground">Respiratory Rate</div>
+                                      <div className="font-semibold">{vitals.respiratoryRate} /min</div>
+                                    </div>
+                                  )}
+                                  {vitals.spO2 && (
+                                    <div className="bg-cyan-50 rounded p-2">
+                                      <div className="text-xs text-muted-foreground">SpO2</div>
+                                      <div className="font-semibold">{vitals.spO2}%</div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Appointments Tab */}
         <TabsContent value="appointments" className="space-y-4">
           <Card>
@@ -999,15 +1188,48 @@ export default function PatientDashboard({
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Debug: Show raw data */}
+                  {vitalSignsRecords.length > 0 && (
+                    <details className="mb-4 p-3 bg-white/10 rounded">
+                      <summary className="cursor-pointer text-sm font-semibold">
+                        🔍 Debug: View Raw Vitals Data ({vitalSignsRecords.length} records)
+                      </summary>
+                      <pre className="mt-2 text-xs overflow-auto max-h-60">
+                        {JSON.stringify(vitalSignsRecords, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                  
                   {vitalSignsRecords.map((record, index) => (
                     <div key={index} className="vital-box border rounded-xl p-5 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
                             <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            <div className="font-semibold text-lg">Vital Signs Record</div>
+                            <div className="font-semibold text-lg">
+                              {/* Show key vitals in title */}
+                              {record.systolic && record.diastolic ? (
+                                <span>BP: {record.systolic}/{record.diastolic} mmHg</span>
+                              ) : record.temperature ? (
+                                <span>Temp: {record.temperature}°C</span>
+                              ) : record.heart_rate ? (
+                                <span>HR: {record.heart_rate} bpm</span>
+                              ) : (
+                                <span>Vital Signs</span>
+                              )}
+                              {record.heart_rate && record.systolic && (
+                                <span className="text-sm font-normal text-muted-foreground ml-2">
+                                  • HR: {record.heart_rate} bpm
+                                </span>
+                              )}
+                              {record.temperature && (record.systolic || record.heart_rate) && (
+                                <span className="text-sm font-normal text-muted-foreground ml-2">
+                                  • {record.temperature}°C
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                          <div className="text-sm text-muted-foreground flex items-center gap-1">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -1135,6 +1357,9 @@ export default function PatientDashboard({
                       onChange={(e) => setVitalSignsForm({...vitalSignsForm, diastolic: e.target.value})}
                     />
                   </div>
+                  {/* Note: Respiratory Rate and SpO2 are not supported in template_clinical_encounter_v1 */}
+                  {/* Uncomment these if you update your OpenEHR template to include them */}
+                  {/* 
                   <div>
                     <label className="text-sm font-medium">Respiratory Rate (/min)</label>
                     <input
@@ -1156,6 +1381,7 @@ export default function PatientDashboard({
                       onChange={(e) => setVitalSignsForm({...vitalSignsForm, spO2: e.target.value})}
                     />
                   </div>
+                  */}
                 </div>
 
                 {/* Action Buttons */}
@@ -1178,13 +1404,14 @@ export default function PatientDashboard({
                   </Button>
                   <Button onClick={async () => {
                     try {
-                      const vitalSigns = {
-                        temperature: vitalSignsForm.temperature ? parseFloat(vitalSignsForm.temperature) : undefined,
-                        systolic: vitalSignsForm.systolic ? parseInt(vitalSignsForm.systolic) : undefined,
-                        diastolic: vitalSignsForm.diastolic ? parseInt(vitalSignsForm.diastolic) : undefined,
-                        heartRate: vitalSignsForm.heartRate ? parseInt(vitalSignsForm.heartRate) : undefined,
-                        respiratoryRate: vitalSignsForm.respiratoryRate ? parseInt(vitalSignsForm.respiratoryRate) : undefined,
-                        spO2: vitalSignsForm.spO2 ? parseFloat(vitalSignsForm.spO2) : undefined,
+                      // Send data in the format the API expects (direct fields, not wrapped)
+                      const vitalSignsData = {
+                        temperature: vitalSignsForm.temperature || undefined,
+                        systolic: vitalSignsForm.systolic || undefined,
+                        diastolic: vitalSignsForm.diastolic || undefined,
+                        heartRate: vitalSignsForm.heartRate || undefined,
+                        respiratoryRate: vitalSignsForm.respiratoryRate || undefined,
+                        spO2: vitalSignsForm.spO2 || undefined,
                       };
 
                       const response = await fetch(
@@ -1192,7 +1419,7 @@ export default function PatientDashboard({
                         {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ vitalSigns }),
+                          body: JSON.stringify(vitalSignsData),
                         }
                       );
 

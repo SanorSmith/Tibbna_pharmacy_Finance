@@ -42,6 +42,12 @@ type Patient = {
   email?: string | null;
 };
 
+type OpenEHREHR = {
+  ehr_id: string;
+  subject_id: string;
+  created_time: string;
+};
+
 type DoctorInfo = {
   name: string;
   email: string;
@@ -74,6 +80,7 @@ export default function DoctorDashboard({
 }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [ehrs, setEhrs] = useState<OpenEHREHR[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +96,15 @@ export default function DoctorDashboard({
     patients.forEach((p) => map.set(p.patientid, p));
     return map;
   }, [patients]);
+
+  // Helper to find matching EHR for a patient
+  const getEHRForPatient = (patient: Patient): OpenEHREHR | undefined => {
+    if (patient.nationalid) {
+      const ehrByNationalId = ehrs.find((ehr) => ehr.subject_id === patient.nationalid);
+      if (ehrByNationalId) return ehrByNationalId;
+    }
+    return ehrs.find((ehr) => ehr.subject_id === patient.patientid);
+  };
 
   useEffect(() => {
     // Create unique key for current params
@@ -135,6 +151,17 @@ export default function DoctorDashboard({
       setAppointments(apptsData.appointments || []);
       setPatients(patientsData.patients || []);
       setStaff(staffData.staff || []);
+
+      // Also fetch OpenEHR EHRs
+      try {
+        const ehrRes = await fetch("/api/ehrbase/ehr", { cache: "no-store" });
+        if (ehrRes.ok) {
+          const ehrData = await ehrRes.json();
+          setEhrs(ehrData ?? []);
+        }
+      } catch (ehrErr) {
+        console.warn("Could not fetch OpenEHR EHRs:", ehrErr);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load data";
       setError(msg);
@@ -625,6 +652,21 @@ export default function DoctorDashboard({
                             ID: {patient.nationalid}
                           </div>
                         )}
+                        {(() => {
+                          const ehr = getEHRForPatient(patient);
+                          if (ehr) {
+                            return (
+                              <div className="text-xs text-blue-600 mt-1">
+                                EHR: {ehr.ehr_id.substring(0, 12)}...
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              No EHR
+                            </div>
+                          );
+                        })()}
                       </div>
                       <Button
                         size="sm"
