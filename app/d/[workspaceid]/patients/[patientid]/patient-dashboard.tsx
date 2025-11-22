@@ -1159,7 +1159,7 @@ export default function PatientDashboard({
 
         {/* Vital Signs Tab - openEHR Compliant */}
         <TabsContent value="vitalsigns" className="space-y-4">
-          <Card className="vital-box">
+          <Card className="">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -1211,34 +1211,9 @@ export default function PatientDashboard({
                   )}
                   
                   {vitalSignsRecords.map((record, index) => (
-                    <div key={index} className="vital-box border rounded-xl p-5 hover:shadow-md transition-shadow">
+                    <div key={index} className="vital-box border rounded-xl p-5 hover:shadow-md transition-shadow bg-blue-50 border-blue-200">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            <div className="font-semibold text-lg">
-                              {/* Show key vitals in title */}
-                              {record.systolic && record.diastolic ? (
-                                <span>BP: {record.systolic}/{record.diastolic} mmHg</span>
-                              ) : record.temperature ? (
-                                <span>Temp: {record.temperature}°C</span>
-                              ) : record.heart_rate ? (
-                                <span>HR: {record.heart_rate} bpm</span>
-                              ) : (
-                                <span>Vital Signs</span>
-                              )}
-                              {record.heart_rate && record.systolic && (
-                                <span className="text-sm font-normal text-muted-foreground ml-2">
-                                  • HR: {record.heart_rate} bpm
-                                </span>
-                              )}
-                              {record.temperature && (record.systolic || record.heart_rate) && (
-                                <span className="text-sm font-normal text-muted-foreground ml-2">
-                                  • {record.temperature}°C
-                                </span>
-                              )}
-                            </div>
-                          </div>
                           <div className="text-sm text-muted-foreground flex items-center gap-1">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1257,56 +1232,61 @@ export default function PatientDashboard({
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        {record.temperature && (
-                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-blue-500">🌡️</span>
-                              <div className="text-xs text-muted-foreground font-medium">Temperature</div>
-                            </div>
-                            <div className="text-xl font-bold text-blue-700">{record.temperature}°C</div>
-                          </div>
-                        )}
-                        {(record.systolic || record.diastolic) && (
-                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-blue-500">💉</span>
-                              <div className="text-xs text-muted-foreground font-medium">Blood Pressure</div>
-                            </div>
-                            <div className="text-xl font-bold text-blue-700">{record.systolic}/{record.diastolic}</div>
-                            <div className="text-xs text-muted-foreground">mmHg</div>
-                          </div>
-                        )}
-                        {record.heart_rate && (
-                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-blue-500">❤️</span>
-                              <div className="text-xs text-muted-foreground font-medium">Heart Rate</div>
-                            </div>
-                            <div className="text-xl font-bold text-blue-700">{record.heart_rate}</div>
-                            <div className="text-xs text-muted-foreground">bpm</div>
-                          </div>
-                        )}
-                        {record.respiratory_rate && (
-                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-blue-500">🫁</span>
-                              <div className="text-xs text-muted-foreground font-medium">Respiratory</div>
-                            </div>
-                            <div className="text-xl font-bold text-blue-700">{record.respiratory_rate}</div>
-                            <div className="text-xs text-muted-foreground">/min</div>
-                          </div>
-                        )}
-                        {record.spo2 && (
-                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-blue-500">💨</span>
-                              <div className="text-xs text-muted-foreground font-medium">SpO2</div>
-                            </div>
-                            <div className="text-xl font-bold text-blue-700">{record.spo2}%</div>
-                          </div>
-                        )}
-                      </div>
+                      <div className="space-y-3 text-sm">
+
+      {record.temperature && (
+        <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center gap-2">
+            <span>🌡️</span>
+            <span className="text-muted-foreground">Temperature</span>
+          </div>
+          <span className="font-semibold">{record.temperature}°C</span>
+        </div>
+      )}
+
+      {(record.systolic || record.diastolic) && (
+        <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center gap-2">
+            <span>💉</span>
+            <span className="text-muted-foreground">Blood Pressure</span>
+          </div>
+          <span className="font-semibold">
+            {record.systolic}/{record.diastolic} mmHg
+          </span>
+        </div>
+      )}
+
+      {record.heart_rate && (
+        <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center gap-2">
+            <span>❤️</span>
+            <span className="text-muted-foreground">Heart Rate</span>
+          </div>
+          <span className="font-semibold">{record.heart_rate} bpm</span>
+        </div>
+      )}
+
+      {record.respiratory_rate && (
+        <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center gap-2">
+            <span>🫁</span>
+            <span className="text-muted-foreground">Respiratory</span>
+          </div>
+          <span className="font-semibold">{record.respiratory_rate} /min</span>
+        </div>
+      )}
+
+      {record.spo2 && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>💨</span>
+            <span className="text-muted-foreground">SpO2</span>
+          </div>
+          <span className="font-semibold">{record.spo2}%</span>
+        </div>
+      )}
+
+    </div>
                     </div>
                   ))}
                 </div>
