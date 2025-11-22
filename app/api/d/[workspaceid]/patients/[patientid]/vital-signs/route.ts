@@ -9,6 +9,7 @@ import { getOpenEHREHRBySubjectId, getOpenEHRCompositions, getOpenEHRComposition
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vital-signs
  * Retrieve vital signs for a patient directly from OpenEHR compositions
+ * Supports pagination with limit and offset query parameters
  */
 export async function GET(
   request: NextRequest,
@@ -21,6 +22,11 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Get pagination parameters from query string
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "1", 10);
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
 
     // Check workspace access
     const workspaces = await getUserWorkspaces(user.userid);
@@ -59,15 +65,19 @@ export async function GET(
 
     if (!ehrId) {
       // No EHR found, return empty array
-      return NextResponse.json({ vitalSigns: [] });
+      return NextResponse.json({ vitalSigns: [], totalCount: 0, hasMore: false });
     }
 
     // Fetch all compositions and extract vitals
     const compositions = await getOpenEHRCompositions(ehrId);
+    const totalCount = compositions.length;
     
-    // Fetch full details for each composition to extract vitals
+    // Apply pagination to compositions
+    const paginatedCompositions = compositions.slice(offset, offset + limit);
+    
+    // Fetch full details for each paginated composition to extract vitals
     const vitalSigns = await Promise.all(
-      compositions.map(async (comp) => {
+      paginatedCompositions.map(async (comp) => {
         try {
           const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, any>;
           
@@ -111,7 +121,15 @@ export async function GET(
       })
     );
 
-    return NextResponse.json({ vitalSigns });
+    const hasMore = offset + limit < totalCount;
+
+    return NextResponse.json({ 
+      vitalSigns, 
+      totalCount, 
+      hasMore,
+      currentOffset: offset,
+      currentLimit: limit
+    });
   } catch (error) {
     console.error("Error fetching vital signs:", error);
     return NextResponse.json(
