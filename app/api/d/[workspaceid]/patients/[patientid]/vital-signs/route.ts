@@ -68,17 +68,15 @@ export async function GET(
       return NextResponse.json({ vitalSigns: [], totalCount: 0, hasMore: false });
     }
 
-    // Fetch all compositions and extract vitals
-    const compositions = await getOpenEHRCompositions(ehrId);
-    const totalCount = compositions.length;
+    // Fetch ALL compositions and extract vitals (no pagination yet for filtering)
+    const allCompositions = await getOpenEHRCompositions(ehrId);
+    console.log(`Found ${allCompositions.length} total compositions for EHR ${ehrId}`);
     
-    // Apply pagination to compositions
-    const paginatedCompositions = compositions.slice(offset, offset + limit);
-    
-    // Fetch full details for each paginated composition to extract vitals
-    const vitalSigns = await Promise.all(
-      paginatedCompositions.map(async (comp) => {
+    // Fetch full details for ALL compositions to extract vitals
+    const allVitalSigns = await Promise.all(
+      allCompositions.map(async (comp) => {
         try {
+          console.log(`Fetching details for composition: ${comp.composition_uid}`);
           const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, any>;
           
           // Extract vitals from composition details using correct template paths
@@ -101,32 +99,57 @@ export async function GET(
             details["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"];
           // Note: respiratory_rate and spo2 are not in this template
 
-          return {
-            composition_uid: comp.composition_uid,
-            recorded_time: comp.start_time,
-            temperature: temperature ? parseFloat(temperature) : undefined,
-            systolic: systolic ? parseFloat(systolic) : undefined,
-            diastolic: diastolic ? parseFloat(diastolic) : undefined,
-            heart_rate: heart_rate ? parseFloat(heart_rate) : undefined,
-            respiratory_rate: respiratory_rate ? parseFloat(respiratory_rate) : undefined,
-            spo2: spo2 ? parseFloat(spo2) : undefined,
-          };
+          // Only return if there's actual vital signs data
+          const hasVitalSigns = temperature || systolic || diastolic || heart_rate || respiratory_rate || spo2;
+          
+          console.log(`Composition ${comp.composition_uid} has vital signs: ${hasVitalSigns}`, {
+            temperature, systolic, diastolic, heart_rate, respiratory_rate, spo2
+          });
+          
+          if (hasVitalSigns) {
+            return {
+              composition_uid: comp.composition_uid,
+              recorded_time: comp.start_time,
+              temperature: temperature ? parseFloat(temperature) : undefined,
+              systolic: systolic ? parseFloat(systolic) : undefined,
+              diastolic: diastolic ? parseFloat(diastolic) : undefined,
+              heart_rate: heart_rate ? parseFloat(heart_rate) : undefined,
+              respiratory_rate: respiratory_rate ? parseFloat(respiratory_rate) : undefined,
+              spo2: spo2 ? parseFloat(spo2) : undefined,
+            };
+          } else {
+            // Skip compositions without vital signs data
+            console.log(`Skipping composition ${comp.composition_uid} - no vital signs data`);
+            return null;
+          }
         } catch (error) {
           console.error(`Failed to fetch composition ${comp.composition_uid}:`, error);
-          return {
-            composition_uid: comp.composition_uid,
-            recorded_time: comp.start_time,
-          };
+          return null; // Return null for failed compositions so they get filtered out
         }
       })
     );
 
-    const hasMore = offset + limit < totalCount;
+    // Filter out null entries and sort by date
+    const validVitalSigns = allVitalSigns
+      .filter((vital): vital is NonNullable<typeof vital> => vital !== null)
+      .sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
+
+    console.log(`Final result: ${validVitalSigns.length} valid vital signs records found`);
+    console.log('Valid vital signs:', validVitalSigns);
+
+    // Now apply pagination to the filtered results
+    const totalFilteredCount = validVitalSigns.length;
+    const hasMore = offset + limit < totalFilteredCount;
+    
+    console.log(`Pagination info: offset=${offset}, limit=${limit}, totalFilteredCount=${totalFilteredCount}, hasMore=${hasMore}`);
+
+    // Apply pagination to the filtered results
+    const paginatedResults = validVitalSigns.slice(offset, offset + limit);
 
     return NextResponse.json({ 
-      vitalSigns, 
-      totalCount, 
-      hasMore,
+      vitalSigns: paginatedResults, 
+      totalCount: totalFilteredCount, 
+      hasMore: hasMore,
       currentOffset: offset,
       currentLimit: limit
     });
@@ -272,6 +295,52 @@ if (spO2) {
       compositionData["template_clinical_encounter_v1/vital_signs/language|terminology"] = "ISO_639-1";
       compositionData["template_clinical_encounter_v1/vital_signs/encoding|code"] = "UTF-8";
       compositionData["template_clinical_encounter_v1/vital_signs/encoding|terminology"] = "IANA_character-sets";
+    }
+
+    // Check if there's a recent composition with diagnoses that we can preserve
+    const compositions = await getOpenEHRCompositions(ehrId);
+    const recentComposition = compositions.length > 0 ? compositions[0] : null;
+    
+    if (recentComposition) {
+      // Try to get the most recent composition to see if it has diagnoses
+      try {
+        const existingDetails = await getOpenEHRComposition(ehrId, recentComposition.composition_uid) as Record<string, any>;
+        
+        // Check if this composition has diagnosis data
+        const hasDiagnosis = existingDetails["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"];
+        
+        if (hasDiagnosis) {
+          // This composition has diagnoses, so we'll use the same timestamp and preserve diagnoses
+          // Use the same timestamp as the existing composition to create a true unified encounter
+          compositionData["template_clinical_encounter_v1/context/start_time"] = recentComposition.start_time;
+          
+          // Copy existing diagnosis data
+          const diagnosisPaths = [
+            "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name",
+            "template_clinical_encounter_v1/problem_diagnosis/variant:0",
+            "template_clinical_encounter_v1/problem_diagnosis/clinical_description",
+            "template_clinical_encounter_v1/problem_diagnosis/body_site:0",
+            "template_clinical_encounter_v1/problem_diagnosis/date_time_of_onset",
+            "template_clinical_encounter_v1/problem_diagnosis/date_time_of_resolution",
+            "template_clinical_encounter_v1/problem_diagnosis/comment",
+            "template_clinical_encounter_v1/problem_diagnosis/language|code",
+            "template_clinical_encounter_v1/problem_diagnosis/language|terminology",
+            "template_clinical_encounter_v1/problem_diagnosis/encoding|code",
+            "template_clinical_encounter_v1/problem_diagnosis/encoding|terminology"
+          ];
+          
+          diagnosisPaths.forEach(path => {
+            if (existingDetails[path]) {
+              compositionData[path] = existingDetails[path];
+            }
+          });
+          
+          console.log("Creating unified composition with same timestamp as existing diagnosis:", recentComposition.start_time);
+        }
+      } catch (error) {
+        console.error("Failed to check existing composition:", error);
+        // Fall back to creating a new composition
+      }
     }
 
     // Create composition in OpenEHR
