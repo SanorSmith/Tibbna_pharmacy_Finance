@@ -31,7 +31,7 @@ type Patient = {
   email?: string | null;
   address?: string | null;
   emergencycontact?: string | null;
-  bloodtype?: string | null;
+  bloodgroup?: string | null;
   height?: number | null;
   weight?: number | null;
 };
@@ -454,6 +454,7 @@ export default function PatientDashboard({
       
       if (res.ok) {
         const data = await res.json();
+        console.log("DAta: ", data)
         setEncounters(data.encounters || []);
         setEhrId(data.ehrId || null);
       }
@@ -689,9 +690,9 @@ export default function PatientDashboard({
           <p className="text-sm text-muted-foreground">
             {age !== null ? `${age} years` : "Age N/A"}
             {" || "}
-            {patient.gender || "Gender N/A"}
+            {patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : "Gender N/A"}
             {" || "}
-            {patient.bloodtype ? `Blood ${patient.bloodtype}` : "Blood group N/A"}
+            {patient.bloodgroup ? `Blood group: ${patient.bloodgroup}` : "Blood group N/A"}
           </p>
           {patient.nationalid && (
             <p className="text-xs text-muted-foreground">National ID: {patient.nationalid}</p>
@@ -740,13 +741,25 @@ export default function PatientDashboard({
         {/* Dashboard Tab - compact 3-column summary */}
         <TabsContent value="dashboard" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Compact Patient Contact Summary */}
+            {/* Compact Patient Info Summary */}
             <Card>
               <CardHeader>
-                <CardTitle>Patient Contact</CardTitle>
+                <CardTitle>Patient Info</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
+                  {patient.gender && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Gender</div>
+                      <div className="font-medium capitalize">{patient.gender}</div>
+                    </div>
+                  )}
+                  {patient.bloodgroup && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Blood Group</div>
+                      <div className="font-medium">{patient.bloodgroup}</div>
+                    </div>
+                  )}
                   {patient.phone && (
                     <div>
                       <div className="text-xs text-muted-foreground">Phone</div>
@@ -768,9 +781,6 @@ export default function PatientDashboard({
                       <div className="text-xs text-muted-foreground">Address</div>
                       <div className="font-medium">{patient.address}</div>
                     </div>
-                  )}
-                  {!patient.phone && !patient.email && !patient.address && (
-                    <p className="text-sm text-muted-foreground">No contact details recorded.</p>
                   )}
                 </div>
               </CardContent>
@@ -1359,7 +1369,7 @@ export default function PatientDashboard({
                   </div>
                   {/* Note: Respiratory Rate and SpO2 are not supported in template_clinical_encounter_v1 */}
                   {/* Uncomment these if you update your OpenEHR template to include them */}
-                  {/* 
+                  
                   <div>
                     <label className="text-sm font-medium">Respiratory Rate (/min)</label>
                     <input
@@ -1381,7 +1391,7 @@ export default function PatientDashboard({
                       onChange={(e) => setVitalSignsForm({...vitalSignsForm, spO2: e.target.value})}
                     />
                   </div>
-                  */}
+                  
                 </div>
 
                 {/* Action Buttons */}

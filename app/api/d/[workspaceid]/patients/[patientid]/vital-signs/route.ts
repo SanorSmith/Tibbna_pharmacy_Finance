@@ -6,85 +6,9 @@ import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getOpenEHREHRBySubjectId, getOpenEHRCompositions, getOpenEHRComposition, createOpenEHRComposition } from "@/lib/openehr/openehr";
 
-// In-memory storage for vital signs (dummy data)
-// In production, this would be stored in EHRbase or a database
-interface VitalSignsRecord {
-  composition_uid: string;
-  recorded_time: string;
-  temperature?: number;
-  systolic?: number;
-  diastolic?: number;
-  heart_rate?: number;
-  respiratory_rate?: number;
-  spo2?: number;
-  recorded_by?: string;
-}
-
-// Initialize with dummy data for demonstration
-const vitalSignsStore: Record<string, VitalSignsRecord[]> = {
-  // Sample patient ID with dummy vital signs
-  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
-    {
-      composition_uid: "vital-signs-1731847200000-001",
-      recorded_time: "2024-11-17T08:00:00.000Z",
-      systolic: 128,
-      diastolic: 82,
-      heart_rate: 72,
-      temperature: 36.8,
-      respiratory_rate: 16,
-      spo2: 98,
-      recorded_by: "Nurse Jennifer Martinez, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731760800000-002",
-      recorded_time: "2024-11-16T14:30:00.000Z",
-      systolic: 132,
-      diastolic: 85,
-      heart_rate: 75,
-      temperature: 37.0,
-      respiratory_rate: 18,
-      spo2: 97,
-      recorded_by: "Nurse David Lee, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731674400000-003",
-      recorded_time: "2024-11-15T09:15:00.000Z",
-      systolic: 125,
-      diastolic: 80,
-      heart_rate: 68,
-      temperature: 36.7,
-      respiratory_rate: 15,
-      spo2: 99,
-      recorded_by: "Nurse Mary Johnson, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731588000000-004",
-      recorded_time: "2024-11-14T10:45:00.000Z",
-      systolic: 130,
-      diastolic: 84,
-      heart_rate: 70,
-      temperature: 36.9,
-      respiratory_rate: 16,
-      spo2: 98,
-      recorded_by: "Nurse Jennifer Martinez, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731501600000-005",
-      recorded_time: "2024-11-13T16:20:00.000Z",
-      systolic: 135,
-      diastolic: 88,
-      heart_rate: 78,
-      temperature: 37.1,
-      respiratory_rate: 17,
-      spo2: 96,
-      recorded_by: "Nurse David Lee, RN"
-    }
-  ]
-};
-
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vital-signs
- * Retrieve vital signs for a patient (from dummy data)
+ * Retrieve vital signs for a patient directly from OpenEHR compositions
  */
 export async function GET(
   request: NextRequest,
@@ -159,7 +83,12 @@ export async function GET(
           
           const heart_rate = 
             details["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"];
-          
+         
+            const respiratory_rate = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|magnitude"];
+            
+            const spo2 = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"];
           // Note: respiratory_rate and spo2 are not in this template
 
           return {
@@ -169,9 +98,8 @@ export async function GET(
             systolic: systolic ? parseFloat(systolic) : undefined,
             diastolic: diastolic ? parseFloat(diastolic) : undefined,
             heart_rate: heart_rate ? parseFloat(heart_rate) : undefined,
-            // These fields are not in template_clinical_encounter_v1
-            respiratory_rate: undefined,
-            spo2: undefined,
+            respiratory_rate: respiratory_rate ? parseFloat(respiratory_rate) : undefined,
+            spo2: spo2 ? parseFloat(spo2) : undefined,
           };
         } catch (error) {
           console.error(`Failed to fetch composition ${comp.composition_uid}:`, error);
@@ -195,7 +123,7 @@ export async function GET(
 
 /**
  * POST /api/d/[workspaceid]/patients/[patientid]/vital-signs
- * Create a new vital signs record (dummy data storage)
+ * Create a new clinical encounter composition in OpenEHR with supplied vitals
  */
 export async function POST(
   request: NextRequest,
@@ -268,30 +196,58 @@ export async function POST(
     };
 
     // Add vitals to composition using correct template paths
-    if (temperature) {
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"] = parseFloat(temperature);
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|unit"] = "°C";
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = new Date().toISOString();
-    }
-    if (systolic && diastolic) {
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude"] = parseFloat(systolic);
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|unit"] = "mm[Hg]";
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude"] = parseFloat(diastolic);
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|unit"] = "mm[Hg]";
-      if (!temperature) {
-        compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = new Date().toISOString();
-      }
-    }
-    if (heartRate) {
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"] = parseFloat(heartRate);
-      compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|unit"] = "/min";
-      if (!temperature && !systolic) {
-        compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = new Date().toISOString();
-      }
-    }
-    // Note: respiratory_rate and spo2 are not in this template
-    // Only temperature, blood_pressure, and heart_rate are supported
-    
+
+const eventTime = new Date().toISOString();
+
+// Temperature
+if (temperature) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"] = parseFloat(temperature);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|unit"] = "°C";
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+}
+
+// Blood Pressure
+if (systolic && diastolic) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude"] = parseFloat(systolic);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|unit"] = "mm[Hg]";
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude"] = parseFloat(diastolic);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|unit"] = "mm[Hg]";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
+// Heart Rate
+if (heartRate) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"] = parseFloat(heartRate);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|unit"] = "/min";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
+// Respiratory Rate
+if (respiratoryRate) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|magnitude"] = parseFloat(respiratoryRate);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|unit"] = "/min";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
+// Oxygen Saturation (SpO2)
+if (spO2) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"] = parseFloat(spO2);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|unit"] = "%";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
     // Add required encoding fields
     if (temperature || systolic || heartRate || respiratoryRate || spO2) {
       compositionData["template_clinical_encounter_v1/vital_signs/language|code"] = "en";
