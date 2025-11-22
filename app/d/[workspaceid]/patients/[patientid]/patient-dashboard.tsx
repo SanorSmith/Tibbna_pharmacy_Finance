@@ -9,13 +9,15 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { Plus, History } from "lucide-react";
+import { Plus, History, Search, Thermometer, Heart, Activity, Wind, Droplets, Clock } from "lucide-react";
 import Link from "next/link";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -47,12 +49,19 @@ type Appointment = {
   notes?: string | null;
 };
 
-type Encounter = {
+// Diagnosis state management
+interface DiagnosisRecord {
   composition_uid: string;
-  composition_name: string;
-  start_time: string;
-  details?: any; // Full composition data including vitals
-};
+  recorded_time: string;
+  problem_diagnosis: string;
+  clinical_status: string;
+  clinical_description?: string;
+  body_site?: string;
+  date_of_onset?: string;
+  date_of_resolution?: string;
+  severity?: string;
+  comment?: string;
+}
 
 export default function PatientDashboard({
   workspaceid,
@@ -63,18 +72,18 @@ export default function PatientDashboard({
 }) {
   const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [encounters, setEncounters] = useState<Encounter[]>([]);
-  const [ehrId, setEhrId] = useState<string | null>(null);
-  const [loadingEncounters, setLoadingEncounters] = useState(false);
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [selectedTest] = useState<any>(null);
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [showDiagnosisForm, setShowDiagnosisForm] = useState(false);
+  const [diagnoses, setDiagnoses] = useState<DiagnosisRecord[]>([]);
+  const [loadingDiagnoses, setLoadingDiagnoses] = useState(false);
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState<DiagnosisRecord | null>(null);
+  const [showDiagnosisDetails, setShowDiagnosisDetails] = useState(false);
   const [diagnosisForm, setDiagnosisForm] = useState({
     problemDiagnosis: "",
     clinicalStatus: "active",
-    severity: "moderate",
     dateOfOnset: "",
     dateOfResolution: "",
     clinicalDescription: "",
@@ -432,6 +441,9 @@ export default function PatientDashboard({
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Track which tabs have been loaded to avoid redundant API calls
   const loadedTabsRef = useRef<Set<string>>(new Set(["dashboard"]));
 
@@ -445,9 +457,6 @@ export default function PatientDashboard({
 
     // Load data based on tab
     switch (tabValue) {
-      case "encounters":
-        loadEncounters();
-        break;
       case "notes":
         loadClinicalNotes();
         break;
@@ -461,7 +470,7 @@ export default function PatientDashboard({
         loadMedicalHistory();
         break;
       case "diagnostics":
-        // No specific load function for diagnostics
+        loadDiagnoses();
         break;
       case "lab":
         loadLabResults();
@@ -518,30 +527,10 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
-  const loadEncounters = useCallback(async () => {
-    try {
-      setLoadingEncounters(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patient.patientid}/encounters`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log("DAta: ", data);
-        setEncounters(data.encounters || []);
-        setEhrId(data.ehrId || null);
-      }
-    } catch (e) {
-      console.error("Failed to load encounters:", e);
-    } finally {
-      setLoadingEncounters(false);
-    }
-  }, [workspaceid, patient.patientid]);
-
   const loadVitalSigns = useCallback(
     async (reset = true) => {
       try {
+        console.log('Loading vital signs for patient:', patient.patientid, 'reset:', reset);
         if (reset) {
           setLoadingVitalSigns(true);
           vitalsOffsetRef.current = 0;
@@ -559,6 +548,7 @@ export default function PatientDashboard({
 
         if (res.ok) {
           const data = await res.json();
+          console.log('Vital signs loaded:', data);
           if (reset) {
             setVitalSignsRecords(data.vitalSigns || []);
             vitalsOffsetRef.current = data.vitalSigns?.length || 0;
@@ -570,12 +560,19 @@ export default function PatientDashboard({
             vitalsOffsetRef.current += data.vitalSigns?.length || 0;
           }
           setVitalsHasMore(data.hasMore || false);
+        } else {
+          console.error('Failed to load vital signs, status:', res.status);
+          const errorText = await res.text();
+          console.error('Error response:', errorText);
         }
       } catch (e) {
         console.error("Failed to load vital signs:", e);
       } finally {
-        setLoadingVitalSigns(false);
-        setLoadingMoreVitals(false);
+        if (reset) {
+          setLoadingVitalSigns(false);
+        } else {
+          setLoadingMoreVitals(false);
+        }
       }
     },
     [workspaceid, patient.patientid]
@@ -597,6 +594,31 @@ export default function PatientDashboard({
       console.error("Failed to load vaccinations:", e);
     } finally {
       setLoadingVaccinations(false);
+    }
+  }, [workspaceid, patient.patientid]);
+
+  const loadDiagnoses = useCallback(async () => {
+    try {
+      console.log('Loading diagnoses for patient:', patient.patientid);
+      setLoadingDiagnoses(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/diagnoses`,
+        { cache: "no-store" }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('Diagnoses loaded:', data);
+        setDiagnoses(data.diagnoses || []);
+      } else {
+        console.error('Failed to load diagnoses, status:', res.status);
+        const errorText = await res.text();
+        console.error('Error response:', errorText);
+      }
+    } catch (e) {
+      console.error("Failed to load diagnoses:", e);
+    } finally {
+      setLoadingDiagnoses(false);
     }
   }, [workspaceid, patient.patientid]);
 
@@ -753,13 +775,25 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
-  // Only load essential data on mount (dashboard view)
+  // Load essential data on mount for dashboard view
   useEffect(() => {
     loadAppointments();
     loadVitalSigns();
-    loadVaccinations();
+    loadLabResults();
+    loadImaging();
+    loadCarePlans();
+    loadClinicalNotes();
+    loadDiagnoses(); // Load diagnoses on initial load
     // Other data will be loaded when user switches to respective tabs
-  }, [loadAppointments, loadVitalSigns, loadVaccinations]);
+  }, [
+    loadAppointments,
+    loadVitalSigns,
+    loadLabResults,
+    loadImaging,
+    loadCarePlans,
+    loadClinicalNotes,
+    loadDiagnoses,
+  ]);
 
   function formatDateTime(date: string) {
     return new Date(date).toLocaleString([], {
@@ -772,36 +806,142 @@ export default function PatientDashboard({
 
   return (
     <div className="space-y-4">
-      {/* Header with back button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{fullName}</h1>
-          <p className="text-sm text-muted-foreground">
-            {age !== null ? `${age} years` : "Age N/A"}
-            {" || "}
-            {patient.gender
-              ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)
-              : "Gender N/A"}
-            {" || "}
-            {patient.bloodgroup
-              ? `Blood group: ${patient.bloodgroup}`
-              : "Blood group N/A"}
-          </p>
-          {patient.nationalid && (
-            <p className="text-xs text-muted-foreground">
-              National ID: {patient.nationalid}
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
+      {/* Back button and search at the top */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            ← Back
+          </Button>
           <Link
             href={`/d/${workspaceid}/patients/${patient.patientid}/overview`}
           >
-            <Button variant="default">Patient Overview</Button>
+            <Button variant="outline" size="sm">
+              Patient Overview
+            </Button>
           </Link>
-          <Button variant="outline" onClick={() => router.back()}>
-            ← Back
-          </Button>
+        </div>
+
+        {/* Search Field */}
+        <div className="relative w-80">
+          <Input
+            type="text"
+            placeholder="Search patient data..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+
+      {/* Header: Patient info on left, Vitals on right */}
+      <div className="flex items-start justify-between gap-6">
+        {/* Left: Patient Information */}
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold mb-2">{fullName}</h1>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <div>
+              <span className="text-muted-foreground">Age:</span>{" "}
+              <span className="font-medium">
+                {age !== null ? `${age} years` : "N/A"}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Gender:</span>{" "}
+              <span className="font-medium capitalize">
+                {patient.gender || "N/A"}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Blood Group:</span>{" "}
+              <span className="font-medium">{patient.bloodgroup || "N/A"}</span>
+            </div>
+            {patient.nationalid && (
+              <div>
+                <span className="text-muted-foreground">National ID:</span>{" "}
+                <span className="font-medium">{patient.nationalid}</span>
+              </div>
+            )}
+            {patient.phone && (
+              <div>
+                <span className="text-muted-foreground">Phone:</span>{" "}
+                <a
+                  href={`tel:${patient.phone}`}
+                  className="font-medium hover:underline"
+                >
+                  {patient.phone}
+                </a>
+              </div>
+            )}
+            {patient.email && (
+              <div>
+                <span className="text-muted-foreground">Email:</span>{" "}
+                <a
+                  href={`mailto:${patient.email}`}
+                  className="font-medium hover:underline text-xs"
+                >
+                  {patient.email}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Latest Vital Signs (no box) */}
+        <div className="w-80">
+          <h3 className="text-lg font-semibold mb-3">Latest Vital Signs</h3>
+          {vitalSignsRecords.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No vital signs recorded yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {vitalSignsRecords[0].systolic &&
+                vitalSignsRecords[0].diastolic && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Blood Pressure
+                    </div>
+                    <div className="text-lg font-semibold">
+                      {vitalSignsRecords[0].systolic}/
+                      {vitalSignsRecords[0].diastolic}
+                    </div>
+                    <div className="text-xs text-muted-foreground">mmHg</div>
+                  </div>
+                )}
+              {vitalSignsRecords[0].heart_rate && (
+                <div>
+                  <div className="text-xs text-muted-foreground">
+                    Heart Rate
+                  </div>
+                  <div className="text-lg font-semibold">
+                    {vitalSignsRecords[0].heart_rate}
+                  </div>
+                  <div className="text-xs text-muted-foreground">bpm</div>
+                </div>
+              )}
+              {vitalSignsRecords[0].temperature && (
+                <div>
+                  <div className="text-xs text-muted-foreground">
+                    Temperature
+                  </div>
+                  <div className="text-lg font-semibold">
+                    {vitalSignsRecords[0].temperature}
+                  </div>
+                  <div className="text-xs text-muted-foreground">°C</div>
+                </div>
+              )}
+              {vitalSignsRecords[0].spo2 && (
+                <div>
+                  <div className="text-xs text-muted-foreground">SpO2</div>
+                  <div className="text-lg font-semibold">
+                    {vitalSignsRecords[0].spo2}
+                  </div>
+                  <div className="text-xs text-muted-foreground">%</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -812,513 +952,314 @@ export default function PatientDashboard({
         onValueChange={handleTabChange}
       >
         <TabsList className="flex w-full overflow-x-auto space-x-1">
-          {/* Clinical Documentation & Encounters */}
+          {/* Clinical Documentation */}
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="encounters">Encounters</TabsTrigger>
-          <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="vitalsigns">Vitals</TabsTrigger>
+          {/* Problems & History */}
+          <TabsTrigger value="diagnostics">Diagnoses</TabsTrigger>
+          <TabsTrigger value="medical">History</TabsTrigger>
+
+          <TabsTrigger value="testorders">Orders</TabsTrigger>
+          <TabsTrigger value="lab">Labs</TabsTrigger>
+          <TabsTrigger value="prescriptions">Meds</TabsTrigger>
+          
+          <TabsTrigger value="careplans">Care Plans</TabsTrigger>
+         
+          {/* Prevention & Coordination */}
+          <TabsTrigger value="referrals">Referrals</TabsTrigger>
+          <TabsTrigger value="vaccinations">Vaccines</TabsTrigger>
+
+          <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
 
-          {/* Problems & History */}
-          <TabsTrigger value="medical">History</TabsTrigger>
-          <TabsTrigger value="diagnostics">Diagnoses</TabsTrigger>
 
           {/* Diagnostics */}
-          <TabsTrigger value="lab">Labs</TabsTrigger>
           <TabsTrigger value="imaging">Imaging</TabsTrigger>
-          <TabsTrigger value="testorders">Orders</TabsTrigger>
 
           {/* Treatment & Care Plans */}
-          <TabsTrigger value="prescriptions">Meds</TabsTrigger>
-          <TabsTrigger value="careplans">Care Plans</TabsTrigger>
 
-          {/* Prevention & Coordination */}
-          <TabsTrigger value="vaccinations">Vaccines</TabsTrigger>
-          <TabsTrigger value="referrals">Referrals</TabsTrigger>
         </TabsList>
 
-        {/* Dashboard Tab - compact 3-column summary */}
-        <TabsContent value="dashboard" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Compact Patient Info Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Patient Info</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  {patient.gender && (
-                    <div>
-                      <div className="text-xs text-muted-foreground">
-                        Gender
-                      </div>
-                      <div className="font-medium capitalize">
-                        {patient.gender}
-                      </div>
-                    </div>
-                  )}
-                  {patient.bloodgroup && (
-                    <div>
-                      <div className="text-xs text-muted-foreground">
-                        Blood Group
-                      </div>
-                      <div className="font-medium">{patient.bloodgroup}</div>
-                    </div>
-                  )}
-                  {patient.phone && (
-                    <div>
-                      <div className="text-xs text-muted-foreground">Phone</div>
-                      <a
-                        href={`tel:${patient.phone}`}
-                        className="hover:underline"
-                      >
-                        📞 {patient.phone}
-                      </a>
-                    </div>
-                  )}
-                  {patient.email && (
-                    <div>
-                      <div className="text-xs text-muted-foreground">Email</div>
-                      <a
-                        href={`mailto:${patient.email}`}
-                        className="hover:underline"
-                      >
-                        ✉️ {patient.email}
-                      </a>
-                    </div>
-                  )}
-                  {patient.address && (
-                    <div>
-                      <div className="text-xs text-muted-foreground">
-                        Address
-                      </div>
-                      <div className="font-medium">{patient.address}</div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Compact Vital Signs Summary */}
-            <Card className="vital-box">
-              <CardHeader>
-                <CardTitle>Key Vitals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {vitalSignsRecords.length === 0 ? (
+        {/* Dashboard Tab - 2 column layout with all important info */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Appointments Section - Blue boxes with white text */}
+              <div>
+                <h2 className="text-xl font-semibold mb-3">
+                  Upcoming Appointments
+                </h2>
+                {loading ? (
                   <p className="text-sm text-muted-foreground">
-                    No vital signs recorded yet.
+                    Loading appointments...
+                  </p>
+                ) : appointments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No upcoming appointments.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <div className="text-xs text-muted-foreground">
-                        Blood Pressure
-                      </div>
-                      <div className="font-medium">
-                        {vitalSignsRecords[0].systolic}/
-                        {vitalSignsRecords[0].diastolic} mmHg
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">
-                        Heart Rate
-                      </div>
-                      <div className="font-medium">
-                        {vitalSignsRecords[0].heart_rate ?? "--"} bpm
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">
-                        Temperature
-                      </div>
-                      <div className="font-medium">
-                        {vitalSignsRecords[0].temperature ?? "--"}°C
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">SpO2</div>
-                      <div className="font-medium">
-                        {vitalSignsRecords[0].spo2 ?? "--"}%
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Compact Vaccination Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Vaccination Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {vaccinationRecords.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No vaccination records yet.
-                  </p>
-                ) : (
-                  <div className="space-y-1 text-sm">
-                    <div className="font-medium">
-                      {vaccinationRecords[0].vaccine_name ||
-                        "Latest vaccination"}
-                    </div>
-                    {vaccinationRecords[0].targeted_disease && (
-                      <div className="text-muted-foreground">
-                        Target: {vaccinationRecords[0].targeted_disease}
-                      </div>
-                    )}
-                    <div className="text-xs text-muted-foreground">
-                      Last:{" "}
-                      {vaccinationRecords[0].last_vaccine_date
-                        ? new Date(
-                            vaccinationRecords[0].last_vaccine_date
-                          ).toLocaleDateString("en-US", {
+                  <div className="space-y-3">
+                    {appointments.slice(0, 3).map((apt) => (
+                      <div
+                        key={apt.appointmentid}
+                        className="text-white p-4 rounded-lg"
+                        style={{ backgroundColor: '#618FF5' }}
+                      >
+                        <div className="font-semibold text-lg mb-1">
+                          {new Date(apt.starttime).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                             year: "numeric",
-                          })
-                        : "--"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Next due:{" "}
-                      {vaccinationRecords[0].next_vaccine_due
-                        ? new Date(
-                            vaccinationRecords[0].next_vaccine_due
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })
-                        : "--"}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Clinical Summary - Alerts & Key Information */}
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span>📋</span> Clinical Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Active Diagnoses */}
-                <div className="border rounded-lg p-3 bg-red-50">
-                  <div className="text-xs font-semibold text-red-900 mb-2">
-                    ACTIVE DIAGNOSES
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium">• Hyperlipidemia</div>
-                    <div className="text-sm font-medium">• Prediabetes</div>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    See Diagnoses tab for details
-                  </div>
-                </div>
-
-                {/* Current Medications */}
-                <div className="border rounded-lg p-3 bg-blue-50">
-                  <div className="text-xs font-semibold text-blue-900 mb-2">
-                    CURRENT MEDICATIONS
-                  </div>
-                  <div className="space-y-1">
-                    {prescriptionRecords.length > 0 ? (
-                      prescriptionRecords.slice(0, 2).map((rx, idx) => (
-                        <div key={idx} className="text-sm font-medium">
-                          • {rx.medication_item}
+                          })}
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-muted-foreground">
-                        No active medications
+                        <div className="text-sm opacity-90">
+                          {new Date(apt.starttime).toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                        {apt.location && (
+                          <div className="text-sm mt-2 opacity-90">
+                            {apt.location}
+                          </div>
+                        )}
+                        <div className="text-xs mt-2 opacity-75 capitalize">
+                          {apt.status}
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    See Meds tab for full list
-                  </div>
-                </div>
-
-                {/* Allergies & Alerts */}
-                <div className="border rounded-lg p-3 bg-yellow-50">
-                  <div className="text-xs font-semibold text-yellow-900 mb-2">
-                    ⚠️ ALLERGIES & ALERTS
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-yellow-900">
-                      • No known drug allergies
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      • Family Hx: CAD
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    See History tab for details
-                  </div>
-                </div>
+                )}
               </div>
 
-              {/* Recent Activity */}
-              <div className="mt-4 pt-4 border-t">
-                <div className="text-xs font-semibold text-gray-700 mb-2">
-                  RECENT ACTIVITY
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  {clinicalNotes.length > 0 && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-green-600">✓</span>
-                      <div>
-                        <span className="font-medium">Last Visit:</span>{" "}
-                        {new Date(
-                          clinicalNotes[0].recorded_time
-                        ).toLocaleDateString()}
-                        {clinicalNotes[0].note_title &&
-                          ` - ${clinicalNotes[0].note_title}`}
-                      </div>
-                    </div>
-                  )}
-                  {vitalSignsRecords.length > 0 && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-blue-600">📊</span>
-                      <div>
-                        <span className="font-medium">Last Vitals:</span> BP{" "}
-                        {vitalSignsRecords[0].systolic}/
-                        {vitalSignsRecords[0].diastolic} • HR{" "}
-                        {vitalSignsRecords[0].heart_rate} bpm
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <hr className="border-t border-gray-300" />
 
-        {/* Encounters Tab - OpenEHR Clinical Encounters */}
-        <TabsContent value="encounters" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Clinical Encounters (OpenEHR)</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadEncounters}
-                  disabled={loadingEncounters}
-                >
-                  {loadingEncounters ? "Loading..." : "Refresh"}
-                </Button>
-              </div>
-              {ehrId && (
-                <p className="text-sm text-muted-foreground">
-                  EHR ID: <span className="font-mono text-xs">{ehrId}</span>
-                </p>
-              )}
-            </CardHeader>
-            <CardContent>
-              {loadingEncounters ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Loading encounters...
-                </div>
-              ) : encounters.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-2">
-                    No clinical encounters found in OpenEHR
+              {/* Lab Results Section */}
+              <div>
+                <h2 className="text-xl font-semibold mb-3">
+                  Recent Lab Results
+                </h2>
+                {loadingLabResults ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading lab results...
                   </p>
-                  {!ehrId && (
-                    <p className="text-sm text-muted-foreground">
-                      No EHR record exists for this patient
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {encounters.map((encounter) => {
-                    // Extract vitals from the composition details
-                    const details = encounter.details;
-
-                    // Debug: Log the composition structure
-                    if (details) {
-                      console.log("Composition details:", details);
-                      console.log("Available keys:", Object.keys(details));
-                    }
-
-                    const vitals = details
-                      ? {
-                          temperature:
-                            details[
-                              "vital_signs/body_temperature:0/any_event:0/temperature|magnitude"
-                            ] ||
-                            details[
-                              "vital_signs/body_temperature/any_event/temperature|magnitude"
-                            ],
-                          systolic:
-                            details[
-                              "vital_signs/blood_pressure:0/any_event:0/systolic|magnitude"
-                            ] ||
-                            details[
-                              "vital_signs/blood_pressure/any_event/systolic|magnitude"
-                            ],
-                          diastolic:
-                            details[
-                              "vital_signs/blood_pressure:0/any_event:0/diastolic|magnitude"
-                            ] ||
-                            details[
-                              "vital_signs/blood_pressure/any_event/diastolic|magnitude"
-                            ],
-                          heartRate:
-                            details[
-                              "vital_signs/pulse_heart_beat:0/any_event:0/rate|magnitude"
-                            ] ||
-                            details[
-                              "vital_signs/pulse_heart_beat/any_event/rate|magnitude"
-                            ],
-                          respiratoryRate:
-                            details[
-                              "vital_signs/respirations:0/any_event:0/rate|magnitude"
-                            ] ||
-                            details[
-                              "vital_signs/respirations/any_event/rate|magnitude"
-                            ],
-                          spO2:
-                            details[
-                              "vital_signs/pulse_oximetry:0/any_event:0/spo2|numerator"
-                            ] ||
-                            details[
-                              "vital_signs/pulse_oximetry/any_event/spo2|numerator"
-                            ],
-                        }
-                      : null;
-
-                    return (
-                      <Card
-                        key={encounter.composition_uid}
-                        className="border-l-4 border-l-green-500"
+                ) : labResultRecords.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No lab results available.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {labResultRecords.slice(0, 3).map((lab, idx) => (
+                      <div
+                        key={idx}
+                        className="text-white p-3 rounded-lg"
+                        style={{ backgroundColor: '#618FF5' }}
                       >
-                        <CardContent className="pt-4">
-                          <div className="space-y-3">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-base mb-1">
-                                  {encounter.composition_name}
-                                </h4>
-                                <div className="text-sm text-muted-foreground">
-                                  <span className="font-medium">Date:</span>{" "}
-                                  {new Date(
-                                    encounter.start_time
-                                  ).toLocaleString()}
-                                </div>
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  window.open(
-                                    `/d/admin/openehr/ehrs/${ehrId}/composition/${encounter.composition_uid}`,
-                                    "_blank"
-                                  );
-                                }}
-                              >
-                                View Full Details →
-                              </Button>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-semibold">{lab.test_name}</div>
+                            <div className="text-sm opacity-90">
+                              {new Date(lab.recorded_time).toLocaleDateString()}
                             </div>
+                          </div>
+                          <div className="text-xs opacity-75 capitalize">
+                            {lab.overall_test_status}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                            {/* Debug: Show all available fields */}
-                            {details && (
-                              <div className="border-t pt-3">
-                                <details className="mb-3">
-                                  <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
-                                    🔍 Debug: View Raw Composition Data
-                                  </summary>
-                                  <div className="mt-2 p-3 bg-gray-50 rounded text-xs font-mono overflow-auto max-h-60">
-                                    <pre>
-                                      {JSON.stringify(details, null, 2)}
-                                    </pre>
-                                  </div>
-                                </details>
+              <hr className="border-t border-gray-300" />
+
+              {/* Imaging Results Section */}
+              <div>
+                <h2 className="text-xl font-semibold mb-3">Recent Imaging</h2>
+                {loadingImaging ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading imaging results...
+                  </p>
+                ) : imagingResults.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No imaging results available.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {imagingResults.slice(0, 3).map((img, idx) => (
+                      <div
+                        key={idx}
+                        className="text-white p-3 rounded-lg"
+                        style={{ backgroundColor: '#618FF5' }}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-semibold">
+                              {img.examination_name}
+                            </div>
+                            <div className="text-sm opacity-90">
+                              {new Date(img.recorded_time).toLocaleDateString()}
+                            </div>
+                            {img.body_site && (
+                              <div className="text-xs opacity-75 mt-1">
+                                {img.body_site}
                               </div>
                             )}
-
-                            {/* Display Vitals if available */}
-                            {vitals &&
-                              (vitals.temperature ||
-                                vitals.systolic ||
-                                vitals.heartRate ||
-                                vitals.respiratoryRate ||
-                                vitals.spO2) && (
-                                <div className="border-t pt-3">
-                                  <h5 className="font-semibold text-sm mb-2">
-                                    Vital Signs
-                                  </h5>
-                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                                    {vitals.temperature && (
-                                      <div className="bg-red-50 rounded p-2">
-                                        <div className="text-xs text-muted-foreground">
-                                          Temperature
-                                        </div>
-                                        <div className="font-semibold">
-                                          {vitals.temperature}°C
-                                        </div>
-                                      </div>
-                                    )}
-                                    {(vitals.systolic || vitals.diastolic) && (
-                                      <div className="bg-blue-50 rounded p-2">
-                                        <div className="text-xs text-muted-foreground">
-                                          Blood Pressure
-                                        </div>
-                                        <div className="font-semibold">
-                                          {vitals.systolic || "?"}/
-                                          {vitals.diastolic || "?"} mmHg
-                                        </div>
-                                      </div>
-                                    )}
-                                    {vitals.heartRate && (
-                                      <div className="bg-purple-50 rounded p-2">
-                                        <div className="text-xs text-muted-foreground">
-                                          Heart Rate
-                                        </div>
-                                        <div className="font-semibold">
-                                          {vitals.heartRate} bpm
-                                        </div>
-                                      </div>
-                                    )}
-                                    {vitals.respiratoryRate && (
-                                      <div className="bg-green-50 rounded p-2">
-                                        <div className="text-xs text-muted-foreground">
-                                          Respiratory Rate
-                                        </div>
-                                        <div className="font-semibold">
-                                          {vitals.respiratoryRate} /min
-                                        </div>
-                                      </div>
-                                    )}
-                                    {vitals.spO2 && (
-                                      <div className="bg-cyan-50 rounded p-2">
-                                        <div className="text-xs text-muted-foreground">
-                                          SpO2
-                                        </div>
-                                        <div className="font-semibold">
-                                          {vitals.spO2}%
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                          <div className="text-xs opacity-75 capitalize">
+                            {img.result_status}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Care Plans Section */}
+              <div>
+                <h2 className="text-xl font-semibold mb-3">
+                  Active Care Plans
+                </h2>
+                {loadingCarePlans ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading care plans...
+                  </p>
+                ) : carePlans.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No active care plans.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {carePlans.slice(0, 3).map((plan, idx) => (
+                      <div
+                        key={idx}
+                        className="text-white p-3 rounded-lg"
+                        style={{ backgroundColor: '#618FF5' }}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-semibold">
+                              {plan.care_plan_name}
+                            </div>
+                            {plan.description && (
+                              <div className="text-sm opacity-90 mt-1">
+                                {plan.description}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs opacity-75 capitalize">
+                            {plan.status}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <hr className="border-t border-gray-300" />
+
+              {/* Clinical Notes Section */}
+              <div>
+                <h2 className="text-xl font-semibold mb-3">Clinical Notes</h2>
+                {loadingNotes ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading notes...
+                  </p>
+                ) : clinicalNotes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No clinical notes available.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {clinicalNotes.slice(0, 3).map((note, idx) => (
+                      <div
+                        key={idx}
+                        className="border-l-4 pl-4 py-2"
+                        style={{ borderLeftColor: '#618FF5' }}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="font-semibold">
+                            {note.note_title || note.note_type}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(note.recorded_time).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {note.synopsis}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          By: {note.author} ({note.author_role})
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <hr className="border-t border-gray-300" />
+
+              {/* Latest Diagnosis Section */}
+              <div>
+                <h2 className="text-xl font-semibold mb-3">Latest Diagnosis</h2>
+                {loadingDiagnoses ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading diagnoses...
+                  </p>
+                ) : diagnoses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No diagnoses recorded.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {diagnoses.slice(0, 1).map((diagnosis, idx) => (
+                      <div
+                        key={diagnosis.composition_uid}
+                        className="text-white p-4 rounded-lg"
+                        style={{ backgroundColor: '#618FF5' }}
+                      >
+                        <div className="font-semibold text-lg mb-2">
+                          {diagnosis.problem_diagnosis}
+                        </div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full capitalize">
+                              {diagnosis.clinical_status}
+                            </span>
+                          </div>
+                          <div className="text-xs opacity-75">
+                            {new Date(diagnosis.recorded_time).toLocaleDateString()}
+                          </div>
+                        </div>
+                        {diagnosis.clinical_description && (
+                          <div className="text-sm opacity-90 mb-2">
+                            {diagnosis.clinical_description}
+                          </div>
+                        )}
+                        {diagnosis.body_site && (
+                          <div className="text-xs opacity-75">
+                            <strong>Site:</strong> {diagnosis.body_site}
+                          </div>
+                        )}
+                        {diagnosis.date_of_onset && (
+                          <div className="text-xs opacity-75 mt-1">
+                            <strong>Onset:</strong> {new Date(diagnosis.date_of_onset).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Appointments Tab */}
@@ -1401,7 +1342,7 @@ export default function PatientDashboard({
                   <Button
                     size="sm"
                     onClick={() => setShowVitalSignsForm(true)}
-                    className="bg-black hover:bg-black/80 text-white flex items-center gap-1"
+                    className="bg-blue-500 hover:bg-blue-700 text-white flex items-center gap-1"
                   >
                     <Plus className="h-4 w-4" />
                     Record New
@@ -1474,19 +1415,6 @@ export default function PatientDashboard({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Debug: Show raw data */}
-                  {vitalSignsRecords.length > 0 && (
-                    <details className="mb-4 p-3 bg-white/10 rounded">
-                      <summary className="cursor-pointer text-sm font-semibold">
-                        🔍 Debug: View Raw Vitals Data (
-                        {vitalSignsRecords.length} records)
-                      </summary>
-                      <pre className="mt-2 text-xs overflow-auto max-h-60">
-                        {JSON.stringify(vitalSignsRecords, null, 2)}
-                      </pre>
-                    </details>
-                  )}
-
                   {vitalSignsRecords.map((record, index) => (
                     <div
                       key={index}
@@ -1495,19 +1423,7 @@ export default function PatientDashboard({
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
+                            <Clock className="w-4 h-4" />
                             <p> Recorded on </p>
                             {record.recorded_time
                               ? new Date(record.recorded_time).toLocaleString(
@@ -1525,16 +1441,16 @@ export default function PatientDashboard({
                         </div>
                       </div>
 
-                      <div className="space-y-3 text-sm">
+                      <div className="space-y-3 text-base">
                         {record.temperature && (
                           <div className="flex items-center justify-between border-b pb-2">
-                            <div className="flex items-center gap-2">
-                              <span>🌡️</span>
+                            <div className="flex items-center gap-3">
+                              <Thermometer className="w-5 h-5" />
                               <span className="text-muted-foreground">
                                 Temperature
                               </span>
                             </div>
-                            <span className="font-semibold">
+                            <span className="font-semibold text-lg">
                               {record.temperature}°C
                             </span>
                           </div>
@@ -1542,13 +1458,13 @@ export default function PatientDashboard({
 
                         {(record.systolic || record.diastolic) && (
                           <div className="flex items-center justify-between border-b pb-2">
-                            <div className="flex items-center gap-2">
-                              <span>💉</span>
+                            <div className="flex items-center gap-3">
+                              <Activity className="w-5 h-5" />
                               <span className="text-muted-foreground">
                                 Blood Pressure
                               </span>
                             </div>
-                            <span className="font-semibold">
+                            <span className="font-semibold text-lg">
                               {record.systolic}/{record.diastolic} mmHg
                             </span>
                           </div>
@@ -1556,13 +1472,13 @@ export default function PatientDashboard({
 
                         {record.heart_rate && (
                           <div className="flex items-center justify-between border-b pb-2">
-                            <div className="flex items-center gap-2">
-                              <span>❤️</span>
+                            <div className="flex items-center gap-3">
+                              <Heart className="w-5 h-5" />
                               <span className="text-muted-foreground">
                                 Heart Rate
                               </span>
                             </div>
-                            <span className="font-semibold">
+                            <span className="font-semibold text-lg">
                               {record.heart_rate} bpm
                             </span>
                           </div>
@@ -1570,13 +1486,13 @@ export default function PatientDashboard({
 
                         {record.respiratory_rate && (
                           <div className="flex items-center justify-between border-b pb-2">
-                            <div className="flex items-center gap-2">
-                              <span>🫁</span>
+                            <div className="flex items-center gap-3">
+                              <Wind className="w-5 h-5" />
                               <span className="text-muted-foreground">
                                 Respiratory
                               </span>
                             </div>
-                            <span className="font-semibold">
+                            <span className="font-semibold text-lg">
                               {record.respiratory_rate} /min
                             </span>
                           </div>
@@ -1584,13 +1500,13 @@ export default function PatientDashboard({
 
                         {record.spo2 && (
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span>💨</span>
+                            <div className="flex items-center gap-3">
+                              <Droplets className="w-5 h-5" />
                               <span className="text-muted-foreground">
                                 SpO2
                               </span>
                             </div>
-                            <span className="font-semibold">
+                            <span className="font-semibold text-lg">
                               {record.spo2}%
                             </span>
                           </div>
@@ -2581,255 +2497,78 @@ export default function PatientDashboard({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12">
-                <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                  <svg
-                    className="w-8 h-8 text-muted-foreground"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
+              {loadingDiagnoses ? (
+                <div className="text-center py-8 text-muted-foreground">Loading diagnoses...</div>
+              ) : diagnoses.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-muted-foreground mb-4">No diagnoses have been recorded yet</div>
+                  <Button size="sm" onClick={() => setShowDiagnosisForm(true)}>
+                    Add First Diagnosis
+                  </Button>
                 </div>
-                <h3 className="text-lg font-semibold mb-2">No Diagnoses</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  No diagnoses have been recorded yet
-                </p>
-                <Button
-                  onClick={() => setShowDiagnosisForm(true)}
-                  variant="outline"
-                >
-                  Add First Diagnosis
-                </Button>
-              </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3 font-medium">Diagnosis</th>
+                        <th className="text-left p-3 font-medium">Status</th>
+                        <th className="text-left p-3 font-medium">Date Recorded</th>
+                        <th className="text-left p-3 font-medium">Onset</th>
+                        <th className="text-left p-3 font-medium">Body Site</th>
+                        <th className="text-left p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {diagnoses.map((diagnosis, index) => (
+                        <tr key={diagnosis.composition_uid} className={`border-b ${index % 2 === 0 ? 'bg-background' : 'bg-muted/25'} hover:bg-muted/50 transition-colors`}>
+                          <td className="p-3">
+                            <div>
+                              <div className="font-medium">{diagnosis.problem_diagnosis}</div>
+                              {diagnosis.clinical_description && (
+                                <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  {diagnosis.clinical_description}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full capitalize">
+                              {diagnosis.clinical_status}
+                            </span>
+                          </td>
+                          <td className="p-3 text-sm">
+                            {new Date(diagnosis.recorded_time).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 text-sm">
+                            {diagnosis.date_of_onset 
+                              ? new Date(diagnosis.date_of_onset).toLocaleDateString()
+                              : '-'
+                            }
+                          </td>
+                          <td className="p-3 text-sm">
+                            {diagnosis.body_site || '-'}
+                          </td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedDiagnosis(diagnosis);
+                                setShowDiagnosisDetails(true);
+                              }}
+                            >
+                              Details
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          {/* Diagnosis Form Dialog */}
-          <Dialog open={showDiagnosisForm} onOpenChange={setShowDiagnosisForm}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Diagnosis</DialogTitle>
-                <DialogDescription>
-                  Based on openEHR Problem/Diagnosis archetype
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Problem/Diagnosis Name */}
-                <div>
-                  <label className="text-sm font-medium">
-                    Problem/Diagnosis Name *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    placeholder="e.g., Type 2 Diabetes Mellitus"
-                    value={diagnosisForm.problemDiagnosis}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        problemDiagnosis: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The name of the problem or diagnosis (preferably coded with
-                    ICD-10 or SNOMED CT)
-                  </p>
-                </div>
-
-                {/* Clinical Status */}
-                <div>
-                  <label className="text-sm font-medium">
-                    Clinical Status *
-                  </label>
-                  <select
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    value={diagnosisForm.clinicalStatus}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        clinicalStatus: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="remission">Remission</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The clinical status of the problem or diagnosis
-                  </p>
-                </div>
-
-                {/* Severity */}
-                <div>
-                  <label className="text-sm font-medium">Severity</label>
-                  <select
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    value={diagnosisForm.severity}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        severity: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="mild">Mild</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="severe">Severe</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The assessed severity of the problem or diagnosis
-                  </p>
-                </div>
-
-                {/* Date of Onset */}
-                <div>
-                  <label className="text-sm font-medium">Date of Onset</label>
-                  <input
-                    type="date"
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    value={diagnosisForm.dateOfOnset}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        dateOfOnset: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The date/time when the problem or diagnosis was first
-                    identified
-                  </p>
-                </div>
-
-                {/* Date of Resolution */}
-                <div>
-                  <label className="text-sm font-medium">
-                    Date of Resolution
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    value={diagnosisForm.dateOfResolution}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        dateOfResolution: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The date/time when the problem or diagnosis resolved (if
-                    applicable)
-                  </p>
-                </div>
-
-                {/* Body Site */}
-                <div>
-                  <label className="text-sm font-medium">Body Site</label>
-                  <input
-                    type="text"
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    placeholder="e.g., Left knee, Systemic, Respiratory system"
-                    value={diagnosisForm.bodySite}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        bodySite: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The body site affected by the problem or diagnosis
-                  </p>
-                </div>
-
-                {/* Clinical Description */}
-                <div>
-                  <label className="text-sm font-medium">
-                    Clinical Description
-                  </label>
-                  <textarea
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    rows={3}
-                    placeholder="Narrative description of the problem or diagnosis..."
-                    value={diagnosisForm.clinicalDescription}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        clinicalDescription: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Narrative description of the clinical aspects of the problem
-                    or diagnosis
-                  </p>
-                </div>
-
-                {/* Comment */}
-                <div>
-                  <label className="text-sm font-medium">Comment</label>
-                  <textarea
-                    className="w-full mt-1 px-3 py-2 border rounded-md"
-                    rows={2}
-                    placeholder="Additional comments about the diagnosis..."
-                    value={diagnosisForm.comment}
-                    onChange={(e) =>
-                      setDiagnosisForm({
-                        ...diagnosisForm,
-                        comment: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Additional narrative about the problem or diagnosis not
-                    captured in other fields
-                  </p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowDiagnosisForm(false);
-                      setDiagnosisForm({
-                        problemDiagnosis: "",
-                        clinicalStatus: "active",
-                        severity: "moderate",
-                        dateOfOnset: "",
-                        dateOfResolution: "",
-                        clinicalDescription: "",
-                        bodySite: "",
-                        comment: "",
-                      });
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      // TODO: Save diagnosis to database
-                      console.log("Saving diagnosis:", diagnosisForm);
-                      setShowDiagnosisForm(false);
-                    }}
-                  >
-                    Save Diagnosis
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         </TabsContent>
 
         {/* Medical History Tab - openEHR Compliant */}
@@ -5054,7 +4793,6 @@ export default function PatientDashboard({
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
 
       {/* Care Plan Form Dialog */}
       <Dialog open={showCarePlanForm} onOpenChange={setShowCarePlanForm}>
@@ -5635,6 +5373,332 @@ export default function PatientDashboard({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Diagnosis Details Modal */}
+      <Dialog open={showDiagnosisDetails} onOpenChange={setShowDiagnosisDetails}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Diagnosis Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this diagnosis
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedDiagnosis && (
+              <>
+                <div>
+                  <h4 className="font-medium">Diagnosis Information</h4>
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <span className="text-sm text-gray-500">Problem/Diagnosis:</span>
+                      <p className="font-medium">{selectedDiagnosis.problem_diagnosis}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500">Clinical Status:</span>
+                      <p className="font-medium">{selectedDiagnosis.clinical_status}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500">Date of Onset:</span>
+                      <p className="font-medium">{selectedDiagnosis.date_of_onset || 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500">Date of Resolution:</span>
+                      <p className="font-medium">{selectedDiagnosis.date_of_resolution || 'Not resolved'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedDiagnosis.clinical_description && (
+                  <div>
+                    <h4 className="font-medium">Clinical Description</h4>
+                    <p className="text-sm mt-1">{selectedDiagnosis.clinical_description}</p>
+                  </div>
+                )}
+
+                {selectedDiagnosis.body_site && (
+                  <div>
+                    <h4 className="font-medium">Body Site</h4>
+                    <p className="text-sm mt-1">{selectedDiagnosis.body_site}</p>
+                  </div>
+                )}
+
+                {selectedDiagnosis.comment && (
+                  <div>
+                    <h4 className="font-medium">Additional Comments</h4>
+                    <p className="text-sm mt-1">{selectedDiagnosis.comment}</p>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="font-medium">Timestamps</h4>
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <span className="text-sm text-gray-500">Created:</span>
+                      <p className="text-sm">{new Date(selectedDiagnosis.recorded_time).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500">Last Updated:</span>
+                      <p className="text-sm">{new Date(selectedDiagnosis.recorded_time).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDiagnosisDetails(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diagnosis Form Dialog */}
+      <Dialog open={showDiagnosisForm} onOpenChange={setShowDiagnosisForm}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Diagnosis</DialogTitle>
+            <DialogDescription>
+              Based on openEHR Problem/Diagnosis archetype
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Problem/Diagnosis Name */}
+            <div>
+              <label htmlFor="problemDiagnosis" className="text-sm font-medium">
+                Problem/Diagnosis Name *
+              </label>
+              <input
+                id="problemDiagnosis"
+                type="text"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="e.g., Type 2 Diabetes Mellitus"
+                value={diagnosisForm.problemDiagnosis}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    problemDiagnosis: e.target.value,
+                  })
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The name of the problem or diagnosis (preferably coded with
+                ICD-10 or SNOMED CT)
+              </p>
+            </div>
+
+            {/* Clinical Status */}
+            <div>
+              <label htmlFor="clinicalStatus" className="text-sm font-medium">
+                Clinical Status *
+              </label>
+              <select
+                id="clinicalStatus"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                value={diagnosisForm.clinicalStatus}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    clinicalStatus: e.target.value,
+                  })
+                }
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="resolved">Resolved</option>
+                <option value="recurrence">Recurrence</option>
+                <option value="relapse">Relapse</option>
+                <option value="remission">Remission</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                The clinical status of the problem or diagnosis
+              </p>
+            </div>
+
+            {/* Date of Onset */}
+            <div>
+              <label className="text-sm font-medium">
+                Date of Onset
+              </label>
+              <input
+                id="dateOfOnset"
+                type="date"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                value={diagnosisForm.dateOfOnset}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    dateOfOnset: e.target.value,
+                  })
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The date/time when the problem or diagnosis was first
+                identified
+              </p>
+            </div>
+
+            {/* Date of Resolution */}
+            <div>
+              <label className="text-sm font-medium">
+                Date of Resolution
+              </label>
+              <input
+                type="date"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                value={diagnosisForm.dateOfResolution}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    dateOfResolution: e.target.value,
+                  })
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The date/time when the problem or diagnosis resolved (if
+                applicable)
+              </p>
+            </div>
+
+            {/* Body Site */}
+            <div>
+              <label className="text-sm font-medium">Body Site</label>
+              <input
+                type="text"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="e.g., Left knee, Systemic, Respiratory system"
+                value={diagnosisForm.bodySite}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    bodySite: e.target.value,
+                  })
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The anatomical location of the problem or diagnosis
+              </p>
+            </div>
+
+            {/* Clinical Description */}
+            <div>
+              <label className="text-sm font-medium">
+                Clinical Description
+              </label>
+              <textarea
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                rows={3}
+                placeholder="Detailed clinical description of the problem or diagnosis..."
+                value={diagnosisForm.clinicalDescription}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    clinicalDescription: e.target.value,
+                  })
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Narrative description of the clinical aspects of the problem
+                or diagnosis
+              </p>
+            </div>
+
+            {/* Comment */}
+            <div>
+              <label className="text-sm font-medium">Comment</label>
+              <textarea
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                rows={2}
+                placeholder="Additional comments about the diagnosis..."
+                value={diagnosisForm.comment}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    comment: e.target.value,
+                  })
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Additional narrative about the problem or diagnosis not
+                captured in other fields
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDiagnosisForm(false);
+                  setDiagnosisForm({
+                    problemDiagnosis: "",
+                    clinicalStatus: "active",
+                    dateOfOnset: "",
+                    dateOfResolution: "",
+                    clinicalDescription: "",
+                    bodySite: "",
+                    comment: "",
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    // Prepare data for API
+                    const diagnosisData = {
+                      problemDiagnosis: diagnosisForm.problemDiagnosis,
+                      clinicalStatus: diagnosisForm.clinicalStatus,
+                      dateOfOnset: diagnosisForm.dateOfOnset || null,
+                      dateOfResolution: diagnosisForm.dateOfResolution || null,
+                      clinicalDescription: diagnosisForm.clinicalDescription || null,
+                      bodySite: diagnosisForm.bodySite || null,
+                      comment: diagnosisForm.comment || null,
+                    };
+
+                    // Send data to the API
+                    const response = await fetch(
+                      `/api/d/${workspaceid}/patients/${patient.patientid}/diagnoses`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(diagnosisData),
+                      }
+                    );
+
+                    if (!response.ok) {
+                      const errorData = await response.json();
+                      throw new Error(
+                        errorData.error || "Failed to save diagnosis"
+                      );
+                    }
+
+                    // Reload diagnoses and close form
+                    await loadDiagnoses();
+                    setShowDiagnosisForm(false);
+                    setDiagnosisForm({
+                      problemDiagnosis: "",
+                      clinicalStatus: "active",
+                      dateOfOnset: "",
+                      dateOfResolution: "",
+                      clinicalDescription: "",
+                      bodySite: "",
+                      comment: "",
+                    });
+                  } catch (error) {
+                    console.error("Error saving diagnosis:", error);
+                    alert(`Failed to save diagnosis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                  }
+                }}
+              >
+                Save Diagnosis
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      </Tabs>
     </div>
   );
 }
