@@ -143,6 +143,8 @@ export default function PatientsList({
         lastname: String(formData.get("lastname") || ""),
         nationalid: (formData.get("nationalid") as string) || undefined,
         dateofbirth: (formData.get("dateofbirth") as string) || undefined,
+        gender: (formData.get("gender") as string) || undefined,
+        bloodgroup: (formData.get("bloodgroup") as string) || undefined,
         phone: (formData.get("phone") as string) || undefined,
         email: (formData.get("email") as string) || undefined,
         address: (formData.get("address") as string) || undefined,
@@ -258,6 +260,8 @@ export default function PatientsList({
               <TableRow>
                 <TableHead className="w-[250px]">Name</TableHead>
                 <TableHead className="w-[150px]">National ID</TableHead>
+                <TableHead className="w-[100px]">Gender</TableHead>
+                <TableHead className="w-[100px]">Blood Group</TableHead>
                 <TableHead className="w-[150px]">Phone</TableHead>
                 <TableHead className="w-[200px]">Email</TableHead>
                 <TableHead className="w-[150px]">EHR ID</TableHead>
@@ -281,6 +285,8 @@ export default function PatientsList({
                   {p.lastname}
                 </TableCell>
                 <TableCell>{p.nationalid || "-"}</TableCell>
+                <TableCell className="capitalize">{p.gender || "-"}</TableCell>
+                <TableCell>{p.bloodgroup || "-"}</TableCell>
                 <TableCell>{p.phone || "-"}</TableCell>
                 <TableCell className="truncate max-w-[200px]">{p.email || "-"}</TableCell>
                 <TableCell>
@@ -375,6 +381,39 @@ export default function PatientsList({
                   type="date" 
                   defaultValue={editingPatient.dateofbirth || ""}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gender</Label>
+                <select
+                  id="gender"
+                  name="gender"
+                  defaultValue={editingPatient.gender || ""}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bloodgroup">Blood Group</Label>
+                <select
+                  id="bloodgroup"
+                  name="bloodgroup"
+                  defaultValue={editingPatient.bloodgroup || ""}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">Select blood group</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Telephone</Label>
