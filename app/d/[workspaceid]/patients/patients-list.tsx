@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, RefreshCw } from "lucide-react";
+import { Edit, Search } from "lucide-react";
 
 type Patient = {
   patientid: string;
@@ -54,6 +54,7 @@ export default function PatientsList({
   const [editError, setEditError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   
   // Only doctors and nurses can view patient details
   const canViewDetails = userRole === "doctor" || userRole === "nurse";
@@ -72,16 +73,16 @@ export default function PatientsList({
     return ehrs.find((ehr) => ehr.subject_id === patient.patientid);
   };
 
-  // Filter patients based on search query
-  const filteredPatients = rows ? rows.filter((patient) => {
-    if (!searchQuery.trim()) return true;
-    
-    const query = searchQuery.toLowerCase();
-    const fullName = `${patient.firstname} ${patient.middlename || ""} ${patient.lastname}`.toLowerCase();
-    const nationalId = (patient.nationalid || "").toLowerCase();
-    
-    return fullName.includes(query) || nationalId.includes(query);
-  }) : [];
+  // Filter patients based on search query (only meaningful after a search)
+  const filteredPatients = rows && hasSearched && searchQuery.trim()
+    ? rows.filter((patient) => {
+        const query = searchQuery.toLowerCase();
+        const fullName = `${patient.firstname} ${patient.middlename || ""} ${patient.lastname}`.toLowerCase();
+        const nationalId = (patient.nationalid || "").toLowerCase();
+
+        return fullName.includes(query) || nationalId.includes(query);
+      })
+    : [];
 
   const loadData = async () => {
     try {
@@ -111,19 +112,22 @@ export default function PatientsList({
     }
   };
 
-  useEffect(() => {
-    loadData();
+  // Explicit search handler: requires non-empty query before first load
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setError("Enter a patient name or National ID to search.");
+      return;
+    }
 
-    // Reload when window regains focus (e.g., after navigating back)
-    const handleFocus = () => {
-      loadData();
-    };
-    window.addEventListener("focus", handleFocus);
+    setError(null);
 
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [workspaceid]);
+    // Only fetch from server if we don't already have data; otherwise just re-filter
+    if (!rows) {
+      await loadData();
+    }
+
+    setHasSearched(true);
+  };
 
   function handleOpenEdit(patient: Patient) {
     setEditingPatient(patient);
@@ -180,74 +184,90 @@ export default function PatientsList({
     }
   }
 
-  // Error boundary fallback
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
-  // Loading placeholder while fetching
-  if (rows === null) return <p className="text-sm text-muted-foreground">Loading...</p>;
-
-  // Empty state
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No patients found.</p>;
-  }
-
   return (
     <>
       {/* Search Bar */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-2">
+          <div className="relative flex-1 max-w-md">
+            <Input
+              type="text"
+              placeholder="Search by patient name or National ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearch();
+                }
+              }}
+              className="pl-10 pr-8"
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              🔍
+            </span>
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2"
+                onClick={() => {
+                  setSearchQuery("");
+                  setHasSearched(false);
+                }}
+              >
+                ✕
+              </Button>
+            )}
+          </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={handleSearch}
             disabled={refreshing}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
+            <Search className="h-4 w-4 mr-2" />
+            Search
           </Button>
         </div>
-        <div className="relative">
-          <Input
-            type="text"
-            placeholder="Search by patient name or National ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 max-w-md"
-          />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            🔍
-          </span>
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2"
-              onClick={() => setSearchQuery("")}
-            >
-              ✕
-            </Button>
-          )}
-        </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {searchQuery ? (
-            <span>
-              Found <strong>{filteredPatients.length}</strong> patient{filteredPatients.length !== 1 ? "s" : ""}
-            </span>
-          ) : (
-            <span>
-              Total: <strong>{rows.length}</strong> patient{rows.length !== 1 ? "s" : ""}
-            </span>
-          )}
+          {!hasSearched ? (
+            <span>Type a patient name or National ID and click Search to load patients.</span>
+          ) : error ? (
+            <span className="text-red-600">{error}</span>
+          ) : rows ? (
+            searchQuery ? (
+              <span>
+                Found <strong>{filteredPatients.length}</strong> patient
+                {filteredPatients.length !== 1 ? "s" : ""} matching your search.
+              </span>
+            ) : (
+              <span>
+                Total: <strong>{rows.length}</strong> patient
+                {rows.length !== 1 ? "s" : ""}
+              </span>
+            )
+          ) : null}
         </p>
       </div>
 
       {/* Patients Table */}
-      {filteredPatients.length === 0 ? (
+      {!hasSearched ? null : refreshing && !rows ? (
+        <p className="text-sm text-muted-foreground">Loading patients...</p>
+      ) : !rows || rows.length === 0 ? (
+        <div className="text-center py-8 border rounded-md">
+          <p className="text-sm text-muted-foreground">No patients found.</p>
+        </div>
+      ) : filteredPatients.length === 0 ? (
         <div className="text-center py-8 border rounded-md">
           <p className="text-sm text-muted-foreground">No patients match your search.</p>
           <Button
             variant="link"
             size="sm"
-            onClick={() => setSearchQuery("")}
+            onClick={() => {
+              setSearchQuery("");
+              setHasSearched(false);
+            }}
             className="mt-2"
           >
             Clear search
@@ -270,58 +290,64 @@ export default function PatientsList({
             </TableHeader>
             <TableBody>
               {filteredPatients.map((p: Patient) => (
-              <TableRow 
-                key={p.patientid}
-                className={canViewDetails ? "cursor-pointer hover:bg-muted/50" : ""}
-                onClick={() => {
-                  if (canViewDetails) {
-                    window.location.href = `/d/${workspaceid}/patients/${p.patientid}`;
-                  }
-                }}
-                title={canViewDetails ? "Click to view patient details" : "Only doctors and nurses can view patient details"}
-              >
-                <TableCell className="font-medium">
-                  {p.firstname} {p.middlename ? `${p.middlename} ` : ""}
-                  {p.lastname}
-                </TableCell>
-                <TableCell>{p.nationalid || "-"}</TableCell>
-                <TableCell className="capitalize">{p.gender || "-"}</TableCell>
-                <TableCell>{p.bloodgroup || "-"}</TableCell>
-                <TableCell>{p.phone || "-"}</TableCell>
-                <TableCell className="truncate max-w-[200px]">{p.email || "-"}</TableCell>
-                <TableCell>
-                  {(() => {
-                    const ehr = getEHRForPatient(p);
-                    if (ehr) {
-                      return (
-                        <a
-                          href={`/d/admin/openehr/ehrs/${ehr.ehr_id}`}
-                          className="text-blue-600 hover:underline text-xs"
-                          onClick={(e) => e.stopPropagation()}
-                          title="View compositions in OpenEHR"
-                        >
-                          {ehr.ehr_id.substring(0, 8)}...
-                        </a>
-                      );
+                <TableRow
+                  key={p.patientid}
+                  className={canViewDetails ? "cursor-pointer hover:bg-muted/50" : ""}
+                  onClick={() => {
+                    if (canViewDetails) {
+                      window.location.href = `/d/${workspaceid}/patients/${p.patientid}`;
                     }
-                    return <span className="text-muted-foreground text-xs">No EHR</span>;
-                  })()}
-                </TableCell>
-                <TableCell>
-                  {canEdit && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEdit(p);
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
+                  }}
+                  title={
+                    canViewDetails
+                      ? "Click to view patient details"
+                      : "Only doctors and nurses can view patient details"
+                  }
+                >
+                  <TableCell className="font-medium">
+                    {p.firstname} {p.middlename ? `${p.middlename} ` : ""}
+                    {p.lastname}
+                  </TableCell>
+                  <TableCell>{p.nationalid || "-"}</TableCell>
+                  <TableCell className="capitalize">{p.gender || "-"}</TableCell>
+                  <TableCell>{p.bloodgroup || "-"}</TableCell>
+                  <TableCell>{p.phone || "-"}</TableCell>
+                  <TableCell className="truncate max-w-[200px]">{p.email || "-"}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const ehr = getEHRForPatient(p);
+                      if (ehr) {
+                        return (
+                          <a
+                            href={`/d/admin/openehr/ehrs/${ehr.ehr_id}`}
+                            className="text-blue-600 hover:underline text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                            title="View compositions in OpenEHR"
+                          >
+                            {ehr.ehr_id.substring(0, 8)}...
+                          </a>
+                        );
+                      }
+                      return (
+                        <span className="text-muted-foreground text-xs">No EHR</span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(p);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>
