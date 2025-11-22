@@ -50,8 +50,8 @@ export default async function PatientPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      {/* <Header /> */}
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0 m-8">
         <PatientDashboard 
           workspaceid={workspaceid} 
           patient={patient}

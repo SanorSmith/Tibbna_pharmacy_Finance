@@ -70,6 +70,8 @@ export async function PATCH(
   if (body.lastname) payload.lastname = String(body.lastname);
   if ("nationalid" in body) payload.nationalid = body.nationalid || null;
   if ("dateofbirth" in body) payload.dateofbirth = body.dateofbirth || null;
+  if ("gender" in body) payload.gender = body.gender || null;
+  if ("bloodgroup" in body) payload.bloodgroup = body.bloodgroup || null;
   if ("phone" in body) payload.phone = body.phone || null;
   if ("email" in body) payload.email = body.email || null;
   if ("address" in body) payload.address = body.address || null;
