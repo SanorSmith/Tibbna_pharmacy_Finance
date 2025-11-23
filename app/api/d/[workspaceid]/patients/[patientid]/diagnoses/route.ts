@@ -4,6 +4,7 @@ import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { db } from "@/lib/db";
 import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { UserWorkspace } from "@/lib/db/tables/workspace";
 import { 
   getOpenEHREHRBySubjectId, 
   createOpenEHRComposition,
@@ -37,7 +38,7 @@ export async function GET(
     // Check workspace access
     const workspaces = await getUserWorkspaces(user.userid);
     const membership = workspaces.find(
-      (w: any) => w.workspace.workspaceid === workspaceid
+      (w: UserWorkspace) => w.workspace.workspaceid === workspaceid
     );
 
     if (!membership) {
@@ -82,7 +83,7 @@ export async function GET(
       allCompositions.map(async (comp: OpenEHRComposition) => {
         try {
           console.log(`Fetching details for composition: ${comp.composition_uid}`);
-          const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, any>;
+          const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
           
           // Extract diagnosis from composition details using correct template paths
           const problemDiagnosis = 
@@ -180,6 +181,21 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check workspace access
+    const workspaces = await getUserWorkspaces(user.userid);
+    const membership = workspaces.find(
+      (w: UserWorkspace) => w.workspace.workspaceid === workspaceid
+    );
+
+    if (!membership) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Only doctors and nurses can create diagnoses
+    if (membership.role !== "doctor" && membership.role !== "nurse") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       problemDiagnosis,
@@ -241,6 +257,7 @@ export async function POST(
 
     // Problem/Diagnosis Name (required)
     compositionData["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"] = problemDiagnosis;
+    compositionData["template_clinical_encounter_v1/problem_diagnosis/time_committed|value"] = eventTime;
 
     // Clinical Status (mapped to variant)
     if (clinicalStatus) {
@@ -286,13 +303,12 @@ export async function POST(
     const compositions = await getOpenEHRCompositions(ehrId);
     const recentComposition = compositions.length > 0 ? compositions[0] : null;
     
-    let compositionUid: string;
-    let useExistingTimestamp = false;
+    let compositionUid = "";
     
     if (recentComposition) {
       // Try to get the most recent composition to see if it has vitals
       try {
-        const existingDetails = await getOpenEHRComposition(ehrId, recentComposition.composition_uid) as Record<string, any>;
+        const existingDetails = await getOpenEHRComposition(ehrId, recentComposition.composition_uid) as Record<string, unknown>;
         
         // Check if this composition has vital signs data
         const hasVitals = existingDetails["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"] ||
@@ -303,7 +319,6 @@ export async function POST(
           // This composition has vitals, so we'll use the same timestamp and preserve vitals
           // Use the same timestamp as the existing composition to create a true unified encounter
           compositionData["template_clinical_encounter_v1/context/start_time"] = recentComposition.start_time;
-          useExistingTimestamp = true;
           
           // Copy existing vital signs data
           const vitalSignsPaths = [

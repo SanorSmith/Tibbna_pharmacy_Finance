@@ -22,7 +22,7 @@ interface VitalSignsRecord {
   spo2?: number;
 }
 
-interface VitalSignsForm {
+export interface VitalSignsForm {
   temperature: string;
   systolic: string;
   diastolic: string;

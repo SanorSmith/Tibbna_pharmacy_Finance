@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, History } from "lucide-react";
 
-interface DiagnosisRecord {
+export interface DiagnosisRecord {
   composition_uid: string;
   recorded_time: string;
   problem_diagnosis: string;

@@ -3,7 +3,6 @@
  * - Patient dashboard showing comprehensive patient information
  * - Accessible to doctors and nurses only (not administrators)
  */
-import { Header } from "@/components/sidebar/header";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";

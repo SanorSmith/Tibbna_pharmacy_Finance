@@ -72,6 +72,7 @@ type StaffMember = {
 export default function DoctorDashboard({
   workspaceid,
   doctorid,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   doctorInfo,
 }: {
   workspaceid: string;
@@ -84,6 +85,7 @@ export default function DoctorDashboard({
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [noteText, setNoteText] = useState("");
   const [addingNote, setAddingNote] = useState<string | null>(null);

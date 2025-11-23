@@ -5,7 +5,6 @@
  * - Determines admin visibility (workspace admin or global admin) to show the "Register Patient" link.
  * - Delegates data fetching/rendering to a client component (PatientsList).
  */
-import { Header } from "@/components/sidebar/header";
 import Link from "next/link";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";

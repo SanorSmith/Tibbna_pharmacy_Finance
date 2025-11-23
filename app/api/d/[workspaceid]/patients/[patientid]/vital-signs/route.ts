@@ -77,7 +77,7 @@ export async function GET(
       allCompositions.map(async (comp) => {
         try {
           console.log(`Fetching details for composition: ${comp.composition_uid}`);
-          const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, any>;
+          const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
           
           // Extract vitals from composition details using correct template paths
           const temperature = 
@@ -110,12 +110,12 @@ export async function GET(
             return {
               composition_uid: comp.composition_uid,
               recorded_time: comp.start_time,
-              temperature: temperature ? parseFloat(temperature) : undefined,
-              systolic: systolic ? parseFloat(systolic) : undefined,
-              diastolic: diastolic ? parseFloat(diastolic) : undefined,
-              heart_rate: heart_rate ? parseFloat(heart_rate) : undefined,
-              respiratory_rate: respiratory_rate ? parseFloat(respiratory_rate) : undefined,
-              spo2: spo2 ? parseFloat(spo2) : undefined,
+              temperature: temperature && typeof temperature === 'string' ? parseFloat(temperature) : undefined,
+              systolic: systolic && typeof systolic === 'string' ? parseFloat(systolic) : undefined,
+              diastolic: diastolic && typeof diastolic === 'string' ? parseFloat(diastolic) : undefined,
+              heart_rate: heart_rate && typeof heart_rate === 'string' ? parseFloat(heart_rate) : undefined,
+              respiratory_rate: respiratory_rate && typeof respiratory_rate === 'string' ? parseFloat(respiratory_rate) : undefined,
+              spo2: spo2 && typeof spo2 === 'string' ? parseFloat(spo2) : undefined,
             };
           } else {
             // Skip compositions without vital signs data
@@ -304,7 +304,7 @@ if (spO2) {
     if (recentComposition) {
       // Try to get the most recent composition to see if it has diagnoses
       try {
-        const existingDetails = await getOpenEHRComposition(ehrId, recentComposition.composition_uid) as Record<string, any>;
+        const existingDetails = await getOpenEHRComposition(ehrId, recentComposition.composition_uid) as Record<string, unknown>;
         
         // Check if this composition has diagnosis data
         const hasDiagnosis = existingDetails["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"];

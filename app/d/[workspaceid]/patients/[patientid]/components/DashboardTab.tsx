@@ -10,17 +10,20 @@ import {
   MapPin,
   Pill
 } from "lucide-react";
+import { DiagnosisRecord } from "./DiagnosticsTab";
 
-interface Appointment {
+export type { DiagnosisRecord };
+
+export interface Appointment {
   appointmentid: string;
   starttime: string;
   endtime: string;
-  location?: string;
+  location?: string | null;
   status: string;
   reason?: string;
 }
 
-interface LabRecord {
+export interface LabRecord {
   labid: string;
   test_name: string;
   test_date: string;
@@ -29,44 +32,51 @@ interface LabRecord {
   normal_range?: string;
 }
 
-interface ImagingRecord {
+export interface ImagingRecord {
   imagingid: string;
   study_type: string;
   study_date: string;
+  result?: string;
   status: string;
+  radiologist?: string;
   findings?: string;
 }
 
-interface CarePlanRecord {
+export interface CarePlanRecord {
   planid: string;
   plan_name: string;
   created_date: string;
-  status: string;
   description?: string;
+  status: string;
 }
 
-interface MedicationRecord {
+export interface MedicationRecord {
   medicationid: string;
   medication_name: string;
   dosage: string;
-  frequency: string;
+  frequency?: string;
   start_date: string;
   end_date?: string;
   status: string;
   prescribed_by?: string;
 }
 
-interface DiagnosisRecord {
-  composition_uid: string;
-  recorded_time: string;
-  problem_diagnosis: string;
-  clinical_status: string;
-  clinical_description?: string;
-  body_site?: string;
-  date_of_onset?: string;
+export interface VaccinationRecord {
+  vaccinationid: string;
+  vaccine_name: string;
+  administration_date: string;
+  status: string;
 }
 
-interface VitalSignsRecord {
+export interface ReferralRecord {
+  referralid: string;
+  referral_date: string;
+  referred_to: string;
+  reason: string;
+  status: string;
+}
+
+export interface VitalSignsRecord {
   composition_uid: string;
   recorded_time: string;
   temperature?: number;
@@ -75,22 +85,6 @@ interface VitalSignsRecord {
   heart_rate?: number;
   respiratory_rate?: number;
   spo2?: number;
-}
-
-interface VaccinationRecord {
-  vaccinationid: string;
-  vaccine_name: string;
-  administration_date: string;
-  next_due?: string;
-  status: string;
-}
-
-interface ReferralRecord {
-  referralid: string;
-  referral_date: string;
-  referred_to: string;
-  reason: string;
-  status: string;
 }
 
 interface DashboardTabProps {

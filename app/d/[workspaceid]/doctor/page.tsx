@@ -3,7 +3,6 @@
  * - Doctor dashboard showing appointments, patients, and operations
  * - Accessible only to users with doctor role
  */
-import { Header } from "@/components/sidebar/header";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";

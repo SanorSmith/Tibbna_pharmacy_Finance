@@ -1,7 +1,6 @@
 import { getUser } from "@/lib/user";
 import { redirect } from "next/navigation";
 
-import { AppSidebar } from "@/components/sidebar/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/sidebar/header";
 import { NavUser } from "@/components/sidebar/nav-user";

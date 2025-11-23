@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { DashboardTab, VitalSignsTab, DiagnosticsTab } from "./components";
+import { VitalSignsTab } from "./components/VitalSignsTab";
+import { DiagnosticsTab } from "./components/DiagnosticsTab";
+import * as DashboardTypes from "./components/DashboardTab";
 import {
   Dialog,
   DialogContent,
@@ -49,20 +51,6 @@ type Appointment = {
   notes?: string | null;
 };
 
-// Diagnosis state management
-interface DiagnosisRecord {
-  composition_uid: string;
-  recorded_time: string;
-  problem_diagnosis: string;
-  clinical_status: string;
-  clinical_description?: string;
-  body_site?: string;
-  date_of_onset?: string;
-  date_of_resolution?: string;
-  severity?: string;
-  comment?: string;
-}
-
 export default function PatientDashboard({
   workspaceid,
   patient,
@@ -77,12 +65,12 @@ export default function PatientDashboard({
   const [selectedTest] = useState<any>(null);
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [showDiagnosisForm, setShowDiagnosisForm] = useState(false);
-  const [diagnoses, setDiagnoses] = useState<DiagnosisRecord[]>([]);
+  const [diagnoses, setDiagnoses] = useState<DashboardTypes.DiagnosisRecord[]>([]);
   const [loadingDiagnoses, setLoadingDiagnoses] = useState(false);
   const diagnosesOffsetRef = useRef(0);
   const [diagnosesHasMore, setDiagnosesHasMore] = useState(false);
   const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
-  const [selectedDiagnosis, setSelectedDiagnosis] = useState<DiagnosisRecord | null>(null);
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState<DashboardTypes.DiagnosisRecord | null>(null);
   const [showDiagnosisDetails, setShowDiagnosisDetails] = useState(false);
   const [diagnosisForm, setDiagnosisForm] = useState({
     problemDiagnosis: "",
@@ -1011,13 +999,25 @@ export default function PatientDashboard({
 
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-6">
-          <DashboardTab
+          <DashboardTypes.DashboardTab
             appointments={appointments}
             diagnoses={diagnoses}
+            labs={[] as DashboardTypes.LabRecord[]} // Empty array for labs
+            imaging={[] as DashboardTypes.ImagingRecord[]} // Empty array for imaging  
+            carePlans={[] as DashboardTypes.CarePlanRecord[]} // Empty array for care plans
+            medications={[] as DashboardTypes.MedicationRecord[]} // Empty array for medications
             vitalSignsRecords={vitalSignsRecords}
+            vaccinations={[] as DashboardTypes.VaccinationRecord[]} // Empty array for vaccinations
+            referrals={[] as DashboardTypes.ReferralRecord[]} // Empty array for referrals
             loading={loading}
             loadingDiagnoses={loadingDiagnoses}
+            loadingLabs={false} // No loading state for lab results
+            loadingImaging={loadingImaging}
+            loadingCarePlans={loadingCarePlans}
+            loadingMedications={loadingPrescriptions}
             loadingVitalSigns={loadingVitalSigns}
+            loadingVaccinations={loadingVaccinations}
+            loadingReferrals={loadingReferrals}
           />
         </TabsContent>
 

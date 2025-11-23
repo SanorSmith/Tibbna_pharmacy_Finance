@@ -3,7 +3,6 @@
  * - Lists staff for the workspace; shows "Add Staff" button for admins
  * - Delegates data fetching/rendering to client component StaffList
  */
-import { Header } from "@/components/sidebar/header";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import StaffList from "./staff-list";
