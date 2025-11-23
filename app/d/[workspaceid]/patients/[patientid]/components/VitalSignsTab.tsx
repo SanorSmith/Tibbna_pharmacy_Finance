@@ -24,13 +24,13 @@ interface VitalSignsRecord {
 }
 
 interface VitalSignsForm {
-  temperature?: string;
-  systolic?: string;
-  diastolic?: string;
-  heartRate?: string;
-  respiratoryRate?: string;
+  temperature: string;
+  systolic: string;
+  diastolic: string;
+  heartRate: string;
+  respiratoryRate: string;
+  spO2: string;
   oxygenSaturation?: string;
-  spO2?: string;
 }
 
 interface VitalSignsTabProps {
