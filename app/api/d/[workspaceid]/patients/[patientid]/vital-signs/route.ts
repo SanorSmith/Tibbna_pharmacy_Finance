@@ -110,12 +110,12 @@ export async function GET(
             return {
               composition_uid: comp.composition_uid,
               recorded_time: comp.start_time,
-              temperature: temperature && typeof temperature === 'string' ? parseFloat(temperature) : undefined,
-              systolic: systolic && typeof systolic === 'string' ? parseFloat(systolic) : undefined,
-              diastolic: diastolic && typeof diastolic === 'string' ? parseFloat(diastolic) : undefined,
-              heart_rate: heart_rate && typeof heart_rate === 'string' ? parseFloat(heart_rate) : undefined,
-              respiratory_rate: respiratory_rate && typeof respiratory_rate === 'string' ? parseFloat(respiratory_rate) : undefined,
-              spo2: spo2 && typeof spo2 === 'string' ? parseFloat(spo2) : undefined,
+              temperature: temperature ? Number(temperature) : undefined,
+              systolic: systolic ? Number(systolic) : undefined,
+              diastolic: diastolic ? Number(diastolic) : undefined,
+              heart_rate: heart_rate ? Number(heart_rate) : undefined,
+              respiratory_rate: respiratory_rate ? Number(respiratory_rate) : undefined,
+              spo2: spo2 ? Number(spo2) : undefined,
             };
           } else {
             // Skip compositions without vital signs data
