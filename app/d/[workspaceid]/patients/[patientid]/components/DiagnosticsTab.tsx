@@ -49,7 +49,6 @@ export function DiagnosticsTab({
   setSelectedDiagnosis,
   showDiagnosisDetails,
   setShowDiagnosisDetails,
-  showDiagnosisForm,
   setShowDiagnosisForm,
 }: DiagnosticsTabProps) {
   return (
