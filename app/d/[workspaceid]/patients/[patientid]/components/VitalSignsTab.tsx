@@ -3,6 +3,15 @@
 import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Plus, History, Thermometer, Heart, Activity, Wind, Droplets, Clock } from "lucide-react";
 
 interface VitalSignsRecord {
@@ -24,6 +33,19 @@ interface VitalSignsTabProps {
   setShowVitalSignsForm: (show: boolean) => void;
   loadVitalSigns: (reset?: boolean) => void;
   vitalsHasMore: boolean;
+  vitalSignsForm: {
+    temperature: string;
+    systolic: string;
+    diastolic: string;
+    heartRate: string;
+    respiratoryRate: string;
+    spO2: string;
+  };
+  setVitalSignsForm: (form: any) => void;
+  workspaceid: string;
+  patient: {
+    patientid: string;
+  };
 }
 
 export function VitalSignsTab({
@@ -34,13 +56,27 @@ export function VitalSignsTab({
   setShowVitalSignsForm,
   loadVitalSigns,
   vitalsHasMore,
+  vitalSignsForm,
+  setVitalSignsForm,
+  workspaceid,
+  patient,
 }: VitalSignsTabProps) {
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Vital Signs</CardTitle>
+            {/* Left Side: Title */}
+            <div>
+              <CardTitle className="text-2xl">
+                Vital Signs Monitor
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Real-time patient vital signs tracking and monitoring
+              </p>
+            </div>
+
+            {/* Right Side: Action Buttons */}
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
@@ -88,70 +124,249 @@ export function VitalSignsTab({
           ) : (
             <div className="space-y-6">
               {vitalSignsRecords.map((vital) => (
-                <Card key={vital.composition_uid} className="border-l-4 border-l-green-500">
-                  <CardContent className="pt-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-semibold text-lg">Vital Signs</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Recorded: {new Date(vital.recorded_time).toLocaleDateString()} at{" "}
-                          {new Date(vital.recorded_time).toLocaleTimeString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4" />
+                <div
+                  key={vital.composition_uid}
+                  className="vital-box p-4 rounded-lg"
+                >
+                  <div className="font-semibold text-lg mb-2">
+                    Vital Signs
+                  </div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full">
                         {new Date(vital.recorded_time).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {vital.temperature && (
+                      <div className="flex items-center gap-2">
+                        <Thermometer className="h-4 w-4" />
+                        <div>
+                          <div className="opacity-75">Temperature</div>
+                          <div className="font-semibold">{vital.temperature}°F</div>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                      {vital.temperature && (
-                        <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
-                          <Thermometer className="h-6 w-6 mx-auto mb-1 text-red-600" />
-                          <div className="text-xs text-muted-foreground">Temperature</div>
-                          <div className="font-semibold text-red-700">{vital.temperature}°F</div>
+                    )}
+                    {vital.heart_rate && (
+                      <div className="flex items-center gap-2">
+                        <Heart className="h-4 w-4" />
+                        <div>
+                          <div className="opacity-75">Heart Rate</div>
+                          <div className="font-semibold">{vital.heart_rate} bpm</div>
                         </div>
-                      )}
-                      
-                      {vital.heart_rate && (
-                        <div className="text-center p-3 bg-pink-50 rounded-lg border border-pink-200">
-                          <Heart className="h-6 w-6 mx-auto mb-1 text-pink-600" />
-                          <div className="text-xs text-muted-foreground">Heart Rate</div>
-                          <div className="font-semibold text-pink-700">{vital.heart_rate} bpm</div>
+                      </div>
+                    )}
+                    {vital.systolic && vital.diastolic && (
+                      <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4" />
+                        <div>
+                          <div className="opacity-75">Blood Pressure</div>
+                          <div className="font-semibold">{vital.systolic}/{vital.diastolic} mmHg</div>
                         </div>
-                      )}
-                      
-                      {vital.systolic && vital.diastolic && (
-                        <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <Activity className="h-6 w-6 mx-auto mb-1 text-blue-600" />
-                          <div className="text-xs text-muted-foreground">Blood Pressure</div>
-                          <div className="font-semibold text-blue-700">{vital.systolic}/{vital.diastolic}</div>
+                      </div>
+                    )}
+                    {vital.spo2 && (
+                      <div className="flex items-center gap-2">
+                        <Droplets className="h-4 w-4" />
+                        <div>
+                          <div className="opacity-75">SpO2</div>
+                          <div className="font-semibold">{vital.spo2}%</div>
                         </div>
-                      )}
-                      
-                      {vital.respiratory_rate && (
-                        <div className="text-center p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                          <Wind className="h-6 w-6 mx-auto mb-1 text-cyan-600" />
-                          <div className="text-xs text-muted-foreground">Respiratory Rate</div>
-                          <div className="font-semibold text-cyan-700">{vital.respiratory_rate}</div>
-                        </div>
-                      )}
-                      
-                      {vital.spo2 && (
-                        <div className="text-center p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                          <Droplets className="h-6 w-6 mx-auto mb-1 text-indigo-600" />
-                          <div className="text-xs text-muted-foreground">SpO2</div>
-                          <div className="font-semibold text-indigo-700">{vital.spo2}%</div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Vital Signs Form Dialog */}
+      {showVitalSignsForm && (
+        <Dialog open={showVitalSignsForm} onOpenChange={setShowVitalSignsForm}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Record Vital Signs</DialogTitle>
+              <DialogDescription>
+                Enter the patient's current vital signs measurements.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const formData = new FormData(e.currentTarget);
+                  const vitalData = {
+                    temperature: formData.get("temperature")
+                      ? parseFloat(formData.get("temperature") as string)
+                      : undefined,
+                    systolic: formData.get("systolic")
+                      ? parseInt(formData.get("systolic") as string)
+                      : undefined,
+                    diastolic: formData.get("diastolic")
+                      ? parseInt(formData.get("diastolic") as string)
+                      : undefined,
+                    heart_rate: formData.get("heart_rate")
+                      ? parseInt(formData.get("heart_rate") as string)
+                      : undefined,
+                    respiratory_rate: formData.get("respiratory_rate")
+                      ? parseInt(formData.get("respiratory_rate") as string)
+                      : undefined,
+                    spo2: formData.get("spo2")
+                      ? parseInt(formData.get("spo2") as string)
+                      : undefined,
+                  };
+
+                  const response = await fetch(
+                    `/api/d/${workspaceid}/patients/${patient.patientid}/vital-signs`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify(vitalData),
+                    }
+                  );
+
+                  if (response.ok) {
+                    setShowVitalSignsForm(false);
+                    loadVitalSigns(true);
+                    setVitalSignsForm({
+                      temperature: "",
+                      systolic: "",
+                      diastolic: "",
+                      heartRate: "",
+                      respiratoryRate: "",
+                      spO2: "",
+                    });
+                  } else {
+                    console.error("Failed to save vital signs");
+                  }
+                } catch (error) {
+                  console.error("Error saving vital signs:", error);
+                }
+              }}
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="temperature" className="text-sm font-medium">
+                    Temperature (°F)
+                  </label>
+                  <Input
+                    id="temperature"
+                    name="temperature"
+                    type="number"
+                    step="0.1"
+                    placeholder="98.6"
+                    value={vitalSignsForm.temperature}
+                    onChange={(e) =>
+                      setVitalSignsForm({
+                        ...vitalSignsForm,
+                        temperature: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="heart_rate" className="text-sm font-medium">
+                    Heart Rate (bpm)
+                  </label>
+                  <Input
+                    id="heart_rate"
+                    name="heart_rate"
+                    type="number"
+                    placeholder="72"
+                    value={vitalSignsForm.heartRate}
+                    onChange={(e) =>
+                      setVitalSignsForm({
+                        ...vitalSignsForm,
+                        heartRate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="systolic" className="text-sm font-medium">
+                    Systolic (mmHg)
+                  </label>
+                  <Input
+                    id="systolic"
+                    name="systolic"
+                    type="number"
+                    placeholder="120"
+                    value={vitalSignsForm.systolic}
+                    onChange={(e) =>
+                      setVitalSignsForm({
+                        ...vitalSignsForm,
+                        systolic: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="diastolic" className="text-sm font-medium">
+                    Diastolic (mmHg)
+                  </label>
+                  <Input
+                    id="diastolic"
+                    name="diastolic"
+                    type="number"
+                    placeholder="80"
+                    value={vitalSignsForm.diastolic}
+                    onChange={(e) =>
+                      setVitalSignsForm({
+                        ...vitalSignsForm,
+                        diastolic: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="respiratory_rate" className="text-sm font-medium">
+                    Respiratory Rate
+                  </label>
+                  <Input
+                    id="respiratory_rate"
+                    name="respiratory_rate"
+                    type="number"
+                    placeholder="16"
+                    value={vitalSignsForm.respiratoryRate}
+                    onChange={(e) =>
+                      setVitalSignsForm({
+                        ...vitalSignsForm,
+                        respiratoryRate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="spo2" className="text-sm font-medium">
+                    SpO2 (%)
+                  </label>
+                  <Input
+                    id="spo2"
+                    name="spo2"
+                    type="number"
+                    placeholder="98"
+                    value={vitalSignsForm.spO2}
+                    onChange={(e) =>
+                      setVitalSignsForm({
+                        ...vitalSignsForm,
+                        spO2: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Save Vital Signs</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

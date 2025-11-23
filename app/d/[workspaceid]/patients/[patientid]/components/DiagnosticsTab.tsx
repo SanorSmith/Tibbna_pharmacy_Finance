@@ -3,6 +3,14 @@
 import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Plus, History, FileText } from "lucide-react";
 
 interface DiagnosisRecord {
@@ -164,78 +172,81 @@ export function DiagnosticsTab({
       </Card>
 
       {/* Diagnosis Details Dialog */}
-      {showDiagnosisDetails && selectedDiagnosis && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-semibold">Diagnosis Details</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDiagnosisDetails(false)}
-              >
-                ×
-              </Button>
-            </div>
-            
+      <Dialog open={showDiagnosisDetails} onOpenChange={setShowDiagnosisDetails}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Diagnosis Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this diagnosis
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDiagnosis && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-medium text-sm text-muted-foreground">Diagnosis</h3>
-                <p className="text-lg">{selectedDiagnosis.problem_diagnosis}</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Status</h3>
-                  <p className="capitalize">{selectedDiagnosis.clinical_status}</p>
+                <h4 className="font-medium">Diagnosis Information</h4>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <span className="text-sm text-gray-500">Problem/Diagnosis:</span>
+                    <p className="font-medium">{selectedDiagnosis.problem_diagnosis}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-500">Clinical Status:</span>
+                    <p className="font-medium">{selectedDiagnosis.clinical_status}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-500">Date of Onset:</span>
+                    <p className="font-medium">{selectedDiagnosis.date_of_onset || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-500">Date of Resolution:</span>
+                    <p className="font-medium">{selectedDiagnosis.date_of_resolution || 'Not resolved'}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Date Recorded</h3>
-                  <p>{new Date(selectedDiagnosis.recorded_time).toLocaleDateString()}</p>
-                </div>
-                {selectedDiagnosis.date_of_onset && (
-                  <div>
-                    <h3 className="font-medium text-sm text-muted-foreground">Date of Onset</h3>
-                    <p>{new Date(selectedDiagnosis.date_of_onset).toLocaleDateString()}</p>
-                  </div>
-                )}
-                {selectedDiagnosis.date_of_resolution && (
-                  <div>
-                    <h3 className="font-medium text-sm text-muted-foreground">Date of Resolution</h3>
-                    <p>{new Date(selectedDiagnosis.date_of_resolution).toLocaleDateString()}</p>
-                  </div>
-                )}
-                {selectedDiagnosis.severity && (
-                  <div>
-                    <h3 className="font-medium text-sm text-muted-foreground">Severity</h3>
-                    <p>{selectedDiagnosis.severity}</p>
-                  </div>
-                )}
-                {selectedDiagnosis.body_site && (
-                  <div>
-                    <h3 className="font-medium text-sm text-muted-foreground">Body Site</h3>
-                    <p>{selectedDiagnosis.body_site}</p>
-                  </div>
-                )}
               </div>
-              
+
               {selectedDiagnosis.clinical_description && (
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Clinical Description</h3>
-                  <p>{selectedDiagnosis.clinical_description}</p>
+                  <h4 className="font-medium">Clinical Description</h4>
+                  <p className="text-sm mt-1">{selectedDiagnosis.clinical_description}</p>
                 </div>
               )}
-              
+
+              {selectedDiagnosis.body_site && (
+                <div>
+                  <h4 className="font-medium">Body Site</h4>
+                  <p className="text-sm mt-1">{selectedDiagnosis.body_site}</p>
+                </div>
+              )}
+
               {selectedDiagnosis.comment && (
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Comments</h3>
-                  <p>{selectedDiagnosis.comment}</p>
+                  <h4 className="font-medium">Additional Comments</h4>
+                  <p className="text-sm mt-1">{selectedDiagnosis.comment}</p>
                 </div>
               )}
+
+              <div>
+                <h4 className="font-medium">Timestamps</h4>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <span className="text-sm text-gray-500">Created:</span>
+                    <p className="text-sm">{new Date(selectedDiagnosis.recorded_time).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-500">Last Updated:</span>
+                    <p className="text-sm">{new Date(selectedDiagnosis.recorded_time).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDiagnosisDetails(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

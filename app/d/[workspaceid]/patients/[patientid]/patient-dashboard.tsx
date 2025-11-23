@@ -1013,28 +1013,12 @@ export default function PatientDashboard({
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-6">
           <DashboardTab
-            patient={patient}
-            workspaceid={workspaceid}
             appointments={appointments}
             diagnoses={diagnoses}
             vitalSignsRecords={vitalSignsRecords}
-            vaccinationRecords={vaccinationRecords}
-            referrals={referrals}
             loading={loading}
             loadingDiagnoses={loadingDiagnoses}
             loadingVitalSigns={loadingVitalSigns}
-            loadingVaccinations={loadingVaccinations}
-            loadingReferrals={loadingReferrals}
-            showVitalSignsForm={showVitalSignsForm}
-            setShowVitalSignsForm={setShowVitalSignsForm}
-            showDiagnosisForm={showDiagnosisForm}
-            setShowDiagnosisForm={setShowDiagnosisForm}
-            loadDiagnoses={loadDiagnoses}
-            loadVitalSigns={loadVitalSigns}
-            diagnosesHasMore={diagnosesHasMore}
-            loadingMoreDiagnoses={loadingMoreDiagnoses}
-            vitalsHasMore={vitalsHasMore}
-            loadingMoreVitals={loadingMoreVitals}
           />
         </TabsContent>
 
@@ -1107,6 +1091,10 @@ export default function PatientDashboard({
             setShowVitalSignsForm={setShowVitalSignsForm}
             loadVitalSigns={loadVitalSigns}
             vitalsHasMore={vitalsHasMore}
+            vitalSignsForm={vitalSignsForm}
+            setVitalSignsForm={setVitalSignsForm}
+            workspaceid={workspaceid}
+            patient={patient}
           />
         </TabsContent>
 
@@ -4693,85 +4681,6 @@ export default function PatientDashboard({
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Diagnosis Details Modal */}
-      <Dialog open={showDiagnosisDetails} onOpenChange={setShowDiagnosisDetails}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Diagnosis Details</DialogTitle>
-            <DialogDescription>
-              Complete information about this diagnosis
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedDiagnosis && (
-              <>
-                <div>
-                  <h4 className="font-medium">Diagnosis Information</h4>
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    <div>
-                      <span className="text-sm text-gray-500">Problem/Diagnosis:</span>
-                      <p className="font-medium">{selectedDiagnosis.problem_diagnosis}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-500">Clinical Status:</span>
-                      <p className="font-medium">{selectedDiagnosis.clinical_status}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-500">Date of Onset:</span>
-                      <p className="font-medium">{selectedDiagnosis.date_of_onset || 'Not specified'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-500">Date of Resolution:</span>
-                      <p className="font-medium">{selectedDiagnosis.date_of_resolution || 'Not resolved'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {selectedDiagnosis.clinical_description && (
-                  <div>
-                    <h4 className="font-medium">Clinical Description</h4>
-                    <p className="text-sm mt-1">{selectedDiagnosis.clinical_description}</p>
-                  </div>
-                )}
-
-                {selectedDiagnosis.body_site && (
-                  <div>
-                    <h4 className="font-medium">Body Site</h4>
-                    <p className="text-sm mt-1">{selectedDiagnosis.body_site}</p>
-                  </div>
-                )}
-
-                {selectedDiagnosis.comment && (
-                  <div>
-                    <h4 className="font-medium">Additional Comments</h4>
-                    <p className="text-sm mt-1">{selectedDiagnosis.comment}</p>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="font-medium">Timestamps</h4>
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    <div>
-                      <span className="text-sm text-gray-500">Created:</span>
-                      <p className="text-sm">{new Date(selectedDiagnosis.recorded_time).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-500">Last Updated:</span>
-                      <p className="text-sm">{new Date(selectedDiagnosis.recorded_time).toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDiagnosisDetails(false)}>
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
