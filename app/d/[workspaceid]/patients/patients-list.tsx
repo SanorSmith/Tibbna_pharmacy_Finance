@@ -23,6 +23,8 @@ type Patient = {
   lastname: string;
   nationalid?: string | null;
   dateofbirth?: string | null;
+  gender?: string | null;
+  bloodgroup?: string | null;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
