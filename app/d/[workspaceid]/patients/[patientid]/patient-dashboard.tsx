@@ -79,6 +79,9 @@ export default function PatientDashboard({
   const [showDiagnosisForm, setShowDiagnosisForm] = useState(false);
   const [diagnoses, setDiagnoses] = useState<DiagnosisRecord[]>([]);
   const [loadingDiagnoses, setLoadingDiagnoses] = useState(false);
+  const diagnosesOffsetRef = useRef(0);
+  const [diagnosesHasMore, setDiagnosesHasMore] = useState(false);
+  const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<DiagnosisRecord | null>(null);
   const [showDiagnosisDetails, setShowDiagnosisDetails] = useState(false);
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -597,30 +600,56 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
-  const loadDiagnoses = useCallback(async () => {
-    try {
-      console.log('Loading diagnoses for patient:', patient.patientid);
-      setLoadingDiagnoses(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patient.patientid}/diagnoses`,
-        { cache: "no-store" }
-      );
+  const loadDiagnoses = useCallback(
+    async (reset = true) => {
+      try {
+        console.log('Loading diagnoses for patient:', patient.patientid, 'reset:', reset);
+        if (reset) {
+          setLoadingDiagnoses(true);
+          diagnosesOffsetRef.current = 0;
+        } else {
+          setLoadingMoreDiagnoses(true);
+        }
 
-      if (res.ok) {
-        const data = await res.json();
-        console.log('Diagnoses loaded:', data);
-        setDiagnoses(data.diagnoses || []);
-      } else {
-        console.error('Failed to load diagnoses, status:', res.status);
-        const errorText = await res.text();
-        console.error('Error response:', errorText);
+        const currentOffset = diagnosesOffsetRef.current;
+        const limit = reset ? 2 : 3; // Load 2 initially, then 3 more on history click
+
+        const res = await fetch(
+          `/api/d/${workspaceid}/patients/${patient.patientid}/diagnoses?limit=${limit}&offset=${currentOffset}`,
+          { cache: "no-store" }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          console.log('Diagnoses loaded:', data);
+          if (reset) {
+            setDiagnoses(data.diagnoses || []);
+            diagnosesOffsetRef.current = data.diagnoses?.length || 0;
+          } else {
+            setDiagnoses((prev) => [
+              ...prev,
+              ...(data.diagnoses || []),
+            ]);
+            diagnosesOffsetRef.current += data.diagnoses?.length || 0;
+          }
+          setDiagnosesHasMore(data.hasMore || false);
+        } else {
+          console.error('Failed to load diagnoses, status:', res.status);
+          const errorText = await res.text();
+          console.error('Error response:', errorText);
+        }
+      } catch (e) {
+        console.error("Failed to load diagnoses:", e);
+      } finally {
+        if (reset) {
+          setLoadingDiagnoses(false);
+        } else {
+          setLoadingMoreDiagnoses(false);
+        }
       }
-    } catch (e) {
-      console.error("Failed to load diagnoses:", e);
-    } finally {
-      setLoadingDiagnoses(false);
-    }
-  }, [workspaceid, patient.patientid]);
+    },
+    [workspaceid, patient.patientid]
+  );
 
   const loadReferrals = useCallback(async () => {
     try {
@@ -2489,12 +2518,39 @@ export default function PatientDashboard({
         <TabsContent value="diagnostics" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Diagnostics</CardTitle>
-                <Button size="sm" onClick={() => setShowDiagnosisForm(true)}>
-                  + Add Diagnosis
-                </Button>
-              </div>
+             <div className="flex items-center justify-between gap-2">
+  <CardTitle className="text-xl font-semibold">Diagnostics</CardTitle>
+
+  <div className="flex items-center gap-2">
+    <Button  className="bg-blue-500 hover:bg-blue-700 text-white flex items-center gap-1"
+                 size="sm" onClick={() => setShowDiagnosisForm(true)}>
+      <Plus className="h-4 w-4" />
+      Add Diagnosis
+    </Button>
+
+    {diagnosesHasMore && (
+      <Button
+        onClick={() => loadDiagnoses(false)}
+        disabled={loadingMoreDiagnoses}
+        variant="outline"
+        className="bg-orange-500 hover:bg-orange-600 text-white border-none flex items-center gap-2"
+      >
+        {loadingMoreDiagnoses ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            Loading...
+          </>
+        ) : (
+          <>
+            <History className="h-4 w-4" />
+            History
+          </>
+        )}
+      </Button>
+    )}
+  </div>
+</div>
+
             </CardHeader>
             <CardContent>
               {loadingDiagnoses ? (
@@ -2565,6 +2621,8 @@ export default function PatientDashboard({
                       ))}
                     </tbody>
                   </table>
+                  
+                
                 </div>
               )}
             </CardContent>
