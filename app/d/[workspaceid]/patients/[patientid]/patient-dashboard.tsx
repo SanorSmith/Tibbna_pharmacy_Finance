@@ -429,7 +429,7 @@ export default function PatientDashboard({
       {/* Back button and search at the top */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Link href={`/d/${workspaceid}/doctor/doctor-dashboard`}>
+          <Link href={`/d/${workspaceid}/doctor`}>
             <Button variant="outline" size="sm">
               ← Back to Doctors Dashboard
             </Button>
