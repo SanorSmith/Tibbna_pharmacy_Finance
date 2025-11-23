@@ -397,7 +397,7 @@ export function DiagnosticsTab({
                       bodySite: "",
                       comment: "",
                     });
-                    loadDiagnoses();
+                    loadDiagnoses(true); // Force reload with reset=true
                   } catch (error) {
                     console.error("Error saving diagnosis:", error);
                     alert(

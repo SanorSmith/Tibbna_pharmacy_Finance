@@ -43,9 +43,9 @@ export async function GET(
     }
 
     // Get pagination parameters from query string
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "10", 10);
-    const offset = parseInt(searchParams.get("offset") || "0", 10);
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get("limit") || "10");
+    const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // Check workspace access
     const workspaces = await getUserWorkspaces(user.userid);
@@ -89,28 +89,35 @@ export async function GET(
     }
 
     // Fetch compositions from OpenEHR
-    const compositions = await getOpenEHRCompositions(
-      ehrId
-    );
+    const compositions = await getOpenEHRCompositions(ehrId);
 
-    console.log(`Found ${compositions.length} compositions`);
+    // Filter compositions that likely contain service requests by checking archetype_node_id
+    // This reduces unnecessary API calls
+    const serviceRequestCompositions = compositions.filter(comp => {
+      // Only fetch compositions that might have service requests
+      // We'll check the actual data in the next step
+      return true; // For now, we need to check all since we can't filter by archetype in the list
+    });
 
-    // Fetch full details for ALL compositions to extract test orders
+    console.log(`Found ${compositions.length} total compositions, checking for test orders...`);
+
+    // Fetch full details only for compositions and filter for test orders
     const allTestOrders = await Promise.all(
-      compositions.map(async (comp) => {
+      serviceRequestCompositions.map(async (comp) => {
         try {
-          console.log(`Fetching details for composition: ${comp.composition_uid}`);
           const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
           
-          console.log(`Composition ${comp.composition_uid} keys:`, Object.keys(details));
+          // Quick check: does this composition have service_request data?
+          const hasServiceRequest = Object.keys(details).some(key => 
+            key.includes('service_request')
+          );
+          
+          if (!hasServiceRequest) {
+            return null; // Skip compositions without service requests
+          }
           
           // Extract test order from composition details using correct template paths
           const compositionData = details as Record<string, unknown>;
-          
-          if (!compositionData) {
-            console.log(`Skipping composition ${comp.composition_uid} - no data`);
-            return null;
-          }
 
           // Try multiple possible paths for service request data
           let serviceRequestData = compositionData["template_clinical_encounter_v1/service_request"] as Record<string, unknown>;
@@ -119,8 +126,6 @@ export async function GET(
             // Try direct access
             serviceRequestData = compositionData as Record<string, unknown>;
           }
-          
-          console.log(`Service request data keys for ${comp.composition_uid}:`, serviceRequestData ? Object.keys(serviceRequestData).filter(k => k.includes('service')) : 'none');
           
           const serviceName = 
             serviceRequestData["template_clinical_encounter_v1/service_request/request/service_name|other"] as string ||
@@ -133,11 +138,8 @@ export async function GET(
             serviceRequestData["service_request/request/clinical_indication"] as string;
 
           if (!serviceName && !clinicalIndication) {
-            console.log(`Skipping composition ${comp.composition_uid} - no test order data (serviceName: ${serviceName}, clinicalIndication: ${clinicalIndication})`);
             return null;
           }
-
-          console.log(`Found test order in ${comp.composition_uid}: ${serviceName}`);
 
           // Extract all fields using the exact template paths
           const serviceTypeCode = 
@@ -222,7 +224,6 @@ export async function GET(
             narrative: narrativeText || "",
           };
 
-          console.log(`Extracted test order: ${testOrder.service_name} from composition ${comp.composition_uid}`);
           return testOrder;
         } catch (error) {
           console.error(`Error processing composition ${comp.composition_uid}:`, error);
@@ -240,7 +241,7 @@ export async function GET(
     const hasMore = offset + limit < totalFilteredCount;
     const paginatedTestOrders = validTestOrders.slice(offset, offset + limit);
 
-    console.log(`Returning ${paginatedTestOrders.length} test orders, hasMore: ${hasMore}`);
+    // Removed excessive logging
     return NextResponse.json({ testOrders: paginatedTestOrders, hasMore });
   } catch (error) {
     console.error("Error fetching test orders:", error);

@@ -48,6 +48,7 @@ export function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) 
   const [selectedTestOrder, setSelectedTestOrder] = useState<TestOrderRecord | null>(null);
   const [showTestOrderDetails, setShowTestOrderDetails] = useState(false);
   const testOrdersOffsetRef = useRef(0);
+  const hasLoadedTestOrders = useRef(false); // Track if data has been loaded
   const [testOrderForm, setTestOrderForm] = useState({
     service_name: "",
     service_type_code: "104177005",
@@ -99,11 +100,11 @@ export function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) 
 
       if (res.ok) {
         const data = await res.json();
-        console.log("Test orders loaded:", data);
         
         if (reset) {
           setTestOrderRecords(data.testOrders || []);
           testOrdersOffsetRef.current = (data.testOrders || []).length;
+          hasLoadedTestOrders.current = true; // Mark as loaded
         } else {
           setTestOrderRecords(prev => {
             const newRecords = [...prev, ...(data.testOrders || [])];
@@ -123,9 +124,11 @@ export function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) 
     }
   }, [workspaceid, patientid]);
 
-  // Load test orders when component mounts
+  // Load test orders when component mounts (only if not already loaded)
   useEffect(() => {
-    loadTestOrders(true);
+    if (!hasLoadedTestOrders.current) {
+      loadTestOrders(true);
+    }
   }, [loadTestOrders]);
 
   function formatDateTime(date: string) {
@@ -192,7 +195,8 @@ export function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) 
       
       // Wait a moment for the composition to be available, then reload
       setTimeout(() => {
-        loadTestOrders();
+        hasLoadedTestOrders.current = false; // Reset cache flag
+        loadTestOrders(true);
       }, 500);
     } catch (error) {
       console.error("Error saving test order:", error);

@@ -73,6 +73,7 @@ export default function PatientDashboard({
   const [diagnoses, setDiagnoses] = useState<DashboardTypes.DiagnosisRecord[]>([]);
   const [loadingDiagnoses, setLoadingDiagnoses] = useState(false);
   const diagnosesOffsetRef = useRef(0);
+  const hasLoadedDiagnoses = useRef(false); // Track if data has been loaded
   const [diagnosesHasMore, setDiagnosesHasMore] = useState(false);
   const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<DashboardTypes.DiagnosisRecord | null>(null);
@@ -185,7 +186,9 @@ export default function PatientDashboard({
         // Medical history is now handled by HistoryTab component
         break;
       case "diagnostics":
-        loadDiagnoses();
+        if (!hasLoadedDiagnoses.current) {
+          loadDiagnoses();
+        }
         break;
       case "lab":
         // Lab results are now handled by LabsTab component
@@ -298,6 +301,7 @@ export default function PatientDashboard({
         if (reset) {
           setLoadingDiagnoses(true);
           diagnosesOffsetRef.current = 0;
+          hasLoadedDiagnoses.current = false; // Reset cache on explicit reload
         } else {
           setLoadingMoreDiagnoses(true);
         }
@@ -315,6 +319,7 @@ export default function PatientDashboard({
          if (reset) {
             setDiagnoses(data.diagnoses || []);
             diagnosesOffsetRef.current = data.diagnoses?.length || 0;
+            hasLoadedDiagnoses.current = true; // Mark as loaded
           } else {
             setDiagnoses((prev) => [
               ...prev,

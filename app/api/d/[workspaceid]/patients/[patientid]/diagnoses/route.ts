@@ -77,12 +77,20 @@ export async function GET(
     // Fetch ALL compositions and extract diagnoses (no pagination yet for filtering)
     const allCompositions = await getOpenEHRCompositions(ehrId);
    
-    // Fetch full details for ALL compositions to extract diagnoses
+    // Fetch full details for compositions and filter for diagnoses
     const allDiagnoses = await Promise.all(
       allCompositions.map(async (comp: OpenEHRComposition) => {
         try {
-          console.log(`Fetching details for composition: ${comp.composition_uid}`);
           const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
+          
+          // Quick check: does this composition have diagnosis data?
+          const hasDiagnosis = Object.keys(details).some(key => 
+            key.includes('problem_diagnosis')
+          );
+          
+          if (!hasDiagnosis) {
+            return null; // Skip compositions without diagnoses
+          }
           
           // Extract diagnosis from composition details using correct template paths
           const problemDiagnosis = 
@@ -111,7 +119,6 @@ export async function GET(
 
           // Only return if there's an actual diagnosis
           if (problemDiagnosis) {
-            console.log(`Composition ${comp.composition_uid} has diagnosis: ${problemDiagnosis}`);
             return {
               composition_uid: comp.composition_uid,
               recorded_time: comp.start_time,
@@ -125,11 +132,9 @@ export async function GET(
               comment: comment,
             };
           } else {
-            console.log(`Skipping composition ${comp.composition_uid} - no diagnosis data`);
             return null;
           }
         } catch (error) {
-          console.error(`Failed to fetch composition ${comp.composition_uid}:`, error);
           return null;
         }
       })
