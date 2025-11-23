@@ -157,14 +157,20 @@ export async function GET(
             serviceRequestData["description"] as string ||
             serviceRequestData["service_request/request/description"] as string;
           
-          // Extract test type from description (format: "Test Type: value (Code: code)")
+          // Extract test type and urgency from description (format: "Test Type: value (Code: code) | Urgency: urgency")
           let extractedServiceTypeCode = "";
           let extractedServiceTypeValue = "";
+          let extractedUrgencyFromDesc = "";
           if (description) {
             const typeMatch = description.match(/Test Type: (.+?) \(Code: (.+?)\)/);
             if (typeMatch) {
               extractedServiceTypeValue = typeMatch[1];
               extractedServiceTypeCode = typeMatch[2] !== 'N/A' ? typeMatch[2] : '';
+            }
+            
+            const urgencyMatch = description.match(/Urgency: (\w+)/);
+            if (urgencyMatch) {
+              extractedUrgencyFromDesc = urgencyMatch[1].toLowerCase();
             }
           }
           
@@ -186,7 +192,8 @@ export async function GET(
             serviceRequestData["template_clinical_encounter_v1/service_request/request/urgency|value"] as string ||
             serviceRequestData["urgency|value"] as string ||
             serviceRequestData["service_request/request/urgency|value"] as string ||
-            extractedUrgency;
+            extractedUrgencyFromDesc || // Prioritize urgency from description
+            extractedUrgency; // Fallback to narrative extraction
           
           const requestingProvider = 
             serviceRequestData["template_clinical_encounter_v1/service_request/request/requesting_provider"] as string ||
@@ -290,6 +297,10 @@ export async function POST(
       receiving_provider,
       narrative,
     } = body.testOrder;
+    
+    console.log("DEBUG: Received testOrder data:", body.testOrder);
+    console.log("DEBUG: urgency value:", urgency);
+    console.log("DEBUG: requesting_provider value:", requesting_provider);
 
     // Validate required fields
     if (!service_name || !clinical_indication) {
@@ -343,10 +354,13 @@ export async function POST(
 
     // Service Request Details - store data without problematic coded fields
     compositionData["template_clinical_encounter_v1/service_request/request/service_name|other"] = service_name;
-    compositionData["template_clinical_encounter_v1/service_request/request/description"] = `Test Type: ${service_type_value || 'Not specified'} (Code: ${service_type_code || 'N/A'})`; // Store test type in description
+    compositionData["template_clinical_encounter_v1/service_request/request/description"] = `Test Type: ${service_type_value || 'Not specified'} (Code: ${service_type_code || 'N/A'}) | Urgency: ${urgency || 'routine'}`; // Store test type and urgency in description
     compositionData["template_clinical_encounter_v1/service_request/request/clinical_indication"] = clinical_indication;
     compositionData["template_clinical_encounter_v1/service_request/request/requested_date"] = eventTime;
     compositionData["template_clinical_encounter_v1/service_request/request/requesting_provider"] = requesting_provider || "Dr. Unknown";
+    
+    console.log("DEBUG: requesting_provider value:", requesting_provider);
+    console.log("DEBUG: user.name:", user.name);
     compositionData["template_clinical_encounter_v1/service_request/request/receiving_provider"] = receiving_provider || "Clinical Laboratory";
     compositionData["template_clinical_encounter_v1/service_request/request/timing"] = eventTime;
     compositionData["template_clinical_encounter_v1/service_request/request_id"] = `testreq-${Date.now()}`;

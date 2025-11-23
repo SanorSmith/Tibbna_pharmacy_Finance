@@ -16,7 +16,7 @@ import Link from "next/link";
 import { VitalSignsTab } from "./components/VitalSignsTab";
 import { DiagnosticsTab } from "./components/DiagnosticsTab";
 import { HistoryTab } from "./components/HistoryTab";
-import { OrdersTab } from "./components/OrdersTab";
+import OrdersTab from "./components/OrdersTab";
 import { LabsTab } from "./components/LabsTab";
 import { MedsTab } from "./components/MedsTab";
 import { CarePlansTab } from "./components/CarePlansTab";

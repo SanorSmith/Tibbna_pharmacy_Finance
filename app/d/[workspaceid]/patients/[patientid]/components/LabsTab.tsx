@@ -779,7 +779,10 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
               </div>
             </div>
 
+            
             {/* Provider Information */}
+           {/*  
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="requesting_provider" className="text-sm font-medium">
@@ -821,7 +824,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                   title="Laboratory that will perform the test"
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Narrative */}
             <div>
