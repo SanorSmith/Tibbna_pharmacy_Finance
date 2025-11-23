@@ -76,8 +76,7 @@ export async function GET(
 
     // Fetch ALL compositions and extract diagnoses (no pagination yet for filtering)
     const allCompositions = await getOpenEHRCompositions(ehrId);
-    console.log(`Found ${allCompositions.length} total compositions for EHR ${ehrId}`);
-    
+   
     // Fetch full details for ALL compositions to extract diagnoses
     const allDiagnoses = await Promise.all(
       allCompositions.map(async (comp: OpenEHRComposition) => {
@@ -140,10 +139,6 @@ export async function GET(
     const validDiagnoses = allDiagnoses
       .filter((diagnosis): diagnosis is NonNullable<typeof diagnosis> => diagnosis !== null)
       .sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
-
-    console.log(`Final result: ${validDiagnoses.length} valid diagnosis records found`);
-    console.log('Valid diagnoses:', validDiagnoses);
-
     // Now apply pagination to the filtered results
     const totalFilteredCount = validDiagnoses.length;
     const hasMore = offset + limit < totalFilteredCount;

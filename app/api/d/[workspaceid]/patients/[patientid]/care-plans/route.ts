@@ -265,9 +265,6 @@ export async function POST(
       carePlansStore[patientid] = [];
     }
     carePlansStore[patientid].unshift(carePlanRecord); // Add to beginning
-
-    console.log("✅ Care plan created:", carePlanRecord);
-
     return NextResponse.json(
       { 
         success: true,
