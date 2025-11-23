@@ -3,7 +3,6 @@
  * - Doctor dashboard showing appointments, patients, and operations
  * - Accessible only to users with doctor role
  */
-import { Header } from "@/components/sidebar/header";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
@@ -68,7 +67,7 @@ export default async function DoctorPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
+    {/*  <Header /> */}
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Doctor Dashboard</h1>

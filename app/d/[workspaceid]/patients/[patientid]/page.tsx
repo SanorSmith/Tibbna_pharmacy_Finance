@@ -3,7 +3,6 @@
  * - Patient dashboard showing comprehensive patient information
  * - Accessible to doctors and nurses only (not administrators)
  */
-import { Header } from "@/components/sidebar/header";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
@@ -50,8 +49,8 @@ export default async function PatientPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      {/* <Header /> */}
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0 m-8">
         <PatientDashboard 
           workspaceid={workspaceid} 
           patient={patient}

@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Search } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { CompositionListClient } from "./composition-list-client";
 import { AddEncounterDialog } from "./add-encounter-dialog";
@@ -16,6 +17,7 @@ export function EhrCompositionsClientPage({
 }: EhrCompositionsClientPageProps) {
   const { ttt } = useLanguage();
   const [isAddEncounterOpen, setIsAddEncounterOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const refreshCompositionsRef = useRef<(() => void) | null>(null);
 
   const handleEncounterSuccess = () => {
@@ -27,13 +29,26 @@ export function EhrCompositionsClientPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1">
           <h2 className="text-2xl font-bold">{ttt("Compositions")}</h2>
           <p className="text-sm text-muted-foreground">
             {ttt("EHR ID")}: {ehrId}
           </p>
         </div>
+        
+        {/* Search Field */}
+        <div className="relative w-80">
+          <Input
+            type="text"
+            placeholder="Search compositions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+        
         <Button onClick={() => setIsAddEncounterOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           {ttt("Add Encounter")}

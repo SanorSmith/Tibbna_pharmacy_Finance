@@ -179,6 +179,16 @@ a {
   --shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
   --navbar-height: 64px;
 }
+ 
+.vital-box {
+  background-color: #618ff5;
+  color: #ffffff;
+}
+
+.vital-box :is(.text-muted-foreground, .text-gray-500, .text-gray-600) {
+  color: #e5ecff;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

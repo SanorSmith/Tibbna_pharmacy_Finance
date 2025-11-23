@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 
 import { NavMain } from "@/components/sidebar/nav-main";
-
-import { NavUser } from "@/components/sidebar/nav-user";
 import { WorkspaceSwitcher } from "@/components/sidebar/workspace-switcher";
 import {
   Sidebar,
@@ -13,14 +12,15 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { User } from "@/lib/db/tables/user";
 
-export function AppSidebar({
-  user,
-  ...props
-}: React.ComponentProps<typeof Sidebar> & {
-  user: User;
-}) {
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname();
+
+  // Hide sidebar only on the doctor dashboard route: /d/[workspaceid]/doctor
+  if (pathname && /\/d\/[A-Za-z0-9-]+\/doctor$/.test(pathname)) {
+    return null;
+  }
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -29,9 +29,7 @@ export function AppSidebar({
       <SidebarContent>
         <NavMain />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={user} />
-      </SidebarFooter>
+      <SidebarFooter></SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

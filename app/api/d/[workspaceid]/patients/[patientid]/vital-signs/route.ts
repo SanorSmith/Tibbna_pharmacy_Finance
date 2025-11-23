@@ -1,86 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
-
-// In-memory storage for vital signs (dummy data)
-// In production, this would be stored in EHRbase or a database
-interface VitalSignsRecord {
-  composition_uid: string;
-  recorded_time: string;
-  temperature?: number;
-  systolic?: number;
-  diastolic?: number;
-  heart_rate?: number;
-  respiratory_rate?: number;
-  spo2?: number;
-  recorded_by?: string;
-}
-
-// Initialize with dummy data for demonstration
-const vitalSignsStore: Record<string, VitalSignsRecord[]> = {
-  // Sample patient ID with dummy vital signs
-  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
-    {
-      composition_uid: "vital-signs-1731847200000-001",
-      recorded_time: "2024-11-17T08:00:00.000Z",
-      systolic: 128,
-      diastolic: 82,
-      heart_rate: 72,
-      temperature: 36.8,
-      respiratory_rate: 16,
-      spo2: 98,
-      recorded_by: "Nurse Jennifer Martinez, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731760800000-002",
-      recorded_time: "2024-11-16T14:30:00.000Z",
-      systolic: 132,
-      diastolic: 85,
-      heart_rate: 75,
-      temperature: 37.0,
-      respiratory_rate: 18,
-      spo2: 97,
-      recorded_by: "Nurse David Lee, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731674400000-003",
-      recorded_time: "2024-11-15T09:15:00.000Z",
-      systolic: 125,
-      diastolic: 80,
-      heart_rate: 68,
-      temperature: 36.7,
-      respiratory_rate: 15,
-      spo2: 99,
-      recorded_by: "Nurse Mary Johnson, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731588000000-004",
-      recorded_time: "2024-11-14T10:45:00.000Z",
-      systolic: 130,
-      diastolic: 84,
-      heart_rate: 70,
-      temperature: 36.9,
-      respiratory_rate: 16,
-      spo2: 98,
-      recorded_by: "Nurse Jennifer Martinez, RN"
-    },
-    {
-      composition_uid: "vital-signs-1731501600000-005",
-      recorded_time: "2024-11-13T16:20:00.000Z",
-      systolic: 135,
-      diastolic: 88,
-      heart_rate: 78,
-      temperature: 37.1,
-      respiratory_rate: 17,
-      spo2: 96,
-      recorded_by: "Nurse David Lee, RN"
-    }
-  ]
-};
+import { db } from "@/lib/db";
+import { patients } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getOpenEHREHRBySubjectId, getOpenEHRCompositions, getOpenEHRComposition, createOpenEHRComposition } from "@/lib/openehr/openehr";
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vital-signs
- * Retrieve vital signs for a patient (from dummy data)
+ * Retrieve vital signs for a patient directly from OpenEHR compositions
+ * Supports pagination with limit and offset query parameters
  */
 export async function GET(
   request: NextRequest,
@@ -93,6 +22,11 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Get pagination parameters from query string
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "1", 10);
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
 
     // Check workspace access
     const workspaces = await getUserWorkspaces(user.userid);
@@ -109,12 +43,104 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get vital signs from in-memory store
-    const patientVitalSigns = vitalSignsStore[patientid] || [];
+    // Fetch patient to get National ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
 
-    return NextResponse.json({ vitalSigns: patientVitalSigns });
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // Find EHR by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
+    }
+
+    if (!ehrId) {
+      // No EHR found, return empty array
+      return NextResponse.json({ vitalSigns: [], totalCount: 0, hasMore: false });
+    }
+
+    // Fetch ALL compositions and extract vitals (no pagination yet for filtering)
+    const allCompositions = await getOpenEHRCompositions(ehrId);
+    
+    // Fetch full details for ALL compositions to extract vitals
+    const allVitalSigns = await Promise.all(
+      allCompositions.map(async (comp) => {
+        try {
+          const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
+          
+          // Extract vitals from composition details using correct template paths
+          const temperature = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"];
+          
+          const systolic = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude"];
+          
+          const diastolic = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude"];
+          
+          const heart_rate = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"];
+         
+            const respiratory_rate = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|magnitude"];
+            
+            const spo2 = 
+            details["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"];
+          // Note: respiratory_rate and spo2 are not in this template
+
+          // Only return if there's actual vital signs data
+          const hasVitalSigns = temperature || systolic || diastolic || heart_rate || respiratory_rate || spo2;
+          
+          if (hasVitalSigns) {
+            return {
+              composition_uid: comp.composition_uid,
+              recorded_time: comp.start_time,
+              temperature: temperature ? Number(temperature) : undefined,
+              systolic: systolic ? Number(systolic) : undefined,
+              diastolic: diastolic ? Number(diastolic) : undefined,
+              heart_rate: heart_rate ? Number(heart_rate) : undefined,
+              respiratory_rate: respiratory_rate ? Number(respiratory_rate) : undefined,
+              spo2: spo2 ? Number(spo2) : undefined,
+            };
+          } else {
+            // Skip compositions without vital signs data
+            return null;
+          }
+        } catch (error) {
+          return null; // Return null for failed compositions so they get filtered out
+        }
+      })
+    );
+
+    // Filter out null entries and sort by date
+    const validVitalSigns = allVitalSigns
+      .filter((vital): vital is NonNullable<typeof vital> => vital !== null)
+      .sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
+
+    // Now apply pagination to the filtered results
+    const totalFilteredCount = validVitalSigns.length;
+    const hasMore = offset + limit < totalFilteredCount;
+
+    // Apply pagination to the filtered results
+    const paginatedResults = validVitalSigns.slice(offset, offset + limit);
+
+    return NextResponse.json({ 
+      vitalSigns: paginatedResults, 
+      totalCount: totalFilteredCount, 
+      hasMore: hasMore,
+      currentOffset: offset,
+      currentLimit: limit
+    });
   } catch (error) {
-    console.error("Error fetching vital signs:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -124,7 +150,7 @@ export async function GET(
 
 /**
  * POST /api/d/[workspaceid]/patients/[patientid]/vital-signs
- * Create a new vital signs record (dummy data storage)
+ * Create a new clinical encounter composition in OpenEHR with supplied vitals
  */
 export async function POST(
   request: NextRequest,
@@ -154,40 +180,169 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { vitalSigns } = body;
+    const { temperature, systolic, diastolic, heartRate, respiratoryRate, spO2 } = body;
 
-    // Create vital signs record following openEHR structure
-    const vitalSignsRecord = {
-      composition_uid: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      recorded_time: new Date().toISOString(),
-      temperature: vitalSigns.temperature,
-      systolic: vitalSigns.systolic,
-      diastolic: vitalSigns.diastolic,
-      heart_rate: vitalSigns.heartRate,
-      respiratory_rate: vitalSigns.respiratoryRate,
-      spo2: vitalSigns.spO2,
+    // Fetch patient to get National ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
+
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // Find EHR by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
+    }
+
+    if (!ehrId) {
+      return NextResponse.json({ error: "No EHR found for this patient" }, { status: 404 });
+    }
+
+    // Create composition data in FLAT format using correct template paths
+    const compositionData: Record<string, unknown> = {
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name": user.name || "Unknown",
+      "template_clinical_encounter_v1/context/start_time": new Date().toISOString(),
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
     };
 
-    // Store in memory (initialize array if doesn't exist)
-    if (!vitalSignsStore[patientid]) {
-      vitalSignsStore[patientid] = [];
+    // Add vitals to composition using correct template paths
+
+const eventTime = new Date().toISOString();
+
+// Temperature
+if (temperature) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"] = parseFloat(temperature);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|unit"] = "°C";
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+}
+
+// Blood Pressure
+if (systolic && diastolic) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude"] = parseFloat(systolic);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|unit"] = "mm[Hg]";
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude"] = parseFloat(diastolic);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|unit"] = "mm[Hg]";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
+// Heart Rate
+if (heartRate) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"] = parseFloat(heartRate);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|unit"] = "/min";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
+// Respiratory Rate
+if (respiratoryRate) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|magnitude"] = parseFloat(respiratoryRate);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|unit"] = "/min";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
+// Oxygen Saturation (SpO2)
+if (spO2) {
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"] = parseFloat(spO2);
+  compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|unit"] = "%";
+
+  if (!compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"]) {
+    compositionData["template_clinical_encounter_v1/vital_signs/any_event:0/time"] = eventTime;
+  }
+}
+
+    // Add required encoding fields
+    if (temperature || systolic || heartRate || respiratoryRate || spO2) {
+      compositionData["template_clinical_encounter_v1/vital_signs/language|code"] = "en";
+      compositionData["template_clinical_encounter_v1/vital_signs/language|terminology"] = "ISO_639-1";
+      compositionData["template_clinical_encounter_v1/vital_signs/encoding|code"] = "UTF-8";
+      compositionData["template_clinical_encounter_v1/vital_signs/encoding|terminology"] = "IANA_character-sets";
     }
-    vitalSignsStore[patientid].unshift(vitalSignsRecord); // Add to beginning
 
-    console.log("✅ Vital signs recorded (dummy data):", vitalSignsRecord);
+    // Check if there's a recent composition with diagnoses that we can preserve
+    const compositions = await getOpenEHRCompositions(ehrId);
+    const recentComposition = compositions.length > 0 ? compositions[0] : null;
+    
+    if (recentComposition) {
+      // Try to get the most recent composition to see if it has diagnoses
+      try {
+        const existingDetails = await getOpenEHRComposition(ehrId, recentComposition.composition_uid) as Record<string, unknown>;
+        
+        // Check if this composition has diagnosis data
+        const hasDiagnosis = existingDetails["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"];
+        
+        if (hasDiagnosis) {
+          // This composition has diagnoses, so we'll use the same timestamp and preserve diagnoses
+          // Use the same timestamp as the existing composition to create a true unified encounter
+          compositionData["template_clinical_encounter_v1/context/start_time"] = recentComposition.start_time;
+          
+          // Copy existing diagnosis data
+          const diagnosisPaths = [
+            "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name",
+            "template_clinical_encounter_v1/problem_diagnosis/variant:0",
+            "template_clinical_encounter_v1/problem_diagnosis/clinical_description",
+            "template_clinical_encounter_v1/problem_diagnosis/body_site:0",
+            "template_clinical_encounter_v1/problem_diagnosis/date_time_of_onset",
+            "template_clinical_encounter_v1/problem_diagnosis/date_time_of_resolution",
+            "template_clinical_encounter_v1/problem_diagnosis/comment",
+            "template_clinical_encounter_v1/problem_diagnosis/language|code",
+            "template_clinical_encounter_v1/problem_diagnosis/language|terminology",
+            "template_clinical_encounter_v1/problem_diagnosis/encoding|code",
+            "template_clinical_encounter_v1/problem_diagnosis/encoding|terminology"
+          ];
+          
+          diagnosisPaths.forEach(path => {
+            if (existingDetails[path]) {
+              compositionData[path] = existingDetails[path];
+            }
+          });
+          
+          }
+      } catch (error) {
+        // Fall back to creating a new composition
+      }
+    }
 
-    return NextResponse.json(
-      { 
-        success: true,
-        message: "Vital signs recorded successfully",
-        record: vitalSignsRecord
-      },
-      { status: 201 }
+    // Create composition in OpenEHR
+    // Note: Replace 'template_clinical_encounter_v1' with your actual template ID
+    const compositionUid = await createOpenEHRComposition(
+      ehrId,
+      "template_clinical_encounter_v1",
+      compositionData
     );
+
+    return NextResponse.json({
+      success: true,
+      composition_uid: compositionUid,
+      message: "Vital signs recorded successfully in OpenEHR"
+    }, { status: 201 });
   } catch (error) {
-    console.error("Error creating vital signs:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Failed to fetch vital signs", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }

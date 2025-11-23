@@ -1,6 +1,5 @@
-import { enTranslations } from "@/content/en/index";
 /* prettier-ignore */
-export const svTranslations: Record<keyof typeof enTranslations, string> = {
+export const svTranslations = {
   'ServiceName': 'Tibbna',
   'Settings': 'Inställningar',
   'Projects': 'Projekt',
@@ -199,7 +198,33 @@ export const svTranslations: Record<keyof typeof enTranslations, string> = {
   'Diastolic BP': 'Diastolisk blodtrycksmätning',
   'Heart Rate': 'Hjärtfrekvens',
   'Body Temperature': 'Kroppstemperatur',
+  'Respiratory Rate': 'Andningsfrekvens',
+  'SpO2': 'SpO2',
   'Cancel': 'Avbryt',
-  'Create Encounter': 'Skapa inspelning'} as const;
+  'Create Encounter': 'Skapa inspelning',
+  // Add missing keys
+  'All Appointments': 'Alla bokningar',
+  'Patient Records': 'Patientjournaler',
+  'Physicians': 'Läkare',
+  'Physician List': 'Läkarlista',
+  'Nurses': 'Sjuksköterskor',
+  'Nurse List': 'Sjuksköterskelista',
+  'Add Staff': 'Lägg till personal',
+  'Edit Staff': 'Redigera personal',
+  'Staff Details': 'Personalinformation',
+  'Department List': 'Avdelningslista',
+  'Add Department': 'Lägg till avdelning',
+  'Edit Department': 'Redigera avdelning',
+  'Department Details': 'Avdelningsinformation',
+  'Operations': 'Operationer',
+  'Operation List': 'Operationslista',
+  'Schedule Operation': 'Boka operation',
+  'Operation Details': 'Operationsinformation',
+  'Facilities': 'Faciliteter',
+  'Facility Management': 'Facilitetshantering',
+  'Add Facility': 'Lägg till facilitet',
+  'Edit Facility': 'Redigera facilitet',
+  'Facility Details': 'Facilitetsinformation'
+} as const;
 
 export default svTranslations;

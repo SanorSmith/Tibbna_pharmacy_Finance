@@ -10,7 +10,7 @@ import { patients } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
-import { createOpenEHREHR } from "@/lib/openehr";
+import { createOpenEHREHR } from "@/lib/openehr/openehr";
 import { randomUUID } from "crypto";
 
 export async function GET(
@@ -100,11 +100,13 @@ export async function POST(
     // First create the local patient row
     const [inserted] = await db.insert(patients).values(values).returning();
 
-    // Create EHR in EHRbase using the patient's UUID as subject id
+    // Create EHR in EHRbase using the patient's National ID as subject id
+    // Fall back to patient UUID if National ID is not provided
     let ehrId: string | null = null;
     try {
-      // If EHRbase is misconfigured, this will throw; we log and continue
-      ehrId = await createOpenEHREHR(newPatientId);
+      // Use National ID if available, otherwise use patient UUID
+      const subjectId = body.nationalid || newPatientId;
+      ehrId = await createOpenEHREHR(subjectId);
     } catch (ehrErr) {
       console.error("[patients][POST] EHR create failed:", ehrErr);
     }

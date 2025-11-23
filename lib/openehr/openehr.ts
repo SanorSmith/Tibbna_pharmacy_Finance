@@ -23,7 +23,7 @@ export async function queryOpenEHR<T = Record<string, unknown>>(
     },
     {
       headers: {
-       //"X-API-Key": process.env.EHRBASE_API_KEY!,
+        "X-API-Key": process.env.EHRBASE_API_KEY!,
         Authorization: `Basic ${basicAuth}`,
         "Content-Type": "application/json",
         "Accept": "application/json",
@@ -143,6 +143,22 @@ export async function getOpenEHRCompositions(
   return queryOpenEHR<OpenEHRCompositionsResponse>(query);
 }
 
+/**
+ * Get clinical compositions for a patient by their National ID (or any subject_id)
+ * This is a convenience function that first finds the EHR by subject_id, then fetches compositions
+ */
+export async function getOpenEHRCompositionsByNationalId(
+  nationalId: string
+): Promise<OpenEHRCompositionsResponse[]> {
+  // First, find the EHR ID for this National ID
+  const ehrId = await getOpenEHREHRBySubjectId(nationalId);
+  if (!ehrId) {
+    return []; // No EHR found for this National ID
+  }
+  // Then fetch all compositions for that EHR
+  return getOpenEHRCompositions(ehrId);
+}
+
 export async function getOpenEHRComposition(
   ehrId: string,
   compositionId: string
@@ -156,6 +172,42 @@ export async function getOpenEHRComposition(
     },
   });
   return response.data;
+}
+
+/**
+ * Create a new composition (clinical document) in OpenEHR
+ * @param ehrId - The EHR ID to create the composition in
+ * @param templateId - The template ID to use (e.g., "template_clinical_encounter_v1")
+ * @param compositionData - The composition data in FLAT format
+ * @returns The created composition UID
+ */
+export async function createOpenEHRComposition(
+  ehrId: string,
+  templateId: string,
+  compositionData: Record<string, unknown>
+): Promise<string> {
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition?format=FLAT&templateId=${templateId}`;
+  
+  console.log("Creating composition with data:", JSON.stringify(compositionData, null, 2));
+  
+  try {
+    const response = await axios.post(url, compositionData, {
+      headers: {
+        "X-API-Key": process.env.EHRBASE_API_KEY!,
+        Authorization: `Basic ${basicAuth}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Prefer: "return=representation",
+      },
+    });
+    return response.data.uid?.value || response.data.composition_uid || response.data.uid;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error("EHRbase error response:", error.response.status);
+      console.error("EHRbase error data:", JSON.stringify(error.response.data, null, 2));
+    }
+    throw error;
+  }
 }
 
 export type OpenEHRCompositionResponse = Record<string, unknown>;
