@@ -30,6 +30,7 @@ interface VitalSignsForm {
   heartRate?: string;
   respiratoryRate?: string;
   oxygenSaturation?: string;
+  spO2?: string;
 }
 
 interface VitalSignsTabProps {

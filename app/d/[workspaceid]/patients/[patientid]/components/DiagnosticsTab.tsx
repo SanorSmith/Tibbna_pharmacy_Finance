@@ -35,6 +35,8 @@ interface DiagnosticsTabProps {
   setSelectedDiagnosis: (diagnosis: DiagnosisRecord | null) => void;
   showDiagnosisDetails: boolean;
   setShowDiagnosisDetails: (show: boolean) => void;
+  showDiagnosisForm: boolean;
+  setShowDiagnosisForm: (show: boolean) => void;
 }
 
 export function DiagnosticsTab({
@@ -47,6 +49,8 @@ export function DiagnosticsTab({
   setSelectedDiagnosis,
   showDiagnosisDetails,
   setShowDiagnosisDetails,
+  showDiagnosisForm,
+  setShowDiagnosisForm,
 }: DiagnosticsTabProps) {
   return (
     <div className="space-y-4">
