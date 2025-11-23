@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
+import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { db } from "@/lib/db";
 import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -28,6 +29,26 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get pagination parameters from query string
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
+
+    // Check workspace access
+    const workspaces = await getUserWorkspaces(user.userid);
+    const membership = workspaces.find(
+      (w: any) => w.workspace.workspaceid === workspaceid
+    );
+
+    if (!membership) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Only doctors and nurses can view diagnoses
+    if (membership.role !== "doctor" && membership.role !== "nurse") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Fetch patient to get National ID
     const [patient] = await db
       .select()
@@ -49,16 +70,18 @@ export async function GET(
     }
 
     if (!ehrId) {
-      return NextResponse.json({ diagnoses: [] });
+      return NextResponse.json({ diagnoses: [], totalCount: 0, hasMore: false });
     }
 
-    // Fetch all compositions and extract diagnoses
-    const compositions = await getOpenEHRCompositions(ehrId);
+    // Fetch ALL compositions and extract diagnoses (no pagination yet for filtering)
+    const allCompositions = await getOpenEHRCompositions(ehrId);
+    console.log(`Found ${allCompositions.length} total compositions for EHR ${ehrId}`);
     
-    // Fetch full details for each composition to extract diagnoses
-    const diagnoses = await Promise.all(
-      compositions.map(async (comp: OpenEHRComposition) => {
+    // Fetch full details for ALL compositions to extract diagnoses
+    const allDiagnoses = await Promise.all(
+      allCompositions.map(async (comp: OpenEHRComposition) => {
         try {
+          console.log(`Fetching details for composition: ${comp.composition_uid}`);
           const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, any>;
           
           // Extract diagnosis from composition details using correct template paths
@@ -81,13 +104,14 @@ export async function GET(
             details["template_clinical_encounter_v1/problem_diagnosis/date_time_of_resolution"];
           
           const severity = 
-            details["template_clinical_encounter_v1/problem_diagnosis/severity|value"];
+            details["template_clinical_encounter_v1/problem_diagnosis/severity"];
           
           const comment = 
             details["template_clinical_encounter_v1/problem_diagnosis/comment"];
 
           // Only return if there's an actual diagnosis
           if (problemDiagnosis) {
+            console.log(`Composition ${comp.composition_uid} has diagnosis: ${problemDiagnosis}`);
             return {
               composition_uid: comp.composition_uid,
               recorded_time: comp.start_time,
@@ -100,20 +124,41 @@ export async function GET(
               severity: severity,
               comment: comment,
             };
+          } else {
+            console.log(`Skipping composition ${comp.composition_uid} - no diagnosis data`);
+            return null;
           }
         } catch (error) {
           console.error(`Failed to fetch composition ${comp.composition_uid}:`, error);
+          return null;
         }
-        return null;
       })
     );
 
     // Filter out null entries and sort by date
-    const validDiagnoses = diagnoses
-      .filter(Boolean)
-      .sort((a: any, b: any) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
+    const validDiagnoses = allDiagnoses
+      .filter((diagnosis): diagnosis is NonNullable<typeof diagnosis> => diagnosis !== null)
+      .sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
 
-    return NextResponse.json({ diagnoses: validDiagnoses });
+    console.log(`Final result: ${validDiagnoses.length} valid diagnosis records found`);
+    console.log('Valid diagnoses:', validDiagnoses);
+
+    // Now apply pagination to the filtered results
+    const totalFilteredCount = validDiagnoses.length;
+    const hasMore = offset + limit < totalFilteredCount;
+    
+    console.log(`Pagination info: offset=${offset}, limit=${limit}, totalFilteredCount=${totalFilteredCount}, hasMore=${hasMore}`);
+
+    // Apply pagination to the filtered results
+    const paginatedResults = validDiagnoses.slice(offset, offset + limit);
+
+    return NextResponse.json({ 
+      diagnoses: paginatedResults, 
+      totalCount: totalFilteredCount, 
+      hasMore: hasMore,
+      currentOffset: offset,
+      currentLimit: limit
+    });
   } catch (error) {
     console.error("Error fetching diagnoses:", error);
     return NextResponse.json(
