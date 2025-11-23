@@ -109,6 +109,7 @@ export function AddEncounterDialog({
         formData.bodyTemperature ||
         formData.respiratoryRate ||
         formData.spO2
+
       ) {
         const vitalSigns: Partial<ClinicalEncounterComposition> = {
           "template_clinical_encounter_v1/vital_signs/any_event:0/time":
