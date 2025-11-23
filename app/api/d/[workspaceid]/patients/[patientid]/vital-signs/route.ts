@@ -70,13 +70,11 @@ export async function GET(
 
     // Fetch ALL compositions and extract vitals (no pagination yet for filtering)
     const allCompositions = await getOpenEHRCompositions(ehrId);
-    console.log(`Found ${allCompositions.length} total compositions for EHR ${ehrId}`);
     
     // Fetch full details for ALL compositions to extract vitals
     const allVitalSigns = await Promise.all(
       allCompositions.map(async (comp) => {
         try {
-          console.log(`Fetching details for composition: ${comp.composition_uid}`);
           const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
           
           // Extract vitals from composition details using correct template paths
@@ -102,10 +100,6 @@ export async function GET(
           // Only return if there's actual vital signs data
           const hasVitalSigns = temperature || systolic || diastolic || heart_rate || respiratory_rate || spo2;
           
-          console.log(`Composition ${comp.composition_uid} has vital signs: ${hasVitalSigns}`, {
-            temperature, systolic, diastolic, heart_rate, respiratory_rate, spo2
-          });
-          
           if (hasVitalSigns) {
             return {
               composition_uid: comp.composition_uid,
@@ -119,11 +113,9 @@ export async function GET(
             };
           } else {
             // Skip compositions without vital signs data
-            console.log(`Skipping composition ${comp.composition_uid} - no vital signs data`);
             return null;
           }
         } catch (error) {
-          console.error(`Failed to fetch composition ${comp.composition_uid}:`, error);
           return null; // Return null for failed compositions so they get filtered out
         }
       })
@@ -134,14 +126,9 @@ export async function GET(
       .filter((vital): vital is NonNullable<typeof vital> => vital !== null)
       .sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
 
-    console.log(`Final result: ${validVitalSigns.length} valid vital signs records found`);
-    console.log('Valid vital signs:', validVitalSigns);
-
     // Now apply pagination to the filtered results
     const totalFilteredCount = validVitalSigns.length;
     const hasMore = offset + limit < totalFilteredCount;
-    
-    console.log(`Pagination info: offset=${offset}, limit=${limit}, totalFilteredCount=${totalFilteredCount}, hasMore=${hasMore}`);
 
     // Apply pagination to the filtered results
     const paginatedResults = validVitalSigns.slice(offset, offset + limit);
@@ -154,7 +141,6 @@ export async function GET(
       currentLimit: limit
     });
   } catch (error) {
-    console.error("Error fetching vital signs:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -335,10 +321,8 @@ if (spO2) {
             }
           });
           
-          console.log("Creating unified composition with same timestamp as existing diagnosis:", recentComposition.start_time);
-        }
+          }
       } catch (error) {
-        console.error("Failed to check existing composition:", error);
         // Fall back to creating a new composition
       }
     }
@@ -357,9 +341,8 @@ if (spO2) {
       message: "Vital signs recorded successfully in OpenEHR"
     }, { status: 201 });
   } catch (error) {
-    console.error("Error creating vital signs:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Failed to fetch vital signs", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }
