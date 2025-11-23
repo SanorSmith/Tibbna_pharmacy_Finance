@@ -49,6 +49,27 @@ export function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) 
   const [showTestOrderDetails, setShowTestOrderDetails] = useState(false);
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false); // Track if data has been loaded
+  
+  // Use sessionStorage to persist cache across component remounts
+  const CACHE_KEY = `test_orders_${patientid}`;
+  
+  useEffect(() => {
+    // Check if data is already cached in sessionStorage
+    const cachedData = sessionStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (parsed.testOrders && parsed.testOrders.length > 0) {
+          setTestOrderRecords(parsed.testOrders);
+          testOrdersOffsetRef.current = parsed.testOrders.length;
+          setTestOrdersHasMore(parsed.hasMore || false);
+          hasLoadedTestOrders.current = true;
+        }
+      } catch (error) {
+        console.error("Failed to parse cached test orders:", error);
+      }
+    }
+  }, [patientid]);
   const [testOrderForm, setTestOrderForm] = useState({
     service_name: "",
     service_type_code: "104177005",
@@ -105,6 +126,12 @@ export function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) 
           setTestOrderRecords(data.testOrders || []);
           testOrdersOffsetRef.current = (data.testOrders || []).length;
           hasLoadedTestOrders.current = true; // Mark as loaded
+          
+          // Cache the data in sessionStorage
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            testOrders: data.testOrders || [],
+            hasMore: data.hasMore || false
+          }));
         } else {
           setTestOrderRecords(prev => {
             const newRecords = [...prev, ...(data.testOrders || [])];
@@ -196,6 +223,7 @@ export function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) 
       // Wait a moment for the composition to be available, then reload
       setTimeout(() => {
         hasLoadedTestOrders.current = false; // Reset cache flag
+        sessionStorage.removeItem(CACHE_KEY); // Clear cached data
         loadTestOrders(true);
       }, 500);
     } catch (error) {

@@ -75,6 +75,27 @@ export default function PatientDashboard({
   const diagnosesOffsetRef = useRef(0);
   const hasLoadedDiagnoses = useRef(false); // Track if data has been loaded
   const [diagnosesHasMore, setDiagnosesHasMore] = useState(false);
+  
+  // Use sessionStorage to persist cache across component remounts
+  const DIAGNOSES_CACHE_KEY = `diagnoses_${patient.patientid}`;
+  
+  useEffect(() => {
+    // Check if diagnoses are already cached in sessionStorage
+    const cachedData = sessionStorage.getItem(DIAGNOSES_CACHE_KEY);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (parsed.diagnoses && parsed.diagnoses.length > 0) {
+          setDiagnoses(parsed.diagnoses);
+          diagnosesOffsetRef.current = parsed.diagnoses.length;
+          setDiagnosesHasMore(parsed.hasMore || false);
+          hasLoadedDiagnoses.current = true;
+        }
+      } catch (error) {
+        console.error("Failed to parse cached diagnoses:", error);
+      }
+    }
+  }, [patient.patientid]);
   const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<DashboardTypes.DiagnosisRecord | null>(null);
   const [showDiagnosisDetails, setShowDiagnosisDetails] = useState(false);
@@ -302,6 +323,7 @@ export default function PatientDashboard({
           setLoadingDiagnoses(true);
           diagnosesOffsetRef.current = 0;
           hasLoadedDiagnoses.current = false; // Reset cache on explicit reload
+          sessionStorage.removeItem(DIAGNOSES_CACHE_KEY); // Clear cached data
         } else {
           setLoadingMoreDiagnoses(true);
         }
@@ -320,6 +342,12 @@ export default function PatientDashboard({
             setDiagnoses(data.diagnoses || []);
             diagnosesOffsetRef.current = data.diagnoses?.length || 0;
             hasLoadedDiagnoses.current = true; // Mark as loaded
+            
+            // Cache the data in sessionStorage
+            sessionStorage.setItem(DIAGNOSES_CACHE_KEY, JSON.stringify({
+              diagnoses: data.diagnoses || [],
+              hasMore: data.hasMore || false
+            }));
           } else {
             setDiagnoses((prev) => [
               ...prev,
