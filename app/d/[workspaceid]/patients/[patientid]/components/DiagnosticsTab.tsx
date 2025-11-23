@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, FileText } from "lucide-react";
+import { Plus, History } from "lucide-react";
 
 interface DiagnosisRecord {
   composition_uid: string;
@@ -30,8 +29,6 @@ interface DiagnosticsTabProps {
   diagnoses: DiagnosisRecord[];
   loadingDiagnoses: boolean;
   loadingMoreDiagnoses: boolean;
-  showDiagnosisForm: boolean;
-  setShowDiagnosisForm: (show: boolean) => void;
   loadDiagnoses: (reset?: boolean) => void;
   diagnosesHasMore: boolean;
   selectedDiagnosis: DiagnosisRecord | null;
@@ -44,8 +41,6 @@ export function DiagnosticsTab({
   diagnoses,
   loadingDiagnoses,
   loadingMoreDiagnoses,
-  showDiagnosisForm,
-  setShowDiagnosisForm,
   loadDiagnoses,
   diagnosesHasMore,
   selectedDiagnosis,

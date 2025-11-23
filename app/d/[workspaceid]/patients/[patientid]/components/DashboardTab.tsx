@@ -1,20 +1,13 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { 
-  Plus, 
   Calendar, 
   TestTube, 
   FileText, 
-  Image, 
+  Image as ImageIcon, 
   Heart,
-  Clock,
   MapPin,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
   Pill
 } from "lucide-react";
 
@@ -128,18 +121,12 @@ export function DashboardTab({
   imaging = [],
   carePlans = [],
   medications = [],
-  vitalSignsRecords = [],
-  vaccinations = [],
-  referrals = [],
   loading = false,
   loadingDiagnoses = false,
   loadingLabs = false,
   loadingImaging = false,
   loadingCarePlans = false,
   loadingMedications = false,
-  loadingVitalSigns = false,
-  loadingVaccinations = false,
-  loadingReferrals = false,
 }: DashboardTabProps) {
   return (
     <div className="space-y-6">
@@ -332,7 +319,7 @@ export function DashboardTab({
           <CardHeader className="pb-3">
             <div className="flex items-center">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Image className="h-5 w-5" />
+                <ImageIcon className="h-5 w-5" />
                 Imaging
               </CardTitle>
             </div>
@@ -345,7 +332,7 @@ export function DashboardTab({
               </div>
             ) : imaging.length === 0 ? (
               <div className="text-center py-4">
-                <Image className="h-8 w-8 opacity-70 mx-auto mb-2" />
+                <ImageIcon className="h-8 w-8 opacity-70 mx-auto mb-2" />
                 <p className="text-sm opacity-90">No imaging studies</p>
               </div>
             ) : (

@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -25,6 +23,15 @@ interface VitalSignsRecord {
   spo2?: number;
 }
 
+interface VitalSignsForm {
+  temperature?: string;
+  systolic?: string;
+  diastolic?: string;
+  heartRate?: string;
+  respiratoryRate?: string;
+  oxygenSaturation?: string;
+}
+
 interface VitalSignsTabProps {
   vitalSignsRecords: VitalSignsRecord[];
   loadingVitalSigns: boolean;
@@ -33,15 +40,8 @@ interface VitalSignsTabProps {
   setShowVitalSignsForm: (show: boolean) => void;
   loadVitalSigns: (reset?: boolean) => void;
   vitalsHasMore: boolean;
-  vitalSignsForm: {
-    temperature: string;
-    systolic: string;
-    diastolic: string;
-    heartRate: string;
-    respiratoryRate: string;
-    spO2: string;
-  };
-  setVitalSignsForm: (form: any) => void;
+  vitalSignsForm: VitalSignsForm;
+  setVitalSignsForm: (form: VitalSignsForm) => void;
   workspaceid: string;
   patient: {
     patientid: string;
