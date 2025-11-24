@@ -1,11 +1,11 @@
 import { getUser } from "@/lib/user";
-import TodosList from "./todos-list";
+import NotificationsList from "./notifications-list";
 
 type Props = {
   params: Promise<{ workspaceid: string }>;
 };
 
-export default async function DoctorTodosPage({ params }: Props) {
+export default async function DoctorNotificationsPage({ params }: Props) {
   const { workspaceid } = await params;
   const user = await getUser();
   
@@ -13,5 +13,5 @@ export default async function DoctorTodosPage({ params }: Props) {
     return <div>Unauthorized</div>;
   }
 
-  return <TodosList workspaceid={workspaceid} userid={user.userid} />;
+  return <NotificationsList workspaceid={workspaceid} userid={user.userid} />;
 }

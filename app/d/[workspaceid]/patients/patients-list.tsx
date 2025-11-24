@@ -189,7 +189,7 @@ export default function PatientsList({
   return (
     <>
       {/* Search Bar */}
-      <div className="mb-4">
+      <div className="ml-4 mr-4">
         <div className="flex items-center gap-2 mb-2">
           <div className="relative flex-1 max-w-md">
             <Input

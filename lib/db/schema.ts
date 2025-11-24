@@ -7,3 +7,4 @@ export * from "./tables/department";
 export * from "./tables/lab";
 export * from "./tables/pharmacy";
 export * from "./tables/operation";
+export * from "./tables/todo";
