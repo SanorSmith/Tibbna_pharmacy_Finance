@@ -24,7 +24,8 @@ import { ReferralsTab } from "./components/ReferralsTab";
 import { VaccinationsTab } from "./components/VaccinationsTab";
 import { NotesTab } from "./components/NotesTab";
 import * as DashboardTypes from "./components/DashboardTab";
-import { AppointmentsTab, ImagingTab } from "./components";
+import AppointmentsTab from "./components/AppointmentsTab";
+import ImagingTab from "./components/ImagingTab";
 import {
   Dialog,
   DialogContent,
@@ -631,6 +632,9 @@ export default function PatientDashboard({
           <AppointmentsTab
             appointments={appointments}
             loading={loading}
+            workspaceid={workspaceid}
+            patientid={patient.patientid}
+            onAppointmentAdded={loadAppointments}
           />
         </TabsContent>
 
