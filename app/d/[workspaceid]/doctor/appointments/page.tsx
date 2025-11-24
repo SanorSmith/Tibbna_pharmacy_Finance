@@ -27,7 +27,6 @@ export default async function DoctorAppointmentsPage({
   }
 
   // Get doctor's staff record
-  let staffInfo = null;
   try {
     const staffRecords = await db
       .select()
@@ -40,7 +39,7 @@ export default async function DoctorAppointmentsPage({
       );
     
     // Try to match by email or name
-    staffInfo = staffRecords.find(
+    const staffInfo = staffRecords.find(
       (s) =>
         s.email === user.email ||
         (user.name && `${s.firstname} ${s.lastname}`.toLowerCase().includes(user.name.toLowerCase()))

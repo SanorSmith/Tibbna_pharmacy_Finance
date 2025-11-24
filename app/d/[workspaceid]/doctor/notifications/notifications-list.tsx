@@ -7,7 +7,7 @@
  * - Doctor comments
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,14 +52,10 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [chronicPatients, setChronicPatients] = useState<Patient[]>([]);
   const [overduePatients, setOverduePatients] = useState<Patient[]>([]);
-  const [acuteResults, setAcuteResults] = useState<LabResult[]>([]);
+  const [acuteResults] = useState<LabResult[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadNotifications();
-  }, [workspaceid, userid]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -94,7 +90,11 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceid]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [workspaceid, userid, loadNotifications]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";

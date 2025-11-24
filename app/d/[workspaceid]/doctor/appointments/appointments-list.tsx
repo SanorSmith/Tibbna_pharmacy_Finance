@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -13,7 +13,15 @@ type Appointment = {
   status: string;
   unit?: string | null;
   location?: string | null;
-  notes?: any;
+  notes?: {
+    comments?: Array<{
+      timestamp: string;
+      text: string;
+    }>;
+    patientname?: string;
+    appointmentType?: string;
+    clinicalIndication?: string;
+  };
   patient?: {
     firstname: string;
     middlename?: string | null;
@@ -35,11 +43,7 @@ export default function AppointmentsList({
     "all"
   );
 
-  useEffect(() => {
-    loadAppointments();
-  }, [workspaceid, doctorid]);
-
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     try {
       setLoading(true);
       console.log("Loading appointments for doctor:", doctorid);
@@ -59,7 +63,11 @@ export default function AppointmentsList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceid, doctorid]);
+
+  useEffect(() => {
+    loadAppointments();
+  }, [workspaceid, doctorid, loadAppointments]);
 
   const formatDateTime = (datetime: string) => {
     try {

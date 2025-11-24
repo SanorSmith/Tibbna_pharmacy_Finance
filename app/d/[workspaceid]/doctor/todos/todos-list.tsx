@@ -5,7 +5,7 @@
  * - Mark as complete/incomplete
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,9 +59,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
 
   useEffect(() => {
     loadTodos();
-  }, [workspaceid, userid]);
+  }, [workspaceid, userid, loadTodos]);
 
-  const loadTodos = async () => {
+  const loadTodos = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/d/${workspaceid}/todos`);
@@ -74,7 +74,7 @@ export default function TodosList({ workspaceid, userid }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceid]);
 
   const handleAddTodo = async () => {
     if (!formData.title.trim()) return;

@@ -5,7 +5,7 @@
  * - Show details popup
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,11 +75,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
     operationdetails: "",
   });
 
-  useEffect(() => {
-    loadOperations();
-  }, [workspaceid, userid]);
-
-  const loadOperations = async () => {
+  const loadOperations = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/d/${workspaceid}/operations?surgeonid=${userid}`);
@@ -92,7 +88,11 @@ export default function OperationsList({ workspaceid, userid }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceid, userid]);
+
+  useEffect(() => {
+    loadOperations();
+  }, [workspaceid, userid, loadOperations]);
 
   const handleAddOperation = async () => {
     if (!formData.patientid || !formData.operationname || !formData.scheduleddate) {
