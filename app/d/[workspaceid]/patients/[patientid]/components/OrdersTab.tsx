@@ -73,7 +73,7 @@ const DEFAULT_FORM: TestOrderForm = {
 
 // ---------- Reducer ----------
 type Action =
-  | { type: "SET_FIELD"; field: keyof TestOrderForm; value: any }
+  | { type: "SET_FIELD"; field: keyof TestOrderForm; value: string | number | undefined }
   | { type: "SET_TEST_TYPE"; code: string }
   | { type: "RESET"; keepRequester?: string };
 
@@ -269,7 +269,7 @@ export default function OrdersTab({ workspaceid, patientid, fullName }: OrdersTa
   }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
   // Handlers
-  const onFieldChange = useCallback((field: keyof TestOrderForm, value: any) => {
+  const onFieldChange = useCallback((field: keyof TestOrderForm, value: string | number | undefined) => {
     dispatch({ type: "SET_FIELD", field, value });
   }, []);
 

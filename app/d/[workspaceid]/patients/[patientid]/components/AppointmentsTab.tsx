@@ -16,7 +16,16 @@ type Appointment = {
   status: string;
   location?: string | null;
   unit?: string | null;
-  notes?: any; // Can be string, object, or null
+  notes?: {
+    comments?: Array<{
+      timestamp: string;
+      text: string;
+    }>;
+    patientname?: string;
+    appointmentName?: string;
+    appointmentType?: string;
+    clinicalIndication?: string;
+  } | string | null; // Can be object, string, or null
 };
 
 interface AppointmentsTabProps {

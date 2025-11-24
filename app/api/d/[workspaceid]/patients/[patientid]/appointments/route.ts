@@ -84,7 +84,12 @@ export async function POST(
     }
 
     // Build notes object with new structured fields
-    const notesData: any = {};
+    const notesData: {
+      appointmentName?: string;
+      appointmentType?: string;
+      clinicalIndication?: string;
+      reasonForRequest?: string;
+    } = {};
     if (appointmentName) notesData.appointmentName = appointmentName;
     if (appointmentType) notesData.appointmentType = appointmentType;
     if (clinicalIndication) notesData.clinicalIndication = clinicalIndication;

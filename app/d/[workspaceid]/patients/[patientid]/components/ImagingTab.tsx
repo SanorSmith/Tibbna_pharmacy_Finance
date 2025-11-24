@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -80,7 +79,7 @@ export default function ImagingTab({
             </div>
           ) : imagingRequests.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No imaging requests found. Click "+ New Imaging Request" to create one.
+              No imaging requests found. Click &quot;+ New Imaging Request&quot; to create one.
             </div>
           ) : (
             <div className="space-y-3">

@@ -2,7 +2,7 @@ export { DashboardTab } from './DashboardTab';
 export { VitalSignsTab } from './VitalSignsTab';
 export { DiagnosticsTab } from './DiagnosticsTab';
 export { HistoryTab } from './HistoryTab';
-export { OrdersTab } from './OrdersTab';
+export { default as OrdersTab } from './OrdersTab';
 export { LabsTab } from './LabsTab';
 export { MedsTab } from './MedsTab';
 export { CarePlansTab } from './CarePlansTab';

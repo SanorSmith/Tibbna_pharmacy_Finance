@@ -57,10 +57,6 @@ export default function TodosList({ workspaceid, userid }: Props) {
     duedate: "",
   });
 
-  useEffect(() => {
-    loadTodos();
-  }, [workspaceid, userid, loadTodos]);
-
   const loadTodos = useCallback(async () => {
     try {
       setLoading(true);
@@ -75,6 +71,10 @@ export default function TodosList({ workspaceid, userid }: Props) {
       setLoading(false);
     }
   }, [workspaceid]);
+
+  useEffect(() => {
+    loadTodos();
+  }, [workspaceid, userid, loadTodos]);
 
   const handleAddTodo = async () => {
     if (!formData.title.trim()) return;
