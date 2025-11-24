@@ -6,11 +6,9 @@
  */
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { VitalSignsTab } from "./components/VitalSignsTab";
@@ -26,13 +24,6 @@ import { NotesTab } from "./components/NotesTab";
 import * as DashboardTypes from "./components/DashboardTab";
 import AppointmentsTab from "./components/AppointmentsTab";
 import ImagingTab from "./components/ImagingTab";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 type Patient = {
   patientid: string;
@@ -68,7 +59,6 @@ export default function PatientDashboard({
   workspaceid: string;
   patient: Patient;
 }) {
-  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [diagnoses, setDiagnoses] = useState<DashboardTypes.DiagnosisRecord[]>([]);
@@ -96,7 +86,7 @@ export default function PatientDashboard({
         console.error("Failed to parse cached diagnoses:", error);
       }
     }
-  }, [patient.patientid]);
+  }, [patient.patientid, DIAGNOSES_CACHE_KEY]);
   const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<DashboardTypes.DiagnosisRecord | null>(null);
   const [showDiagnosisDetails, setShowDiagnosisDetails] = useState(false);
@@ -372,7 +362,7 @@ export default function PatientDashboard({
         }
       }
     },
-    [workspaceid, patient.patientid]
+    [workspaceid, patient.patientid, DIAGNOSES_CACHE_KEY]
   );
 
 
@@ -416,15 +406,7 @@ export default function PatientDashboard({
     loadDiagnoses,
   ]);
 
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
+  
   return (
     <div className="space-y-4">
       {/* Back button and search at the top */}

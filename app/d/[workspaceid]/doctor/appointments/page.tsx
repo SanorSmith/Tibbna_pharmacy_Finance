@@ -39,7 +39,7 @@ export default async function DoctorAppointmentsPage({
       );
     
     // Try to match by email or name
-    const staffInfo = staffRecords.find(
+    staffRecords.find(
       (s) =>
         s.email === user.email ||
         (user.name && `${s.firstname} ${s.lastname}`.toLowerCase().includes(user.name.toLowerCase()))
