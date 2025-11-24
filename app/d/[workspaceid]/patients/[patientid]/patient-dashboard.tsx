@@ -557,33 +557,98 @@ export default function PatientDashboard({
         onValueChange={handleTabChange}
       >
         <TabsList className="flex w-full overflow-x-auto space-x-1">
-          {/* Clinical Documentation */}
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="vitalsigns">Vitals</TabsTrigger>
-          {/* Problems & History */}
-          <TabsTrigger value="diagnostics">Diagnoses</TabsTrigger>
-          <TabsTrigger value="medical">History</TabsTrigger>
+  <TabsTrigger
+    value="dashboard"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Dashboard
+  </TabsTrigger>
 
-          <TabsTrigger value="testorders">Orders</TabsTrigger>
-          <TabsTrigger value="lab">Labs</TabsTrigger>
-          <TabsTrigger value="prescriptions">Meds</TabsTrigger>
-          
-          <TabsTrigger value="careplans">Care Plans</TabsTrigger>
-         
-          {/* Prevention & Coordination */}
-          <TabsTrigger value="referrals">Referrals</TabsTrigger>
-          <TabsTrigger value="vaccinations">Vaccines</TabsTrigger>
+  <TabsTrigger
+    value="vitalsigns"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Vitals
+  </TabsTrigger>
 
-          <TabsTrigger value="notes">Notes</TabsTrigger>
-          <TabsTrigger value="appointments">Appointments</TabsTrigger>
+  <TabsTrigger
+    value="diagnostics"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Diagnoses
+  </TabsTrigger>
 
+  <TabsTrigger
+    value="medical"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    History
+  </TabsTrigger>
 
-          {/* Diagnostics */}
-          <TabsTrigger value="imaging">Imaging</TabsTrigger>
+  <TabsTrigger
+    value="testorders"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Orders
+  </TabsTrigger>
 
-          {/* Treatment & Care Plans */}
+  <TabsTrigger
+    value="lab"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Labs
+  </TabsTrigger>
 
-        </TabsList>
+  <TabsTrigger
+    value="prescriptions"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Meds
+  </TabsTrigger>
+
+  <TabsTrigger
+    value="careplans"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Care Plans
+  </TabsTrigger>
+
+  <TabsTrigger
+    value="referrals"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Referrals
+  </TabsTrigger>
+
+  <TabsTrigger
+    value="vaccinations"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Vaccines
+  </TabsTrigger>
+
+  <TabsTrigger
+    value="notes"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Notes
+  </TabsTrigger>
+
+  <TabsTrigger
+    value="appointments"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Appointments
+  </TabsTrigger>
+
+  <TabsTrigger
+    value="imaging"
+    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+  >
+    Imaging
+  </TabsTrigger>
+</TabsList>
+
 
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-6">
