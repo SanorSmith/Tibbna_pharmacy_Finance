@@ -1,0 +1,17 @@
+import { getUser } from "@/lib/user";
+import NotificationsList from "./notifications-list";
+
+type Props = {
+  params: Promise<{ workspaceid: string }>;
+};
+
+export default async function DoctorNotificationsPage({ params }: Props) {
+  const { workspaceid } = await params;
+  const user = await getUser();
+  
+  if (!user) {
+    return <div>Unauthorized</div>;
+  }
+
+  return <NotificationsList workspaceid={workspaceid} userid={user.userid} />;
+}
