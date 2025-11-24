@@ -8,7 +8,7 @@
  * - Updates notes via PATCH /api/d/[workspaceid]/appointments/[id]
  */
 "use client";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,6 +81,8 @@ export default function DoctorDashboard({
 }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]); // For counts
+  const [operations, setOperations] = useState<any[]>([]);
+  const [todos, setTodos] = useState<any[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [ehrs, setEhrs] = useState<OpenEHREHR[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -92,7 +94,6 @@ export default function DoctorDashboard({
   const [addingNote, setAddingNote] = useState<string | null>(null);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
   const [bookOperationOpen, setBookOperationOpen] = useState(false);
-  const lastLoadedParams = useRef<string | null>(null);
 
   const patientsById = useMemo(() => {
     const map = new Map<string, Patient>();
@@ -110,15 +111,6 @@ export default function DoctorDashboard({
   };
 
   useEffect(() => {
-    // Create unique key for current params
-    const paramsKey = `${selectedDate}-${workspaceid}-${doctorid}`;
-    
-    // Skip if we've already loaded this combination
-    if (lastLoadedParams.current === paramsKey) {
-      return;
-    }
-    
-    lastLoadedParams.current = paramsKey;
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, workspaceid, doctorid]);
@@ -134,7 +126,7 @@ export default function DoctorDashboard({
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const [apptsRes, allApptsRes, patientsRes, staffRes] = await Promise.all([
+      const [apptsRes, allApptsRes, operationsRes, todosRes, patientsRes, staffRes] = await Promise.all([
         fetch(
           `/api/d/${workspaceid}/appointments?from=${startOfDay.toISOString()}&to=${endOfDay.toISOString()}&doctorid=${doctorid}`,
           { cache: "no-store" }
@@ -143,6 +135,11 @@ export default function DoctorDashboard({
           `/api/d/${workspaceid}/doctor/${doctorid}/appointments`,
           { cache: "no-store" }
         ),
+        fetch(
+          `/api/d/${workspaceid}/operations?surgeonid=${doctorid}`,
+          { cache: "no-store" }
+        ),
+        fetch(`/api/d/${workspaceid}/todos`, { cache: "no-store" }),
         fetch(`/api/d/${workspaceid}/patients`, { cache: "no-store" }),
         fetch(`/api/d/${workspaceid}/staff`, { cache: "no-store" }),
       ]);
@@ -153,11 +150,15 @@ export default function DoctorDashboard({
 
       const apptsData = await apptsRes.json();
       const allApptsData = allApptsRes.ok ? await allApptsRes.json() : { appointments: [] };
+      const operationsData = operationsRes.ok ? await operationsRes.json() : { operations: [] };
+      const todosData = todosRes.ok ? await todosRes.json() : { todos: [] };
       const patientsData = await patientsRes.json();
       const staffData = staffRes.ok ? await staffRes.json() : { staff: [] };
 
       setAppointments(apptsData.appointments || []);
       setAllAppointments(allApptsData.appointments || []);
+      setOperations(operationsData.operations || []);
+      setTodos(todosData.todos || []);
       setPatients(patientsData.patients || []);
       setStaff(staffData.staff || []);
 
@@ -346,23 +347,33 @@ return (
         </CardContent>
       </Card>
 
-      {/* Operation */}
+      {/* Operations */}
       <Card
         className={cardBaseClasses}
-        onClick={() => (window.location.href = `/d/${workspaceid}/operations`)}
+        onClick={() => (window.location.href = `/d/${workspaceid}/doctor/operations`)}
       >
-        <CardContent className="flex items-center justify-center py-6">
-          <span className="text-md font-bold">Operation</span>
+        <CardContent className="flex items-center justify-center py-6 text-center">
+          <div>
+            <div className="text-lg font-semibold mb-4">Operations</div>
+            <div className="text-2xl font-bold">{operations.length}</div>
+            <div className="text-xs opacity-90 mt-1">
+              {operations.filter((o) => o.status === "scheduled").length} scheduled • {operations.filter((o) => o.status === "in_progress").length} in progress
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* Notification */}
       <Card
         className={cardBaseClasses}
-        onClick={() => (window.location.href = `#clinical-notes`)}
+        onClick={() => (window.location.href = `/d/${workspaceid}/doctor/notifications`)}
       >
-        <CardContent className="flex items-center justify-center py-6">
-          <span className="text-md font-bold">Notification</span>
+        <CardContent className="flex items-center justify-center py-6 text-center">
+          <div>
+            <div className="text-lg font-semibold mb-4">Notifications</div>
+            <div className="text-2xl font-bold">{patients.length}</div>
+            <div className="text-xs opacity-90 mt-1">Alerts & updates</div>
+          </div>
         </CardContent>
       </Card>
 
@@ -371,8 +382,12 @@ return (
         className={cardBaseClasses}
         onClick={() => (window.location.href = `/d/${workspaceid}/staff`)}
       >
-        <CardContent className="flex items-center justify-center py-6">
-          <span className="text-md font-bold">Contacts</span>
+        <CardContent className="flex items-center justify-center py-6 text-center">
+          <div>
+            <div className="text-lg font-semibold mb-4">Contacts</div>
+            <div className="text-2xl font-bold">{staff.length}</div>
+            <div className="text-xs opacity-90 mt-1">Staff members</div>
+          </div>
         </CardContent>
       </Card>
 
@@ -381,8 +396,14 @@ return (
         className={cardBaseClasses}
         onClick={() => (window.location.href = `/d/${workspaceid}/doctor/todos`)}
       >
-        <CardContent className="flex items-center justify-center py-6">
-          <span className="text-md font-bold">To do</span>
+        <CardContent className="flex items-center justify-center py-6 text-center">
+          <div>
+            <div className="text-lg font-semibold mb-4">To do</div>
+            <div className="text-2xl font-bold">{todos.length}</div>
+            <div className="text-xs opacity-90 mt-1">
+              {todos.filter((t) => !t.completed).length} active • {todos.filter((t) => t.completed).length} completed
+            </div>
+          </div>
         </CardContent>
       </Card>
 
