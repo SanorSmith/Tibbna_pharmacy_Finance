@@ -31,10 +31,9 @@ export interface ClinicalNote {
 interface NotesTabProps {
   workspaceid: string;
   patientid: string;
-  fullName: string;
 }
 
-export function NotesTab({ workspaceid, patientid, fullName }: NotesTabProps) {
+export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
@@ -51,8 +50,8 @@ export function NotesTab({ workspaceid, patientid, fullName }: NotesTabProps) {
         const data = await res.json();
         setClinicalNotes(data.notes || []);
       }
-    } catch (e) {
-      console.error("Failed to load clinical notes:", e);
+    } catch (error) {
+      console.error("Error loading clinical notes:", error);
     } finally {
       setLoadingNotes(false);
     }
@@ -62,15 +61,6 @@ export function NotesTab({ workspaceid, patientid, fullName }: NotesTabProps) {
   useEffect(() => {
     loadClinicalNotes();
   }, [loadClinicalNotes]);
-
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 
   return (
     <>
@@ -83,7 +73,7 @@ export function NotesTab({ workspaceid, patientid, fullName }: NotesTabProps) {
             <Button
               size="sm"
               onClick={() => setShowNoteForm(true)}
-              className="bg-black hover:bg-black/80 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               + New Note
             </Button>
@@ -228,7 +218,7 @@ export function NotesTab({ workspaceid, patientid, fullName }: NotesTabProps) {
           <DialogHeader>
             <DialogTitle>New Clinical Note</DialogTitle>
             <DialogDescription>
-              Create a new clinical note for {fullName} using SOAP format
+              Create a new clinical note for this patient using SOAP format
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -373,7 +363,7 @@ export function NotesTab({ workspaceid, patientid, fullName }: NotesTabProps) {
                 Cancel
               </Button>
               <Button
-                className="bg-black hover:bg-black/80 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   const synopsis = (
                     document.getElementById(

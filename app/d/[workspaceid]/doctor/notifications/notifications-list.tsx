@@ -13,13 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft,
   AlertCircle,
   Clock,
   FileText,
   Pill,
   Stethoscope,
   User,
+  Home,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -115,9 +115,13 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0 mr-4 ml-4">
       {/* Header */}
       <Link href={`/d/${workspaceid}/doctor`}>
-        <Button variant="outline" size="sm">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Back to Doctor Dashboard"
+          className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+        >
+          <Home className="h-4 w-4" />
         </Button>
       </Link>
       <div className="flex items-center justify-between">

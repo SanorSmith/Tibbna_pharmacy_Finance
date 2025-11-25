@@ -27,10 +27,9 @@ export interface VaccinationRecord {
 interface VaccinationsTabProps {
   workspaceid: string;
   patientid: string;
-  fullName: string;
 }
 
-export function VaccinationsTab({ workspaceid, patientid, fullName }: VaccinationsTabProps) {
+export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps) {
   const [showVaccinationForm, setShowVaccinationForm] = useState(false);
   const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
   const [loadingVaccinations, setLoadingVaccinations] = useState(false);
@@ -57,8 +56,8 @@ export function VaccinationsTab({ workspaceid, patientid, fullName }: Vaccinatio
         const data = await res.json();
         setVaccinationRecords(data.vaccinations || []);
       }
-    } catch (e) {
-      console.error("Failed to load vaccinations:", e);
+    } catch (error) {
+      console.error("Error loading vaccinations:", error);
     } finally {
       setLoadingVaccinations(false);
     }
@@ -68,15 +67,6 @@ export function VaccinationsTab({ workspaceid, patientid, fullName }: Vaccinatio
   useEffect(() => {
     loadVaccinations();
   }, [loadVaccinations]);
-
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 
   return (
     <>
@@ -94,7 +84,7 @@ export function VaccinationsTab({ workspaceid, patientid, fullName }: Vaccinatio
             <Button
               size="sm"
               onClick={() => setShowVaccinationForm(true)}
-              className="bg-black hover:bg-black/80 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <span className="mr-1">+</span> Record Vaccination
             </Button>
@@ -474,7 +464,7 @@ export function VaccinationsTab({ workspaceid, patientid, fullName }: Vaccinatio
                 Cancel
               </Button>
               <Button
-                className="bg-black hover:bg-black/80 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   try {
                     if (

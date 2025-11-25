@@ -1,15 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Calendar, 
-  TestTube, 
-  FileText, 
-  Image as ImageIcon, 
-  Heart,
-  MapPin,
-  Pill
-} from "lucide-react";
+import { Calendar, Heart, TestTube, FileText, Image as ImageIcon } from "lucide-react";
 import { DiagnosisRecord } from "./DiagnosticsTab";
 
 export type { DiagnosisRecord };
@@ -88,24 +80,19 @@ export interface VitalSignsRecord {
 }
 
 interface DashboardTabProps {
+  workspaceid: string;
+  patientid: string;
   appointments: Appointment[];
+  vitalSigns: VitalSignsRecord[];
   diagnoses: DiagnosisRecord[];
   labs: LabRecord[];
   imaging: ImagingRecord[];
   carePlans: CarePlanRecord[];
-  medications: MedicationRecord[];
-  vitalSignsRecords: VitalSignsRecord[];
-  vaccinations: VaccinationRecord[];
-  referrals: ReferralRecord[];
-  loading: boolean;
+  loadingVitalSigns: boolean;
   loadingDiagnoses: boolean;
-  loadingLabs: boolean;
   loadingImaging: boolean;
   loadingCarePlans: boolean;
-  loadingMedications: boolean;
-  loadingVitalSigns: boolean;
-  loadingVaccinations: boolean;
-  loadingReferrals: boolean;
+  loadingLabs: boolean;
 }
 
 export function DashboardTab({
@@ -114,365 +101,387 @@ export function DashboardTab({
   labs = [],
   imaging = [],
   carePlans = [],
-  medications = [],
-  loading = false,
+  vitalSigns = [],
+  loadingVitalSigns = false,
   loadingDiagnoses = false,
-  loadingLabs = false,
   loadingImaging = false,
   loadingCarePlans = false,
-  loadingMedications = false,
+  loadingLabs = false,
 }: DashboardTabProps) {
   return (
-    <div className="space-y-6">
-      {/* Dashboard Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Appointments Card */}
-        <Card className="col-span-1 bg-blue-500 text-white">
-          <CardHeader className="pb-3">
-            <div className="flex items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Appointments
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {loading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                <p className="text-sm opacity-90">Loading...</p>
+    <div className="space-y-2">
+      <div className="space-y-2">
+        <div className="grid gap-2 md:grid-cols-3">
+          {/* Appointments Card */}
+          <Card className="bg-blue-500 text-white rounded-lg h-full">
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Appointments
+                </CardTitle>
               </div>
-            ) : appointments.length === 0 ? (
-              <div className="text-center py-4">
-                <Calendar className="h-8 w-8 opacity-70 mx-auto mb-2" />
-                <p className="text-sm opacity-90">No appointments scheduled</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {appointments.slice(0, 1).map((apt) => (
-                  <div key={apt.appointmentid} className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">
-                          {new Date(apt.starttime).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </div>
-                        <div className="text-xs opacity-90">
-                          {new Date(apt.starttime).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
-                        {apt.location && (
-                          <div className="text-xs opacity-90 flex items-center gap-1 mt-1">
-                            <MapPin className="h-3 w-3" />
-                            {apt.location}
+            </CardHeader>
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingVitalSigns ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : appointments.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <Calendar className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No appointments</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {appointments.slice(0, 1).map((apt) => (
+                    <div key={apt.appointmentid} className="py-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs truncate">
+                            {new Date(apt.starttime).toLocaleDateString(
+                              "en-US",
+                              { month: "short", day: "numeric" }
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        apt.status === 'confirmed' ? 'bg-green-400 text-green-900' :
-                        apt.status === 'pending' ? 'bg-yellow-400 text-yellow-900' :
-                        'bg-gray-400 text-gray-900'
-                      }`}>
-                        {apt.status}
+                          <div className="text-[10px] opacity-90">
+                            {new Date(apt.starttime).toLocaleTimeString(
+                              "en-US",
+                              { hour: "2-digit", minute: "2-digit" }
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                            apt.status === "confirmed"
+                              ? "bg-green-400 text-green-900"
+                              : apt.status === "pending"
+                              ? "bg-yellow-400 text-yellow-900"
+                              : "bg-gray-400 text-gray-900"
+                          }`}
+                        >
+                          {apt.status}
+                        </div>
                       </div>
                     </div>
-                    {apt.reason && (
-                      <div className="text-xs opacity-90 mt-2">
-                        {apt.reason}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Labs Card */}
+          <Card className="col-span-1 bg-blue-500 rounded-lg text-white h-full">
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <TestTube className="h-3.5 w-3.5" />
+                  Lab Results
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingLabs ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : labs.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <TestTube className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No lab results</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {labs.slice(0, 1).map((lab: LabRecord) => (
+                    <div key={lab.labid} className="py-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs truncate">{lab.test_name}</div>
+                          <div className="text-[10px] opacity-90">
+                            {new Date(lab.test_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                            lab.status === "completed"
+                              ? "bg-green-400 text-green-900"
+                              : lab.status === "pending"
+                              ? "bg-yellow-400 text-yellow-900"
+                              : "bg-red-400 text-red-900"
+                          }`}
+                        >
+                          {lab.status}
+                        </div>
+                      </div>
+                      {lab.result && (
+                        <div className="text-xs font-medium mt-1 truncate">
+                          Result: {lab.result}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Diagnosis Card */}
+          <Card className="col-span-1 bg-blue-500 rounded-lg text-white h-full">
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" />
+                  Diagnosis
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingDiagnoses ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : diagnoses.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <FileText className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No diagnoses</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {diagnoses.slice(0, 1).map((diagnosis) => (
+                    <div key={diagnosis.composition_uid} className="py-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs truncate">
+                            {diagnosis.problem_diagnosis}
+                          </div>
+                          <div className="text-[10px] opacity-90">
+                            {new Date(
+                              diagnosis.recorded_time
+                            ).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                            diagnosis.clinical_status === "active"
+                              ? "bg-red-400 text-red-900"
+                              : diagnosis.clinical_status === "resolved"
+                              ? "bg-green-400 text-green-900"
+                              : "bg-gray-400 text-gray-900"
+                          }`}
+                        >
+                          {diagnosis.clinical_status}
+                        </div>
+                      </div>
+                      {diagnosis.clinical_description && (
+                        <div className="text-xs opacity-90 mt-1 line-clamp-2">
+                          {diagnosis.clinical_description}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Imaging Card */}
+          <Card className="col-span-1 bg-blue-500 rounded-lg text-white h-full">
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  Imaging
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingImaging ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : imaging.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <ImageIcon className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No imaging</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {imaging.slice(0, 1).map((img) => (
+                    <div key={img.imagingid} className="py-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs truncate">
+                            {img.study_type}
+                          </div>
+                          <div className="text-[10px] opacity-90">
+                            {new Date(img.study_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                            img.status === "completed"
+                              ? "bg-green-400 text-green-900"
+                              : img.status === "scheduled"
+                              ? "bg-blue-400 text-blue-900"
+                              : "bg-yellow-400 text-yellow-900"
+                          }`}
+                        >
+                          {img.status}
+                        </div>
+                      </div>
+                      {img.findings && (
+                        <div className="text-xs opacity-90 mt-1 line-clamp-2">
+                          {img.findings}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Care Plan Card */}
+          <Card className="col-span-1 bg-blue-500 rounded-lg  text-white h-full">
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <Heart className="h-3.5 w-3.5" />
+                  Care Plan
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingCarePlans ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : carePlans.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <Heart className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No care plans</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {carePlans.slice(0, 1).map((plan) => (
+                    <div key={plan.planid} className="py-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs truncate">
+                            {plan.plan_name}
+                          </div>
+                          <div className="text-[10px] opacity-90">
+                            {new Date(plan.created_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                            plan.status === "active"
+                              ? "bg-green-400 text-green-900"
+                              : plan.status === "draft"
+                              ? "bg-gray-400 text-gray-900"
+                              : "bg-blue-400 text-blue-900"
+                          }`}
+                        >
+                          {plan.status}
+                        </div>
+                      </div>
+                      {plan.description && (
+                        <div className="text-xs opacity-90 mt-1 line-clamp-2">
+                          {plan.description}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Vitals Card */}
+          <Card className="col-span-1 bg-blue-500 rounded-lg text-white relative h-full">
+            {/* Date on top-right */}
+            {vitalSigns.length > 0 && (
+              <span className="absolute top-2 right-3 text-[9px] opacity-80">
+                {new Date(
+                  vitalSigns[0].recorded_time
+                ).toLocaleDateString()}
+              </span>
+            )}
+
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <Heart className="h-3.5 w-3.5" />
+                  Vitals
+                </CardTitle>
+              </div>
+            </CardHeader>
+
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingVitalSigns ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : vitalSigns.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <Heart className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No vitals</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Blood Pressure */}
+                  {vitalSigns[0].systolic &&
+                    vitalSigns[0].diastolic && (
+                      <div>
+                        <p className="text-[9px] opacity-90">BP</p>
+                        <p className="font-semibold text-xs mt-0.5">
+                          {vitalSigns[0].systolic}/
+                          {vitalSigns[0].diastolic}
+                        </p>
                       </div>
                     )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Labs Card */}
-        <Card className="col-span-1 bg-blue-500 text-white">
-          <CardHeader className="pb-3">
-            <div className="flex items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TestTube className="h-5 w-5" />
-                Lab Results
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {loadingLabs ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                <p className="text-sm opacity-90">Loading...</p>
-              </div>
-            ) : labs.length === 0 ? (
-              <div className="text-center py-4">
-                <TestTube className="h-8 w-8 opacity-70 mx-auto mb-2" />
-                <p className="text-sm opacity-90">No lab results</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {labs.slice(0, 1).map((lab) => (
-                  <div key={lab.labid} className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{lab.test_name}</div>
-                        <div className="text-xs opacity-90">
-                          {new Date(lab.test_date).toLocaleDateString()}
-                        </div>
-                        {lab.normal_range && (
-                          <div className="text-xs opacity-90">
-                            Range: {lab.normal_range}
-                          </div>
-                        )}
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        lab.status === 'completed' ? 'bg-green-400 text-green-900' :
-                        lab.status === 'pending' ? 'bg-yellow-400 text-yellow-900' :
-                        'bg-red-400 text-red-900'
-                      }`}>
-                        {lab.status}
-                      </div>
+                  {/* Heart Rate */}
+                  {vitalSigns[0].heart_rate && (
+                    <div>
+                      <p className="text-[9px] opacity-90">HR</p>
+                      <p className="font-semibold text-xs mt-0.5">
+                        {vitalSigns[0].heart_rate}
+                      </p>
                     </div>
-                    {lab.result && (
-                      <div className="text-xs font-medium mt-2">
-                        Result: {lab.result}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  )}
 
-        {/* Diagnosis Card */}
-        <Card className="col-span-1 bg-blue-500 text-white">
-          <CardHeader className="pb-3">
-            <div className="flex items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Diagnosis
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {loadingDiagnoses ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                <p className="text-sm opacity-90">Loading...</p>
-              </div>
-            ) : diagnoses.length === 0 ? (
-              <div className="text-center py-4">
-                <FileText className="h-8 w-8 opacity-70 mx-auto mb-2" />
-                <p className="text-sm opacity-90">No diagnoses recorded</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {diagnoses.slice(0, 1).map((diagnosis) => (
-                  <div key={diagnosis.composition_uid} className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{diagnosis.problem_diagnosis}</div>
-                        <div className="text-xs opacity-90">
-                          {new Date(diagnosis.recorded_time).toLocaleDateString()}
-                        </div>
-                        {diagnosis.body_site && (
-                          <div className="text-xs opacity-90">
-                            Site: {diagnosis.body_site}
-                          </div>
-                        )}
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        diagnosis.clinical_status === 'active' ? 'bg-red-400 text-red-900' :
-                        diagnosis.clinical_status === 'resolved' ? 'bg-green-400 text-green-900' :
-                        'bg-gray-400 text-gray-900'
-                      }`}>
-                        {diagnosis.clinical_status}
-                      </div>
+                  {/* Temperature */}
+                  {vitalSigns[0].temperature && (
+                    <div>
+                      <p className="text-[9px] opacity-90">Temp</p>
+                      <p className="font-semibold text-xs mt-0.5">
+                        {vitalSigns[0].temperature}°C
+                      </p>
                     </div>
-                    {diagnosis.clinical_description && (
-                      <div className="text-xs opacity-90 mt-2 line-clamp-2">
-                        {diagnosis.clinical_description}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  )}
 
-        {/* Imaging Card */}
-        <Card className="col-span-1 bg-blue-500 text-white">
-          <CardHeader className="pb-3">
-            <div className="flex items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Imaging
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {loadingImaging ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                <p className="text-sm opacity-90">Loading...</p>
-              </div>
-            ) : imaging.length === 0 ? (
-              <div className="text-center py-4">
-                <ImageIcon className="h-8 w-8 opacity-70 mx-auto mb-2" />
-                <p className="text-sm opacity-90">No imaging studies</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {imaging.slice(0, 1).map((img) => (
-                  <div key={img.imagingid} className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{img.study_type}</div>
-                        <div className="text-xs opacity-90">
-                          {new Date(img.study_date).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        img.status === 'completed' ? 'bg-green-400 text-green-900' :
-                        img.status === 'scheduled' ? 'bg-blue-400 text-blue-900' :
-                        'bg-yellow-400 text-yellow-900'
-                      }`}>
-                        {img.status}
-                      </div>
+                  {/* SpO2 */}
+                  {vitalSigns[0].spo2 && (
+                    <div>
+                      <p className="text-[9px] opacity-90">SpO₂</p>
+                      <p className="font-semibold text-xs mt-0.5">
+                        {vitalSigns[0].spo2}%
+                      </p>
                     </div>
-                    {img.findings && (
-                      <div className="text-xs opacity-90 mt-2 line-clamp-2">
-                        {img.findings}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Care Plan Card */}
-        <Card className="col-span-1 bg-blue-500 text-white">
-          <CardHeader className="pb-3">
-            <div className="flex items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Heart className="h-5 w-5" />
-                Care Plan
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {loadingCarePlans ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                <p className="text-sm opacity-90">Loading...</p>
-              </div>
-            ) : carePlans.length === 0 ? (
-              <div className="text-center py-4">
-                <Heart className="h-8 w-8 opacity-70 mx-auto mb-2" />
-                <p className="text-sm opacity-90">No care plans created</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {carePlans.slice(0, 1).map((plan) => (
-                  <div key={plan.planid} className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{plan.plan_name}</div>
-                        <div className="text-xs opacity-90">
-                          Created: {new Date(plan.created_date).toLocaleDateString()}
-                        </div>
-                        {plan.description && (
-                          <div className="text-xs opacity-90 mt-2 line-clamp-2">
-                            {plan.description}
-                          </div>
-                        )}
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        plan.status === 'active' ? 'bg-green-400 text-green-900' :
-                        plan.status === 'draft' ? 'bg-gray-400 text-gray-900' :
-                        'bg-blue-400 text-blue-900'
-                      }`}>
-                        {plan.status}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Medications Card */}
-        <Card className="col-span-1 bg-blue-500 text-white">
-          <CardHeader className="pb-3">
-            <div className="flex items-center">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Pill className="h-5 w-5" />
-                Medications
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {loadingMedications ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                <p className="text-sm opacity-90">Loading...</p>
-              </div>
-            ) : medications.length === 0 ? (
-              <div className="text-center py-4">
-                <Pill className="h-8 w-8 opacity-70 mx-auto mb-2" />
-                <p className="text-sm opacity-90">No medications prescribed</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {medications.slice(0, 1).map((med) => (
-                  <div key={med.medicationid} className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{med.medication_name}</div>
-                        <div className="text-xs opacity-90">
-                          {med.dosage} • {med.frequency}
-                        </div>
-                        <div className="text-xs opacity-90 mt-1">
-                          Started: {new Date(med.start_date).toLocaleDateString()}
-                        </div>
-                        {med.end_date && (
-                          <div className="text-xs opacity-90">
-                            Ends: {new Date(med.end_date).toLocaleDateString()}
-                          </div>
-                        )}
-                        {med.prescribed_by && (
-                          <div className="text-xs opacity-90">
-                            By: {med.prescribed_by}
-                          </div>
-                        )}
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        med.status === 'active' ? 'bg-green-400 text-green-900' :
-                        med.status === 'completed' ? 'bg-gray-400 text-gray-900' :
-                        med.status === 'paused' ? 'bg-yellow-400 text-yellow-900' :
-                        'bg-red-400 text-red-900'
-                      }`}>
-                        {med.status}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -115,7 +115,7 @@ export async function GET(
             // Skip compositions without vital signs data
             return null;
           }
-        } catch (error) {
+        } catch {
           return null; // Return null for failed compositions so they get filtered out
         }
       })
@@ -140,7 +140,7 @@ export async function GET(
       currentOffset: offset,
       currentLimit: limit
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -322,7 +322,7 @@ if (spO2) {
           });
           
           }
-      } catch (error) {
+      } catch {
         // Fall back to creating a new composition
       }
     }

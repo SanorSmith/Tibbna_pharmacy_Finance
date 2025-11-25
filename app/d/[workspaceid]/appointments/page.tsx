@@ -5,6 +5,7 @@
  */
 import { Header } from "@/components/sidebar/header";
 import AppointmentsList from "./appointments-list";
+import { Home } from "lucide-react";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
@@ -36,10 +37,12 @@ export default async function AppointmentsPage({ params }: PageProps) {
           </div>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            aria-label="Back to Doctor Dashboard"
+            className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
             onClick={() => (window.location.href = `/d/${workspaceid}/doctor`)}
           >
-            Back to dashboard
+            <Home className="h-4 w-4" />
           </Button>
         </div>
         <div className="bg-background rounded-xl border">

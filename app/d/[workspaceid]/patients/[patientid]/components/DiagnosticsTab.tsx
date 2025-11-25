@@ -37,8 +37,8 @@ interface DiagnosticsTabProps {
   showDiagnosisDetails: boolean;
   setShowDiagnosisDetails: (show: boolean) => void;
   workspaceid: string;
+  patientid: string;
   patient: { patientid: string };
-  fullName: string;
 }
 
 export function DiagnosticsTab({
@@ -53,7 +53,6 @@ export function DiagnosticsTab({
   setShowDiagnosisDetails,
   workspaceid,
   patient,
-  fullName,
 }: DiagnosticsTabProps) {
   const [showDiagnosisForm, setShowDiagnosisForm] = useState(false);
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -361,7 +360,7 @@ export function DiagnosticsTab({
                 Cancel
               </Button>
               <Button
-                className="bg-black hover:bg-black/80 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   if (!diagnosisForm.problemDiagnosis) {
                     alert("Please enter a problem/diagnosis name");

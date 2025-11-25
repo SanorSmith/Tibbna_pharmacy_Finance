@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
 
 // Lab Results interfaces (openEHR compliant)
 export interface LabTestAnalyte {
@@ -72,9 +71,6 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
   
-  // Lab test orders state
-  const [labOrders, setLabOrders] = useState<LabTestOrder[]>([]);
-  const [loadingLabOrders, setLoadingLabOrders] = useState(false);
   const [showLabOrderForm, setShowLabOrderForm] = useState(false);
   const [labOrderForm, setLabOrderForm] = useState({
     service_name: "",
@@ -111,43 +107,10 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
     }
   }, [workspaceid, patientid]);
 
-  const loadLabOrders = useCallback(async () => {
-    try {
-      setLoadingLabOrders(true);
-      console.log(`Loading lab orders for patient ${patientid} in workspace ${workspaceid}`);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patientid}/lab-orders`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log("Lab orders response:", data);
-        setLabOrders(data.labOrders || []);
-      } else {
-        console.error("Failed to load lab orders:", res.status, res.statusText);
-      }
-    } catch (error) {
-      console.error("Error loading lab orders:", error);
-    } finally {
-      setLoadingLabOrders(false);
-    }
-  }, [workspaceid, patientid]);
-
-  // Load lab results and orders when component mounts
+  // Load lab results when component mounts
   useEffect(() => {
     loadLabResults();
-    loadLabOrders();
-  }, [loadLabResults, loadLabOrders]);
-
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
+  }, [loadLabResults]);
 
   const saveLabOrder = async () => {
     if (!labOrderForm.service_name || !labOrderForm.clinical_indication) {
@@ -195,7 +158,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
       
       // Wait a moment for the composition to be available, then reload
       setTimeout(() => {
-        loadLabOrders();
+        loadLabResults();
       }, 500);
     } catch (error) {
       console.error("Error saving lab order:", error);
@@ -218,14 +181,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
               openEHR: Laboratory test result
             </p>
           </div>
-          <Button 
-            className="bg-blue-500 hover:bg-blue-700 text-white flex items-center gap-1"
-            size="sm" 
-            onClick={() => setShowLabOrderForm(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Add Lab Order
-          </Button>
+         
         </div>
       </CardHeader>
       <CardContent>
@@ -544,76 +500,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
       </DialogContent>
     </Dialog>
 
-      {/* Lab Orders Card */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Lab Test Orders</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            openEHR: Service request for laboratory tests
-          </p>
-        </CardHeader>
-        <CardContent>
-          {loadingLabOrders ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Loading lab orders...
-            </div>
-          ) : labOrders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No lab orders found.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {labOrders.map((order) => (
-                <div key={order.composition_uid} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <h4 className="font-semibold">{order.service_name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(order.recorded_time).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        order.request_status === "ordered"
-                          ? "bg-blue-100 text-blue-800"
-                          : order.request_status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {order.request_status}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Clinical Indication:</span>
-                      <p className="text-muted-foreground">{order.clinical_indication}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium">Urgency:</span>
-                      <p className="text-muted-foreground capitalize">{order.urgency}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium">Requesting Provider:</span>
-                      <p className="text-muted-foreground">{order.requesting_provider}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium">Receiving Provider:</span>
-                      <p className="text-muted-foreground">{order.receiving_provider}</p>
-                    </div>
-                  </div>
-                  {order.description && (
-                    <div className="mt-2 text-sm">
-                      <span className="font-medium">Description:</span>
-                      <p className="text-muted-foreground">{order.description}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+     
 
       {/* Lab Order Form Dialog */}
       <Dialog open={showLabOrderForm} onOpenChange={setShowLabOrderForm}>
@@ -857,7 +744,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                 Cancel
               </Button>
               <Button
-                className="bg-black hover:bg-black/80 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={saveLabOrder}
               >
                 Order Lab Test

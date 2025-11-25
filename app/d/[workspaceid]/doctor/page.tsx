@@ -70,7 +70,7 @@ export default async function DoctorPage({ params }: PageProps) {
     {/*  <Header /> */}
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Doctor Dashboard</h1>
+          <h1 className="text-xl font-semibold"></h1>
         </div>
         <DoctorDashboard
           workspaceid={workspaceid}

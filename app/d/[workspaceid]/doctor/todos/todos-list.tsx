@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Pencil, Trash2, Plus } from "lucide-react";
+import { Home, Pencil, Trash2, Plus } from "lucide-react";
 import Link from "next/link";
 
 type Todo = {
@@ -225,15 +225,20 @@ export default function TodosList({ workspaceid, userid }: Props) {
   return (
     <div className="flex flex-1 flex-col gap-4 mr-4 m-4 p-4 pt-0">
           <Link href={`/d/${workspaceid}/doctor`}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Back to Doctor Dashboard"
+              className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+            >
+              <Home className="h-4 w-4" />
             </Button>
           </Link>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">My Todos</h1>
+        <h1 className="text-xl font-semibold">Todo List</h1>
         <div className="flex gap-2">
-          <Button onClick={() => setShowAddDialog(true)} className="flex items-center gap-2 bg-orange-400 hover:bg-orange-500">
+          <Button onClick={() => setShowAddDialog(true)} 
+                className="bg-blue-600 hover:bg-blue-700 text-white">
             <Plus className="h-4 w-4" />
             Add Todo
           </Button>

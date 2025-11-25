@@ -134,7 +134,7 @@ export async function GET(
           } else {
             return null;
           }
-        } catch (error) {
+        } catch {
           return null;
         }
       })

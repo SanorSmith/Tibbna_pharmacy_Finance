@@ -50,10 +50,9 @@ export interface PrescriptionRecord {
 interface MedsTabProps {
   workspaceid: string;
   patientid: string;
-  fullName: string;
 }
 
-export function MedsTab({ workspaceid, patientid, fullName }: MedsTabProps) {
+export function MedsTab({ workspaceid, patientid }: MedsTabProps) {
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [prescriptionRecords, setPrescriptionRecords] = useState<
     PrescriptionRecord[]
@@ -122,8 +121,8 @@ export function MedsTab({ workspaceid, patientid, fullName }: MedsTabProps) {
         const data = await res.json();
         setPrescriptionRecords(data.prescriptions || []);
       }
-    } catch (e) {
-      console.error("Failed to load prescriptions:", e);
+    } catch (error) {
+      console.error("Error loading prescriptions:", error);
     } finally {
       setLoadingPrescriptions(false);
     }
@@ -134,22 +133,13 @@ export function MedsTab({ workspaceid, patientid, fullName }: MedsTabProps) {
     loadPrescriptions();
   }, [loadPrescriptions]);
 
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
   return (
     <>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Prescriptions</CardTitle>
-            <Button size="sm" onClick={() => setShowPrescriptionForm(true)}>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => setShowPrescriptionForm(true)}>
               + New Prescription
             </Button>
           </div>
@@ -183,6 +173,7 @@ export function MedsTab({ workspaceid, patientid, fullName }: MedsTabProps) {
                 No prescriptions have been recorded yet
               </p>
               <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={() => setShowPrescriptionForm(true)}
                 variant="outline"
               >
@@ -274,7 +265,7 @@ export function MedsTab({ workspaceid, patientid, fullName }: MedsTabProps) {
               New Prescription (openEHR Medication Order)
             </DialogTitle>
             <DialogDescription>
-              Create a medication order for {fullName}
+              Create a medication order for this patient
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -538,6 +529,7 @@ export function MedsTab({ workspaceid, patientid, fullName }: MedsTabProps) {
                 Cancel
               </Button>
               <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   if (
                     !prescriptionForm.medicationItem ||
