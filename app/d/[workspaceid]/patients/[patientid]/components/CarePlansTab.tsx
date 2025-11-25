@@ -28,10 +28,9 @@ export interface CarePlan {
 interface CarePlansTabProps {
   workspaceid: string;
   patientid: string;
-  fullName: string;
 }
 
-export function CarePlansTab({ workspaceid, patientid, fullName }: CarePlansTabProps) {
+export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
   const [showCarePlanForm, setShowCarePlanForm] = useState(false);
   const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
   const [loadingCarePlans, setLoadingCarePlans] = useState(false);
@@ -48,8 +47,8 @@ export function CarePlansTab({ workspaceid, patientid, fullName }: CarePlansTabP
         const data = await res.json();
         setCarePlans(data.carePlans || []);
       }
-    } catch (e) {
-      console.error("Failed to load care plans:", e);
+    } catch (error) {
+      console.error("Error loading care plans:", error);
     } finally {
       setLoadingCarePlans(false);
     }
@@ -60,22 +59,13 @@ export function CarePlansTab({ workspaceid, patientid, fullName }: CarePlansTabP
     loadCarePlans();
   }, [loadCarePlans]);
 
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
   return (
     <>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Care Plans</CardTitle>
-            <Button size="sm" onClick={() => setShowCarePlanForm(true)}>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => setShowCarePlanForm(true)}>
               + New Care Plan
             </Button>
           </div>
@@ -194,7 +184,7 @@ export function CarePlansTab({ workspaceid, patientid, fullName }: CarePlansTabP
           <DialogHeader>
             <DialogTitle>New Care Plan</DialogTitle>
             <DialogDescription>
-              Create a new care plan for {fullName}
+              Create a new care plan for this patient
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -301,6 +291,7 @@ export function CarePlansTab({ workspaceid, patientid, fullName }: CarePlansTabP
                 Cancel
               </Button>
               <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   const carePlanName = (
                     document.getElementById("carePlanName") as HTMLInputElement

@@ -8,7 +8,7 @@ import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
 import OperationsList from "./operations-list";
-import { ArrowLeft } from "lucide-react";
+import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 interface PageProps {
@@ -38,9 +38,13 @@ export default async function OperationsPage({ params }: PageProps) {
         <div className="flex items-center justify-between">
   {/* existing title / actions */}
   <Link href={`/d/${workspaceid}/doctor`}>
-    <Button variant="outline" size="sm">
-      <ArrowLeft className="h-4 w-4 mr-2" />
-      Back
+    <Button
+      variant="outline"
+      size="icon"
+      aria-label="Back to Doctor Dashboard"
+      className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+    >
+      <Home className="h-4 w-4" />
     </Button>
   </Link>
 </div>

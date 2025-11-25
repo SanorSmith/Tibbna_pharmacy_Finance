@@ -25,10 +25,9 @@ export interface ReferralRecord {
 interface ReferralsTabProps {
   workspaceid: string;
   patientid: string;
-  fullName: string;
 }
 
-export function ReferralsTab({ workspaceid, patientid, fullName }: ReferralsTabProps) {
+export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
   const [showReferralForm, setShowReferralForm] = useState(false);
   const [referralRecords, setReferralRecords] = useState<ReferralRecord[]>([]);
   const [loadingReferrals, setLoadingReferrals] = useState(false);
@@ -51,8 +50,8 @@ export function ReferralsTab({ workspaceid, patientid, fullName }: ReferralsTabP
         const data = await res.json();
         setReferralRecords(data.referrals || []);
       }
-    } catch (e) {
-      console.error("Failed to load referrals:", e);
+    } catch (error) {
+      console.error("Error loading referrals:", error);
     } finally {
       setLoadingReferrals(false);
     }
@@ -62,15 +61,6 @@ export function ReferralsTab({ workspaceid, patientid, fullName }: ReferralsTabP
   useEffect(() => {
     loadReferrals();
   }, [loadReferrals]);
-
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 
   return (
     <>
@@ -86,7 +76,7 @@ export function ReferralsTab({ workspaceid, patientid, fullName }: ReferralsTabP
             <Button
               size="sm"
               onClick={() => setShowReferralForm(true)}
-              className="bg-black hover:bg-black/80 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <span className="mr-1">+</span> New Referral
             </Button>
@@ -352,7 +342,7 @@ export function ReferralsTab({ workspaceid, patientid, fullName }: ReferralsTabP
                 Cancel
               </Button>
               <Button
-                className="bg-black hover:bg-black/80 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   try {
                     if (

@@ -119,7 +119,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Appointments</CardTitle>
-            <Button onClick={() => setShowAddDialog(true)}>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowAddDialog(true)}>
               + Add Appointment
             </Button>
           </div>
@@ -318,7 +318,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
           <Button variant="outline" onClick={() => setShowAddDialog(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleAddAppointment} disabled={saving}>
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAddAppointment} disabled={saving}>
             {saving ? "Creating..." : "Create Appointment"}
           </Button>
         </DialogFooter>

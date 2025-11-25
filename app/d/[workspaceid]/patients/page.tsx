@@ -10,7 +10,7 @@ import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import PatientsList from "./patients-list";
 import { Button } from "@/components/ui/button";
-import { Plus,ArrowLeft  } from "lucide-react";
+import { Plus, Home, LayoutDashboard } from "lucide-react";
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
 }
@@ -54,8 +54,12 @@ export default async function PatientsPage({ params }: PageProps) {
   return (
     <>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Patients</h1>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2">
+            <LayoutDashboard size={24} />
+            <h1 className="text-xl font-semibold">Patients</h1>
+          </div>
+
           {/* Show register button only to admins */}
           {isAdmin && (
             <Link href={`/d/${workspaceid}/patients/new`}>
@@ -66,15 +70,19 @@ export default async function PatientsPage({ params }: PageProps) {
             </Link>
           )}
         </div>
+
         <div className="flex items-center justify-between">
-  {/* existing title / actions */}
-  <Link href={`/d/${workspaceid}/doctor`}>
-    <Button variant="outline" size="sm">
-      <ArrowLeft className="mr-2 h-4 w-4" />
-      Back
-    </Button>
-  </Link>
-</div>
+          <Link href={`/d/${workspaceid}/doctor`}>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Back to Doctor Dashboard"
+              className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+            >
+              <Home className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
         <div className="bg-muted/50 rounded-xl p-4">
           {/* Fetch and render list client-side to avoid server relative-URL issues */}
           <PatientsList workspaceid={workspaceid} userRole={userRole} />

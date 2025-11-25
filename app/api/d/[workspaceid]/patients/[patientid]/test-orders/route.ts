@@ -11,7 +11,6 @@ import {
   getOpenEHRCompositions,
   getOpenEHRComposition
 } from "@/lib/openehr/openehr";
-import axios from "axios";
 
 // Test Order interface matching the OpenEHR template structure
 interface TestOrderRecord {
@@ -93,7 +92,7 @@ export async function GET(
 
     // Filter compositions that likely contain service requests by checking archetype_node_id
     // This reduces unnecessary API calls
-    const serviceRequestCompositions = compositions.filter(comp => {
+    const serviceRequestCompositions = compositions.filter(() => {
       // Only fetch compositions that might have service requests
       // We'll check the actual data in the next step
       return true; // For now, we need to check all since we can't filter by archetype in the list

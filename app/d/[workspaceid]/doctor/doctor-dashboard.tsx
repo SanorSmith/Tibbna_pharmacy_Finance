@@ -104,9 +104,10 @@ export default function DoctorDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
-  
-  
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,26 +124,29 @@ export default function DoctorDashboard({
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const [allApptsRes, operationsRes, todosRes, patientsRes, staffRes] = await Promise.all([
-        fetch(
-          `/api/d/${workspaceid}/doctor/${doctorid}/appointments`,
-          { cache: "no-store" }
-        ),
-        fetch(
-          `/api/d/${workspaceid}/operations?surgeonid=${doctorid}`,
-          { cache: "no-store" }
-        ),
-        fetch(`/api/d/${workspaceid}/todos`, { cache: "no-store" }),
-        fetch(`/api/d/${workspaceid}/patients`, { cache: "no-store" }),
-        fetch(`/api/d/${workspaceid}/staff`, { cache: "no-store" }),
-      ]);
+      const [allApptsRes, operationsRes, todosRes, patientsRes, staffRes] =
+        await Promise.all([
+          fetch(`/api/d/${workspaceid}/doctor/${doctorid}/appointments`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/d/${workspaceid}/operations?surgeonid=${doctorid}`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/d/${workspaceid}/todos`, { cache: "no-store" }),
+          fetch(`/api/d/${workspaceid}/patients`, { cache: "no-store" }),
+          fetch(`/api/d/${workspaceid}/staff`, { cache: "no-store" }),
+        ]);
 
       if (!allApptsRes.ok || !patientsRes.ok) {
         throw new Error("Failed to load data");
       }
 
-      const allApptsData = allApptsRes.ok ? await allApptsRes.json() : { appointments: [] };
-      const operationsData = operationsRes.ok ? await operationsRes.json() : { operations: [] };
+      const allApptsData = allApptsRes.ok
+        ? await allApptsRes.json()
+        : { appointments: [] };
+      const operationsData = operationsRes.ok
+        ? await operationsRes.json()
+        : { operations: [] };
       const todosData = todosRes.ok ? await todosRes.json() : { todos: [] };
       const patientsData = await patientsRes.json();
       const staffData = staffRes.ok ? await staffRes.json() : { staff: [] };
@@ -160,17 +164,18 @@ export default function DoctorDashboard({
     }
   }
 
-  
   // Use allAppointments for counts (not filtered by date)
   const todayAppointments = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     return allAppointments.filter((a) => {
       const apptDate = new Date(a.starttime);
-      return apptDate >= today && apptDate < tomorrow && a.status !== "cancelled";
+      return (
+        apptDate >= today && apptDate < tomorrow && a.status !== "cancelled"
+      );
     });
   }, [allAppointments]);
 
@@ -182,7 +187,6 @@ export default function DoctorDashboard({
     });
   }, [allAppointments]);
 
-  
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading...</div>;
   }
@@ -191,106 +195,119 @@ export default function DoctorDashboard({
     return <div className="text-sm text-red-600">{error}</div>;
   }
 
- const cardBaseClasses =
-  "bg-[#618FF5] hover:bg-[#4F78D1] transition-colors cursor-pointer text-white";
+  const cardBaseClasses =
+    "bg-[#618FF5] hover:bg-[#4F78D1] rounded-lg transition-colors cursor-pointer text-white";
 
-return (
-  <div className="space-y-4 mr-4 ml-4">
-    {/* Quick Access Cards Grid */}
-    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-      {/* Appointments */}
-      <Card
-        className={cardBaseClasses}
-        onClick={() => (window.location.href = `/d/${workspaceid}/doctor/appointments`)}
-      >
-        <CardContent className="flex items-center justify-center py-6 text-center">
-          <div>
-            <div className="text-lg font-semibold mb-4">Appointments</div>
-            <div className="text-2xl font-bold">{allAppointments.length}</div>
-            <div className="text-xs opacity-90 mt-1">
-              {todayAppointments.length} today • {upcomingAppointments.length} upcoming
+  return (
+    <div className="space-y-4 mr-4 ml-4">
+      {/* Quick Access Cards Grid */}
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Appointments */}
+        <Card
+          className={cardBaseClasses}
+          onClick={() =>
+            (window.location.href = `/d/${workspaceid}/doctor/appointments`)
+          }
+        >
+          <CardContent className="flex items-center justify-center py-6 text-center">
+            <div>
+              <div className="text-lg font-semibold mb-4">Appointments</div>
+              <div className="text-2xl font-bold">{allAppointments.length}</div>
+              <div className="text-xs opacity-90 mt-1">
+                {todayAppointments.length} today • {upcomingAppointments.length}{" "}
+                upcoming
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Patients */}
-      <Card
-        className={cardBaseClasses}
-        onClick={() => (window.location.href = `/d/${workspaceid}/patients`)}
-      >
-        <CardContent className="flex items-center justify-center py-6 text-center">
-          <div>
-            <div className="text-lg font-semibold mb-4">Patients</div>
-            <div className="text-2xl font-bold">{patients.length}</div>
-            <div className="text-xs opacity-90 mt-1">In your care</div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Operations */}
-      <Card
-        className={cardBaseClasses}
-        onClick={() => (window.location.href = `/d/${workspaceid}/doctor/operations`)}
-      >
-        <CardContent className="flex items-center justify-center py-6 text-center">
-          <div>
-            <div className="text-lg font-semibold mb-4">Operations</div>
-            <div className="text-2xl font-bold">{operations.length}</div>
-            <div className="text-xs opacity-90 mt-1">
-              {operations.filter((o) => o.status === "scheduled").length} scheduled • {operations.filter((o) => o.status === "in_progress").length} in progress
+        {/* Patients */}
+        <Card
+          className={cardBaseClasses}
+          onClick={() => (window.location.href = `/d/${workspaceid}/patients`)}
+        >
+          <CardContent className="flex items-center justify-center py-6 text-center">
+            <div>
+              <div className="text-lg font-semibold mb-4">Patients</div>
+              <div className="text-2xl font-bold">{patients.length}</div>
+              <div className="text-xs opacity-90 mt-1">In your care</div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Notification */}
-      <Card
-        className={cardBaseClasses}
-        onClick={() => (window.location.href = `/d/${workspaceid}/doctor/notifications`)}
-      >
-        <CardContent className="flex items-center justify-center py-6 text-center">
-          <div>
-            <div className="text-lg font-semibold mb-4">Notifications</div>
-            <div className="text-2xl font-bold">{patients.length}</div>
-            <div className="text-xs opacity-90 mt-1">Alerts & updates</div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contacts */}
-      <Card
-        className={cardBaseClasses}
-        onClick={() => (window.location.href = `/d/${workspaceid}/staff`)}
-      >
-        <CardContent className="flex items-center justify-center py-6 text-center">
-          <div>
-            <div className="text-lg font-semibold mb-4">Contacts</div>
-            <div className="text-2xl font-bold">{staff.length}</div>
-            <div className="text-xs opacity-90 mt-1">Staff members</div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* To-do */}
-      <Card
-        className={cardBaseClasses}
-        onClick={() => (window.location.href = `/d/${workspaceid}/doctor/todos`)}
-      >
-        <CardContent className="flex items-center justify-center py-6 text-center">
-          <div>
-            <div className="text-lg font-semibold mb-4">To do</div>
-            <div className="text-2xl font-bold">{todos.length}</div>
-            <div className="text-xs opacity-90 mt-1">
-              {todos.filter((t) => !t.completed).length} active • {todos.filter((t) => t.completed).length} completed
+        {/* Operations */}
+        <Card
+          className={cardBaseClasses}
+          onClick={() =>
+            (window.location.href = `/d/${workspaceid}/doctor/operations`)
+          }
+        >
+          <CardContent className="flex items-center justify-center py-6 text-center">
+            <div>
+              <div className="text-lg font-semibold mb-4">Operations</div>
+              <div className="text-2xl font-bold">{operations.length}</div>
+              <div className="text-xs opacity-90 mt-1">
+                {operations.filter((o) => o.status === "scheduled").length}{" "}
+                scheduled •{" "}
+                {operations.filter((o) => o.status === "in_progress").length} in
+                progress
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
+        {/* Notification */}
+        <Card
+          className={cardBaseClasses}
+          onClick={() =>
+            (window.location.href = `/d/${workspaceid}/doctor/notifications`)
+          }
+        >
+          <CardContent className="flex items-center justify-center py-6 text-center">
+            <div>
+              <div className="text-lg font-semibold mb-4">Notifications</div>
+              <div className="text-2xl font-bold">{patients.length}</div>
+              <div className="text-xs opacity-90 mt-1">Alerts & updates</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Contacts */}
+        <Card
+          className={cardBaseClasses}
+          onClick={() => (window.location.href = `/d/${workspaceid}/staff`)}
+        >
+          <CardContent className="flex items-center justify-center py-6 text-center">
+            <div>
+              <div className="text-lg font-semibold mb-4">Contacts</div>
+              <div className="text-2xl font-bold">{staff.length}</div>
+              <div className="text-xs opacity-90 mt-1">Staff members</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* To-do */}
+        <Card
+          className={cardBaseClasses}
+          onClick={() =>
+            (window.location.href = `/d/${workspaceid}/doctor/todos`)
+          }
+        >
+          <CardContent className="flex items-center justify-center py-6 text-center">
+            <div>
+              <div className="text-lg font-semibold mb-4">To do</div>
+              <div className="text-2xl font-bold">{todos.length}</div>
+              <div className="text-xs opacity-90 mt-1">
+                <span className="text-orange-600">
+                  {todos.filter((t) => !t.completed).length} active
+                </span>
+                {" • "}
+                <span>{todos.filter((t) => t.completed).length} completed</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  </div>
-);
-
+  );
 }

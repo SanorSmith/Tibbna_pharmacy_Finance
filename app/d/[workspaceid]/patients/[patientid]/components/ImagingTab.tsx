@@ -65,6 +65,7 @@ export default function ImagingTab({
           <div className="flex items-center justify-between">
             <CardTitle>Imaging Requests</CardTitle>
             <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
               size="sm"
               onClick={() => setShowImagingRequestForm(true)}
             >
@@ -383,6 +384,7 @@ export default function ImagingTab({
                 Cancel
               </Button>
               <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   const requestName = (
                     document.getElementById(

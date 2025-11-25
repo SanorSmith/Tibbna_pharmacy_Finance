@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Home } from "lucide-react";
 type Appointment = {
   appointmentid: string;
   patientid: string;
@@ -113,9 +113,13 @@ export default function AppointmentsList({
       {/* Back Button */}
       <div>
         <Link href={`/d/${workspaceid}/doctor`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back to Doctor Dashboard"
+            className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+          >
+            <Home className="h-4 w-4" />
           </Button>
         </Link>
       </div>
@@ -123,7 +127,7 @@ export default function AppointmentsList({
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold">My Appointments</h1>
+          <h1 className="text-2xl font-bold">Appointments</h1>
           <p className="text-muted-foreground">
             {filteredAppointments.length} appointment
             {filteredAppointments.length !== 1 ? "s" : ""}{" "}
@@ -135,30 +139,61 @@ export default function AppointmentsList({
       {/* Filter Buttons */}
       <div className="flex gap-2">
         <Button
-          variant={filter === "all" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("all")}
+          className={`
+      ${
+        filter === "all"
+          ? "bg-orange-400 text-white hover:bg-orange-500"
+          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
+      } 
+      transition-colors
+    `}
         >
           All
         </Button>
+
         <Button
-          variant={filter === "today" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("today")}
+          className={`
+      ${
+        filter === "today"
+          ? "bg-orange-400 text-white hover:bg-orange-500"
+          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
+      } 
+      transition-colors
+    `}
         >
           Today
         </Button>
+
         <Button
-          variant={filter === "upcoming" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("upcoming")}
+          className={`
+      ${
+        filter === "upcoming"
+          ? "bg-orange-400 text-white hover:bg-orange-500"
+          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
+      } 
+      transition-colors
+    `}
         >
           Upcoming
         </Button>
+
         <Button
-          variant={filter === "past" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("past")}
+          className={`
+      ${
+        filter === "past"
+          ? "bg-orange-400 text-white hover:bg-orange-500"
+          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
+      } 
+      transition-colors
+    `}
         >
           Past
         </Button>

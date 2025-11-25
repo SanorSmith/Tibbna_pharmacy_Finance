@@ -45,7 +45,6 @@ type TestOrderForm = {
 interface OrdersTabProps {
   workspaceid: string;
   patientid: string;
-  fullName?: string;
 }
 
 // ---------- Test Types ----------
@@ -102,7 +101,7 @@ function formReducer(state: TestOrderForm, action: Action): TestOrderForm {
 }
 
 // ---------- Component ----------
-export default function OrdersTab({ workspaceid, patientid, fullName }: OrdersTabProps) {
+export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
   const [showTestOrderForm, setShowTestOrderForm] = React.useState(false);
   const [testOrderRecords, setTestOrderRecords] = React.useState<TestOrderRecord[]>([]);
   const [loadingTestOrders, setLoadingTestOrders] = React.useState(false);
@@ -209,10 +208,6 @@ export default function OrdersTab({ workspaceid, patientid, fullName }: OrdersTa
   useEffect(() => {
     if (!hasLoadedTestOrders.current) loadTestOrders(true);
   }, [loadTestOrders]);
-
-  function formatDateTime(date: string) {
-    return new Date(date).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  }
 
   // Save order
   const saveTestOrder = useCallback(async () => {
@@ -420,7 +415,7 @@ export default function OrdersTab({ workspaceid, patientid, fullName }: OrdersTa
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setShowTestOrderForm(false)}>Cancel</Button>
-              <Button className="bg-black hover:bg-black/80 text-white" onClick={saveTestOrder}>Order Test</Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={saveTestOrder}>Order Test</Button>
             </div>
           </div>
         </DialogContent>

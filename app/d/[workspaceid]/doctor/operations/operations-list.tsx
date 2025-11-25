@@ -19,8 +19,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Scissors, ArrowLeft, Calendar, User, AlertCircle, Plus } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Scissors, Calendar, User, AlertCircle, Plus, Home } from "lucide-react";
 import Link from "next/link";
 
 type Operation = {
@@ -30,7 +36,13 @@ type Operation = {
   scheduleddate: string;
   estimatedduration: string | null;
   operationtype: "emergency" | "elective" | "urgent";
-  status: "scheduled" | "in_preparation" | "in_progress" | "completed" | "cancelled" | "postponed";
+  status:
+    | "scheduled"
+    | "in_preparation"
+    | "in_progress"
+    | "completed"
+    | "cancelled"
+    | "postponed";
   preoperativeassessment: string | null;
   operationname: string;
   operationdetails: string | null;
@@ -58,8 +70,12 @@ type Props = {
 export default function OperationsList({ workspaceid, userid }: Props) {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null);
-  const [filter, setFilter] = useState<"all" | "scheduled" | "in_progress" | "completed" | "cancelled">("all");
+  const [selectedOperation, setSelectedOperation] = useState<Operation | null>(
+    null
+  );
+  const [filter, setFilter] = useState<
+    "all" | "scheduled" | "in_progress" | "completed" | "cancelled"
+  >("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -78,7 +94,9 @@ export default function OperationsList({ workspaceid, userid }: Props) {
   const loadOperations = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/d/${workspaceid}/operations?surgeonid=${userid}`);
+      const res = await fetch(
+        `/api/d/${workspaceid}/operations?surgeonid=${userid}`
+      );
       if (res.ok) {
         const data = await res.json();
         setOperations(data.operations || []);
@@ -95,8 +113,14 @@ export default function OperationsList({ workspaceid, userid }: Props) {
   }, [workspaceid, userid, loadOperations]);
 
   const handleAddOperation = async () => {
-    if (!formData.patientid || !formData.operationname || !formData.scheduleddate) {
-      alert("Please fill in required fields: Patient ID, Operation Name, and Scheduled Date");
+    if (
+      !formData.patientid ||
+      !formData.operationname ||
+      !formData.scheduleddate
+    ) {
+      alert(
+        "Please fill in required fields: Patient ID, Operation Name, and Scheduled Date"
+      );
       return;
     }
 
@@ -129,7 +153,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
         preoperativeassessment: "",
         operationdetails: "",
       });
-      
+
       loadOperations(); // Reload operations list
     } catch (error) {
       console.error("Error creating operation:", error);
@@ -144,7 +168,10 @@ export default function OperationsList({ workspaceid, userid }: Props) {
       const date = new Date(datetime);
       return {
         date: date.toLocaleDateString(),
-        time: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
     } catch {
       return { date: "Unknown", time: "Unknown" };
@@ -193,9 +220,13 @@ export default function OperationsList({ workspaceid, userid }: Props) {
       {/* Back Button */}
       <div>
         <Link href={`/d/${workspaceid}/doctor`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back to Doctor Dashboard"
+            className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+          >
+            <Home className="h-4 w-4" />
           </Button>
         </Link>
       </div>
@@ -203,13 +234,17 @@ export default function OperationsList({ workspaceid, userid }: Props) {
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold">My Operations</h1>
+          <h1 className="text-2xl font-bold">Operations</h1>
           <p className="text-muted-foreground">
-            {filteredOperations.length} operation{filteredOperations.length !== 1 ? "s" : ""}{" "}
+            {filteredOperations.length} operation
+            {filteredOperations.length !== 1 ? "s" : ""}{" "}
             {filter !== "all" && `(${operations.length} total)`}
           </p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)} className="flex items-center gap-2">
+        <Button
+          onClick={() => setShowAddDialog(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
           <Plus className="h-4 w-4" />
           Add Operation
         </Button>
@@ -218,35 +253,59 @@ export default function OperationsList({ workspaceid, userid }: Props) {
       {/* Filter Buttons */}
       <div className="flex gap-2">
         <Button
-          variant={filter === "all" ? "default" : "outline"}
+          className={`text-white ${
+            filter === "all"
+              ? "bg-orange-400 hover:bg-orange-500"
+              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+          }`}
           size="sm"
           onClick={() => setFilter("all")}
         >
           All
         </Button>
+
         <Button
-          variant={filter === "scheduled" ? "default" : "outline"}
+          className={`text-white ${
+            filter === "scheduled"
+              ? "bg-orange-400 hover:bg-orange-500"
+              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+          }`}
           size="sm"
           onClick={() => setFilter("scheduled")}
         >
           Scheduled
         </Button>
+
         <Button
-          variant={filter === "in_progress" ? "default" : "outline"}
+          className={`text-white ${
+            filter === "in_progress"
+              ? "bg-orange-400 hover:bg-orange-500"
+              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+          }`}
           size="sm"
           onClick={() => setFilter("in_progress")}
         >
           In Progress
         </Button>
+
         <Button
-          variant={filter === "completed" ? "default" : "outline"}
+          className={`text-white ${
+            filter === "completed"
+              ? "bg-orange-400 hover:bg-orange-500"
+              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+          }`}
           size="sm"
           onClick={() => setFilter("completed")}
         >
           Completed
         </Button>
+
         <Button
-          variant={filter === "cancelled" ? "default" : "outline"}
+          className={`text-white ${
+            filter === "cancelled"
+              ? "bg-orange-400 hover:bg-orange-500"
+              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+          }`}
           size="sm"
           onClick={() => setFilter("cancelled")}
         >
@@ -268,17 +327,19 @@ export default function OperationsList({ workspaceid, userid }: Props) {
               Loading operations...
             </p>
           ) : filteredOperations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No operations found
-            </p>
+            <p className="text-sm text-muted-foreground">No operations found</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-3 px-4 font-medium">Patient</th>
-                    <th className="text-left py-3 px-4 font-medium">Date & Time</th>
-                    <th className="text-left py-3 px-4 font-medium">Operation</th>
+                    <th className="text-left py-3 px-4 font-medium">
+                      Date & Time
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium">
+                      Operation
+                    </th>
                     <th className="text-left py-3 px-4 font-medium">Type</th>
                     <th className="text-left py-3 px-4 font-medium">Theater</th>
                     <th className="text-left py-3 px-4 font-medium">Status</th>
@@ -289,11 +350,18 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                   {filteredOperations.map((op) => {
                     const { date, time } = formatDateTime(op.scheduleddate);
                     const patientName = op.patient
-                      ? `${op.patient.firstname} ${op.patient.middlename ? op.patient.middlename + " " : ""}${op.patient.lastname}`
+                      ? `${op.patient.firstname} ${
+                          op.patient.middlename
+                            ? op.patient.middlename + " "
+                            : ""
+                        }${op.patient.lastname}`
                       : "Unknown Patient";
 
                     return (
-                      <tr key={op.operationid} className="border-b hover:bg-muted/50">
+                      <tr
+                        key={op.operationid}
+                        className="border-b hover:bg-muted/50"
+                      >
                         <td className="py-3 px-4">
                           <div className="font-medium">{patientName}</div>
                           {op.patient?.nationalid && (
@@ -355,7 +423,10 @@ export default function OperationsList({ workspaceid, userid }: Props) {
       </Card>
 
       {/* Operation Details Dialog */}
-      <Dialog open={!!selectedOperation} onOpenChange={() => setSelectedOperation(null)}>
+      <Dialog
+        open={!!selectedOperation}
+        onOpenChange={() => setSelectedOperation(null)}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -379,7 +450,11 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                   <div>
                     <span className="font-medium">Name:</span>{" "}
                     {selectedOperation.patient
-                      ? `${selectedOperation.patient.firstname} ${selectedOperation.patient.middlename ? selectedOperation.patient.middlename + " " : ""}${selectedOperation.patient.lastname}`
+                      ? `${selectedOperation.patient.firstname} ${
+                          selectedOperation.patient.middlename
+                            ? selectedOperation.patient.middlename + " "
+                            : ""
+                        }${selectedOperation.patient.lastname}`
                       : "Unknown"}
                   </div>
                   <div>
@@ -479,19 +554,27 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                   {selectedOperation.operationdiagnosis && (
                     <div>
                       <span className="font-medium">Diagnosis:</span>
-                      <p className="mt-1">{selectedOperation.operationdiagnosis}</p>
+                      <p className="mt-1">
+                        {selectedOperation.operationdiagnosis}
+                      </p>
                     </div>
                   )}
                   {selectedOperation.preoperativeassessment && (
                     <div>
-                      <span className="font-medium">Pre-operative Assessment:</span>
-                      <p className="mt-1">{selectedOperation.preoperativeassessment}</p>
+                      <span className="font-medium">
+                        Pre-operative Assessment:
+                      </span>
+                      <p className="mt-1">
+                        {selectedOperation.preoperativeassessment}
+                      </p>
                     </div>
                   )}
                   {selectedOperation.operationdetails && (
                     <div>
                       <span className="font-medium">Operation Details:</span>
-                      <p className="mt-1">{selectedOperation.operationdetails}</p>
+                      <p className="mt-1">
+                        {selectedOperation.operationdetails}
+                      </p>
                     </div>
                   )}
                   {selectedOperation.outcomes && (
@@ -518,11 +601,16 @@ export default function OperationsList({ workspaceid, userid }: Props) {
               {/* Actions */}
               <div className="flex gap-2 pt-4 border-t">
                 {selectedOperation.patient && (
-                  <Link href={`/d/${workspaceid}/patients/${selectedOperation.patientid}`}>
+                  <Link
+                    href={`/d/${workspaceid}/patients/${selectedOperation.patientid}`}
+                  >
                     <Button size="sm">View Patient</Button>
                   </Link>
                 )}
-                <Button variant="outline" onClick={() => setSelectedOperation(null)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedOperation(null)}
+                >
                   Close
                 </Button>
               </div>
@@ -552,7 +640,9 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                   id="patientid"
                   placeholder="Enter patient ID"
                   value={formData.patientid}
-                  onChange={(e) => setFormData({ ...formData, patientid: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, patientid: e.target.value })
+                  }
                 />
               </div>
 
@@ -562,7 +652,9 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                   id="operationname"
                   placeholder="e.g., Appendectomy"
                   value={formData.operationname}
-                  onChange={(e) => setFormData({ ...formData, operationname: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, operationname: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -574,18 +666,27 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                   id="scheduleddate"
                   type="datetime-local"
                   value={formData.scheduleddate}
-                  onChange={(e) => setFormData({ ...formData, scheduleddate: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, scheduleddate: e.target.value })
+                  }
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="estimatedduration">Estimated Duration (minutes)</Label>
+                <Label htmlFor="estimatedduration">
+                  Estimated Duration (minutes)
+                </Label>
                 <Input
                   id="estimatedduration"
                   type="number"
                   placeholder="e.g., 120"
                   value={formData.estimatedduration}
-                  onChange={(e) => setFormData({ ...formData, estimatedduration: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      estimatedduration: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
@@ -616,7 +717,9 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                   id="theater"
                   placeholder="e.g., Theater 1"
                   value={formData.theater}
-                  onChange={(e) => setFormData({ ...formData, theater: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, theater: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -627,7 +730,9 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                 id="anesthesiatype"
                 placeholder="e.g., General, Local, Spinal"
                 value={formData.anesthesiatype}
-                onChange={(e) => setFormData({ ...formData, anesthesiatype: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, anesthesiatype: e.target.value })
+                }
               />
             </div>
 
@@ -638,18 +743,30 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                 placeholder="Enter diagnosis..."
                 rows={2}
                 value={formData.operationdiagnosis}
-                onChange={(e) => setFormData({ ...formData, operationdiagnosis: e.target.value })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    operationdiagnosis: e.target.value,
+                  })
+                }
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="preoperativeassessment">Pre-operative Assessment</Label>
+              <Label htmlFor="preoperativeassessment">
+                Pre-operative Assessment
+              </Label>
               <Textarea
                 id="preoperativeassessment"
                 placeholder="Enter pre-operative assessment..."
                 rows={3}
                 value={formData.preoperativeassessment}
-                onChange={(e) => setFormData({ ...formData, preoperativeassessment: e.target.value })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    preoperativeassessment: e.target.value,
+                  })
+                }
               />
             </div>
 
@@ -660,13 +777,19 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                 placeholder="Enter operation details..."
                 rows={3}
                 value={formData.operationdetails}
-                onChange={(e) => setFormData({ ...formData, operationdetails: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, operationdetails: e.target.value })
+                }
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDialog(false)}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button onClick={handleAddOperation} disabled={saving}>
