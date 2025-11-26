@@ -8,8 +8,10 @@
  * - Updates notes via PATCH /api/d/[workspaceid]/appointments/[id]
  */
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 type Appointment = {
   appointmentid: string;
@@ -96,73 +98,82 @@ export default function DoctorDashboard({
   doctorid: string;
   doctorInfo: DoctorInfo;
 }) {
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]); // For counts
-  const [operations, setOperations] = useState<Operation[]>([]);
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, workspaceid, doctorid]);
-
-  async function loadData() {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load appointments for selected date
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const [allApptsRes, operationsRes, todosRes, patientsRes, staffRes] =
-        await Promise.all([
-          fetch(`/api/d/${workspaceid}/doctor/${doctorid}/appointments`, {
-            cache: "no-store",
-          }),
-          fetch(`/api/d/${workspaceid}/operations?surgeonid=${doctorid}`, {
-            cache: "no-store",
-          }),
-          fetch(`/api/d/${workspaceid}/todos`, { cache: "no-store" }),
-          fetch(`/api/d/${workspaceid}/patients`, { cache: "no-store" }),
-          fetch(`/api/d/${workspaceid}/staff`, { cache: "no-store" }),
-        ]);
-
-      if (!allApptsRes.ok || !patientsRes.ok) {
-        throw new Error("Failed to load data");
+  const { data: allAppointments = [], isLoading: loadingAppts } = useQuery({
+    queryKey: ["appointments", workspaceid, doctorid],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/d/${workspaceid}/doctor/${doctorid}/appointments`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        return (data.appointments as Appointment[]) || [];
       }
+      return [];
+    },
+  });
 
-      const allApptsData = allApptsRes.ok
-        ? await allApptsRes.json()
-        : { appointments: [] };
-      const operationsData = operationsRes.ok
-        ? await operationsRes.json()
-        : { operations: [] };
-      const todosData = todosRes.ok ? await todosRes.json() : { todos: [] };
-      const patientsData = await patientsRes.json();
-      const staffData = staffRes.ok ? await staffRes.json() : { staff: [] };
+  const { data: operations = [], isLoading: loadingOps } = useQuery({
+    queryKey: ["operations", workspaceid, doctorid],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/d/${workspaceid}/operations?surgeonid=${doctorid}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        return (data.operations as Operation[]) || [];
+      }
+      return [];
+    },
+  });
 
-      setAllAppointments(allApptsData.appointments || []);
-      setOperations(operationsData.operations || []);
-      setTodos(todosData.todos || []);
-      setPatients(patientsData.patients || []);
-      setStaff(staffData.staff || []);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to load data";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: todos = [], isLoading: loadingTodos } = useQuery({
+    queryKey: ["todos", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/todos`);
+      if (res.ok) {
+        const data = await res.json();
+        return (data.todos as Todo[]) || [];
+      }
+      return [];
+    },
+  });
+
+  const { data: patients = [], isLoading: loadingPatients } = useQuery({
+    queryKey: ["patients", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients`);
+      if (res.ok) {
+        const data = await res.json();
+        return (data.patients as Patient[]) || [];
+      }
+      return [];
+    },
+  });
+
+  const { data: staff = [], isLoading: loadingStaff } = useQuery({
+    queryKey: ["staff", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/staff`);
+      if (res.ok) {
+        const data = await res.json();
+        return (data.staff as StaffMember[]) || [];
+      }
+      return [];
+    },
+  });
+
+  const loading =
+    loadingAppts ||
+    loadingOps ||
+    loadingTodos ||
+    loadingPatients ||
+    loadingStaff;
 
   // Use allAppointments for counts (not filtered by date)
   const todayAppointments = useMemo(() => {
@@ -191,10 +202,6 @@ export default function DoctorDashboard({
     return <div className="text-sm text-muted-foreground">Loading...</div>;
   }
 
-  if (error) {
-    return <div className="text-sm text-red-600">{error}</div>;
-  }
-
   const cardBaseClasses =
     "bg-[#618FF5] hover:bg-[#4F78D1] rounded-lg transition-colors cursor-pointer text-white";
 
@@ -206,7 +213,7 @@ export default function DoctorDashboard({
         <Card
           className={cardBaseClasses}
           onClick={() =>
-            (window.location.href = `/d/${workspaceid}/doctor/appointments`)
+            router.push(`/d/${workspaceid}/doctor/appointments`)
           }
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
@@ -224,7 +231,7 @@ export default function DoctorDashboard({
         {/* Patients */}
         <Card
           className={cardBaseClasses}
-          onClick={() => (window.location.href = `/d/${workspaceid}/patients`)}
+          onClick={() => router.push(`/d/${workspaceid}/patients`)}
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
@@ -239,7 +246,7 @@ export default function DoctorDashboard({
         <Card
           className={cardBaseClasses}
           onClick={() =>
-            (window.location.href = `/d/${workspaceid}/doctor/operations`)
+            router.push(`/d/${workspaceid}/doctor/operations`)
           }
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
@@ -260,7 +267,7 @@ export default function DoctorDashboard({
         <Card
           className={cardBaseClasses}
           onClick={() =>
-            (window.location.href = `/d/${workspaceid}/doctor/notifications`)
+            router.push(`/d/${workspaceid}/doctor/notifications`)
           }
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
@@ -275,7 +282,7 @@ export default function DoctorDashboard({
         {/* Contacts */}
         <Card
           className={cardBaseClasses}
-          onClick={() => (window.location.href = `/d/${workspaceid}/staff`)}
+          onClick={() => router.push(`/d/${workspaceid}/staff`)}
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
@@ -290,7 +297,7 @@ export default function DoctorDashboard({
         <Card
           className={cardBaseClasses}
           onClick={() =>
-            (window.location.href = `/d/${workspaceid}/doctor/todos`)
+            router.push(`/d/${workspaceid}/doctor/todos`)
           }
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
@@ -298,11 +305,9 @@ export default function DoctorDashboard({
               <div className="text-lg font-semibold mb-4">To do</div>
               <div className="text-2xl font-bold">{todos.length}</div>
               <div className="text-xs opacity-90 mt-1">
-                <span className="text-orange-600">
-                  {todos.filter((t) => !t.completed).length} active
-                </span>
+                {todos.filter((t) => !t.completed).length} active
                 {" • "}
-                <span>{todos.filter((t) => t.completed).length} completed</span>
+                {todos.filter((t) => t.completed).length} completed
               </div>
             </div>
           </CardContent>

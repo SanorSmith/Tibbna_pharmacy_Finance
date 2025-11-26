@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { users } from "./user";
 import { workspaces } from "./workspace";
 
@@ -17,4 +17,9 @@ export const todos = pgTable("todos", {
   duedate: timestamp("duedate", { withTimezone: true }),
   createdat: timestamp("createdat", { withTimezone: true }).notNull().defaultNow(),
   updatedat: timestamp("updatedat", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => {
+  return {
+    workspaceIdx: index("todos_workspace_idx").on(table.workspaceid),
+    userIdx: index("todos_user_idx").on(table.userid),
+  };
 });

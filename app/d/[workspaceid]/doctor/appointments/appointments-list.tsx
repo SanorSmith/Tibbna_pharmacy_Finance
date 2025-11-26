@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -37,37 +38,23 @@ export default function AppointmentsList({
   workspaceid: string;
   doctorid: string;
 }) {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "today" | "upcoming" | "past">(
     "all"
   );
 
-  const loadAppointments = useCallback(async () => {
-    try {
-      setLoading(true);
-      console.log("Loading appointments for doctor:", doctorid);
+  const { data: appointments = [], isLoading: loading } = useQuery({
+    queryKey: ["appointments", workspaceid, doctorid],
+    queryFn: async () => {
       const res = await fetch(
         `/api/d/${workspaceid}/doctor/${doctorid}/appointments`
       );
-      console.log("Response status:", res.status);
       if (res.ok) {
         const data = await res.json();
-        console.log("Appointments data:", data);
-        setAppointments(data.appointments || []);
-      } else {
-        console.error("Failed to load appointments, status:", res.status);
+        return (data.appointments as Appointment[]) || [];
       }
-    } catch (error) {
-      console.error("Failed to load appointments:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceid, doctorid]);
-
-  useEffect(() => {
-    loadAppointments();
-  }, [workspaceid, doctorid, loadAppointments]);
+      return [];
+    },
+  });
 
   const formatDateTime = (datetime: string) => {
     try {
@@ -111,7 +98,7 @@ export default function AppointmentsList({
   return (
     <div className="space-y-4">
       {/* Back Button */}
-      <div>
+      <div className="flex items-center gap-2">
         <Link href={`/d/${workspaceid}/doctor`}>
           <Button
             variant="outline"
@@ -122,12 +109,13 @@ export default function AppointmentsList({
             <Home className="h-4 w-4" />
           </Button>
         </Link>
+
+        <h1 className="text-xl font-semibold">Appappointments</h1>
       </div>
 
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Appointments</h1>
           <p className="text-muted-foreground">
             {filteredAppointments.length} appointment
             {filteredAppointments.length !== 1 ? "s" : ""}{" "}

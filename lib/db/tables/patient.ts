@@ -5,7 +5,7 @@
  * - EHR linkage: optional `ehrid` stores the EHRbase EHR identifier created for this patient.
  * - Exposes select/insert types for use throughout the app.
  */
-import { pgTable, uuid, text, timestamp, jsonb, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, date, index } from "drizzle-orm/pg-core";
 import { workspaces } from "./workspace";
 
 export const patients = pgTable("patients", {
@@ -27,6 +27,10 @@ export const patients = pgTable("patients", {
   medicalhistory: jsonb("medicalhistory").$type<Record<string, unknown>>().default({}),
   createdat: timestamp("createdat").defaultNow(),
   updatedat: timestamp("updatedat").defaultNow(),
+}, (table) => {
+  return {
+    workspaceIdx: index("patients_workspace_idx").on(table.workspaceid),
+  };
 });
 
 export type Patient = typeof patients.$inferSelect;

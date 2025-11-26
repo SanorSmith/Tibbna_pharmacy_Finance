@@ -10,6 +10,7 @@ import { patients } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
+import { getOpenEHREHRBySubjectId, deleteOpenEHREHR } from "@/lib/openehr/openehr";
 
 export async function GET(
   req: NextRequest,
@@ -96,5 +97,67 @@ export async function PATCH(
   } catch (e) {
     console.error("[patients][PATCH] error:", e);
     return NextResponse.json({ error: "Failed to update patient" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ workspaceid: string; patientid: string }> },
+) {
+  const { workspaceid, patientid } = await params;
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const uws = await getUserWorkspaces(user.userid);
+  const membership = uws.find((w) => w.workspace.workspaceid === workspaceid);
+  const isAdmin = membership?.role === "administrator";
+
+  // Check global admin permissions
+  function normalizePerms(p: unknown): string[] {
+    if (Array.isArray(p)) return p.map(String);
+    if (typeof p === "string") return [p];
+    return [];
+  }
+  const isGlobalAdmin = normalizePerms(user.permissions).includes("admin");
+  
+  if (!isAdmin && !isGlobalAdmin) {
+    return NextResponse.json({ error: "Forbidden - Administrator access required" }, { status: 403 });
+  }
+
+  try {
+    // 1. Get patient to find National ID / Subject ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(and(eq(patients.workspaceid, workspaceid), eq(patients.patientid, patientid)))
+      .limit(1);
+
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // 2. Try to delete from OpenEHR
+    const subjectId = patient.nationalid || patient.patientid;
+    try {
+      const ehrId = await getOpenEHREHRBySubjectId(subjectId);
+      if (ehrId) {
+        await deleteOpenEHREHR(ehrId);
+        console.log(`[patients][DELETE] Deleted EHR ${ehrId} for subject ${subjectId}`);
+      }
+    } catch (ehrError) {
+      console.error(`[patients][DELETE] Failed to delete EHR for subject ${subjectId}:`, ehrError);
+      // Continue to delete from DB even if EHR deletion fails
+    }
+
+    // 3. Delete from DB
+    const res = await db
+      .delete(patients)
+      .where(and(eq(patients.workspaceid, workspaceid), eq(patients.patientid, patientid)))
+      .returning();
+      
+    return NextResponse.json({ success: true, deleted: res[0] });
+  } catch (e) {
+    console.error("[patients][DELETE] error:", e);
+    return NextResponse.json({ error: "Failed to delete patient" }, { status: 500 });
   }
 }

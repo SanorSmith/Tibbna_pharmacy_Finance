@@ -4,7 +4,7 @@ import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { db } from "@/lib/db";
 import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { getOpenEHREHRBySubjectId, getOpenEHRCompositions, getOpenEHRComposition, createOpenEHRComposition } from "@/lib/openehr/openehr";
+import { getOpenEHREHRBySubjectId, getOpenEHRCompositions, getOpenEHRComposition, createOpenEHRComposition, getOpenEHRVitalSigns } from "@/lib/openehr/openehr";
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vital-signs
@@ -68,65 +68,10 @@ export async function GET(
       return NextResponse.json({ vitalSigns: [], totalCount: 0, hasMore: false });
     }
 
-    // Fetch ALL compositions and extract vitals (no pagination yet for filtering)
-    const allCompositions = await getOpenEHRCompositions(ehrId);
-    
-    // Fetch full details for ALL compositions to extract vitals
-    const allVitalSigns = await Promise.all(
-      allCompositions.map(async (comp) => {
-        try {
-          const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
-          
-          // Extract vitals from composition details using correct template paths
-          const temperature = 
-            details["template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"];
-          
-          const systolic = 
-            details["template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude"];
-          
-          const diastolic = 
-            details["template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude"];
-          
-          const heart_rate = 
-            details["template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"];
-         
-            const respiratory_rate = 
-            details["template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|magnitude"];
-            
-            const spo2 = 
-            details["template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"];
-          // Note: respiratory_rate and spo2 are not in this template
+    // Use optimized AQL query to fetch vital signs directly
+    const validVitalSigns = await getOpenEHRVitalSigns(ehrId);
 
-          // Only return if there's actual vital signs data
-          const hasVitalSigns = temperature || systolic || diastolic || heart_rate || respiratory_rate || spo2;
-          
-          if (hasVitalSigns) {
-            return {
-              composition_uid: comp.composition_uid,
-              recorded_time: comp.start_time,
-              temperature: temperature ? Number(temperature) : undefined,
-              systolic: systolic ? Number(systolic) : undefined,
-              diastolic: diastolic ? Number(diastolic) : undefined,
-              heart_rate: heart_rate ? Number(heart_rate) : undefined,
-              respiratory_rate: respiratory_rate ? Number(respiratory_rate) : undefined,
-              spo2: spo2 ? Number(spo2) : undefined,
-            };
-          } else {
-            // Skip compositions without vital signs data
-            return null;
-          }
-        } catch {
-          return null; // Return null for failed compositions so they get filtered out
-        }
-      })
-    );
-
-    // Filter out null entries and sort by date
-    const validVitalSigns = allVitalSigns
-      .filter((vital): vital is NonNullable<typeof vital> => vital !== null)
-      .sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
-
-    // Now apply pagination to the filtered results
+    // Apply pagination
     const totalFilteredCount = validVitalSigns.length;
     const hasMore = offset + limit < totalFilteredCount;
 

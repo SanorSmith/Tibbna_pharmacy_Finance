@@ -275,28 +275,26 @@ export const getUser = cache(async (): Promise<User | null> => {
 
   if (!session?.user?.email) return null;
 
-  // Check if session has a session token and if it's valid in the database
-  if (session.sessionToken) {
-    const activeSession = await getActiveSession(session.sessionToken);
-    if (!activeSession) {
-      // Session token exists in JWT but not in database or expired
-      console.warn("Invalid or expired session token");
-      return null;
-    }
+  const sessionToken = session.sessionToken;
+  const email = session.user.email;
+
+  // Run checks in parallel
+  const [activeSession, dbUsers] = await Promise.all([
+    sessionToken ? getActiveSession(sessionToken) : Promise.resolve(true),
+    db.select().from(users).where(eq(users.email, email)).limit(1),
+  ]);
+
+  if (sessionToken && !activeSession) {
+    console.warn("Invalid or expired session token");
+    return null;
   }
 
-  const dbUser: User[] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, session.user.email))
-    .limit(1);
-
-  if (!dbUser || dbUser.length === 0) {
+  if (!dbUsers || dbUsers.length === 0) {
     console.error("Sign in User Not Found");
     return null;
   }
 
-  return dbUser[0];
+  return dbUsers[0];
 });
 
 /**
@@ -311,26 +309,26 @@ export async function getUserWithSession(): Promise<{
 
   if (!session?.user?.email || !session.sessionToken) return null;
 
-  // Validate session token
-  const activeSession = await getActiveSession(session.sessionToken);
+  const sessionToken = session.sessionToken;
+  const email = session.user.email;
+
+  const [activeSession, dbUsers] = await Promise.all([
+    getActiveSession(sessionToken),
+    db.select().from(users).where(eq(users.email, email)).limit(1),
+  ]);
+
   if (!activeSession) {
     console.warn("Invalid or expired session token");
     return null;
   }
 
-  const dbUser: User[] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, session.user.email))
-    .limit(1);
-
-  if (!dbUser || dbUser.length === 0) {
+  if (!dbUsers || dbUsers.length === 0) {
     console.error("Sign in User Not Found");
     return null;
   }
 
   return {
-    user: dbUser[0],
-    sessionToken: session.sessionToken,
+    user: dbUsers[0],
+    sessionToken: sessionToken,
   };
 }

@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { SessionProvider } from "next-auth/react";
 import { RootProviders } from "@/contexts/rootproviders";
+import Providers from "@/components/providers";
 import { commonSettings } from "@/content/common";
 
 const geistSans = Geist({
@@ -94,7 +95,9 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <SessionProvider>
-          <RootProviders>{children}</RootProviders>
+          <Providers>
+            <RootProviders>{children}</RootProviders>
+          </Providers>
         </SessionProvider>
       </body>
     </html>

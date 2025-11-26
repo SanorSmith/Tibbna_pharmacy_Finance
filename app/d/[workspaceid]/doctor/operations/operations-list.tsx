@@ -5,28 +5,18 @@
  * - Show details popup
  */
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Scissors, Calendar, User, AlertCircle, Plus, Home } from "lucide-react";
+import { Scissors, Calendar, User, AlertCircle, Home } from "lucide-react";
 import Link from "next/link";
 
 type Operation = {
@@ -68,100 +58,26 @@ type Props = {
 };
 
 export default function OperationsList({ workspaceid, userid }: Props) {
-  const [operations, setOperations] = useState<Operation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(
     null
   );
   const [filter, setFilter] = useState<
     "all" | "scheduled" | "in_progress" | "completed" | "cancelled"
   >("all");
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    patientid: "",
-    operationname: "",
-    scheduleddate: "",
-    estimatedduration: "",
-    operationtype: "elective" as "emergency" | "elective" | "urgent",
-    theater: "",
-    anesthesiatype: "",
-    operationdiagnosis: "",
-    preoperativeassessment: "",
-    operationdetails: "",
-  });
 
-  const loadOperations = useCallback(async () => {
-    try {
-      setLoading(true);
+  const { data: operations = [], isLoading: loading } = useQuery({
+    queryKey: ["operations", workspaceid, userid],
+    queryFn: async () => {
       const res = await fetch(
         `/api/d/${workspaceid}/operations?surgeonid=${userid}`
       );
       if (res.ok) {
         const data = await res.json();
-        setOperations(data.operations || []);
+        return (data.operations as Operation[]) || [];
       }
-    } catch (error) {
-      console.error("Failed to load operations:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceid, userid]);
-
-  useEffect(() => {
-    loadOperations();
-  }, [workspaceid, userid, loadOperations]);
-
-  const handleAddOperation = async () => {
-    if (
-      !formData.patientid ||
-      !formData.operationname ||
-      !formData.scheduleddate
-    ) {
-      alert(
-        "Please fill in required fields: Patient ID, Operation Name, and Scheduled Date"
-      );
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const response = await fetch(`/api/d/${workspaceid}/operations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          surgeonid: userid,
-          workspaceid,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create operation");
-      }
-
-      setShowAddDialog(false);
-      setFormData({
-        patientid: "",
-        operationname: "",
-        scheduleddate: "",
-        estimatedduration: "",
-        operationtype: "elective",
-        theater: "",
-        anesthesiatype: "",
-        operationdiagnosis: "",
-        preoperativeassessment: "",
-        operationdetails: "",
-      });
-
-      loadOperations(); // Reload operations list
-    } catch (error) {
-      console.error("Error creating operation:", error);
-      alert("Failed to create operation");
-    } finally {
-      setSaving(false);
-    }
-  };
+      return [];
+    },
+  });
 
   const formatDateTime = (datetime: string) => {
     try {
@@ -216,9 +132,9 @@ export default function OperationsList({ workspaceid, userid }: Props) {
   });
 
   return (
-    <div className="space-y-4 mr-4 ml-4">
+    <div className="space-y-4">
       {/* Back Button */}
-      <div>
+      <div className="flex items-center gap-2">
         <Link href={`/d/${workspaceid}/doctor`}>
           <Button
             variant="outline"
@@ -229,25 +145,19 @@ export default function OperationsList({ workspaceid, userid }: Props) {
             <Home className="h-4 w-4" />
           </Button>
         </Link>
+
+        <h1 className="text-xl font-semibold"> Operations</h1>
       </div>
 
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Operations</h1>
           <p className="text-muted-foreground">
             {filteredOperations.length} operation
             {filteredOperations.length !== 1 ? "s" : ""}{" "}
             {filter !== "all" && `(${operations.length} total)`}
           </p>
         </div>
-        <Button
-          onClick={() => setShowAddDialog(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Plus className="h-4 w-4" />
-          Add Operation
-        </Button>
       </div>
 
       {/* Filter Buttons */}
@@ -616,186 +526,6 @@ export default function OperationsList({ workspaceid, userid }: Props) {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Operation Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Book New Operation
-            </DialogTitle>
-            <DialogDescription>
-              Schedule a new surgical procedure
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="patientid">Patient ID *</Label>
-                <Input
-                  id="patientid"
-                  placeholder="Enter patient ID"
-                  value={formData.patientid}
-                  onChange={(e) =>
-                    setFormData({ ...formData, patientid: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="operationname">Operation Name *</Label>
-                <Input
-                  id="operationname"
-                  placeholder="e.g., Appendectomy"
-                  value={formData.operationname}
-                  onChange={(e) =>
-                    setFormData({ ...formData, operationname: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="scheduleddate">Scheduled Date & Time *</Label>
-                <Input
-                  id="scheduleddate"
-                  type="datetime-local"
-                  value={formData.scheduleddate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, scheduleddate: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="estimatedduration">
-                  Estimated Duration (minutes)
-                </Label>
-                <Input
-                  id="estimatedduration"
-                  type="number"
-                  placeholder="e.g., 120"
-                  value={formData.estimatedduration}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      estimatedduration: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="operationtype">Operation Type</Label>
-                <Select
-                  value={formData.operationtype}
-                  onValueChange={(value: "emergency" | "elective" | "urgent") =>
-                    setFormData({ ...formData, operationtype: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="elective">Elective</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="emergency">Emergency</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="theater">Theater</Label>
-                <Input
-                  id="theater"
-                  placeholder="e.g., Theater 1"
-                  value={formData.theater}
-                  onChange={(e) =>
-                    setFormData({ ...formData, theater: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="anesthesiatype">Anesthesia Type</Label>
-              <Input
-                id="anesthesiatype"
-                placeholder="e.g., General, Local, Spinal"
-                value={formData.anesthesiatype}
-                onChange={(e) =>
-                  setFormData({ ...formData, anesthesiatype: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="operationdiagnosis">Diagnosis</Label>
-              <Textarea
-                id="operationdiagnosis"
-                placeholder="Enter diagnosis..."
-                rows={2}
-                value={formData.operationdiagnosis}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    operationdiagnosis: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="preoperativeassessment">
-                Pre-operative Assessment
-              </Label>
-              <Textarea
-                id="preoperativeassessment"
-                placeholder="Enter pre-operative assessment..."
-                rows={3}
-                value={formData.preoperativeassessment}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    preoperativeassessment: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="operationdetails">Operation Details</Label>
-              <Textarea
-                id="operationdetails"
-                placeholder="Enter operation details..."
-                rows={3}
-                value={formData.operationdetails}
-                onChange={(e) =>
-                  setFormData({ ...formData, operationdetails: e.target.value })
-                }
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowAddDialog(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAddOperation} disabled={saving}>
-              {saving ? "Booking..." : "Book Operation"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

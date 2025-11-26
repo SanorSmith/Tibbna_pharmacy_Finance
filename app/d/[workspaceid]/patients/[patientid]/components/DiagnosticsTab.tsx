@@ -351,6 +351,81 @@ export function DiagnosticsTab({
               </p>
             </div>
 
+            {/* Body Site */}
+            <div>
+              <label htmlFor="bodySite" className="text-sm font-medium">
+                Body Site
+              </label>
+              <input
+                id="bodySite"
+                type="text"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="e.g., Left foot, Right arm, Abdomen"
+                value={diagnosisForm.bodySite}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    bodySite: e.target.value,
+                  })
+                }
+                aria-label="Body site"
+                title="Enter the anatomical location of the problem or diagnosis"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The anatomical location of the problem or diagnosis
+              </p>
+            </div>
+
+            {/* Clinical Description */}
+            <div>
+              <label htmlFor="clinicalDescription" className="text-sm font-medium">
+                Clinical Description
+              </label>
+              <textarea
+                id="clinicalDescription"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="Detailed clinical description..."
+                rows={3}
+                value={diagnosisForm.clinicalDescription}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    clinicalDescription: e.target.value,
+                  })
+                }
+                aria-label="Clinical description"
+                title="Enter a detailed clinical description of the problem or diagnosis"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Narrative description of the problem or diagnosis
+              </p>
+            </div>
+
+            {/* Comment */}
+            <div>
+              <label htmlFor="comment" className="text-sm font-medium">
+                Additional Comments
+              </label>
+              <textarea
+                id="comment"
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="Any additional notes..."
+                rows={2}
+                value={diagnosisForm.comment}
+                onChange={(e) =>
+                  setDiagnosisForm({
+                    ...diagnosisForm,
+                    comment: e.target.value,
+                  })
+                }
+                aria-label="Additional comments"
+                title="Enter any additional comments or notes"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Additional narrative about the problem or diagnosis
+              </p>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex justify-end gap-2 pt-4">
               <Button
@@ -373,9 +448,7 @@ export function DiagnosticsTab({
                       {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          diagnosis: diagnosisForm,
-                        }),
+                        body: JSON.stringify(diagnosisForm),
                       }
                     );
 

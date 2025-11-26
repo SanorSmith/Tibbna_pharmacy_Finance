@@ -14,10 +14,13 @@ type Props = {
 export default async function DoctorOperationsPage({ params }: Props) {
   const { workspaceid } = await params;
   const user = await getUser();
-  
+
   if (!user) {
     return <div>Unauthorized</div>;
   }
-
-  return <OperationsList workspaceid={workspaceid} userid={user.userid} />;
+  return (
+    <div className="container mx-auto py-6">
+      <OperationsList workspaceid={workspaceid} userid={user.userid} />
+    </div>
+  );
 }
