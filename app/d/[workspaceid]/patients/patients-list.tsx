@@ -177,16 +177,17 @@ export default function PatientsList({
     setEditError(null);
     try {
       const payload = {
-        firstname: String(formData.get("firstname") || ""),
-        middlename: (formData.get("middlename") as string) || undefined,
-        lastname: String(formData.get("lastname") || ""),
-        nationalid: (formData.get("nationalid") as string) || undefined,
-        dateofbirth: (formData.get("dateofbirth") as string) || undefined,
-        gender: (formData.get("gender") as string) || undefined,
-        bloodgroup: (formData.get("bloodgroup") as string) || undefined,
-        phone: (formData.get("phone") as string) || undefined,
-        email: (formData.get("email") as string) || undefined,
-        address: (formData.get("address") as string) || undefined,
+        patientid: editingPatient.patientid,
+        firstname: formData.get("firstname"),
+        middlename: formData.get("middlename"),
+        lastname: formData.get("lastname"),
+        nationalid: formData.get("nationalid"),
+        dateofbirth: formData.get("dateofbirth"),
+        gender: formData.get("gender"),
+        bloodgroup: formData.get("bloodgroup"),
+        phone: formData.get("phone"),
+        email: formData.get("email"),
+        address: formData.get("address"),
         medicalhistory: formData.get("medicalhistory")
           ? { notes: String(formData.get("medicalhistory")) }
           : {},

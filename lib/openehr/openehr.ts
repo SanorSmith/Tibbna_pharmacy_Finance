@@ -74,7 +74,8 @@ export interface DiagnosisRecord {
 }
 
 // Helper to find a value by field name in OpenEHR INSTRUCTION structure
-function findValueByName(instruction: Record<string, unknown>, fieldName: string): string | undefined {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findValueByName(instruction: any, fieldName: string): string | undefined {
   if (!instruction || typeof instruction !== 'object') return undefined;
   
   // Check activities array for description items
@@ -122,7 +123,8 @@ ORDER BY
     c/context/start_time/value DESC`;
 
   try {
-    const results = await queryOpenEHR<Record<string, unknown>>(query);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await queryOpenEHR<any>(query);
     
     return results.map(row => {
       const instruction = row.full_instruction;
@@ -184,7 +186,8 @@ export interface VitalSignsRecord {
 }
 
 // Helper to find a value by field name in OpenEHR EVALUATION structure
-function findDiagnosisValue(evaluation: Record<string, unknown>, fieldName: string): string | undefined {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findDiagnosisValue(evaluation: any, fieldName: string): string | undefined {
   if (!evaluation || typeof evaluation !== 'object') return undefined;
   
   // Check data.items array for elements
@@ -214,7 +217,8 @@ ORDER BY
     c/context/start_time/value DESC`;
 
   try {
-    const results = await queryOpenEHR<Record<string, unknown>>(query);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await queryOpenEHR<any>(query);
     
     return results.map(row => {
       const evaluation = row.full_evaluation;
@@ -248,7 +252,8 @@ ORDER BY
 }
 
 // Helper to recursively find a magnitude value for a specific archetype node ID (at-code)
-function findMagnitude(node: Record<string, unknown>, atCode: string): number | undefined {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findMagnitude(node: any, atCode: string): number | undefined {
   if (!node || typeof node !== 'object') return undefined;
   // Check if this node matches the atCode and has a magnitude
   if (node.archetype_node_id === atCode && node.value?.magnitude !== undefined) {
@@ -279,7 +284,8 @@ ORDER BY
     c/context/start_time/value DESC`;
 
   try {
-    const results = await queryOpenEHR<Record<string, unknown>>(query);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await queryOpenEHR<any>(query);
     const grouped = new Map<string, VitalSignsRecord>();
 
     for (const row of results) {
