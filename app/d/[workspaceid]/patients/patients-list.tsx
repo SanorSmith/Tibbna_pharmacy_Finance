@@ -97,7 +97,7 @@ export default function PatientsList({
   });
 
   const mutation = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: Patient) => {
       if (!editingPatient) throw new Error("No patient selected");
       
       const res = await fetch(`/api/d/${workspaceid}/patients/${editingPatient.patientid}`, {

@@ -8,10 +8,7 @@ import { UserWorkspace } from "@/lib/db/tables/workspace";
 import { 
   getOpenEHREHRBySubjectId, 
   createOpenEHRComposition,
-  getOpenEHRCompositions,
-  getOpenEHRComposition,
-  getOpenEHRTestOrders,
-  TestOrderRecord
+  getOpenEHRTestOrders
 } from "@/lib/openehr/openehr";
 
 export async function GET(
