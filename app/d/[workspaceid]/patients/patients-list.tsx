@@ -178,16 +178,16 @@ export default function PatientsList({
     try {
       const payload = {
         patientid: editingPatient.patientid,
-        firstname: formData.get("firstname"),
-        middlename: formData.get("middlename"),
-        lastname: formData.get("lastname"),
-        nationalid: formData.get("nationalid"),
-        dateofbirth: formData.get("dateofbirth"),
-        gender: formData.get("gender"),
-        bloodgroup: formData.get("bloodgroup"),
-        phone: formData.get("phone"),
-        email: formData.get("email"),
-        address: formData.get("address"),
+        firstname: String(formData.get("firstname") || ""),
+        middlename: String(formData.get("middlename") || ""),
+        lastname: String(formData.get("lastname") || ""),
+        nationalid: String(formData.get("nationalid") || ""),
+        dateofbirth: String(formData.get("dateofbirth") || ""),
+        gender: String(formData.get("gender") || ""),
+        bloodgroup: String(formData.get("bloodgroup") || ""),
+        phone: String(formData.get("phone") || ""),
+        email: String(formData.get("email") || ""),
+        address: String(formData.get("address") || ""),
         medicalhistory: formData.get("medicalhistory")
           ? { notes: String(formData.get("medicalhistory")) }
           : {},
