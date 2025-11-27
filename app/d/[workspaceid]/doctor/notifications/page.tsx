@@ -14,7 +14,7 @@ export default async function DoctorNotificationsPage({ params }: Props) {
   }
   return (
     <div className="container mx-auto py-6">
-      <NotificationsList workspaceid={workspaceid} userid={user.userid} />
+      <NotificationsList workspaceid={workspaceid} />
     </div>
   );
 }

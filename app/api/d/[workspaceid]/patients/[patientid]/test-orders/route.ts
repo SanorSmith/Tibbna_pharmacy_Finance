@@ -123,7 +123,6 @@ export async function POST(
       requesting_provider,
       receiving_provider,
       narrative,
-      test_category,
       is_package,
       target_lab,
     } = body.testOrder;

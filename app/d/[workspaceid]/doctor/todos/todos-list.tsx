@@ -44,10 +44,9 @@ type Todo = {
 
 type Props = {
   workspaceid: string;
-  userid: string;
 };
 
-export default function TodosList({ workspaceid, userid }: Props) {
+export default function TodosList({ workspaceid }: Props) {
   const queryClient = useQueryClient();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);

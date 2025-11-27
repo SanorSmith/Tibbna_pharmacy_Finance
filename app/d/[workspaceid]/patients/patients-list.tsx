@@ -61,7 +61,7 @@ export default function PatientsList({
   const canEdit = userRole === "administrator";
 
   // Fetch patients
-  const { data: rows = [], isLoading: loadingPatients, error: patientsError, refetch: refetchPatients } = useQuery({
+  const { data: rows = [], isLoading: loadingPatients, error: patientsError } = useQuery({
     queryKey: ["patients", workspaceid],
     queryFn: async () => {
       const res = await fetch(`/api/d/${workspaceid}/patients`);

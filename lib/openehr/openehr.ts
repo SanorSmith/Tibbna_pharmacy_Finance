@@ -162,7 +162,7 @@ ORDER BY
       
       // Extract enhanced fields from description and narrative
       let testCategory = "";
-      let isPackage = true; // All orders are now test groups (packages)
+      const isPackage = true; // All orders are now test groups (packages)
       let targetLab = receivingProvider;
       
       // Extract category from description (format: "Test Group: ... | Category: Biochemistry | ...")

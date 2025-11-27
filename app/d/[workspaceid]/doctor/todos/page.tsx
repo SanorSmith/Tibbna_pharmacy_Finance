@@ -14,7 +14,7 @@ export default async function DoctorTodosPage({ params }: Props) {
   }
   return (
     <div className="container mx-auto py-6">
-      <TodosList workspaceid={workspaceid} userid={user.userid} />
+      <TodosList workspaceid={workspaceid} />
     </div>
   );
 }

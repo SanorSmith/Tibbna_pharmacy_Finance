@@ -632,14 +632,6 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
     return Object.values(TEST_PACKAGES).filter(pkg => pkg.category === category);
   }, [formState.target_lab]);
 
-  // Get tests for selected package
-  const availableTests = useMemo(() => {
-    if (!formState.selectedPackage) return [];
-    const pkg = TEST_PACKAGES[formState.selectedPackage];
-    if (!pkg) return [];
-    return pkg.tests.map(testId => INDIVIDUAL_TESTS[testId]).filter(Boolean);
-  }, [formState.selectedPackage]);
-
   // Load current user and populate requesting provider
   useEffect(() => {
     let mounted = true;
@@ -778,7 +770,7 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
       console.error(err);
       alert(err instanceof Error ? err.message : "Failed to save test order");
     }
-  }, [formState, workspaceid, patientid, loadTestOrders]);
+  }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
   // Handlers
   const onFieldChange = useCallback((field: keyof TestOrderForm, value: string | string[] | undefined) => {

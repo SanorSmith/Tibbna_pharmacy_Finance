@@ -7,7 +7,6 @@
  * - Doctor comments
  */
 "use client";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import {
   FileText,
   Pill,
   Stethoscope,
-  User,
   Home,
 } from "lucide-react";
 import Link from "next/link";
@@ -34,24 +32,11 @@ type Patient = {
   chronicconditions?: string[];
 };
 
-type LabResult = {
-  labresultid: string;
-  patientid: string;
-  testname: string;
-  result: string;
-  status: string;
-  createdat: string;
-  patient?: Patient;
-};
-
-type Props = {
+type Notification = {
   workspaceid: string;
-  userid: string;
 };
 
-export default function NotificationsList({ workspaceid, userid }: Props) {
-  const [acuteResults] = useState<LabResult[]>([]);
-
+export default function NotificationsList({ workspaceid }: Notification) {
   const { data: allPatients = [], isLoading: loading } = useQuery({
     queryKey: ["patients", workspaceid],
     queryFn: async () => {
