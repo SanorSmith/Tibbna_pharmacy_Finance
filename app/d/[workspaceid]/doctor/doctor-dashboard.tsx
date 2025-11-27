@@ -212,9 +212,7 @@ export default function DoctorDashboard({
         {/* Appointments */}
         <Card
           className={cardBaseClasses}
-          onClick={() =>
-            router.push(`/d/${workspaceid}/doctor/appointments`)
-          }
+          onClick={() => router.push(`/d/${workspaceid}/doctor/appointments`)}
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
@@ -245,9 +243,7 @@ export default function DoctorDashboard({
         {/* Operations */}
         <Card
           className={cardBaseClasses}
-          onClick={() =>
-            router.push(`/d/${workspaceid}/doctor/operations`)
-          }
+          onClick={() => router.push(`/d/${workspaceid}/doctor/operations`)}
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
@@ -266,9 +262,7 @@ export default function DoctorDashboard({
         {/* Notification */}
         <Card
           className={cardBaseClasses}
-          onClick={() =>
-            router.push(`/d/${workspaceid}/doctor/notifications`)
-          }
+          onClick={() => router.push(`/d/${workspaceid}/doctor/notifications`)}
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
@@ -296,16 +290,16 @@ export default function DoctorDashboard({
         {/* To-do */}
         <Card
           className={cardBaseClasses}
-          onClick={() =>
-            router.push(`/d/${workspaceid}/doctor/todos`)
-          }
+          onClick={() => router.push(`/d/${workspaceid}/doctor/todos`)}
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
               <div className="text-lg font-semibold mb-4">To do</div>
               <div className="text-2xl font-bold">{todos.length}</div>
               <div className="text-xs opacity-90 mt-1">
-                {todos.filter((t) => !t.completed).length} active
+                <span className="text-orange-600">
+                  {todos.filter((t) => !t.completed).length} active
+                </span>
                 {" • "}
                 {todos.filter((t) => t.completed).length} completed
               </div>
