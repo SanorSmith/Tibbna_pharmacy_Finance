@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   ChevronsUpDown,
-  Settings,
-  HelpCircle,
   LogOut,
   Shield,
 } from "lucide-react";
@@ -24,13 +22,11 @@ import {
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { User } from "@/lib/db/tables/user";
 import { useLanguage } from "@/hooks/use-language";
-import { UserSettingsModal } from "./user-settings-modal";
 import { useRouter } from "next/navigation";
 
 export function NavUser({ user, roleLabel }: { user: User; roleLabel?: string }) {
   const { isMobile } = useSidebar();
   const { ttt } = useLanguage();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [now, setNow] = useState(new Date());
   const router = useRouter();
 
@@ -45,9 +41,9 @@ export function NavUser({ user, roleLabel }: { user: User; roleLabel?: string })
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
             size="lg"
-            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            className="data-[state=open]:bg-sidebar-accent  data-[state=open]:text-sidebar-accent-foreground text-white hover:bg-white/20 hover:text-blue-900 transition-colors"
           >
-            <Avatar className="h-8 w-8 rounded-lg">
+            <Avatar className="h-8 w-8 rounded-lg text-blue-900">
               {user.image && (
                 <AvatarImage src={user.image} alt={user.name ?? ""} />
               )}
@@ -55,12 +51,12 @@ export function NavUser({ user, roleLabel }: { user: User; roleLabel?: string })
                 {user.name?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
+            <div className="grid flex-1 text-left text-sm leading-tight transition-colors">
               <span className="truncate font-medium">{user.name}</span>
-              <span className="truncate text-xs text-muted-foreground">
+              <span className="truncate text-xs opacity-90">
                 {roleLabel || user.permissions?.join(", ") || "User"}
               </span>
-              <span className="truncate text-[10px] text-muted-foreground">
+              <span className="truncate text-[10px] opacity-80">
                 {now.toLocaleDateString()} • {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
@@ -91,17 +87,6 @@ export function NavUser({ user, roleLabel }: { user: User; roleLabel?: string })
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem
-              onClick={() => setIsSettingsOpen(true)}
-              className="cursor-pointer"
-            >
-              <Settings />
-              {ttt("Account Settings")}
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <HelpCircle />
-              {ttt("Help")}
-            </DropdownMenuItem>
             {user.permissions?.includes("admin") && (
               <DropdownMenuItem onClick={() => router.push("/d/admin")}>
                 <Shield />
@@ -119,11 +104,6 @@ export function NavUser({ user, roleLabel }: { user: User; roleLabel?: string })
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <UserSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
     </>
   );
 }
