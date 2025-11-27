@@ -208,7 +208,7 @@ export default function DoctorDashboard({
   return (
     <div className="space-y-4 mr-4 ml-4">
       {/* Quick Access Cards Grid */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Appointments */}
         <Card
           className={cardBaseClasses}
