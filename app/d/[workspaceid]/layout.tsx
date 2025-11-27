@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/sidebar/header";
 import { NavUser } from "@/components/sidebar/nav-user";
+import { HeaderActions } from "@/components/sidebar/header-actions";
 import { PatientSearch } from "@/components/patients/patient-search";
 import { DashboardProviders } from "@/contexts/dashboardproviders";
 import { WorkspaceProvider } from "@/contexts/workspaceprovider";
@@ -43,7 +44,12 @@ export default async function HomeLayout({
           <SidebarInset>
             <Header
               middleSlot={<PatientSearch workspaceid={workspaceid} />}
-              rightSlot={<NavUser user={user} roleLabel={roleLabel} />}
+              rightSlot={
+                <>
+                  <HeaderActions />
+                  <NavUser user={user} roleLabel={roleLabel} />
+                </>
+              }
             />
             {children}
           </SidebarInset>
