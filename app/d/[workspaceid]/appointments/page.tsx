@@ -39,7 +39,7 @@ export default async function AppointmentsPage({ params }: PageProps) {
             variant="outline"
             size="icon"
             aria-label="Back to Doctor Dashboard"
-            className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+            className="bg-icon-color border-blue-400 text-white hover:bg-icon-color hover:border-blue-900"
             onClick={() => (window.location.href = `/d/${workspaceid}/doctor`)}
           >
             <Home className="h-4 w-4" />

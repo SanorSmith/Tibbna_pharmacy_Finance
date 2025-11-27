@@ -42,7 +42,7 @@ export default async function OperationsPage({ params }: PageProps) {
       variant="outline"
       size="icon"
       aria-label="Back to Doctor Dashboard"
-      className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+      className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
     >
       <Home className="h-4 w-4" />
     </Button>
