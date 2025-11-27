@@ -117,11 +117,15 @@ export async function POST(
       service_name,
       service_type_code,
       service_type_value,
+      description,
       clinical_indication,
       urgency,
       requesting_provider,
       receiving_provider,
       narrative,
+      test_category,
+      is_package,
+      target_lab,
     } = body.testOrder;
     
     console.log("DEBUG: Received testOrder data:", body.testOrder);
@@ -178,19 +182,23 @@ export async function POST(
     // Add test order to composition using exact template paths
     const eventTime = new Date().toISOString();
 
-    // Service Request Details - store data without problematic coded fields
+    // Enhanced Service Request Details
     compositionData["template_clinical_encounter_v1/service_request/request/service_name|other"] = service_name;
-    compositionData["template_clinical_encounter_v1/service_request/request/description"] = `Test Type: ${service_type_value || 'Not specified'} (Code: ${service_type_code || 'N/A'}) | Urgency: ${urgency || 'routine'}`; // Store test type and urgency in description
+    compositionData["template_clinical_encounter_v1/service_request/request/description"] = description || `Test Type: ${service_type_value || 'Not specified'} (Code: ${service_type_code || 'N/A'}) | Urgency: ${urgency || 'routine'}`;
     compositionData["template_clinical_encounter_v1/service_request/request/clinical_indication"] = clinical_indication;
     compositionData["template_clinical_encounter_v1/service_request/request/requested_date"] = eventTime;
     compositionData["template_clinical_encounter_v1/service_request/request/requesting_provider"] = requesting_provider || "Dr. Unknown";
-    
-    console.log("DEBUG: requesting_provider value:", requesting_provider);
-    console.log("DEBUG: user.name:", user.name);
     compositionData["template_clinical_encounter_v1/service_request/request/receiving_provider"] = receiving_provider || "Clinical Laboratory";
+    
+    // Store urgency in description and narrative (OpenEHR template doesn't support urgency field directly)
+    // The urgency is already included in the description field above
+    
     compositionData["template_clinical_encounter_v1/service_request/request/timing"] = eventTime;
     compositionData["template_clinical_encounter_v1/service_request/request_id"] = `testreq-${Date.now()}`;
-    compositionData["template_clinical_encounter_v1/service_request/narrative"] = narrative || `${service_name} (${urgency || 'routine'}) ordered due to ${clinical_indication}`; // Include urgency in narrative
+    
+    // Enhanced narrative with package/individual test info and target lab
+    const enhancedNarrative = narrative || `${is_package ? 'Package' : 'Individual'} test order: ${service_name} to ${target_lab || receiving_provider} (${urgency || 'routine'}) ordered due to ${clinical_indication}`;
+    compositionData["template_clinical_encounter_v1/service_request/narrative"] = enhancedNarrative;
     compositionData["template_clinical_encounter_v1/service_request/language|code"] = "en";
     compositionData["template_clinical_encounter_v1/service_request/language|terminology"] = "ISO_639-1";
     compositionData["template_clinical_encounter_v1/service_request/encoding|code"] = "UTF-8";

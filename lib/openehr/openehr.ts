@@ -50,14 +50,19 @@ export interface TestOrderRecord {
   service_name: string;
   service_type_code: string;
   service_type_value: string;
-  description: string;
+  description?: string;
   clinical_indication: string;
   urgency: string;
-  requesting_provider: string;
-  receiving_provider: string;
-  request_status: string;
-  request_id: string;
-  narrative: string;
+  requested_date?: string;
+  requesting_provider?: string;
+  receiving_provider?: string;
+  request_status?: string;
+  timing?: string;
+  request_id?: string;
+  narrative?: string;
+  test_category?: string;
+  is_package?: boolean;
+  target_lab?: string;
 }
 
 export interface DiagnosisRecord {
@@ -83,8 +88,17 @@ function findValueByName(instruction: any, fieldName: string): string | undefine
     for (const activity of instruction.activities) {
       if (activity.description?.items && Array.isArray(activity.description.items)) {
         for (const item of activity.description.items) {
-          if (item.name?.value === fieldName && item.value?.value) {
-            return item.value.value;
+          if (item.name?.value === fieldName) {
+            // Handle DV_CODED_TEXT (coded values like urgency)
+            if (item.value?.value) {
+              // For coded text, convert to lowercase for consistency
+              const value = item.value.value;
+              return fieldName === 'Urgency' ? value.toLowerCase() : value;
+            }
+            // Handle DV_TEXT (plain text)
+            if (item.value?._type === 'DV_TEXT' && item.value?.value) {
+              return item.value.value;
+            }
           }
         }
       }
@@ -135,21 +149,42 @@ ORDER BY
       const clinicalIndication = findValueByName(instruction, 'Clinical Indication') || "";
       const requestingProvider = findValueByName(instruction, 'Requesting Provider') || "";
       const receivingProvider = findValueByName(instruction, 'Receiving Provider') || "";
-      const requestId = findValueByName(instruction, 'Request ID') || "";
+      const requestId = findValueByName(instruction, 'request_id') || "";
       const narrative = findValueByName(instruction, 'narrative') || "";
       
-      // Parse test type from description (format: "Test Type: X (Code: Y) | Urgency: Z")
-      let testType = "";
-      const testTypeMatch = description.match(/Test Type:\s*([^(]+)/);
-      if (testTypeMatch) {
-        testType = testTypeMatch[1].trim();
+      // Extract urgency from description or narrative (template doesn't support urgency field)
+      let urgency = "routine";
+      if (description && description.toLowerCase().includes('urgency: urgent')) {
+        urgency = "urgent";
+      } else if (narrative && narrative.toLowerCase().includes('(urgent)')) {
+        urgency = "urgent";
       }
       
-      // Extract urgency from description
-      let urgency = "routine";
-      const urgencyMatch = description.match(/Urgency:\s*(\w+)/);
-      if (urgencyMatch) {
-        urgency = urgencyMatch[1].toLowerCase();
+      // Extract enhanced fields from description and narrative
+      let testCategory = "";
+      let isPackage = true; // All orders are now test groups (packages)
+      let targetLab = receivingProvider;
+      
+      // Extract category from description (format: "Test Group: ... | Category: Biochemistry | ...")
+      if (description) {
+        const categoryMatch = description.match(/Category:\s*([^|]+)/);
+        if (categoryMatch) {
+          testCategory = categoryMatch[1].trim();
+        }
+        
+        // Extract lab from description (format: "... | Laboratory: Biochemistry | ...")
+        const labMatch = description.match(/Laboratory:\s*([^|]+)/);
+        if (labMatch) {
+          targetLab = labMatch[1].trim();
+        }
+      }
+      
+      // Fallback: try to extract from narrative
+      if (!targetLab && narrative) {
+        const labMatch = narrative.match(/to\s+([^:]+)\s*\(/);
+        if (labMatch) {
+          targetLab = labMatch[1].trim();
+        }
       }
       
       return {
@@ -157,16 +192,18 @@ ORDER BY
         recorded_time: row.recorded_time,
         service_name: serviceName,
         service_type_code: "",
-        service_type_value: testType,
+        service_type_value: "",
         description: description,
         clinical_indication: clinicalIndication,
         urgency: urgency,
         requesting_provider: requestingProvider,
         receiving_provider: receivingProvider,
-        request_status: "ordered",
         request_id: requestId,
-        narrative: narrative
-      };
+        narrative: narrative,
+        test_category: testCategory,
+        is_package: isPackage,
+        target_lab: targetLab,
+      } as TestOrderRecord;
     });
   } catch (error) {
     console.error("Error fetching test orders via AQL:", error);
