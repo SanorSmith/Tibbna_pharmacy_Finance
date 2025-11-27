@@ -555,6 +555,8 @@ export async function createOpenEHRComposition(
   console.log("Creating composition with data:", JSON.stringify(compositionData, null, 2));
   
   try {
+    const startTime = Date.now();
+    
     const response = await axios.post(url, compositionData, {
       headers: {
         "X-API-Key": process.env.EHRBASE_API_KEY!,
@@ -563,12 +565,26 @@ export async function createOpenEHRComposition(
         Accept: "application/json",
         Prefer: "return=representation",
       },
+      timeout: 30000, // 30 second timeout
     });
+    
+    const duration = Date.now() - startTime;
+    console.log(`EHRBase composition created in ${duration}ms`);
+    
     return response.data.uid?.value || response.data.composition_uid || response.data.uid;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
-      console.error("EHRbase error response:", error.response.status);
-      console.error("EHRbase error data:", JSON.stringify(error.response.data, null, 2));
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED') {
+        console.error("EHRBase request timed out after 30 seconds");
+        throw new Error("EHRBase server is taking too long to respond. Please try again.");
+      }
+      if (error.response) {
+        console.error("EHRbase error response:", error.response.status);
+        console.error("EHRbase error data:", JSON.stringify(error.response.data, null, 2));
+      }
+      if (error.response?.status === 500) {
+        console.error("EHRBase server error - possibly template validation issue");
+      }
     }
     throw error;
   }

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
 import Link from "next/link";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VitalSignsTab } from "./components/VitalSignsTab";
 import { DiagnosticsTab } from "./components/DiagnosticsTab";
 import EnhancedOrdersTab from "./components/EnhancedOrdersTab";
@@ -165,15 +166,18 @@ export default function PatientDashboard({
   const [loadingImaging, setLoadingImaging] = useState(false);
 
   // Track which tabs have been loaded to avoid redundant API calls
-  const loadedTabsRef = useRef<Set<string>>(new Set(["dashboard"]));
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(["dashboard"]));
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   // Handle tab changes and lazy load data
   const handleTabChange = (tabValue: string) => {
-    if (loadedTabsRef.current.has(tabValue)) {
+    setActiveTab(tabValue);
+    
+    if (loadedTabs.has(tabValue)) {
       return; // Already loaded
     }
 
-    loadedTabsRef.current.add(tabValue);
+    setLoadedTabs(prev => new Set(prev).add(tabValue));
 
     // Load data based on tab
     switch (tabValue) {
@@ -381,13 +385,13 @@ export default function PatientDashboard({
 
 
 
-  // Load essential data on mount for dashboard view
+  // Load essential data on mount for dashboard view only
   useEffect(() => {
+    // Only load data needed for the default "dashboard" tab
     loadAppointments();
     loadVitalSigns();
     loadImaging();
-    loadDiagnoses(); // Load diagnoses on initial load
-    // Other data will be loaded when user switches to respective tabs
+    loadDiagnoses();
   }, [
     loadAppointments,
     loadVitalSigns,
@@ -412,12 +416,48 @@ export default function PatientDashboard({
           </Link>
         </div>
 
-        <div className="flex-1 flex items-center justify-between ml-4 text-sm">
-          <div className="flex flex-col">
-            <div className="text-lg font-semibold leading-tight truncate">
-              {fullName}
+        <div className="flex-1 flex items-center ml-4 text-sm">
+          <div className="flex gap-8">
+            {/* Left column: Patient name */}
+            <div className="flex flex-col justify-center">
+              {(patient.nationalid || patient.phone || patient.email) ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="font-semibold leading-tight truncate cursor-pointer">
+                      {fullName}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="space-y-1">
+                      {patient.nationalid && (
+                        <div>
+                          <span className="font-medium">National ID:</span> {patient.nationalid}
+                        </div>
+                      )}
+                      {patient.phone && (
+                        <div>
+                          <span className="font-medium">Phone:</span> 
+                          <a href={`tel:${patient.phone}`} className="hover:underline ml-1">{patient.phone}</a>
+                        </div>
+                      )}
+                      {patient.email && (
+                        <div>
+                          <span className="font-medium">Email:</span> 
+                          <a href={`mailto:${patient.email}`} className="hover:underline ml-1">{patient.email}</a>
+                        </div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <div className="font-semibold leading-tight truncate">
+                  {fullName}
+                </div>
+              )}
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
+            
+            {/* Right column: Demographics */}
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
               <span>
                 Age: <span className="font-medium text-foreground">{age !== null ? `${age} years` : "N/A"}</span>
               </span>
@@ -427,32 +467,18 @@ export default function PatientDashboard({
               <span>
                 Blood Group: <span className="font-medium text-foreground">{patient.bloodgroup || "N/A"}</span>
               </span>
-              {patient.nationalid && (
-                <span>
-                  National ID: <span className="font-medium text-foreground">{patient.nationalid}</span>
-                </span>
-              )}
-              {patient.phone && (
-                <span>
-                  Phone: <a href={`tel:${patient.phone}`} className="font-medium text-foreground hover:underline">{patient.phone}</a>
-                </span>
-              )}
-              {patient.email && (
-                <span>
-                  Email: <a href={`mailto:${patient.email}`} className="font-medium text-foreground hover:underline">{patient.email}</a>
-                </span>
-              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Tabs for different sections - Organized by Clinical Workflow */}
-      <Tabs
-        defaultValue="dashboard"
-        className="w-full"
-        onValueChange={handleTabChange}
-      >
+      <div>
+        <Tabs
+          defaultValue="dashboard"
+          className="w-full"
+          onValueChange={handleTabChange}
+        >
         <TabsList className="flex w-full overflow-x-auto space-x-1">
   <TabsTrigger
     value="dashboard"
@@ -542,7 +568,7 @@ Results
 
 
         {/* Dashboard Tab */}
-        <TabsContent value="dashboard" className="space-y-6">
+        <TabsContent value="dashboard" className="space-y-4 mt-4">
           <DashboardTypes.DashboardTab
             workspaceid={workspaceid}
             patientid={patient.patientid}
@@ -590,18 +616,22 @@ Results
 
         {/* Vaccinations Tab - Now using VaccinationsTab component */}
         <TabsContent value="vaccinations" className="space-y-4">
-          <VaccinationsTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-          />
+          {loadedTabs.has("vaccinations") && (
+            <VaccinationsTab
+              workspaceid={workspaceid}
+              patientid={patient.patientid}
+            />
+          )}
         </TabsContent>
 
         {/* Referrals Tab - Now using ReferralsTab component */}
         <TabsContent value="referrals" className="space-y-4">
-          <ReferralsTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-          />
+          {loadedTabs.has("referrals") && (
+            <ReferralsTab
+              workspaceid={workspaceid}
+              patientid={patient.patientid}
+            />
+          )}
         </TabsContent>
 
         {/* Diagnostics Tab - Based on openEHR Problem/Diagnosis */}
@@ -625,18 +655,22 @@ Results
 
         {/* Lab Results Tab - Now using LabsTab component */}
         <TabsContent value="lab" className="space-y-4">
-          <LabsTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-          />
+          {loadedTabs.has("lab") && (
+            <LabsTab
+              workspaceid={workspaceid}
+              patientid={patient.patientid}
+            />
+          )}
         </TabsContent>
 
         {/* Prescriptions Tab - Now using MedsTab component */}
         <TabsContent value="prescriptions" className="space-y-4">
-          <MedsTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-          />
+          {loadedTabs.has("prescriptions") && (
+            <MedsTab
+              workspaceid={workspaceid}
+              patientid={patient.patientid}
+            />
+          )}
         </TabsContent>
 
         {/* Vitals Card Tab - Moved from top to card */}
@@ -715,10 +749,12 @@ Results
 
         {/* Test Orders Tab - Enhanced with packages and lab selection */}
         <TabsContent value="testorders" className="space-y-4">
-          <EnhancedOrdersTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-          />
+          {loadedTabs.has("testorders") && (
+            <EnhancedOrdersTab
+              workspaceid={workspaceid}
+              patientid={patient.patientid}
+            />
+          )}
         </TabsContent>
 
         
@@ -739,21 +775,26 @@ Results
 
         {/* Care Plans Tab - Now using CarePlansTab component */}
         <TabsContent value="careplans" className="space-y-4">
-          <CarePlansTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-          />
+          {loadedTabs.has("careplans") && (
+            <CarePlansTab
+              workspaceid={workspaceid}
+              patientid={patient.patientid}
+            />
+          )}
         </TabsContent>
 
         {/* Notes Tab - Now using NotesTab component */}
         <TabsContent value="notes" className="space-y-4">
-          <NotesTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-          />
+          {loadedTabs.has("notes") && (
+            <NotesTab
+              workspaceid={workspaceid}
+              patientid={patient.patientid}
+            />
+          )}
         </TabsContent>
 
       </Tabs>
+      </div>
     </div>
   );
 }
