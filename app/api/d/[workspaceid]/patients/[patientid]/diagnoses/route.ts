@@ -9,14 +9,9 @@ import {
   getOpenEHREHRBySubjectId, 
   createOpenEHRComposition,
   getOpenEHRCompositions,
-  getOpenEHRComposition
+  getOpenEHRComposition,
+  getOpenEHRDiagnoses
 } from "@/lib/openehr/openehr";
-
-// Type definitions for OpenEHR composition
-interface OpenEHRComposition {
-  composition_uid: string;
-  start_time: string;
-}
 
 export async function GET(
   request: NextRequest,
@@ -74,82 +69,13 @@ export async function GET(
       return NextResponse.json({ diagnoses: [], totalCount: 0, hasMore: false });
     }
 
-    // Fetch ALL compositions and extract diagnoses (no pagination yet for filtering)
-    const allCompositions = await getOpenEHRCompositions(ehrId);
-   
-    // Fetch full details for compositions and filter for diagnoses
-    const allDiagnoses = await Promise.all(
-      allCompositions.map(async (comp: OpenEHRComposition) => {
-        try {
-          const details = await getOpenEHRComposition(ehrId, comp.composition_uid) as Record<string, unknown>;
-          
-          // Quick check: does this composition have diagnosis data?
-          const hasDiagnosis = Object.keys(details).some(key => 
-            key.includes('problem_diagnosis')
-          );
-          
-          if (!hasDiagnosis) {
-            return null; // Skip compositions without diagnoses
-          }
-          
-          // Extract diagnosis from composition details using correct template paths
-          const problemDiagnosis = 
-            details["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"];
-          
-          const variant = 
-            details["template_clinical_encounter_v1/problem_diagnosis/variant:0"];
-          
-          const clinicalDescription = 
-            details["template_clinical_encounter_v1/problem_diagnosis/clinical_description"];
-          
-          const bodySite = 
-            details["template_clinical_encounter_v1/problem_diagnosis/body_site:0"];
-          
-          const dateOfOnset = 
-            details["template_clinical_encounter_v1/problem_diagnosis/date_time_of_onset"];
-          
-          const dateOfResolution = 
-            details["template_clinical_encounter_v1/problem_diagnosis/date_time_of_resolution"];
-          
-          const severity = 
-            details["template_clinical_encounter_v1/problem_diagnosis/severity"];
-          
-          const comment = 
-            details["template_clinical_encounter_v1/problem_diagnosis/comment"];
+    // Use optimized AQL query to fetch diagnoses directly
+    const validDiagnoses = await getOpenEHRDiagnoses(ehrId);
 
-          // Only return if there's an actual diagnosis
-          if (problemDiagnosis) {
-            return {
-              composition_uid: comp.composition_uid,
-              recorded_time: comp.start_time,
-              problem_diagnosis: problemDiagnosis,
-              clinical_status: variant || "active",
-              clinical_description: clinicalDescription,
-              body_site: bodySite,
-              date_of_onset: dateOfOnset,
-              date_of_resolution: dateOfResolution,
-              severity: severity,
-              comment: comment,
-            };
-          } else {
-            return null;
-          }
-        } catch {
-          return null;
-        }
-      })
-    );
-
-    // Filter out null entries and sort by date
-    const validDiagnoses = allDiagnoses
-      .filter((diagnosis): diagnosis is NonNullable<typeof diagnosis> => diagnosis !== null)
-      .sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
-    // Now apply pagination to the filtered results
+    // Apply pagination to the filtered results
     const totalFilteredCount = validDiagnoses.length;
     const hasMore = offset + limit < totalFilteredCount;
     
-    console.log(`Pagination info: offset=${offset}, limit=${limit}, totalFilteredCount=${totalFilteredCount}, hasMore=${hasMore}`);
-
     // Apply pagination to the filtered results
     const paginatedResults = validDiagnoses.slice(offset, offset + limit);
 
@@ -253,11 +179,9 @@ export async function POST(
     };
 
     // Add diagnosis to composition using correct template paths
-    const eventTime = new Date().toISOString();
 
     // Problem/Diagnosis Name (required)
     compositionData["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"] = problemDiagnosis;
-    compositionData["template_clinical_encounter_v1/problem_diagnosis/time_committed|value"] = eventTime;
 
     // Clinical Status (mapped to variant)
     if (clinicalStatus) {

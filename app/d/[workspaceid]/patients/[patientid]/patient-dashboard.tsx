@@ -12,7 +12,7 @@ import { Home } from "lucide-react";
 import Link from "next/link";
 import { VitalSignsTab } from "./components/VitalSignsTab";
 import { DiagnosticsTab } from "./components/DiagnosticsTab";
-import OrdersTab from "./components/OrdersTab";
+import EnhancedOrdersTab from "./components/EnhancedOrdersTab";
 import { LabsTab } from "./components/LabsTab";
 import { MedsTab } from "./components/MedsTab";
 import { CarePlansTab } from "./components/CarePlansTab";
@@ -713,9 +713,9 @@ Results
           </div>
         </TabsContent>
 
-        {/* Test Orders Tab - Now using OrdersTab component */}
+        {/* Test Orders Tab - Enhanced with packages and lab selection */}
         <TabsContent value="testorders" className="space-y-4">
-          <OrdersTab
+          <EnhancedOrdersTab
             workspaceid={workspaceid}
             patientid={patient.patientid}
           />

@@ -7,7 +7,7 @@
  * - Doctor comments
  */
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +18,6 @@ import {
   FileText,
   Pill,
   Stethoscope,
-  User,
   Home,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,68 +32,36 @@ type Patient = {
   chronicconditions?: string[];
 };
 
-type LabResult = {
-  labresultid: string;
-  patientid: string;
-  testname: string;
-  result: string;
-  status: string;
-  createdat: string;
-  patient?: Patient;
-};
-
-type Props = {
+type Notification = {
   workspaceid: string;
-  userid: string;
 };
 
-export default function NotificationsList({ workspaceid, userid }: Props) {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [chronicPatients, setChronicPatients] = useState<Patient[]>([]);
-  const [overduePatients, setOverduePatients] = useState<Patient[]>([]);
-  const [acuteResults] = useState<LabResult[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const loadNotifications = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      // Fetch patients data
-      const patientsRes = await fetch(`/api/d/${workspaceid}/patients`);
-      if (patientsRes.ok) {
-        const data = await patientsRes.json();
-        const allPatients = data.patients || [];
-        setPatients(allPatients);
-
-        // Filter chronic patients (this is a placeholder - you'd need actual chronic disease data)
-        const chronic = allPatients.filter(
-          (p: Patient) => p.chronicconditions && p.chronicconditions.length > 0
-        );
-        setChronicPatients(chronic);
-
-        // Filter patients who haven't visited in 90+ days
-        const ninetyDaysAgo = new Date();
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-        const overdue = allPatients.filter((p: Patient) => {
-          if (!p.lastvisit) return true; // Never visited
-          const lastVisit = new Date(p.lastvisit);
-          return lastVisit < ninetyDaysAgo;
-        });
-        setOverduePatients(overdue);
+export default function NotificationsList({ workspaceid }: Notification) {
+  const { data: allPatients = [], isLoading: loading } = useQuery({
+    queryKey: ["patients", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients`);
+      if (res.ok) {
+        const data = await res.json();
+        return (data.patients as Patient[]) || [];
       }
+      return [];
+    },
+  });
 
-      // TODO: Fetch acute lab results, notes, comments when APIs are available
-    } catch (error) {
-      console.error("Failed to load notifications:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceid]);
+  // Filter chronic patients
+  const chronicPatients = allPatients.filter(
+    (p) => p.chronicconditions && p.chronicconditions.length > 0
+  );
 
-  useEffect(() => {
-    loadNotifications();
-  }, [workspaceid, userid, loadNotifications]);
+  // Filter patients who haven't visited in 90+ days
+  const overduePatients = allPatients.filter((p) => {
+    if (!p.lastvisit) return true; // Never visited
+    const lastVisit = new Date(p.lastvisit);
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    return lastVisit < ninetyDaysAgo;
+  });
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";
@@ -112,92 +79,29 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0 mr-4 ml-4">
+   <div className="space-y-4">
       {/* Header */}
-      <Link href={`/d/${workspaceid}/doctor`}>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Back to Doctor Dashboard"
-          className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
-        >
-          <Home className="h-4 w-4" />
-        </Button>
-      </Link>
+      <div className="flex items-center gap-2 ">
+        <Link href={`/d/${workspaceid}/doctor`}>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back to Doctor Dashboard"
+            className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+          >
+            <Home className="h-4 w-4" />
+          </Button>
+        </Link>
+
+        <h1 className="text-xl font-semibold">Notifications</h1>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
           <p className="text-muted-foreground">
             Overview of patient alerts and important updates
           </p>
         </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-[#618FF5]">
-          <CardContent className="pt-6 text-white">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-sm text-white text-muted-foreground">
-                  Chronic Patients
-                </p>
-                <p className="text-2xl font-bold">{chronicPatients.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#618FF5]">
-          <CardContent className="pt-6 text-white">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm text-white text-muted-foreground">
-                  Overdue Visits
-                </p>
-                <p className="text-2xl font-bold">{overduePatients.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#618FF5]">
-          <CardContent className="pt-6 text-white">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FileText className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-white text-muted-foreground">
-                  Acute Results
-                </p>
-                <p className="text-2xl font-bold">{acuteResults.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#618FF5]">
-          <CardContent className="pt-6 text-white">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <User className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-white text-muted-foreground">
-                  Total Patients
-                </p>
-                <p className="text-2xl font-bold">{patients.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Tabbed Content */}
@@ -260,16 +164,29 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr>
-                        <th className="text-left py-3 px-4 font-medium">Patient Name</th>
-                        <th className="text-left py-3 px-4 font-medium">Patient ID</th>
-                        <th className="text-left py-3 px-4 font-medium">Chronic Conditions</th>
-                        <th className="text-left py-3 px-4 font-medium">Phone</th>
-                        <th className="text-left py-3 px-4 font-medium">Actions</th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Patient Name
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Patient ID
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Chronic Conditions
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Phone
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {chronicPatients.map((patient) => (
-                        <tr key={patient.patientid} className="border-t hover:bg-muted/50">
+                        <tr
+                          key={patient.patientid}
+                          className="border-t hover:bg-muted/50"
+                        >
                           <td className="py-3 px-4 font-medium">
                             {patient.firstname} {patient.lastname}
                           </td>
@@ -278,18 +195,22 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex gap-1 flex-wrap">
-                              {patient.chronicconditions?.map((condition, idx) => (
-                                <Badge key={idx} variant="destructive">
-                                  {condition}
-                                </Badge>
-                              ))}
+                              {patient.chronicconditions?.map(
+                                (condition, idx) => (
+                                  <Badge key={idx} variant="destructive">
+                                    {condition}
+                                  </Badge>
+                                )
+                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4 text-sm">
                             {patient.phone || "-"}
                           </td>
                           <td className="py-3 px-4">
-                            <Link href={`/d/${workspaceid}/patients/${patient.patientid}`}>
+                            <Link
+                              href={`/d/${workspaceid}/patients/${patient.patientid}`}
+                            >
                               <Button size="sm" variant="outline">
                                 View
                               </Button>
@@ -326,17 +247,32 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr>
-                        <th className="text-left py-3 px-4 font-medium">Patient Name</th>
-                        <th className="text-left py-3 px-4 font-medium">Patient ID</th>
-                        <th className="text-left py-3 px-4 font-medium">Last Visit</th>
-                        <th className="text-left py-3 px-4 font-medium">Days Since Visit</th>
-                        <th className="text-left py-3 px-4 font-medium">Phone</th>
-                        <th className="text-left py-3 px-4 font-medium">Actions</th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Patient Name
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Patient ID
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Last Visit
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Days Since Visit
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Phone
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {overduePatients.map((patient) => (
-                        <tr key={patient.patientid} className="border-t hover:bg-muted/50">
+                        <tr
+                          key={patient.patientid}
+                          className="border-t hover:bg-muted/50"
+                        >
                           <td className="py-3 px-4 font-medium">
                             {patient.firstname} {patient.lastname}
                           </td>
@@ -353,7 +289,9 @@ export default function NotificationsList({ workspaceid, userid }: Props) {
                             {patient.phone || "-"}
                           </td>
                           <td className="py-3 px-4">
-                            <Link href={`/d/${workspaceid}/patients/${patient.patientid}`}>
+                            <Link
+                              href={`/d/${workspaceid}/patients/${patient.patientid}`}
+                            >
                               <Button size="sm" variant="outline">
                                 View
                               </Button>

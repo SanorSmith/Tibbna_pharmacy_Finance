@@ -4,7 +4,6 @@
  * - Quick access to important features
  * - Route: /d/[workspaceid]/dashboard
  */
-import { Header } from "@/components/sidebar/header";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
@@ -41,7 +40,6 @@ export default async function DashboardPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <div>

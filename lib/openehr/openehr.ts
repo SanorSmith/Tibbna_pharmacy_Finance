@@ -44,6 +44,359 @@ export async function queryOpenEHR<T = Record<string, unknown>>(
   });
 }
 
+export interface TestOrderRecord {
+  composition_uid: string;
+  recorded_time: string;
+  service_name: string;
+  service_type_code: string;
+  service_type_value: string;
+  description?: string;
+  clinical_indication: string;
+  urgency: string;
+  requested_date?: string;
+  requesting_provider?: string;
+  receiving_provider?: string;
+  request_status?: string;
+  timing?: string;
+  request_id?: string;
+  narrative?: string;
+  test_category?: string;
+  is_package?: boolean;
+  target_lab?: string;
+}
+
+export interface DiagnosisRecord {
+  composition_uid: string;
+  recorded_time: string;
+  problem_diagnosis: string;
+  clinical_status: string;
+  clinical_description: string;
+  body_site: string;
+  date_of_onset: string;
+  date_of_resolution: string;
+  severity: string;
+  comment: string;
+}
+
+// Helper to find a value by field name in OpenEHR INSTRUCTION structure
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findValueByName(instruction: any, fieldName: string): string | undefined {
+  if (!instruction || typeof instruction !== 'object') return undefined;
+  
+  // Check activities array for description items
+  if (instruction.activities && Array.isArray(instruction.activities)) {
+    for (const activity of instruction.activities) {
+      if (activity.description?.items && Array.isArray(activity.description.items)) {
+        for (const item of activity.description.items) {
+          if (item.name?.value === fieldName) {
+            // Handle DV_CODED_TEXT (coded values like urgency)
+            if (item.value?.value) {
+              // For coded text, convert to lowercase for consistency
+              const value = item.value.value;
+              return fieldName === 'Urgency' ? value.toLowerCase() : value;
+            }
+            // Handle DV_TEXT (plain text)
+            if (item.value?._type === 'DV_TEXT' && item.value?.value) {
+              return item.value.value;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Check narrative at top level
+  if (fieldName === 'narrative' && instruction.narrative?.value) {
+    return instruction.narrative.value;
+  }
+  
+  // Check protocol items for request_id
+  if (instruction.protocol?.items && Array.isArray(instruction.protocol.items)) {
+    for (const item of instruction.protocol.items) {
+      if (item.name?.value === fieldName && item.value?.value) {
+        return item.value.value;
+      }
+    }
+  }
+  
+  return undefined;
+}
+
+export async function getOpenEHRTestOrders(ehrId: string): Promise<TestOrderRecord[]> {
+  const query = `SELECT
+    c/uid/value as composition_uid,
+    c/context/start_time/value as recorded_time,
+    i as full_instruction
+FROM
+    EHR e
+    CONTAINS COMPOSITION c
+    CONTAINS INSTRUCTION i[openEHR-EHR-INSTRUCTION.service_request.v1]
+WHERE
+    e/ehr_id/value = '${ehrId}'
+ORDER BY
+    c/context/start_time/value DESC`;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await queryOpenEHR<any>(query);
+    
+    return results.map(row => {
+      const instruction = row.full_instruction;
+      
+      // Extract fields using the exact field names from OpenEHR structure
+      const serviceName = findValueByName(instruction, 'Service Name') || "";
+      const description = findValueByName(instruction, 'Description') || "";
+      const clinicalIndication = findValueByName(instruction, 'Clinical Indication') || "";
+      const requestingProvider = findValueByName(instruction, 'Requesting Provider') || "";
+      const receivingProvider = findValueByName(instruction, 'Receiving Provider') || "";
+      const requestId = findValueByName(instruction, 'request_id') || "";
+      const narrative = findValueByName(instruction, 'narrative') || "";
+      
+      // Extract urgency from description or narrative (template doesn't support urgency field)
+      let urgency = "routine";
+      if (description && description.toLowerCase().includes('urgency: urgent')) {
+        urgency = "urgent";
+      } else if (narrative && narrative.toLowerCase().includes('(urgent)')) {
+        urgency = "urgent";
+      }
+      
+      // Extract enhanced fields from description and narrative
+      let testCategory = "";
+      const isPackage = true; // All orders are now test groups (packages)
+      let targetLab = receivingProvider;
+      
+      // Extract category from description (format: "Test Group: ... | Category: Biochemistry | ...")
+      if (description) {
+        const categoryMatch = description.match(/Category:\s*([^|]+)/);
+        if (categoryMatch) {
+          testCategory = categoryMatch[1].trim();
+        }
+        
+        // Extract lab from description (format: "... | Laboratory: Biochemistry | ...")
+        const labMatch = description.match(/Laboratory:\s*([^|]+)/);
+        if (labMatch) {
+          targetLab = labMatch[1].trim();
+        }
+      }
+      
+      // Fallback: try to extract from narrative
+      if (!targetLab && narrative) {
+        const labMatch = narrative.match(/to\s+([^:]+)\s*\(/);
+        if (labMatch) {
+          targetLab = labMatch[1].trim();
+        }
+      }
+      
+      return {
+        composition_uid: row.composition_uid,
+        recorded_time: row.recorded_time,
+        service_name: serviceName,
+        service_type_code: "",
+        service_type_value: "",
+        description: description,
+        clinical_indication: clinicalIndication,
+        urgency: urgency,
+        requesting_provider: requestingProvider,
+        receiving_provider: receivingProvider,
+        request_id: requestId,
+        narrative: narrative,
+        test_category: testCategory,
+        is_package: isPackage,
+        target_lab: targetLab,
+      } as TestOrderRecord;
+    });
+  } catch (error) {
+    console.error("Error fetching test orders via AQL:", error);
+    return [];
+  }
+}
+
+export interface VitalSignsRecord {
+  composition_uid: string;
+  recorded_time: string;
+  temperature?: number;
+  systolic?: number;
+  diastolic?: number;
+  heart_rate?: number;
+  respiratory_rate?: number;
+  spo2?: number;
+}
+
+// Helper to find a value by field name in OpenEHR EVALUATION structure
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findDiagnosisValue(evaluation: any, fieldName: string): string | undefined {
+  if (!evaluation || typeof evaluation !== 'object') return undefined;
+  
+  // Check data.items array for elements
+  if (evaluation.data?.items && Array.isArray(evaluation.data.items)) {
+    for (const item of evaluation.data.items) {
+      if (item.name?.value === fieldName && item.value?.value) {
+        return item.value.value;
+      }
+    }
+  }
+  
+  return undefined;
+}
+
+export async function getOpenEHRDiagnoses(ehrId: string): Promise<DiagnosisRecord[]> {
+  const query = `SELECT
+    c/uid/value as composition_uid,
+    c/context/start_time/value as recorded_time,
+    eval as full_evaluation
+FROM
+    EHR e
+    CONTAINS COMPOSITION c
+    CONTAINS EVALUATION eval[openEHR-EHR-EVALUATION.problem_diagnosis.v1]
+WHERE
+    e/ehr_id/value = '${ehrId}'
+ORDER BY
+    c/context/start_time/value DESC`;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await queryOpenEHR<any>(query);
+    
+    return results.map(row => {
+      const evaluation = row.full_evaluation;
+      
+      // Extract fields using the exact field names from OpenEHR structure
+      const problemDiagnosis = findDiagnosisValue(evaluation, 'Problem/Diagnosis name') || "";
+      const clinicalDescription = findDiagnosisValue(evaluation, 'Clinical description') || "";
+      const bodySite = findDiagnosisValue(evaluation, 'Body site') || "";
+      const dateOfOnset = findDiagnosisValue(evaluation, 'Date/time of onset') || "";
+      const dateOfResolution = findDiagnosisValue(evaluation, 'Date/time of resolution') || "";
+      const comment = findDiagnosisValue(evaluation, 'Comment') || "";
+      const clinicalStatus = findDiagnosisValue(evaluation, 'Variant') || "active";
+      
+      return {
+        composition_uid: row.composition_uid,
+        recorded_time: row.recorded_time,
+        problem_diagnosis: problemDiagnosis,
+        clinical_status: clinicalStatus,
+        clinical_description: clinicalDescription,
+        body_site: bodySite,
+        date_of_onset: dateOfOnset,
+        date_of_resolution: dateOfResolution,
+        severity: "",
+        comment: comment
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching diagnoses via AQL:", error);
+    return [];
+  }
+}
+
+// Helper to recursively find a magnitude value for a specific archetype node ID (at-code)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findMagnitude(node: any, atCode: string): number | undefined {
+  if (!node || typeof node !== 'object') return undefined;
+  // Check if this node matches the atCode and has a magnitude
+  if (node.archetype_node_id === atCode && node.value?.magnitude !== undefined) {
+    return node.value.magnitude;
+  }
+  // Traverse children (arrays or objects)
+  for (const key of Object.keys(node)) {
+    // Optimization: skip non-structural keys
+    if (key === 'value' || typeof node[key] !== 'object') continue;
+    const res = findMagnitude(node[key], atCode);
+    if (res !== undefined) return res;
+  }
+  return undefined;
+}
+
+export async function getOpenEHRVitalSigns(ehrId: string): Promise<VitalSignsRecord[]> {
+  const query = `SELECT
+    c/uid/value as composition_uid,
+    c/context/start_time/value as recorded_time,
+    o as full_obs
+FROM
+    EHR e
+    CONTAINS COMPOSITION c
+    CONTAINS OBSERVATION o
+WHERE
+    e/ehr_id/value = '${ehrId}'
+ORDER BY
+    c/context/start_time/value DESC`;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await queryOpenEHR<any>(query);
+    const grouped = new Map<string, VitalSignsRecord>();
+
+    for (const row of results) {
+      const compId = row.composition_uid;
+      if (!grouped.has(compId)) {
+        grouped.set(compId, {
+          composition_uid: compId,
+          recorded_time: row.recorded_time,
+        });
+      }
+      
+      const record = grouped.get(compId)!;
+      const obs = row.full_obs;
+      
+      if (!obs || !obs.archetype_node_id) continue;
+
+      const archId = (obs.archetype_node_id as string).toLowerCase();
+
+      // Handle composite vital_signs archetype (contains all vitals in one observation)
+      if (archId.includes("vital_signs") || archId.includes("vitals")) {
+        // Mapping for openEHR-EHR-OBSERVATION.vital_signs.v1:
+        const sys = findMagnitude(obs, "at0004");  // Systolic BP
+        const dia = findMagnitude(obs, "at0005");  // Diastolic BP
+        const hr = findMagnitude(obs, "at0006");   // Heart Rate
+        const temp = findMagnitude(obs, "at0007"); // Body Temperature
+        const rr = findMagnitude(obs, "at0008");   // Respiratory Rate
+        const spo2 = findMagnitude(obs, "at0009"); // SpO2
+        
+        if (sys !== undefined) record.systolic = sys;
+        if (dia !== undefined) record.diastolic = dia;
+        if (hr !== undefined) record.heart_rate = hr;
+        if (temp !== undefined) record.temperature = temp;
+        if (rr !== undefined) record.respiratory_rate = rr;
+        if (spo2 !== undefined) record.spo2 = spo2;
+      }
+      // Handle individual vital sign archetypes
+      else if (archId.includes("temp")) {
+        const val = findMagnitude(obs, "at0004");
+        if (val !== undefined) record.temperature = val;
+      } 
+      else if (archId.includes("pressure")) {
+        const sys = findMagnitude(obs, "at0004");
+        const dia = findMagnitude(obs, "at0005");
+        if (sys !== undefined) record.systolic = sys;
+        if (dia !== undefined) record.diastolic = dia;
+      } 
+      else if ((archId.includes("pulse") || archId.includes("heart")) && !archId.includes("oximetry")) {
+        const val = findMagnitude(obs, "at0004");
+        if (val !== undefined) record.heart_rate = val;
+      } 
+      else if (archId.includes("respiration") || archId.includes("breathing")) {
+        const val = findMagnitude(obs, "at0004");
+        if (val !== undefined) record.respiratory_rate = val;
+      } 
+      else if (archId.includes("oximetry") || archId.includes("saturation") || archId.includes("spo2")) {
+        const val = findMagnitude(obs, "at0006");
+        if (val !== undefined) record.spo2 = val;
+      }
+    }
+
+    return Array.from(grouped.values()).filter(r => 
+      r.temperature !== undefined || 
+      r.systolic !== undefined || 
+      r.diastolic !== undefined || 
+      r.heart_rate !== undefined || 
+      r.respiratory_rate !== undefined || 
+      r.spo2 !== undefined
+    );
+  } catch (error) {
+    console.error("Error fetching vital signs via AQL:", error);
+    return [];
+  }
+}
+
 export async function getOpenEHRTemplates(): Promise<
   OpenEHRTemplateResponse[]
 > {
@@ -122,6 +475,17 @@ export async function updateOpenEHREHR(
     },
   });
   return response.data.ehr_id.value;
+}
+
+export async function deleteOpenEHREHR(ehrId: string): Promise<void> {
+  // Try Admin API first as standard API typically doesn't allow full EHR deletion
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/admin/ehr/${ehrId}`;
+  await axios.delete(url, {
+    headers: {
+      "X-API-Key": process.env.EHRBASE_API_KEY!,
+      Authorization: `Basic ${basicAuth}`,
+    },
+  });
 }
 
 export async function getOpenEHREHRs(): Promise<OpenEHREHRResponse[]> {

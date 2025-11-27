@@ -10,7 +10,7 @@ import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import PatientsList from "./patients-list";
 import { Button } from "@/components/ui/button";
-import { Plus, Home, LayoutDashboard } from "lucide-react";
+import { Plus, Home } from "lucide-react";
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
 }
@@ -55,10 +55,6 @@ export default async function PatientsPage({ params }: PageProps) {
     <>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2">
-            <LayoutDashboard size={24} />
-            <h1 className="text-xl font-semibold">Patients</h1>
-          </div>
 
           {/* Show register button only to admins */}
           {isAdmin && (
@@ -71,7 +67,7 @@ export default async function PatientsPage({ params }: PageProps) {
           )}
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <Link href={`/d/${workspaceid}/doctor`}>
             <Button
               variant="outline"
@@ -82,6 +78,7 @@ export default async function PatientsPage({ params }: PageProps) {
               <Home className="h-4 w-4" />
             </Button>
           </Link>
+           <h1 className="text-lg ml-2 font-semibold">Patients</h1>
         </div>
         <div className="bg-muted/50 rounded-xl p-4">
           {/* Fetch and render list client-side to avoid server relative-URL issues */}

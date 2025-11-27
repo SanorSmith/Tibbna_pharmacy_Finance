@@ -5,12 +5,19 @@
  * - Mark as complete/incomplete
  */
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -37,14 +44,10 @@ type Todo = {
 
 type Props = {
   workspaceid: string;
-  userid: string;
 };
 
-export default function TodosList({ workspaceid, userid }: Props) {
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+export default function TodosList({ workspaceid }: Props) {
+  const queryClient = useQueryClient();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -57,136 +60,89 @@ export default function TodosList({ workspaceid, userid }: Props) {
     duedate: "",
   });
 
-  const loadTodos = useCallback(async () => {
-    try {
-      setLoading(true);
+  const { data: todos = [], isLoading: loading } = useQuery({
+    queryKey: ["todos", workspaceid],
+    queryFn: async () => {
       const res = await fetch(`/api/d/${workspaceid}/todos`);
       if (res.ok) {
         const data = await res.json();
-        setTodos(data.todos || []);
+        return (data.todos as Todo[]) || [];
       }
-    } catch (error) {
-      console.error("Failed to load todos:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceid]);
+      return [];
+    },
+  });
 
-  useEffect(() => {
-    loadTodos();
-  }, [workspaceid, userid, loadTodos]);
-
-  const handleAddTodo = async () => {
-    if (!formData.title.trim()) return;
-
-    try {
-      setSaving(true);
-      const response = await fetch(`/api/d/${workspaceid}/todos`, {
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const res = await fetch(`/api/d/${workspaceid}/todos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to create todo");
-      }
-
+      if (!res.ok) throw new Error("Failed to create todo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["todos", workspaceid] });
       setShowAddDialog(false);
-      setFormData({
-        title: "",
-        description: "",
-        priority: "medium",
-        duedate: "",
-      });
-      
-      loadTodos();
-    } catch (error) {
-      console.error("Error creating todo:", error);
-      alert("Failed to create todo");
-    } finally {
-      setSaving(false);
-    }
-  };
+      setFormData({ title: "", description: "", priority: "medium", duedate: "" });
+    },
+  });
 
-  const handleEditTodo = async () => {
-    if (!editingTodo || !formData.title.trim()) return;
-
-    try {
-      setSaving(true);
-      const response = await fetch(`/api/d/${workspaceid}/todos/${editingTodo.todoid}`, {
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Todo> }) => {
+      const res = await fetch(`/api/d/${workspaceid}/todos/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to update todo");
-      }
-
+      if (!res.ok) throw new Error("Failed to update todo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["todos", workspaceid] });
       setShowEditDialog(false);
       setEditingTodo(null);
-      setFormData({
-        title: "",
-        description: "",
-        priority: "medium",
-        duedate: "",
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/d/${workspaceid}/todos/${id}`, {
+        method: "DELETE",
       });
-      
-      loadTodos();
-    } catch (error) {
-      console.error("Error updating todo:", error);
-      alert("Failed to update todo");
-    } finally {
-      setSaving(false);
-    }
+      if (!res.ok) throw new Error("Failed to delete todo");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["todos", workspaceid] });
+      setShowDeleteDialog(false);
+      setDeletingTodo(null);
+    },
+  });
+
+  const handleAddTodo = () => {
+    if (!formData.title.trim()) return;
+    createMutation.mutate(formData);
   };
 
-  const handleToggleComplete = async (todo: Todo) => {
-    try {
-      const response = await fetch(`/api/d/${workspaceid}/todos/${todo.todoid}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed: !todo.completed }),
-      });
+  const handleEditTodo = () => {
+    if (!editingTodo || !formData.title.trim()) return;
+    updateMutation.mutate({ id: editingTodo.todoid, data: formData });
+  };
 
-      if (!response.ok) {
-        throw new Error("Failed to update todo");
-      }
+  const handleToggleComplete = (todo: Todo) => {
+    updateMutation.mutate({ id: todo.todoid, data: { completed: !todo.completed } });
+  };
 
-      loadTodos();
-    } catch (error) {
-      console.error("Error toggling todo:", error);
-      alert("Failed to update todo");
-    }
+  const handleDeleteTodo = () => {
+    if (!deletingTodo) return;
+    deleteMutation.mutate(deletingTodo.todoid);
   };
 
   const openDeleteDialog = (todo: Todo) => {
     setDeletingTodo(todo);
     setShowDeleteDialog(true);
-  };
-
-  const handleDeleteTodo = async () => {
-    if (!deletingTodo) return;
-
-    try {
-      setDeleting(true);
-      const response = await fetch(`/api/d/${workspaceid}/todos/${deletingTodo.todoid}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete todo");
-      }
-
-      setShowDeleteDialog(false);
-      setDeletingTodo(null);
-      loadTodos();
-    } catch (error) {
-      console.error("Error deleting todo:", error);
-      alert("Failed to delete todo");
-    } finally {
-      setDeleting(false);
-    }
   };
 
   const openEditDialog = (todo: Todo) => {
@@ -195,7 +151,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
       title: todo.title,
       description: todo.description || "",
       priority: todo.priority,
-      duedate: todo.duedate ? new Date(todo.duedate).toISOString().slice(0, 16) : "",
+      duedate: todo.duedate
+        ? new Date(todo.duedate).toISOString().slice(0, 16)
+        : "",
     });
     setShowEditDialog(true);
   };
@@ -223,27 +181,36 @@ export default function TodosList({ workspaceid, userid }: Props) {
   const completedTodos = todos.filter((t) => t.completed);
 
   return (
-    <div className="flex flex-1 flex-col gap-4 mr-4 m-4 p-4 pt-0">
-          <Link href={`/d/${workspaceid}/doctor`}>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Back to Doctor Dashboard"
-              className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
-            >
-              <Home className="h-4 w-4" />
-            </Button>
-          </Link>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Todo List</h1>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowAddDialog(true)} 
-                className="bg-blue-600 hover:bg-blue-700 text-white">
-            <Plus className="h-4 w-4" />
-            Add Todo
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-4">
+      {/* Back Button */}
+    <div className="flex items-center justify-between">
+  {/* Left side: icon + title */}
+  <div className="flex items-center gap-3">
+    <Link href={`/d/${workspaceid}/doctor`}>
+      <Button
+        variant="outline"
+        size="icon"
+        aria-label="Back to Doctor Dashboard"
+        className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+      >
+        <Home className="h-4 w-4" />
+      </Button>
+    </Link>
+
+    <h1 className="text-xl font-semibold">Todos</h1>
+  </div>
+
+  {/* Right side: Add button */}
+  <Button
+    onClick={() => setShowAddDialog(true)}
+    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
+  >
+    <Plus className="h-4 w-4" />
+    Add Todo
+  </Button>
+</div>
+
+
 
       {/* Todos List */}
       <Card>
@@ -252,103 +219,66 @@ export default function TodosList({ workspaceid, userid }: Props) {
             My Todo List ({incompleteTodos.length} active)
           </CardTitle>
         </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Loading todos...</p>
-            ) : todos.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No todos yet. Use the form to add tasks for today.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {/* Incomplete Todos */}
-                {incompleteTodos.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">Active Tasks</h3>
-                    <ul className="space-y-2">
-                      {incompleteTodos.map((todo) => (
-                        <li
-                          key={todo.todoid}
-                          className="flex items-start justify-between gap-3 rounded border px-3 py-2 text-sm hover:bg-muted/50"
-                        >
-                          <div className="flex items-start gap-2 flex-1">
-                            <input
-                              type="checkbox"
-                              checked={todo.completed}
-                              onChange={() => handleToggleComplete(todo)}
-                              className="mt-0.5 h-4 w-4 rounded border-gray-300 cursor-pointer"
-                              aria-label="Mark todo as done"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium flex items-center gap-2">
-                                {todo.title}
-                                <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getPriorityColor(todo.priority)}`}>
-                                  {todo.priority}
-                                </span>
-                              </div>
-                              {todo.description && (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {todo.description}
-                                </p>
-                              )}
-                              {todo.duedate && (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  Due: {formatDate(todo.duedate)}
-                                </p>
-                              )}
+        <CardContent>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading todos...</p>
+          ) : todos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No todos yet. Use the form to add tasks for today.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {/* Incomplete Todos */}
+              {incompleteTodos.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">
+                    Active Tasks
+                  </h3>
+                  <ul className="space-y-2">
+                    {incompleteTodos.map((todo) => (
+                      <li
+                        key={todo.todoid}
+                        className="flex items-start justify-between gap-3 rounded border px-3 py-2 text-sm hover:bg-muted/50"
+                      >
+                        <div className="flex items-start gap-2 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={todo.completed}
+                            onChange={() => handleToggleComplete(todo)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 cursor-pointer"
+                            aria-label="Mark todo as done"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium flex items-center gap-2">
+                              {todo.title}
+                              <span
+                                className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getPriorityColor(
+                                  todo.priority
+                                )}`}
+                              >
+                                {todo.priority}
+                              </span>
                             </div>
+                            {todo.description && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {todo.description}
+                              </p>
+                            )}
+                            {todo.duedate && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Due: {formatDate(todo.duedate)}
+                              </p>
+                            )}
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openEditDialog(todo)}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openDeleteDialog(todo)}
-                            >
-                              <Trash2 className="h-3 w-3 text-red-500" />
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Completed Todos */}
-                {completedTodos.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">Completed ({completedTodos.length})</h3>
-                    <ul className="space-y-2">
-                      {completedTodos.map((todo) => (
-                        <li
-                          key={todo.todoid}
-                          className="flex items-start justify-between gap-3 rounded border px-3 py-2 text-sm bg-muted/30"
-                        >
-                          <div className="flex items-start gap-2 flex-1">
-                            <input
-                              type="checkbox"
-                              checked={todo.completed}
-                              onChange={() => handleToggleComplete(todo)}
-                              className="mt-0.5 h-4 w-4 rounded border-gray-300 cursor-pointer"
-                              aria-label="Mark todo as not done"
-                            />
-                            <div className="flex-1">
-                              <div className="line-through text-muted-foreground">
-                                {todo.title}
-                              </div>
-                              {todo.description && (
-                                <p className="mt-1 text-xs text-muted-foreground line-through">
-                                  {todo.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditDialog(todo)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -356,15 +286,60 @@ export default function TodosList({ workspaceid, userid }: Props) {
                           >
                             <Trash2 className="h-3 w-3 text-red-500" />
                           </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Completed Todos */}
+              {completedTodos.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">
+                    Completed ({completedTodos.length})
+                  </h3>
+                  <ul className="space-y-2">
+                    {completedTodos.map((todo) => (
+                      <li
+                        key={todo.todoid}
+                        className="flex items-start justify-between gap-3 rounded border px-3 py-2 text-sm bg-muted/30"
+                      >
+                        <div className="flex items-start gap-2 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={todo.completed}
+                            onChange={() => handleToggleComplete(todo)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 cursor-pointer"
+                            aria-label="Mark todo as not done"
+                          />
+                          <div className="flex-1">
+                            <div className="line-through text-muted-foreground">
+                              {todo.title}
+                            </div>
+                            {todo.description && (
+                              <p className="mt-1 text-xs text-muted-foreground line-through">
+                                {todo.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openDeleteDialog(todo)}
+                        >
+                          <Trash2 className="h-3 w-3 text-red-500" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add Todo Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -387,7 +362,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
               <Input
                 id="add-title"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
                 placeholder="e.g. Call patient about lab results"
               />
             </div>
@@ -399,7 +376,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
               <Textarea
                 id="add-description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 rows={3}
                 placeholder="Add clinical context, patient ID, or priority notes"
               />
@@ -411,7 +390,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
               </label>
               <Select
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, priority: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -432,17 +413,26 @@ export default function TodosList({ workspaceid, userid }: Props) {
                 id="add-duedate"
                 type="datetime-local"
                 value={formData.duedate}
-                onChange={(e) => setFormData({ ...formData, duedate: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, duedate: e.target.value })
+                }
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDialog(false)}
+              disabled={createMutation.isPending}
+            >
               Cancel
             </Button>
-            <Button onClick={handleAddTodo} disabled={!formData.title.trim() || saving}>
-              {saving ? "Adding..." : "Add Todo"}
+            <Button
+              onClick={handleAddTodo}
+              disabled={!formData.title.trim() || createMutation.isPending}
+            >
+              {createMutation.isPending ? "Adding..." : "Add Todo"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -453,9 +443,7 @@ export default function TodosList({ workspaceid, userid }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Todo</DialogTitle>
-            <DialogDescription>
-              Update your todo details
-            </DialogDescription>
+            <DialogDescription>Update your todo details</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -466,7 +454,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
               <Input
                 id="edit-title"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
                 placeholder="Todo title"
               />
             </div>
@@ -478,7 +468,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
               <Textarea
                 id="edit-description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 rows={3}
                 placeholder="Add details..."
               />
@@ -490,7 +482,9 @@ export default function TodosList({ workspaceid, userid }: Props) {
               </label>
               <Select
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, priority: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -511,17 +505,26 @@ export default function TodosList({ workspaceid, userid }: Props) {
                 id="edit-duedate"
                 type="datetime-local"
                 value={formData.duedate}
-                onChange={(e) => setFormData({ ...formData, duedate: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, duedate: e.target.value })
+                }
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              disabled={updateMutation.isPending}
+            >
               Cancel
             </Button>
-            <Button onClick={handleEditTodo} disabled={!formData.title.trim() || saving}>
-              {saving ? "Saving..." : "Save Changes"}
+            <Button
+              onClick={handleEditTodo}
+              disabled={!formData.title.trim() || updateMutation.isPending}
+            >
+              {updateMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -533,7 +536,8 @@ export default function TodosList({ workspaceid, userid }: Props) {
           <DialogHeader>
             <DialogTitle>Delete Todo</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this todo? This action cannot be undone.
+              Are you sure you want to delete this todo? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
 
@@ -551,22 +555,22 @@ export default function TodosList({ workspaceid, userid }: Props) {
           )}
 
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowDeleteDialog(false);
                 setDeletingTodo(null);
-              }} 
-              disabled={deleting}
+              }}
+              disabled={deleteMutation.isPending}
             >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteTodo} 
-              disabled={deleting}
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTodo}
+              disabled={deleteMutation.isPending}
             >
-              {deleting ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

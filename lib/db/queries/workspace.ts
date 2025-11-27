@@ -7,6 +7,7 @@ import {
   UserWorkspace,
 } from "@/lib/db/tables/workspace";
 import { eq, and, desc } from "drizzle-orm";
+import { cache } from "react";
 
 export async function getWorkspaceById(
   workspaceId: string,
@@ -25,7 +26,7 @@ export async function getWorkspaceById(
   }
 }
 
-export async function getUserWorkspaces(
+export const getUserWorkspaces = cache(async function (
   userId: string,
   role?: WorkspaceUserRole,
 ): Promise<UserWorkspace[]> {
@@ -56,4 +57,4 @@ export async function getUserWorkspaces(
     console.error("Error getting user workspaces:", error);
     return [];
   }
-}
+});

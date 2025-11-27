@@ -6,9 +6,21 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Scissors } from "lucide-react";
 
 // Care Plans interfaces (openEHR compliant)
 export interface CarePlan {
@@ -34,6 +46,21 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
   const [showCarePlanForm, setShowCarePlanForm] = useState(false);
   const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
   const [loadingCarePlans, setLoadingCarePlans] = useState(false);
+  
+  // Operation-related state
+  const [showOperationDialog, setShowOperationDialog] = useState(false);
+  const [savingOperation, setSavingOperation] = useState(false);
+  const [operationFormData, setOperationFormData] = useState({
+    operationname: "",
+    scheduleddate: "",
+    estimatedduration: "",
+    operationtype: "elective" as "emergency" | "elective" | "urgent",
+    theater: "",
+    anesthesiatype: "",
+    operationdiagnosis: "",
+    preoperativeassessment: "",
+    operationdetails: "",
+  });
 
   const loadCarePlans = useCallback(async () => {
     try {
@@ -59,15 +86,69 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
     loadCarePlans();
   }, [loadCarePlans]);
 
+  const handleAddOperation = async () => {
+    if (
+      !operationFormData.operationname ||
+      !operationFormData.scheduleddate
+    ) {
+      alert(
+        "Please fill in required fields: Operation Name and Scheduled Date"
+      );
+      return;
+    }
+
+    try {
+      setSavingOperation(true);
+      const response = await fetch(`/api/d/${workspaceid}/operations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...operationFormData,
+          patientid,
+          workspaceid,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create operation");
+      }
+
+      setShowOperationDialog(false);
+      setOperationFormData({
+        operationname: "",
+        scheduleddate: "",
+        estimatedduration: "",
+        operationtype: "elective",
+        theater: "",
+        anesthesiatype: "",
+        operationdiagnosis: "",
+        preoperativeassessment: "",
+        operationdetails: "",
+      });
+    } catch (error) {
+      console.error("Error creating operation:", error);
+      alert("Failed to create operation");
+    } finally {
+      setSavingOperation(false);
+    }
+  };
+
   return (
     <>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Care Plans</CardTitle>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => setShowCarePlanForm(true)}>
-              + New Care Plan
-            </Button>
+            <div className="flex gap-2">
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white" size="sm" onClick={() => setShowOperationDialog(true)}>
+                <Scissors className="h-4 w-4 mr-1" />
+                Schedule Operation
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => setShowCarePlanForm(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                New Care Plan
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -402,6 +483,170 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Operation Dialog */}
+      <Dialog open={showOperationDialog} onOpenChange={setShowOperationDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scissors className="h-5 w-5" />
+              Schedule Operation
+            </DialogTitle>
+            <DialogDescription>
+              Schedule a surgical operation for this patient
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="operationname">Operation Name *</Label>
+              <Input
+                id="operationname"
+                placeholder="e.g., Appendectomy"
+                value={operationFormData.operationname}
+                onChange={(e) =>
+                  setOperationFormData({ ...operationFormData, operationname: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="scheduleddate">Scheduled Date & Time *</Label>
+                <Input
+                  id="scheduleddate"
+                  type="datetime-local"
+                  value={operationFormData.scheduleddate}
+                  onChange={(e) =>
+                    setOperationFormData({ ...operationFormData, scheduleddate: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="estimatedduration">
+                  Estimated Duration (minutes)
+                </Label>
+                <Input
+                  id="estimatedduration"
+                  type="number"
+                  placeholder="e.g., 120"
+                  value={operationFormData.estimatedduration}
+                  onChange={(e) =>
+                    setOperationFormData({
+                      ...operationFormData,
+                      estimatedduration: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="operationtype">Operation Type</Label>
+                <Select
+                  value={operationFormData.operationtype}
+                  onValueChange={(value: "emergency" | "elective" | "urgent") =>
+                    setOperationFormData({ ...operationFormData, operationtype: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="elective">Elective</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="emergency">Emergency</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="theater">Theater</Label>
+                <Input
+                  id="theater"
+                  placeholder="e.g., Theater 1"
+                  value={operationFormData.theater}
+                  onChange={(e) =>
+                    setOperationFormData({ ...operationFormData, theater: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="anesthesiatype">Anesthesia Type</Label>
+              <Input
+                id="anesthesiatype"
+                placeholder="e.g., General, Local, Spinal"
+                value={operationFormData.anesthesiatype}
+                onChange={(e) =>
+                  setOperationFormData({ ...operationFormData, anesthesiatype: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="operationdiagnosis">Diagnosis</Label>
+              <Textarea
+                id="operationdiagnosis"
+                placeholder="Enter diagnosis..."
+                rows={2}
+                value={operationFormData.operationdiagnosis}
+                onChange={(e) =>
+                  setOperationFormData({
+                    ...operationFormData,
+                    operationdiagnosis: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="preoperativeassessment">
+                Pre-operative Assessment
+              </Label>
+              <Textarea
+                id="preoperativeassessment"
+                placeholder="Enter pre-operative assessment..."
+                rows={3}
+                value={operationFormData.preoperativeassessment}
+                onChange={(e) =>
+                  setOperationFormData({
+                    ...operationFormData,
+                    preoperativeassessment: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="operationdetails">Operation Details</Label>
+              <Textarea
+                id="operationdetails"
+                placeholder="Enter operation details..."
+                rows={3}
+                value={operationFormData.operationdetails}
+                onChange={(e) => setOperationFormData({ ...operationFormData, operationdetails: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowOperationDialog(false)}
+              disabled={savingOperation}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddOperation} disabled={savingOperation} className="bg-orange-500 hover:bg-orange-600">
+              {savingOperation ? "Scheduling..." : "Schedule Operation"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

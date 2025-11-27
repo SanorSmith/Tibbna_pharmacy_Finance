@@ -8,6 +8,7 @@
  */
 "use client";
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -47,21 +48,79 @@ export default function PatientsList({
   workspaceid: string;
   userRole: UserRole;
 }) {
-  const [rows, setRows] = useState<Patient[] | null>(null);
-  const [ehrs, setEhrs] = useState<OpenEHREHR[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
-  const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   
   // Only doctors and nurses can view patient details
   const canViewDetails = userRole === "doctor" || userRole === "nurse";
   // Only administrators can edit
   const canEdit = userRole === "administrator";
+
+  // Fetch patients
+  const { data: rows = [], isLoading: loadingPatients, error: patientsError } = useQuery({
+    queryKey: ["patients", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients`);
+      if (!res.ok) throw new Error("Failed to load patients");
+      const data = await res.json();
+      return (data.patients as Patient[]) ?? [];
+    },
+    // Only fetch if search query is present or we want to load all
+    // But the original code only fetched on search or first load if rows was null
+    // Let's keep it simple: fetch all on mount for better UX, unless the list is huge
+    // The user mentioned "search functionality", but the original code had a "loadData" that fetched ALL patients
+    // I will assume fetching all patients is fine for now, or I can use enabled: hasSearched for true "search only" behavior.
+    // However, the user wants "global search" style but reverted it.
+    // Let's stick to: fetch all on mount, client side filter.
+    // Wait, lines 117-132 in original: "Explicit search handler: requires non-empty query before first load"
+    // It says: "Only fetch from server if we don't already have data".
+    // So it seems it DOES fetch all patients, but only after the first search?
+    // "if (!rows) { await loadData(); }"
+    // Let's replicate this behavior: enabled: hasSearched
+    enabled: hasSearched, 
+  });
+
+  // Fetch EHRs
+  const { data: ehrs = [] } = useQuery({
+    queryKey: ["ehrs"],
+    queryFn: async () => {
+      const res = await fetch("/api/ehrbase/ehr");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data as OpenEHREHR[]) ?? [];
+    },
+    enabled: hasSearched && rows.length > 0, // Only fetch EHRs if we have patients
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (payload: Patient) => {
+      if (!editingPatient) throw new Error("No patient selected");
+      
+      const res = await fetch(`/api/d/${workspaceid}/patients/${editingPatient.patientid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update patient");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["patients", workspaceid] });
+      setEditDialogOpen(false);
+      setEditingPatient(null);
+    },
+    onError: (error: Error) => {
+      setEditError(error.message);
+    },
+  });
 
   // Helper to find matching EHR for a patient
   // Match by National ID first (preferred), then fall back to patient UUID
@@ -86,49 +145,24 @@ export default function PatientsList({
       })
     : [];
 
-  const loadData = async () => {
-    try {
-      setRefreshing(true);
-      // Query the workspace-scoped patients endpoint; cookies carry auth
-      const res = await fetch(`/api/d/${workspaceid}/patients`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to load patients");
-      const data = await res.json();
-      setRows((data.patients as Patient[]) ?? []);
-
-      // Also fetch OpenEHR EHRs
-      try {
-        const ehrRes = await fetch("/api/ehrbase/ehr", { cache: "no-store" });
-        if (ehrRes.ok) {
-          const ehrData = await ehrRes.json();
-          setEhrs(ehrData ?? []);
-        }
-      } catch (ehrErr) {
-        // Silently fail if OpenEHR is not available
-        console.warn("Could not fetch OpenEHR EHRs:", ehrErr);
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to load patients";
-      setError(msg);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   // Explicit search handler: requires non-empty query before first load
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      setError("Enter a patient name or National ID to search.");
+      // Use a local error state for validation
+      // We can reuse 'patientsError' but it's from useQuery.
+      // Let's keep a local error state or alert.
+      // Reusing 'editError' is confusing.
+      // Let's just alert for now or set a temporary error.
+      alert("Enter a patient name or National ID to search.");
       return;
     }
 
-    setError(null);
-
-    // Only fetch from server if we don't already have data; otherwise just re-filter
-    if (!rows) {
-      await loadData();
-    }
-
     setHasSearched(true);
+    // If we already have data, useQuery handles caching.
+    // If enabled becomes true, it fetches.
+    // If we need to refetch explicitly:
+    // refetchPatients(); 
+    // But changing 'enabled' to true via 'hasSearched' should trigger it.
   };
 
   function handleOpenEdit(patient: Patient) {
@@ -141,48 +175,28 @@ export default function PatientsList({
     if (!editingPatient) return;
     
     setEditError(null);
-    setSaving(true);
     try {
       const payload = {
+        patientid: editingPatient.patientid,
         firstname: String(formData.get("firstname") || ""),
-        middlename: (formData.get("middlename") as string) || undefined,
+        middlename: String(formData.get("middlename") || ""),
         lastname: String(formData.get("lastname") || ""),
-        nationalid: (formData.get("nationalid") as string) || undefined,
-        dateofbirth: (formData.get("dateofbirth") as string) || undefined,
-        gender: (formData.get("gender") as string) || undefined,
-        bloodgroup: (formData.get("bloodgroup") as string) || undefined,
-        phone: (formData.get("phone") as string) || undefined,
-        email: (formData.get("email") as string) || undefined,
-        address: (formData.get("address") as string) || undefined,
+        nationalid: String(formData.get("nationalid") || ""),
+        dateofbirth: String(formData.get("dateofbirth") || ""),
+        gender: String(formData.get("gender") || ""),
+        bloodgroup: String(formData.get("bloodgroup") || ""),
+        phone: String(formData.get("phone") || ""),
+        email: String(formData.get("email") || ""),
+        address: String(formData.get("address") || ""),
         medicalhistory: formData.get("medicalhistory")
           ? { notes: String(formData.get("medicalhistory")) }
           : {},
       };
 
-      const res = await fetch(`/api/d/${workspaceid}/patients/${editingPatient.patientid}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to update patient");
-      }
-
-      const data = await res.json();
-      // Update local state
-      setRows(prev => prev ? prev.map(p => 
-        p.patientid === editingPatient.patientid ? data.patient : p
-      ) : prev);
-      
-      setEditDialogOpen(false);
-      setEditingPatient(null);
+      mutation.mutate(payload);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setEditError(msg);
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -226,7 +240,7 @@ export default function PatientsList({
             variant="outline"
             size="sm"
             onClick={handleSearch}
-            disabled={refreshing}
+            disabled={loadingPatients}
           >
             <Search className="h-4 w-4 mr-2" />
             Search
@@ -235,8 +249,8 @@ export default function PatientsList({
         <p className="text-xs text-muted-foreground mt-2">
           {!hasSearched ? (
             <span>Type a patient name or National ID and click Search to load patients.</span>
-          ) : error ? (
-            <span className="text-red-600">{error}</span>
+          ) : patientsError ? (
+            <span className="text-red-600">{(patientsError as Error).message}</span>
           ) : rows ? (
             searchQuery ? (
               <span>
@@ -254,9 +268,9 @@ export default function PatientsList({
       </div>
 
       {/* Patients Table */}
-      {!hasSearched ? null : refreshing && !rows ? (
+      {!hasSearched ? null : loadingPatients && rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Loading patients...</p>
-      ) : !rows || rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="text-center py-8 border rounded-md">
           <p className="text-sm text-muted-foreground">No patients found.</p>
         </div>
@@ -487,12 +501,12 @@ export default function PatientsList({
                   type="button"
                   variant="outline"
                   onClick={() => setEditDialogOpen(false)}
-                  disabled={saving}
+                  disabled={mutation.isPending}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Saving..." : "Save Changes"}
+                <Button type="submit" disabled={mutation.isPending}>
+                  {mutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </form>

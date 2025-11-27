@@ -17,8 +17,29 @@ import {
   Activity,
   TrendingUp,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  Search
 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
 
 type DashboardStats = {
@@ -32,10 +53,65 @@ type DashboardStats = {
   pendingAppointments: number;
 };
 
+type Patient = {
+  patientid: string;
+  firstname: string;
+  middlename?: string | null;
+  lastname: string;
+  nationalid?: string | null;
+  email?: string | null;
+  phone?: string | null;
+};
+
 export default function DashboardContent({ workspaceid }: { workspaceid: string }) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [patientsList, setPatientsList] = useState<Patient[]>([]);
+  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
   const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (patientsList.length > 0) {
+      const query = searchQuery.toLowerCase();
+      setFilteredPatients(
+        patientsList.filter(
+          (p) =>
+            p.firstname.toLowerCase().includes(query) ||
+            p.lastname.toLowerCase().includes(query) ||
+            (p.nationalid && p.nationalid.toLowerCase().includes(query))
+        )
+      );
+    }
+  }, [searchQuery, patientsList]);
+
+  async function handleDeletePatient() {
+    if (!patientToDelete) return;
+    
+    try {
+      setDeletingId(patientToDelete.patientid);
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientToDelete.patientid}`, {
+        method: "DELETE",
+      });
+      
+      if (res.ok) {
+        // Remove from list
+        setPatientsList((prev) => prev.filter(p => p.patientid !== patientToDelete.patientid));
+        // Update stats count
+        setStats((prev) => prev ? ({ ...prev, patients: prev.patients - 1 }) : null);
+      } else {
+        alert("Failed to delete patient");
+      }
+    } catch (error) {
+      console.error("Error deleting patient:", error);
+      alert("Error deleting patient");
+    } finally {
+      setDeletingId(null);
+      setPatientToDelete(null);
+    }
+  }
 
   useEffect(() => {
     // Prevent duplicate fetches
@@ -88,6 +164,10 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
           todayAppointments,
           pendingAppointments,
         });
+        
+        const pList = patients.patients || [];
+        setPatientsList(pList);
+        setFilteredPatients(pList);
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       } finally {
@@ -274,7 +354,8 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
               </Link>
             </CardContent>
           </Card>
-
+          
+          {/* Other quick actions... */}
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle className="text-base">Manage Staff</CardTitle>
@@ -351,6 +432,108 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
           </Card>
         </div>
       </div>
+
+      {/* Patient Management Section */}
+      <div className="mt-8">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Patient Management</CardTitle>
+                <CardDescription>
+                  View and manage all patients in the system
+                </CardDescription>
+              </div>
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search patients..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>National ID</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPatients.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        No patients found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPatients.map((patient) => (
+                      <TableRow key={patient.patientid}>
+                        <TableCell className="font-medium">
+                          {patient.firstname} {patient.middlename ? patient.middlename + " " : ""}
+                          {patient.lastname}
+                        </TableCell>
+                        <TableCell>{patient.nationalid || "N/A"}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {patient.email && <div>{patient.email}</div>}
+                            {patient.phone && <div className="text-muted-foreground">{patient.phone}</div>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => setPatientToDelete(patient)}
+                            disabled={deletingId === patient.patientid}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="mt-4 text-xs text-muted-foreground">
+              Showing {filteredPatients.length} of {patientsList.length} patients
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <AlertDialog open={!!patientToDelete} onOpenChange={(open) => !open && setPatientToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the patient <strong>{patientToDelete?.firstname} {patientToDelete?.lastname}</strong> from the database and their OpenEHR record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeletePatient();
+              }}
+              disabled={!!deletingId}
+            >
+              {deletingId ? "Deleting..." : "Delete Patient"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

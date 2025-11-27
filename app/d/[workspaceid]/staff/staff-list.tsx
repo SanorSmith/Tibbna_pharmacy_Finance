@@ -5,14 +5,16 @@
  * - Administrators can add and edit staff
  */
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Plus } from "lucide-react";
+import { Edit, Home, Plus } from "lucide-react";
+import Link from "next/link";
 
 type Staff = {
   staffid: string;
@@ -52,36 +54,53 @@ const departments = [
 ] as const;
 
 export default function StaffList({ workspaceid, isAdmin }: { workspaceid: string; isAdmin: boolean }) {
-  const [rows, setRows] = useState<Staff[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
-  const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>(roles[0].value);
   const [selectedUnit, setSelectedUnit] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const res = await fetch(`/api/d/${workspaceid}/staff`, { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to load staff");
-        const data = await res.json();
-        if (!active) return;
-        setRows((data.staff as Staff[]) ?? []);
-      } catch (e: unknown) {
-        if (!active) return;
-        const msg = e instanceof Error ? e.message : "Failed to load staff";
-        setError(msg);
+  const { data: rows = [], isLoading, error } = useQuery({
+    queryKey: ["staff", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/staff`);
+      if (!res.ok) throw new Error("Failed to load staff");
+      const data = await res.json();
+      return (data.staff as Staff[]) ?? [];
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const url = editingStaff
+        ? `/api/d/${workspaceid}/staff/${editingStaff.staffid}`
+        : `/api/d/${workspaceid}/staff`;
+      const method = editingStaff ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to ${editingStaff ? "update" : "register"} staff`);
       }
-    }
-    load();
-    return () => {
-      active = false;
-    };
-  }, [workspaceid]);
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff", workspaceid] });
+      setDialogOpen(false);
+      setEditingStaff(null);
+    },
+    onError: (error: Error) => {
+      setFormError(error.message);
+    },
+  });
 
   function handleOpenAdd() {
     setEditingStaff(null);
@@ -101,7 +120,6 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
 
   async function handleSubmit(formData: FormData) {
     setFormError(null);
-    setSaving(true);
     try {
       const firstname = String(formData.get("firstname") || "").trim();
       const middlename = (formData.get("middlename") as string) || undefined;
@@ -129,46 +147,15 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
         email,
       };
 
-      const url = editingStaff
-        ? `/api/d/${workspaceid}/staff/${editingStaff.staffid}`
-        : `/api/d/${workspaceid}/staff`;
-      const method = editingStaff ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Failed to ${editingStaff ? "update" : "register"} staff`);
-      }
-
-      const data = await res.json();
-      
-      if (editingStaff) {
-        // Update existing
-        setRows(prev => prev ? prev.map(s => 
-          s.staffid === editingStaff.staffid ? data.staff : s
-        ) : prev);
-      } else {
-        // Add new
-        setRows(prev => prev ? [...prev, data.staff] : [data.staff]);
-      }
-
-      setDialogOpen(false);
-      setEditingStaff(null);
+      mutation.mutate(payload);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setFormError(msg);
-    } finally {
-      setSaving(false);
     }
   }
 
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
-  if (rows === null) return <p className="text-sm text-muted-foreground">Loading...</p>;
+  if (error) return <p className="text-sm text-red-600">{(error as Error).message}</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading...</p>;
 
   const filteredStaff = rows.filter((s) => {
     if (!searchQuery.trim()) return true;
@@ -190,6 +177,22 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
 
   return (
     <>
+      <div className="space-y-4">
+      {/* Back Button */}
+      <div className="flex items-center gap-2">
+        <Link href={`/d/${workspaceid}/doctor`}>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back to Doctor Dashboard"
+            className="bg-orange-400 border-orange-400 text-white hover:bg-orange-500 hover:border-orange-500"
+          >
+            <Home className="h-4 w-4" />
+          </Button>
+        </Link>
+
+        <h1 className="text-xl font-semibold">Contacts</h1>
+      </div>
       {isAdmin && (
         <div className="mb-4 flex justify-end">
           <Button onClick={handleOpenAdd}>
@@ -401,17 +404,18 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
                 type="button"
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
-                disabled={saving}
+                disabled={mutation.isPending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving..." : editingStaff ? "Save Changes" : "Register Staff"}
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? "Saving..." : editingStaff ? "Save Changes" : "Register Staff"}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
+      </div>
     </>
   );
 }
