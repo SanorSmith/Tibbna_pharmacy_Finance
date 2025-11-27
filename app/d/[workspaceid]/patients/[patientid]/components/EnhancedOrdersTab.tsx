@@ -602,6 +602,7 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
   const [testOrdersHasMore, setTestOrdersHasMore] = useState(false);
   const [selectedTestOrder, setSelectedTestOrder] = useState<TestOrderRecord | null>(null);
   const [showTestOrderDetails, setShowTestOrderDetails] = useState(false);
+  const [savingTestOrder, setSavingTestOrder] = useState(false);
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
@@ -699,8 +700,28 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
   }, [workspaceid, patientid, CACHE_KEY]);
 
   useEffect(() => {
-    if (!hasLoadedTestOrders.current) loadTestOrders(true);
-  }, [loadTestOrders]);
+    // Check if data is already cached in sessionStorage
+    const cachedData = sessionStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (parsed.testOrders && parsed.testOrders.length > 0) {
+          setTestOrderRecords(parsed.testOrders);
+          testOrdersOffsetRef.current = parsed.offset || parsed.testOrders.length;
+          setTestOrdersHasMore(parsed.hasMore || false);
+          hasLoadedTestOrders.current = true;
+          return; // Don't fetch if we have cached data
+        }
+      } catch (error) {
+        console.error("Failed to parse cached test orders:", error);
+      }
+    }
+    
+    // Only load if not already loaded
+    if (!hasLoadedTestOrders.current) {
+      loadTestOrders(true);
+    }
+  }, []); // Empty dependency array - only run once on mount
 
   // Save order
   const saveTestOrder = useCallback(async () => {
@@ -709,6 +730,8 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
       return;
     }
 
+    setSavingTestOrder(true);
+    
     try {
       // Get current user info
       const userResponse = await fetch("/api/auth/session");
@@ -745,6 +768,8 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
         target_lab: targetLab.name,
       };
 
+      console.log("Creating test order - this may take up to 30 seconds...");
+      
       const response = await fetch(`/api/d/${workspaceid}/patients/${patientid}/test-orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -768,7 +793,16 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
       setTimeout(() => loadTestOrders(true), 500);
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : "Failed to save test order");
+      const errorMessage = err instanceof Error ? err.message : "Failed to save test order";
+      
+      // Provide more specific error messages
+      if (errorMessage.includes("taking too long")) {
+        alert("The EHR system is responding slowly. Please try again in a moment.");
+      } else {
+        alert(errorMessage);
+      }
+    } finally {
+      setSavingTestOrder(false);
     }
   }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
@@ -1082,8 +1116,21 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowTestOrderForm(false)}>Cancel</Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={saveTestOrder}>Order Tests</Button>
+              <Button variant="outline" onClick={() => setShowTestOrderForm(false)} disabled={savingTestOrder}>Cancel</Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white" 
+                onClick={saveTestOrder}
+                disabled={savingTestOrder}
+              >
+                {savingTestOrder ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating Order... (up to 30s)
+                  </>
+                ) : (
+                  "Order Tests"
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>
