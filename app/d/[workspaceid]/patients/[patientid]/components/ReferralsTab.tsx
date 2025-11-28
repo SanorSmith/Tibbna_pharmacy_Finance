@@ -75,7 +75,7 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
       if (staffRes.ok) {
         const staffData = await staffRes.json();
         const doctorsOnly = (staffData.staff || []).filter(
-          (staff: any) => staff.role === "doctor"
+          (staff: { role: string }) => staff.role === "doctor"
         );
         setDoctors(doctorsOnly);
       }
