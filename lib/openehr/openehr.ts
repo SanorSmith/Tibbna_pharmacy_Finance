@@ -225,9 +225,8 @@ export interface VitalSignsRecord {
 // Helper to find a value by field name in OpenEHR EVALUATION structure
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findDiagnosisValue(evaluation: any, fieldName: string): string | undefined {
-  if (!evaluation || typeof evaluation !== 'object') return undefined;
-  
-  // Check data.items array for elements
+  if (!evaluation || typeof evaluation !== "object") return undefined;
+
   if (evaluation.data?.items && Array.isArray(evaluation.data.items)) {
     for (const item of evaluation.data.items) {
       if (item.name?.value === fieldName && item.value?.value) {
@@ -235,7 +234,25 @@ function findDiagnosisValue(evaluation: any, fieldName: string): string | undefi
       }
     }
   }
-  
+
+  return undefined;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findDiagnosisValueFuzzy(evaluation: any, fieldSubstring: string): string | undefined {
+  if (!evaluation || typeof evaluation !== "object") return undefined;
+
+  const needle = fieldSubstring.toLowerCase();
+
+  if (evaluation.data?.items && Array.isArray(evaluation.data.items)) {
+    for (const item of evaluation.data.items) {
+      const label = item.name?.value as string | undefined;
+      if (label && label.toLowerCase().includes(needle) && item.value?.value) {
+        return item.value.value;
+      }
+    }
+  }
+
   return undefined;
 }
 
@@ -261,13 +278,17 @@ ORDER BY
       const evaluation = row.full_evaluation;
       
       // Extract fields using the exact field names from OpenEHR structure
-      const problemDiagnosis = findDiagnosisValue(evaluation, 'Problem/Diagnosis name') || "";
-      const clinicalDescription = findDiagnosisValue(evaluation, 'Clinical description') || "";
-      const bodySite = findDiagnosisValue(evaluation, 'Body site') || "";
-      const dateOfOnset = findDiagnosisValue(evaluation, 'Date/time of onset') || "";
-      const dateOfResolution = findDiagnosisValue(evaluation, 'Date/time of resolution') || "";
-      const comment = findDiagnosisValue(evaluation, 'Comment') || "";
-      const clinicalStatus = findDiagnosisValue(evaluation, 'Variant') || "active";
+      const problemDiagnosis = findDiagnosisValue(evaluation, "Problem/Diagnosis name") || "";
+      const clinicalDescription = findDiagnosisValue(evaluation, "Clinical description") || "";
+      const bodySite =
+        findDiagnosisValue(evaluation, "Body site") ||
+        findDiagnosisValue(evaluation, "Body site (qualifier)") ||
+        findDiagnosisValueFuzzy(evaluation, "body site") ||
+        "";
+      const dateOfOnset = findDiagnosisValue(evaluation, "Date/time of onset") || "";
+      const dateOfResolution = findDiagnosisValue(evaluation, "Date/time of resolution") || "";
+      const comment = findDiagnosisValue(evaluation, "Comment") || "";
+      const clinicalStatus = findDiagnosisValue(evaluation, "Variant") || "active";
       
       return {
         composition_uid: row.composition_uid,
@@ -475,6 +496,38 @@ export async function updateOpenEHREHR(
     },
   });
   return response.data.ehr_id.value;
+}
+
+export async function updateOpenEHRComposition(
+  ehrId: string,
+  compositionId: string,
+  templateId: string,
+  compositionData: Record<string, unknown>
+): Promise<string> {
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionId}`;
+  try {
+    const response = await axios.put(url, compositionData, {
+      headers: {
+        "X-API-Key": process.env.EHRBASE_API_KEY!,
+        Authorization: `Basic ${basicAuth}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Prefer": "return=representation",
+        "If-Match": compositionId // Use the composition ID for version matching
+      },
+      params: {
+        format: "FLAT",
+        templateId: templateId
+      }
+    });
+    return response.data.uid.value;
+  } catch (error: unknown) {
+    const err = error as { response?: { status?: unknown; data?: unknown } };
+    console.error("OpenEHR composition update error:", err.response?.status, err.response?.data);
+    console.error("Request URL:", url);
+    console.error("Request data:", JSON.stringify(compositionData, null, 2));
+    throw error;
+  }
 }
 
 export async function deleteOpenEHREHR(ehrId: string): Promise<void> {
