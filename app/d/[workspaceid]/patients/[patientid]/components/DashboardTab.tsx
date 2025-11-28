@@ -113,7 +113,7 @@ export function DashboardTab({
       <div className="space-y-2">
         <div className="grid gap-2 md:grid-cols-3">
           {/* Appointments Card */}
-          <Card className="bg-blue-500 text-white rounded-lg h-full">
+          <Card className="bg-[#618FF5] text-white rounded-lg h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -172,7 +172,7 @@ export function DashboardTab({
           </Card>
 
           {/* Labs Card */}
-          <Card className="col-span-1 bg-blue-500 rounded-lg text-white h-full">
+          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -228,7 +228,7 @@ export function DashboardTab({
           </Card>
 
           {/* Diagnosis Card */}
-          <Card className="col-span-1 bg-blue-500 rounded-lg text-white h-full">
+          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -288,7 +288,7 @@ export function DashboardTab({
           </Card>
 
           {/* Imaging Card */}
-          <Card className="col-span-1 bg-blue-500 rounded-lg text-white h-full">
+          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -346,7 +346,7 @@ export function DashboardTab({
           </Card>
 
           {/* Care Plan Card */}
-          <Card className="col-span-1 bg-blue-500 rounded-lg  text-white h-full">
+          <Card className="col-span-1 bg-[#618FF5] rounded-lg  text-white h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -404,7 +404,7 @@ export function DashboardTab({
           </Card>
 
           {/* Vitals Card */}
-          <Card className="col-span-1 bg-blue-500 rounded-lg text-white relative h-full">
+          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white relative h-full">
             {/* Date on top-right */}
             {vitalSigns.length > 0 && (
               <span className="absolute top-2 right-3 text-[9px] opacity-80">

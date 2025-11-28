@@ -106,7 +106,7 @@ export default function NotificationsList({ workspaceid }: Notification) {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="chronic" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full gap-1 grid-cols-5">
           <TabsTrigger
             value="chronic"
             className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"

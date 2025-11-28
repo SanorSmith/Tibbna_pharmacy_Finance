@@ -118,7 +118,7 @@ export function DiagnosticsTab({
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b bg-muted/50">
+                  <tr className="border-b text-semibold bg-blue-100/90 text-blue-800">
                     <th className="text-left p-3 font-medium">Diagnosis</th>
                     <th className="text-left p-3 font-medium">Status</th>
                     <th className="text-left p-3 font-medium">Date Recorded</th>
@@ -146,7 +146,7 @@ export function DiagnosticsTab({
                         )}
                       </td>
                       <td className="p-3">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full capitalize">
+                        <span className="px-2 py-1 bg-green-400/50 text-blue-800 text-xs rounded-full capitalize">
                           {diagnosis.clinical_status}
                         </span>
                       </td>
@@ -170,6 +170,7 @@ export function DiagnosticsTab({
                             setSelectedDiagnosis(diagnosis);
                             setShowDiagnosisDetails(true);
                           }}
+                          className="bg-blue-100/90"
                         >
                           Details
                         </Button>

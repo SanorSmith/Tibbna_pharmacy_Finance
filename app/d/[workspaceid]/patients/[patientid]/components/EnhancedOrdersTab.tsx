@@ -830,7 +830,7 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-xl font-semibold">Enhanced Laboratory Test Orders</CardTitle>
+            <CardTitle className="text-xl font-semibold">Laboratory Test Orders</CardTitle>
             <div className="flex items-center gap-2">
               <Button className="bg-blue-500 hover:bg-blue-700 text-white flex items-center gap-1" size="sm" onClick={() => setShowTestOrderForm(true)}>
                 <Plus className="h-4 w-4" />
@@ -868,7 +868,7 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b bg-muted/50">
+                  <tr className="border-b bg-blue-100/90 text-blue-800">
                     <th className="text-left p-3 font-medium">Test Name</th>
                     <th className="text-left p-3 font-medium">Category</th>
                     <th className="text-left p-3 font-medium">Target Lab</th>
