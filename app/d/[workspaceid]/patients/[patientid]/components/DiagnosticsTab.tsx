@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History } from "lucide-react";
+import { Plus, History, Edit } from "lucide-react";
 
 export interface DiagnosisRecord {
   composition_uid: string;
@@ -55,6 +55,8 @@ export function DiagnosticsTab({
   patient,
 }: DiagnosticsTabProps) {
   const [showDiagnosisForm, setShowDiagnosisForm] = useState(false);
+  const [editingDiagnosis, setEditingDiagnosis] = useState<DiagnosisRecord | null>(null);
+  const [savingDiagnosis, setSavingDiagnosis] = useState(false);
   const [diagnosisForm, setDiagnosisForm] = useState({
     problemDiagnosis: "",
     clinicalStatus: "active",
@@ -146,7 +148,27 @@ export function DiagnosticsTab({
                         )}
                       </td>
                       <td className="p-3">
-                        <span className="px-2 py-1 bg-green-400/50 text-blue-800 text-xs rounded-full capitalize">
+                        <span
+                          className={(() => {
+                            const base = "px-2 py-1 text-xs rounded-full capitalize font-medium";
+                            switch (diagnosis.clinical_status?.toLowerCase()) {
+                              case "active":
+                                return `${base} bg-green-200 text-green-800`;
+                              case "inactive":
+                                return `${base} bg-gray-200 text-gray-700`;
+                              case "resolved":
+                                return `${base} bg-blue-200 text-blue-800`;
+                              case "recurrence":
+                                return `${base} bg-orange-200 text-orange-800`;
+                              case "relapse":
+                                return `${base} bg-red-200 text-red-800`;
+                              case "remission":
+                                return `${base} bg-emerald-200 text-emerald-800`;
+                              default:
+                                return `${base} bg-slate-200 text-slate-800`;
+                            }
+                          })()}
+                        >
                           {diagnosis.clinical_status}
                         </span>
                       </td>
@@ -163,17 +185,40 @@ export function DiagnosticsTab({
                         {diagnosis.body_site || '-'}
                       </td>
                       <td className="p-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedDiagnosis(diagnosis);
-                            setShowDiagnosisDetails(true);
-                          }}
-                          className="bg-blue-100/90"
-                        >
-                          Details
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedDiagnosis(diagnosis);
+                              setShowDiagnosisDetails(true);
+                            }}
+                            className="bg-blue-100/90 hover:bg-blue-200"
+                          >
+                            Details
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingDiagnosis(diagnosis);
+                              setDiagnosisForm({
+                                problemDiagnosis: diagnosis.problem_diagnosis,
+                                clinicalStatus: diagnosis.clinical_status,
+                                dateOfOnset: diagnosis.date_of_onset ? new Date(diagnosis.date_of_onset).toISOString().split('T')[0] : "",
+                                dateOfResolution: diagnosis.date_of_resolution ? new Date(diagnosis.date_of_resolution).toISOString().split('T')[0] : "",
+                                clinicalDescription: diagnosis.clinical_description || "",
+                                bodySite: diagnosis.body_site || "",
+                                comment: diagnosis.comment || "",
+                              });
+                              setShowDiagnosisForm(true);
+                            }}
+                            className="bg-blue-100/90 hover:bg-blue-200"
+                          >
+                            <Edit className="h-3 w-3" />
+                            Edit
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -265,9 +310,9 @@ export function DiagnosticsTab({
       <Dialog open={showDiagnosisForm} onOpenChange={setShowDiagnosisForm}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Diagnosis</DialogTitle>
+            <DialogTitle>{editingDiagnosis ? "Edit Diagnosis" : "Add New Diagnosis"}</DialogTitle>
             <DialogDescription>
-              Based on openEHR Problem/Diagnosis archetype
+              {editingDiagnosis ? "Update diagnosis information" : "Based on openEHR Problem/Diagnosis archetype"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -431,36 +476,57 @@ export function DiagnosticsTab({
             <div className="flex justify-end gap-2 pt-4">
               <Button
                 variant="outline"
-                onClick={() => setShowDiagnosisForm(false)}
+                onClick={() => {
+                  setShowDiagnosisForm(false);
+                  setEditingDiagnosis(null);
+                  setDiagnosisForm({
+                    problemDiagnosis: "",
+                    clinicalStatus: "active",
+                    dateOfOnset: "",
+                    dateOfResolution: "",
+                    clinicalDescription: "",
+                    bodySite: "",
+                    comment: "",
+                  });
+                }}
               >
                 Cancel
               </Button>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
+                  if (savingDiagnosis) {
+                    return;
+                  }
+
                   if (!diagnosisForm.problemDiagnosis) {
                     alert("Please enter a problem/diagnosis name");
                     return;
                   }
 
                   try {
-                    const response = await fetch(
-                      `/api/d/${workspaceid}/patients/${patient.patientid}/diagnoses`,
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(diagnosisForm),
-                      }
-                    );
+                    setSavingDiagnosis(true);
+                    const url = `/api/d/${workspaceid}/patients/${patient.patientid}/diagnoses`;
+                    const method = editingDiagnosis ? "PUT" : "POST";
+                    const body = editingDiagnosis 
+                      ? { ...diagnosisForm, composition_uid: editingDiagnosis.composition_uid }
+                      : diagnosisForm;
+
+                    const response = await fetch(url, {
+                      method,
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(body),
+                    });
 
                     if (!response.ok) {
                       const errorData = await response.json();
                       throw new Error(
-                        errorData.error || "Failed to save diagnosis"
+                        errorData.error || `Failed to ${editingDiagnosis ? 'update' : 'save'} diagnosis`
                       );
                     }
 
                     setShowDiagnosisForm(false);
+                    setEditingDiagnosis(null);
                     setDiagnosisForm({
                       problemDiagnosis: "",
                       clinicalStatus: "active",
@@ -472,16 +538,25 @@ export function DiagnosticsTab({
                     });
                     loadDiagnoses(true); // Force reload with reset=true
                   } catch (error) {
-                    console.error("Error saving diagnosis:", error);
+                    console.error(`Error ${editingDiagnosis ? 'updating' : 'saving'} diagnosis:`, error);
                     alert(
                       error instanceof Error
                         ? error.message
-                        : "Failed to save diagnosis"
+                        : `Failed to ${editingDiagnosis ? 'update' : 'save'} diagnosis`
                     );
+                  } finally {
+                    setSavingDiagnosis(false);
                   }
                 }}
+                disabled={savingDiagnosis}
               >
-                Add Diagnosis
+                {savingDiagnosis
+                  ? editingDiagnosis
+                    ? "Updating..."
+                    : "Saving..."
+                  : editingDiagnosis
+                    ? "Update Diagnosis"
+                    : "Add Diagnosis"}
               </Button>
             </div>
           </div>
