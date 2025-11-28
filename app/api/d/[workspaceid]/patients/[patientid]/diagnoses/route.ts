@@ -457,14 +457,15 @@ export async function PUT(
         composition_uid: newCompositionUid,
         message: "Diagnosis updated successfully in OpenEHR"
       });
-    } catch (ehrError: any) {
-      console.error("OpenEHR update error:", ehrError);
-      console.error("OpenEHR error response:", ehrError.response?.data);
+    } catch (ehrError: unknown) {
+      const err = ehrError as { response?: { data?: unknown }; message?: string };
+      console.error("OpenEHR update error:", err);
+      console.error("OpenEHR error response:", err.response?.data);
       console.error("Composition data being sent:", JSON.stringify(compositionData, null, 2));
       
       return NextResponse.json({
         error: "Failed to update composition in OpenEHR",
-        details: ehrError.response?.data || ehrError.message
+        details: err.response?.data || err.message
       }, { status: 500 });
     }
   } catch (error) {

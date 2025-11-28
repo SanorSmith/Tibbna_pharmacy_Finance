@@ -521,8 +521,9 @@ export async function updateOpenEHRComposition(
       }
     });
     return response.data.uid.value;
-  } catch (error: any) {
-    console.error("OpenEHR composition update error:", error.response?.status, error.response?.data);
+  } catch (error: unknown) {
+    const err = error as { response?: { status?: unknown; data?: unknown } };
+    console.error("OpenEHR composition update error:", err.response?.status, err.response?.data);
     console.error("Request URL:", url);
     console.error("Request data:", JSON.stringify(compositionData, null, 2));
     throw error;
