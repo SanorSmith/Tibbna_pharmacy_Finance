@@ -721,7 +721,7 @@ export default function EnhancedOrdersTab({ workspaceid, patientid }: EnhancedOr
     if (!hasLoadedTestOrders.current) {
       loadTestOrders(true);
     }
-  }, []); // Empty dependency array - only run once on mount
+  }, [CACHE_KEY, loadTestOrders]); // Include dependencies
 
   // Save order
   const saveTestOrder = useCallback(async () => {

@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, Search } from "lucide-react";
+import { Edit } from "lucide-react";
 
 type Patient = {
   patientid: string;
@@ -52,15 +52,13 @@ export default function PatientsList({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [hasSearched, setHasSearched] = useState(false);
   
   // Only doctors and nurses can view patient details
   const canViewDetails = userRole === "doctor" || userRole === "nurse";
   // Only administrators can edit
   const canEdit = userRole === "administrator";
 
-  // Fetch patients
+  // Fetch patients - disabled by default, will be triggered by global header search
   const { data: rows = [], isLoading: loadingPatients, error: patientsError } = useQuery({
     queryKey: ["patients", workspaceid],
     queryFn: async () => {
@@ -69,19 +67,7 @@ export default function PatientsList({
       const data = await res.json();
       return (data.patients as Patient[]) ?? [];
     },
-    // Only fetch if search query is present or we want to load all
-    // But the original code only fetched on search or first load if rows was null
-    // Let's keep it simple: fetch all on mount for better UX, unless the list is huge
-    // The user mentioned "search functionality", but the original code had a "loadData" that fetched ALL patients
-    // I will assume fetching all patients is fine for now, or I can use enabled: hasSearched for true "search only" behavior.
-    // However, the user wants "global search" style but reverted it.
-    // Let's stick to: fetch all on mount, client side filter.
-    // Wait, lines 117-132 in original: "Explicit search handler: requires non-empty query before first load"
-    // It says: "Only fetch from server if we don't already have data".
-    // So it seems it DOES fetch all patients, but only after the first search?
-    // "if (!rows) { await loadData(); }"
-    // Let's replicate this behavior: enabled: hasSearched
-    enabled: hasSearched, 
+    enabled: false, // Will be triggered by global header search
   });
 
   // Fetch EHRs
@@ -93,7 +79,7 @@ export default function PatientsList({
       const data = await res.json();
       return (data as OpenEHREHR[]) ?? [];
     },
-    enabled: hasSearched && rows.length > 0, // Only fetch EHRs if we have patients
+    enabled: rows.length > 0, // Only fetch EHRs if we have patients
   });
 
   const mutation = useMutation({
@@ -134,36 +120,8 @@ export default function PatientsList({
     return ehrs.find((ehr) => ehr.subject_id === patient.patientid);
   };
 
-  // Filter patients based on search query (only meaningful after a search)
-  const filteredPatients = rows && hasSearched && searchQuery.trim()
-    ? rows.filter((patient) => {
-        const query = searchQuery.toLowerCase();
-        const fullName = `${patient.firstname} ${patient.middlename || ""} ${patient.lastname}`.toLowerCase();
-        const nationalId = (patient.nationalid || "").toLowerCase();
-
-        return fullName.includes(query) || nationalId.includes(query);
-      })
-    : [];
-
-  // Explicit search handler: requires non-empty query before first load
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      // Use a local error state for validation
-      // We can reuse 'patientsError' but it's from useQuery.
-      // Let's keep a local error state or alert.
-      // Reusing 'editError' is confusing.
-      // Let's just alert for now or set a temporary error.
-      alert("Enter a patient name or National ID to search.");
-      return;
-    }
-
-    setHasSearched(true);
-    // If we already have data, useQuery handles caching.
-    // If enabled becomes true, it fetches.
-    // If we need to refetch explicitly:
-    // refetchPatients(); 
-    // But changing 'enabled' to true via 'hasSearched' should trigger it.
-  };
+  // Display all patients (search will be handled by global header)
+  const displayedPatients = rows || [];
 
   function handleOpenEdit(patient: Patient) {
     setEditingPatient(patient);
@@ -202,92 +160,16 @@ export default function PatientsList({
 
   return (
     <>
-      {/* Search Bar */}
-      <div className="ml-4 mr-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="relative flex-1 max-w-md">
-            <Input
-              type="text"
-              placeholder="Search by patient name or National ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSearch();
-                }
-              }}
-              className="pl-10 pr-8"
-            />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-              🔍
-            </span>
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2"
-                onClick={() => {
-                  setSearchQuery("");
-                  setHasSearched(false);
-                }}
-              >
-                ✕
-              </Button>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSearch}
-            disabled={loadingPatients}
-          >
-            <Search className="h-4 w-4 mr-2" />
-            Search
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          {!hasSearched ? (
-            <span>Type a patient name or National ID and click Search to load patients.</span>
-          ) : patientsError ? (
-            <span className="text-red-600">{(patientsError as Error).message}</span>
-          ) : rows ? (
-            searchQuery ? (
-              <span>
-                Found <strong>{filteredPatients.length}</strong> patient
-                {filteredPatients.length !== 1 ? "s" : ""} matching your search.
-              </span>
-            ) : (
-              <span>
-                Total: <strong>{rows.length}</strong> patient
-                {rows.length !== 1 ? "s" : ""}
-              </span>
-            )
-          ) : null}
-        </p>
-      </div>
-
       {/* Patients Table */}
-      {!hasSearched ? null : loadingPatients && rows.length === 0 ? (
+      {loadingPatients ? (
         <p className="text-sm text-muted-foreground">Loading patients...</p>
-      ) : rows.length === 0 ? (
+      ) : patientsError ? (
         <div className="text-center py-8 border rounded-md">
-          <p className="text-sm text-muted-foreground">No patients found.</p>
+          <p className="text-sm text-red-600">{(patientsError as Error).message}</p>
         </div>
-      ) : filteredPatients.length === 0 ? (
+      ) : displayedPatients.length === 0 ? (
         <div className="text-center py-8 border rounded-md">
-          <p className="text-sm text-muted-foreground">No patients match your search.</p>
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => {
-              setSearchQuery("");
-              setHasSearched(false);
-            }}
-            className="mt-2"
-          >
-            Clear search
-          </Button>
+          <p className="text-sm text-muted-foreground">No patients found. Use the search in the header to find patients.</p>
         </div>
       ) : (
         <div className="rounded-md border">
@@ -305,7 +187,7 @@ export default function PatientsList({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPatients.map((p: Patient) => (
+              {displayedPatients.map((p: Patient) => (
                 <TableRow
                   key={p.patientid}
                   className={canViewDetails ? "cursor-pointer hover:bg-muted/50" : ""}
