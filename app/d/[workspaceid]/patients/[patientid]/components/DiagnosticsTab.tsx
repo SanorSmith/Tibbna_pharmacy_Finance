@@ -489,11 +489,12 @@ export function DiagnosticsTab({
                     comment: "",
                   });
                 }}
+                className="bg-blue-200/90 hover:bg-blue-300"
               >
                 Cancel
               </Button>
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600/90 hover:bg-blue-800"
                 onClick={async () => {
                   if (savingDiagnosis) {
                     return;

@@ -1,7 +1,17 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Heart, TestTube, FileText, Image as ImageIcon } from "lucide-react";
+import {
+  Calendar,
+  Heart,
+  TestTube,
+  FileText,
+  Image as ImageIcon,
+  Activity,
+  Thermometer,
+  Droplet,
+  Gauge,
+} from "lucide-react";
 import { DiagnosisRecord } from "./DiagnosticsTab";
 
 export type { DiagnosisRecord };
@@ -112,6 +122,166 @@ export function DashboardTab({
     <div className="space-y-2">
       <div className="space-y-2">
         <div className="grid gap-2 md:grid-cols-3">
+           {/* Vitals Card */}
+          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white relative h-full">
+            {/* Date on top-right */}
+            {vitalSigns.length > 0 && (
+              <span className="absolute top-2 right-3 text-[9px] opacity-80">
+                {new Date(
+                  vitalSigns[0].recorded_time
+                ).toLocaleDateString()}
+              </span>
+            )}
+
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <Heart className="h-3.5 w-3.5" />
+                  Vitals
+                </CardTitle>
+              </div>
+            </CardHeader>
+
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingVitalSigns ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : vitalSigns.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <Heart className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No vitals</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Blood Pressure */}
+                  {vitalSigns[0].systolic &&
+                    vitalSigns[0].diastolic && (
+                      <div className="flex items-start gap-1.5">
+                        <Gauge className="h-3 w-3 mt-[2px] opacity-90" />
+                        <div>
+                          <p className="text-[9px] opacity-90">Blood Pressure</p>
+                          <p className="font-semibold text-xs mt-0.5">
+                            {vitalSigns[0].systolic}/{vitalSigns[0].diastolic}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Heart Rate */}
+                  {vitalSigns[0].heart_rate && (
+                    <div className="flex items-start gap-1.5">
+                      <Activity className="h-3 w-3 mt-[2px] opacity-90" />
+                      <div>
+                        <p className="text-[9px] opacity-90">Heart Rate</p>
+                        <p className="font-semibold text-xs mt-0.5">
+                          {vitalSigns[0].heart_rate}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Temperature */}
+                  {vitalSigns[0].temperature && (
+                    <div className="flex items-start gap-1.5">
+                      <Thermometer className="h-3 w-3 mt-[2px] opacity-90" />
+                      <div>
+                        <p className="text-[9px] opacity-90">Temperature</p>
+                        <p className="font-semibold text-xs mt-0.5">
+                          {vitalSigns[0].temperature}°C
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SpO2 */}
+                  {vitalSigns[0].spo2 && (
+                    <div className="flex items-start gap-1.5">
+                      <Droplet className="h-3 w-3 mt-[2px] opacity-90" />
+                      <div>
+                        <p className="text-[9px] opacity-90">SpO2</p>
+                        <p className="font-semibold text-xs mt-0.5">
+                          {vitalSigns[0].spo2}%
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+           {/* Diagnosis Card */}
+          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
+            <CardHeader className="py-1.5 px-3">
+              <div className="flex items-center">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" />
+                  Diagnosis
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1.5 px-3">
+              {loadingDiagnoses ? (
+                <div className="text-center py-1.5">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
+                  <p className="text-xs opacity-90">Loading...</p>
+                </div>
+              ) : diagnoses.length === 0 ? (
+                <div className="text-center py-1.5">
+                  <FileText className="h-5 w-5 opacity-70 mx-auto mb-1" />
+                  <p className="text-xs opacity-90">No diagnoses</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {diagnoses.slice(0, 1).map((diagnosis) => (
+                    <div key={diagnosis.composition_uid} className="py-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs truncate">
+                            {diagnosis.problem_diagnosis}
+                          </div>
+                          <div className="text-[10px] opacity-90">
+                            {new Date(
+                              diagnosis.recorded_time
+                            ).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          className={(() => {
+                            const base = "px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 capitalize font-medium";
+                            switch (diagnosis.clinical_status?.toLowerCase()) {
+                              case "active":
+                                return `${base} bg-green-200 text-green-800`;
+                              case "inactive":
+                                return `${base} bg-gray-200 text-gray-700`;
+                              case "resolved":
+                                return `${base} bg-blue-200 text-blue-800`;
+                              case "recurrence":
+                                return `${base} bg-orange-200 text-orange-800`;
+                              case "relapse":
+                                return `${base} bg-red-200 text-red-800`;
+                              case "remission":
+                                return `${base} bg-emerald-200 text-emerald-800`;
+                              default:
+                                return `${base} bg-slate-200 text-slate-800`;
+                            }
+                          })()}
+                        >
+                          {diagnosis.clinical_status}
+                        </div>
+                      </div>
+                      {diagnosis.clinical_description && (
+                        <div className="text-xs opacity-90 mt-1 line-clamp-2">
+                          {diagnosis.clinical_description}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
           {/* Appointments Card */}
           <Card className="bg-[#618FF5] text-white rounded-lg h-full">
             <CardHeader className="py-1.5 px-3">
@@ -227,65 +397,7 @@ export function DashboardTab({
             </CardContent>
           </Card>
 
-          {/* Diagnosis Card */}
-          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
-            <CardHeader className="py-1.5 px-3">
-              <div className="flex items-center">
-                <CardTitle className="text-sm flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" />
-                  Diagnosis
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0 pb-1.5 px-3">
-              {loadingDiagnoses ? (
-                <div className="text-center py-1.5">
-                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
-                  <p className="text-xs opacity-90">Loading...</p>
-                </div>
-              ) : diagnoses.length === 0 ? (
-                <div className="text-center py-1.5">
-                  <FileText className="h-5 w-5 opacity-70 mx-auto mb-1" />
-                  <p className="text-xs opacity-90">No diagnoses</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {diagnoses.slice(0, 1).map((diagnosis) => (
-                    <div key={diagnosis.composition_uid} className="py-1">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs truncate">
-                            {diagnosis.problem_diagnosis}
-                          </div>
-                          <div className="text-[10px] opacity-90">
-                            {new Date(
-                              diagnosis.recorded_time
-                            ).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <div
-                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
-                            diagnosis.clinical_status === "active"
-                              ? "bg-red-400 text-red-900"
-                              : diagnosis.clinical_status === "resolved"
-                              ? "bg-green-400 text-green-900"
-                              : "bg-gray-400 text-gray-900"
-                          }`}
-                        >
-                          {diagnosis.clinical_status}
-                        </div>
-                      </div>
-                      {diagnosis.clinical_description && (
-                        <div className="text-xs opacity-90 mt-1 line-clamp-2">
-                          {diagnosis.clinical_description}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+         
 
           {/* Imaging Card */}
           <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
@@ -403,84 +515,7 @@ export function DashboardTab({
             </CardContent>
           </Card>
 
-          {/* Vitals Card */}
-          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white relative h-full">
-            {/* Date on top-right */}
-            {vitalSigns.length > 0 && (
-              <span className="absolute top-2 right-3 text-[9px] opacity-80">
-                {new Date(
-                  vitalSigns[0].recorded_time
-                ).toLocaleDateString()}
-              </span>
-            )}
-
-            <CardHeader className="py-1.5 px-3">
-              <div className="flex items-center">
-                <CardTitle className="text-sm flex items-center gap-1.5">
-                  <Heart className="h-3.5 w-3.5" />
-                  Vitals
-                </CardTitle>
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-0 pb-1.5 px-3">
-              {loadingVitalSigns ? (
-                <div className="text-center py-1.5">
-                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mx-auto mb-1"></div>
-                  <p className="text-xs opacity-90">Loading...</p>
-                </div>
-              ) : vitalSigns.length === 0 ? (
-                <div className="text-center py-1.5">
-                  <Heart className="h-5 w-5 opacity-70 mx-auto mb-1" />
-                  <p className="text-xs opacity-90">No vitals</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Blood Pressure */}
-                  {vitalSigns[0].systolic &&
-                    vitalSigns[0].diastolic && (
-                      <div>
-                        <p className="text-[9px] opacity-90">BP</p>
-                        <p className="font-semibold text-xs mt-0.5">
-                          {vitalSigns[0].systolic}/
-                          {vitalSigns[0].diastolic}
-                        </p>
-                      </div>
-                    )}
-
-                  {/* Heart Rate */}
-                  {vitalSigns[0].heart_rate && (
-                    <div>
-                      <p className="text-[9px] opacity-90">HR</p>
-                      <p className="font-semibold text-xs mt-0.5">
-                        {vitalSigns[0].heart_rate}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Temperature */}
-                  {vitalSigns[0].temperature && (
-                    <div>
-                      <p className="text-[9px] opacity-90">Temp</p>
-                      <p className="font-semibold text-xs mt-0.5">
-                        {vitalSigns[0].temperature}°C
-                      </p>
-                    </div>
-                  )}
-
-                  {/* SpO2 */}
-                  {vitalSigns[0].spo2 && (
-                    <div>
-                      <p className="text-[9px] opacity-90">SpO₂</p>
-                      <p className="font-semibold text-xs mt-0.5">
-                        {vitalSigns[0].spo2}%
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+         
         </div>
       </div>
     </div>

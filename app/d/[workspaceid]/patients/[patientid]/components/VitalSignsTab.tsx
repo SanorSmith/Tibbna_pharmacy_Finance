@@ -132,7 +132,7 @@ export function VitalSignsTab({
             vitalSignsRecords.map((record, index) => (
               <div
                 key={index}
-                className="border rounded p-2 bg-blue-200/90 hover:shadow-sm transition-shadow text-xs"
+                className="border rounded p-2 bg-blue-100/90 hover:shadow-sm transition-shadow text-xs"
               >
                 {/* Time */}
                 <div className="flex items-center gap-1 text-blue-700 mb-1">
@@ -355,6 +355,7 @@ export function VitalSignsTab({
                   spO2: "",
                 });
               }}
+              className="bg-blue-200/90 hover:bg-blue-300"
             >
               Cancel
             </Button>
@@ -407,6 +408,7 @@ export function VitalSignsTab({
                   );
                 }
               }}
+               className="bg-blue-600/90 hover:bg-blue-800"
             >
               Save
             </Button>
