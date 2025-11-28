@@ -12,12 +12,12 @@ import {
 import {
   Plus,
   History,
+  Clock,
   Thermometer,
   Heart,
   Activity,
   Wind,
   Droplets,
-  Clock,
 } from "lucide-react";
 
 interface VitalSignsRecord {
@@ -152,49 +152,64 @@ export function VitalSignsTab({
                 {/* Vital Signs Grid */}
                 <div className="grid grid-cols-2 gap-2 text-center text-sm text-blue-700">
                   {record.temperature && (
-                    <div>
-                      <div className="text-muted-foreground font-semibold text-sm text-blue-600">
-                        Temperature
-                      </div>
-                      <div className="font-semibold">
-                        {record.temperature}°C
+                    <div className="flex items-center gap-2">
+                      <Thermometer className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                          Temperature
+                        </div>
+                        <div className="font-semibold">
+                          {record.temperature}°C
+                        </div>
                       </div>
                     </div>
                   )}
                   {(record.systolic || record.diastolic) && (
-                    <div>
-                      <div className="text-muted-foreground font-semibold text-sm text-blue-600">
-                        Blood Pressure
-                      </div>
-                      <div className="font-semibold">
-                        {record.systolic}/{record.diastolic} mmHg
+                    <div className="flex items-center gap-2">
+                      <Heart className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                          Blood Pressure
+                        </div>
+                        <div className="font-semibold">
+                          {record.systolic}/{record.diastolic} mmHg
+                        </div>
                       </div>
                     </div>
                   )}
                   {record.heart_rate && (
-                    <div>
-                      <div className="text-muted-foreground font-semibold text-sm text-blue-600">
-                        Heart Rate
-                      </div>
-                      <div className="font-semibold">
-                        {record.heart_rate} bpm
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                          Heart Rate
+                        </div>
+                        <div className="font-semibold">
+                          {record.heart_rate} bpm
+                        </div>
                       </div>
                     </div>
                   )}
                   {record.respiratory_rate && (
-                    <div>
-                      <div className="text-muted-foreground font-semibold text-sm text-blue-600">
-                        Respiratory
-                      </div>
-                      <div className="font-semibold">
-                        {record.respiratory_rate}/min
+                    <div className="flex items-center gap-2">
+                      <Wind className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                          Respiratory
+                        </div>
+                        <div className="font-semibold">
+                          {record.respiratory_rate}/min
+                        </div>
                       </div>
                     </div>
                   )}
                   {record.spo2 && (
-                    <div>
-                      <div className="text-muted-foreground font-semibold text-sm text-blue-600">SpO2</div>
-                      <div className="font-semibold">{record.spo2}%</div>
+                    <div className="flex items-center gap-2">
+                      <Droplets className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">SpO2</div>
+                        <div className="font-semibold">{record.spo2}%</div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -216,7 +231,10 @@ export function VitalSignsTab({
 
           <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
             <div>
-              <label className="font-medium">Temperature (°C)</label>
+              <label className="font-medium flex items-center gap-1">
+                <Thermometer className="w-3 h-3" />
+                Temperature (°C)
+              </label>
               <input
                 type="number"
                 step="0.1"
@@ -232,7 +250,10 @@ export function VitalSignsTab({
               />
             </div>
             <div>
-              <label className="font-medium">Heart Rate (bpm)</label>
+              <label className="font-medium flex items-center gap-1">
+                <Activity className="w-3 h-3" />
+                Heart Rate (bpm)
+              </label>
               <input
                 type="number"
                 className="w-full mt-1 px-2 py-1 border rounded text-sm"
@@ -247,7 +268,10 @@ export function VitalSignsTab({
               />
             </div>
             <div>
-              <label className="font-medium">Systolic BP (mmHg)</label>
+              <label className="font-medium flex items-center gap-1">
+                <Heart className="w-3 h-3" />
+                Systolic BP (mmHg)
+              </label>
               <input
                 type="number"
                 className="w-full mt-1 px-2 py-1 border rounded text-sm"
@@ -262,7 +286,10 @@ export function VitalSignsTab({
               />
             </div>
             <div>
-              <label className="font-medium">Diastolic BP (mmHg)</label>
+              <label className="font-medium flex items-center gap-1">
+                <Heart className="w-3 h-3" />
+                Diastolic BP (mmHg)
+              </label>
               <input
                 type="number"
                 className="w-full mt-1 px-2 py-1 border rounded text-sm"
@@ -277,7 +304,10 @@ export function VitalSignsTab({
               />
             </div>
             <div>
-              <label className="font-medium">Respiratory Rate (/min)</label>
+              <label className="font-medium flex items-center gap-1">
+                <Wind className="w-3 h-3" />
+                Respiratory Rate (/min)
+              </label>
               <input
                 type="number"
                 className="w-full mt-1 px-2 py-1 border rounded text-sm"
@@ -292,7 +322,10 @@ export function VitalSignsTab({
               />
             </div>
             <div>
-              <label className="font-medium">SpO2 (%)</label>
+              <label className="font-medium flex items-center gap-1">
+                <Droplets className="w-3 h-3" />
+                SpO2 (%)
+              </label>
               <input
                 type="number"
                 step="0.1"
