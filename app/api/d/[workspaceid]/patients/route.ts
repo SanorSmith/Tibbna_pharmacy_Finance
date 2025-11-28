@@ -1,7 +1,7 @@
 /**
  * API: /api/d/[workspaceid]/patients
  * - GET: list patients for the given workspace (auth required)
- * - POST: create a patient (requires workspace administrator or global "admin")
+ * - POST: create a patient (requires workspace administrator, global admin, or doctor)
  * - Uses Drizzle ORM and Next.js App Router route handlers.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -10,7 +10,7 @@ import { patients } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
-import { createOpenEHREHR } from "@/lib/openehr/openehr";
+import { createOpenEHREHR, getOpenEHREHRBySubjectId } from "@/lib/openehr/openehr";
 import { randomUUID } from "crypto";
 
 export async function GET(
@@ -51,12 +51,13 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Verify the user is administrator in this workspace OR has global admin permission
+  // Verify the user is administrator or doctor in this workspace OR has global admin permission
   const userWorkspaces = await getUserWorkspaces(user.userid);
   const membership = userWorkspaces.find(
     (w) => w.workspace.workspaceid === workspaceid,
   );
   const isWorkspaceAdmin = membership?.role === "administrator";
+  const isDoctor = membership?.role === "doctor";
   // Normalize permissions to an array of strings
   const normalizePerms = (perms: unknown): string[] => {
     try {
@@ -74,13 +75,29 @@ export async function POST(
     return [];
   };
   const isGlobalAdmin = normalizePerms(user.permissions).includes("admin");
-  if (!isWorkspaceAdmin && !isGlobalAdmin) {
-    // Block non-admin users from creating patients
-    return NextResponse.json({ error: "Only admin can register a patient" }, { status: 403 });
+  if (!isWorkspaceAdmin && !isGlobalAdmin && !isDoctor) {
+    // Block non-admin, non-doctor users from creating patients
+    return NextResponse.json({ error: "Only admin or doctor can register a patient" }, { status: 403 });
   }
 
   const body = await req.json();
   try {
+    // Check if National ID already exists (if provided)
+    if (body.nationalid) {
+      const existingPatient = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.nationalid, body.nationalid))
+        .limit(1);
+      
+      if (existingPatient.length > 0) {
+        return NextResponse.json(
+          { error: "A patient with this National ID already exists" },
+          { status: 409 }
+        );
+      }
+    }
+
     // Generate a UUID here so we can use the same value to create the EHR in EHRbase
     const newPatientId = randomUUID();
     const values = {
@@ -91,6 +108,8 @@ export async function POST(
       lastname: String(body.lastname || ""),
       nationalid: body.nationalid ?? null,
       dateofbirth: body.dateofbirth ? String(body.dateofbirth) : null,
+      gender: body.gender ?? null,
+      bloodgroup: body.bloodgroup ?? null,
       phone: body.phone ?? null,
       email: body.email ?? null,
       address: body.address ?? null,
@@ -107,8 +126,22 @@ export async function POST(
       // Use National ID if available, otherwise use patient UUID
       const subjectId = body.nationalid || newPatientId;
       ehrId = await createOpenEHREHR(subjectId);
-    } catch (ehrErr) {
-      console.error("[patients][POST] EHR create failed:", ehrErr);
+    } catch (ehrErr: any) {
+      // If 409 conflict, EHR already exists - try to fetch it
+      if (ehrErr?.response?.status === 409 || ehrErr?.status === 409) {
+        console.log("[patients][POST] EHR already exists, fetching existing EHR ID");
+        try {
+          const subjectId = body.nationalid || newPatientId;
+          ehrId = await getOpenEHREHRBySubjectId(subjectId);
+          if (ehrId) {
+            console.log("[patients][POST] Found existing EHR:", ehrId);
+          }
+        } catch (fetchErr) {
+          console.error("[patients][POST] Failed to fetch existing EHR:", fetchErr);
+        }
+      } else {
+        console.error("[patients][POST] EHR create failed:", ehrErr);
+      }
     }
 
     let updated = inserted;
