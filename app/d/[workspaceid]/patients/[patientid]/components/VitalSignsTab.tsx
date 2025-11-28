@@ -355,6 +355,7 @@ export function VitalSignsTab({
                   spO2: "",
                 });
               }}
+              className="bg-blue-200/90 hover:bg-blue-300"
             >
               Cancel
             </Button>
@@ -407,6 +408,7 @@ export function VitalSignsTab({
                   );
                 }
               }}
+               className="bg-blue-600/90 hover:bg-blue-800"
             >
               Save
             </Button>
