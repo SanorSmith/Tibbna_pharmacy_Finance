@@ -83,7 +83,7 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
   return (
     <form action={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* --- NAME ROW ----------------------------------------------------- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:col-span-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:col-span-2">
         <div className="space-y-1">
           <Label htmlFor="firstname">First name</Label>
           <Input
@@ -118,8 +118,9 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
       </div>
 
       {/* --- OTHER FIELDS -------------------------------------------------- */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:col-span-2">
       <div className="space-y-1">
-        <Label htmlFor="nationalid">ID</Label>
+        <Label htmlFor="nationalid">National ID</Label>
         <Input
           id="nationalid"
           name="nationalid"
@@ -172,16 +173,18 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
           </SelectContent>
         </Select>
       </div>
-
+</div>
+ <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:col-span-2">
       <div className="space-y-1">
         <Label htmlFor="phone">Telephone</Label>
+  
         <Input
           id="phone"
           name="phone"
           type="tel"
           placeholder="+1 555 555"
           className="h-9"
-        />
+          />
       </div>
 
       {/* --- EMAIL + ADDRESS in same row ---------------------------------- */}
@@ -193,7 +196,7 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
           type="email"
           placeholder="name@example.com"
           className="h-9"
-        />
+          />
       </div>
 
       <div className="space-y-1">
@@ -203,8 +206,9 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
           name="address"
           placeholder="123 Main St"
           className="h-9"
-        />
+          />
       </div>
+          </div>
 
       {/* --- MEDICAL HISTORY ---------------------------------------------- */}
       <div className="space-y-1 md:col-span-2">
