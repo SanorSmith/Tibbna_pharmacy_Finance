@@ -15,6 +15,7 @@ export interface ReferralRecord {
   composition_uid: string;
   recorded_time: string;
   physician_department: string;
+  receiving_physician?: string;
   clinical_indication: string;
   urgency: string;
   comment?: string;
@@ -31,10 +32,13 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
   const [showReferralForm, setShowReferralForm] = useState(false);
   const [referralRecords, setReferralRecords] = useState<ReferralRecord[]>([]);
   const [loadingReferrals, setLoadingReferrals] = useState(false);
+  const [departments, setDepartments] = useState<{ departmentid: string; name: string }[]>([]);
+  const [doctors, setDoctors] = useState<{ staffid: string; firstname: string; lastname: string; email: string }[]>([]);
   const [referralForm, setReferralForm] = useState({
-    physicianDepartment: "",
+    department: "",
+    receivingPhysician: "",
     clinicalIndication: "",
-    urgency: "no",
+    urgency: "routine",
     comment: "",
   });
 
@@ -57,10 +61,34 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
     }
   }, [workspaceid, patientid]);
 
+  const loadDepartmentsAndDoctors = useCallback(async () => {
+    try {
+      // Load departments
+      const deptRes = await fetch(`/api/d/${workspaceid}/departments`);
+      if (deptRes.ok) {
+        const deptData = await deptRes.json();
+        setDepartments(deptData.departments || []);
+      }
+
+      // Load doctors (staff with role="doctor")
+      const staffRes = await fetch(`/api/d/${workspaceid}/staff`);
+      if (staffRes.ok) {
+        const staffData = await staffRes.json();
+        const doctorsOnly = (staffData.staff || []).filter(
+          (staff: any) => staff.role === "doctor"
+        );
+        setDoctors(doctorsOnly);
+      }
+    } catch (error) {
+      console.error("Error loading departments and doctors:", error);
+    }
+  }, [workspaceid]);
+
   // Load referrals when component mounts
   useEffect(() => {
     loadReferrals();
-  }, [loadReferrals]);
+    loadDepartmentsAndDoctors();
+  }, [loadReferrals, loadDepartmentsAndDoctors]);
 
   return (
     <>
@@ -109,108 +137,54 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {referralRecords.map((record, index) => (
-                <div
-                  key={index}
-                  className="border rounded-xl p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-teal-50/30"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse"></div>
-                        <div className="font-semibold text-lg">
-                          Referral to{" "}
-                          {record.physician_department || "Specialist"}
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b">
+                    <th className="text-left p-3 font-semibold text-sm">Date</th>
+                    <th className="text-left p-3 font-semibold text-sm">Department</th>
+                    <th className="text-left p-3 font-semibold text-sm">Receiving Physician</th>
+                    <th className="text-left p-3 font-semibold text-sm">Clinical Indication</th>
+                    <th className="text-left p-3 font-semibold text-sm">Referred By</th>
+                    <th className="text-left p-3 font-semibold text-sm">Urgency</th>
+                    <th className="text-left p-3 font-semibold text-sm">Comments</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {referralRecords.map((record, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="p-3 text-sm">
                         {record.recorded_time
-                          ? new Date(record.recorded_time).toLocaleString(
+                          ? new Date(record.recorded_time).toLocaleDateString(
                               "en-US",
                               {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
                               }
                             )
                           : "Date not recorded"}
-                      </div>
-                    </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        record.urgency === "yes"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {record.urgency === "yes" ? "⚠️ Urgent" : "✓ Routine"}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="bg-white rounded-lg p-3 border border-teal-100">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-teal-500">🏥</span>
-                        <div className="text-xs text-muted-foreground font-medium">
-                          Physician/Department
-                        </div>
-                      </div>
-                      <div className="text-base font-bold text-teal-600">
-                        {record.physician_department}
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 border border-blue-100">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-blue-500">📋</span>
-                        <div className="text-xs text-muted-foreground font-medium">
-                          Clinical Indication
-                        </div>
-                      </div>
-                      <div className="text-base font-bold text-blue-600">
-                        {record.clinical_indication}
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 border border-gray-100">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-gray-500">👨‍⚕️</span>
-                        <div className="text-xs text-muted-foreground font-medium">
-                          Referred By
-                        </div>
-                      </div>
-                      <div className="text-base font-bold text-gray-600">
-                        {record.referred_by || "Unknown"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {record.comment && (
-                    <div className="text-sm">
-                      <div className="text-xs text-muted-foreground font-medium mb-1">
-                        Additional Comments
-                      </div>
-                      <div className="text-gray-700 bg-white p-3 rounded-lg border">
-                        {record.comment}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                      </td>
+                      <td className="p-3 text-sm font-medium">{record.physician_department}</td>
+                      <td className="p-3 text-sm">{record.receiving_physician || "-"}</td>
+                      <td className="p-3 text-sm">{record.clinical_indication}</td>
+                      <td className="p-3 text-sm">{record.referred_by || "Unknown"}</td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            record.urgency === "urgent"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {record.urgency === "urgent" ? "Urgent" : "Routine"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-sm text-gray-600">{record.comment || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
@@ -227,23 +201,54 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">
-                Physician / Department *
-              </label>
-              <input
-                type="text"
+              <label className="text-sm font-medium">Department *</label>
+              <select
                 className="w-full mt-1 px-3 py-2 border rounded-md"
-                placeholder="e.g., Cardiology, Dr. Smith"
-                value={referralForm.physicianDepartment}
+                value={referralForm.department}
                 onChange={(e) =>
                   setReferralForm({
                     ...referralForm,
-                    physicianDepartment: e.target.value,
+                    department: e.target.value,
                   })
                 }
-                aria-label="Physician or department"
-                title="Enter the physician or department name"
-              />
+                aria-label="Department"
+                title="Select the receiving department"
+              >
+                <option value="">Select a department...</option>
+                {departments.map((dept) => (
+                  <option key={dept.departmentid} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Receiving Physician</label>
+              <select
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                value={referralForm.receivingPhysician}
+                onChange={(e) =>
+                  setReferralForm({
+                    ...referralForm,
+                    receivingPhysician: e.target.value,
+                  })
+                }
+                aria-label="Receiving physician"
+                title="Select the receiving physician (optional)"
+              >
+                <option value="">Select a doctor...</option>
+                {doctors.map((doctor) => (
+                  <option key={doctor.staffid} value={`${doctor.firstname} ${doctor.lastname}`}>
+                    {doctor.firstname} {doctor.lastname} {doctor.email && `(${doctor.email})`}
+                  </option>
+                ))}
+              </select>
+              {referralForm.receivingPhysician && doctors.find(d => `${d.firstname} ${d.lastname}` === referralForm.receivingPhysician)?.email && (
+                <div className="mt-1 text-xs text-blue-600">
+                  Email: {doctors.find(d => `${d.firstname} ${d.lastname}` === referralForm.receivingPhysician)?.email}
+                </div>
+              )}
             </div>
 
             <div>
@@ -273,8 +278,8 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
                   <input
                     type="radio"
                     name="urgency"
-                    value="no"
-                    checked={referralForm.urgency === "no"}
+                    value="routine"
+                    checked={referralForm.urgency === "routine"}
                     onChange={(e) =>
                       setReferralForm({
                         ...referralForm,
@@ -291,8 +296,8 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
                   <input
                     type="radio"
                     name="urgency"
-                    value="yes"
-                    checked={referralForm.urgency === "yes"}
+                    value="urgent"
+                    checked={referralForm.urgency === "urgent"}
                     onChange={(e) =>
                       setReferralForm({
                         ...referralForm,
@@ -332,9 +337,10 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
                 onClick={() => {
                   setShowReferralForm(false);
                   setReferralForm({
-                    physicianDepartment: "",
+                    department: "",
+                    receivingPhysician: "",
                     clinicalIndication: "",
-                    urgency: "no",
+                    urgency: "routine",
                     comment: "",
                   });
                 }}
@@ -345,10 +351,7 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={async () => {
                   try {
-                    if (
-                      !referralForm.physicianDepartment ||
-                      !referralForm.clinicalIndication
-                    ) {
+                    if (!referralForm.department || !referralForm.clinicalIndication) {
                       alert(
                         "Please fill in required fields: Physician/Department and Clinical Indication"
                       );
@@ -360,7 +363,15 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
                       {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ referral: referralForm }),
+                        body: JSON.stringify({
+                          referral: {
+                            physicianDepartment: referralForm.department,
+                            receivingPhysician: referralForm.receivingPhysician,
+                            clinicalIndication: referralForm.clinicalIndication,
+                            urgency: referralForm.urgency,
+                            comment: referralForm.comment,
+                          },
+                        }),
                       }
                     );
 
@@ -373,9 +384,10 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
 
                     setShowReferralForm(false);
                     setReferralForm({
-                      physicianDepartment: "",
+                      department: "",
+                      receivingPhysician: "",
                       clinicalIndication: "",
-                      urgency: "no",
+                      urgency: "routine",
                       comment: "",
                     });
                     loadReferrals();

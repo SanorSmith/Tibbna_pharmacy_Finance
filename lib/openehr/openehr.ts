@@ -78,6 +78,19 @@ export interface DiagnosisRecord {
   comment: string;
 }
 
+// Referral records mapped from SERVICE_REQUEST inside clinical encounter compositions
+export interface ReferralRecord {
+  composition_uid: string;
+  recorded_time: string;
+  physician_department: string;
+  receiving_physician?: string;
+  clinical_indication: string;
+  urgency: string; // "routine" | "urgent"
+  comment?: string;
+  referred_by: string;
+  status: string;
+}
+
 // Helper to find a value by field name in OpenEHR INSTRUCTION structure
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findValueByName(instruction: any, fieldName: string): string | undefined {
@@ -616,6 +629,100 @@ export async function getOpenEHRPrescriptions(
     console.error("Error fetching prescriptions via AQL:", error);
     return [];
   }
+}
+
+export async function getOpenEHRReferrals(
+  ehrId: string
+): Promise<ReferralRecord[]> {
+  const compositions = await getOpenEHRCompositions(ehrId);
+
+  const allReferrals = await Promise.all(
+    compositions.map(async (comp) => {
+      try {
+        const fullComposition = await getOpenEHRComposition(
+          ehrId,
+          comp.composition_uid
+        );
+
+        const details = fullComposition as Record<string, unknown>;
+
+        const description =
+          (details[
+            "template_clinical_encounter_v1/service_request/request/description"
+          ] as string) || "";
+
+        // Only keep SERVICE_REQUESTs created by the referrals API
+        // (distinguished by description marker "REFERRAL_REQUEST")
+        if (description !== "REFERRAL_REQUEST") {
+          return null;
+        }
+
+        const narrative =
+          (details[
+            "template_clinical_encounter_v1/service_request/narrative"
+          ] as string) || "";
+
+        const physician_department =
+          (details[
+            "template_clinical_encounter_v1/service_request/request/receiving_provider"
+          ] as string) || "";
+
+        const receiving_physician =
+          (details[
+            "template_clinical_encounter_v1/service_request/request/service_name|other"
+          ] as string) || undefined;
+
+        const clinical_indication =
+          (details[
+            "template_clinical_encounter_v1/service_request/request/clinical_indication"
+          ] as string) || "";
+
+        const urgencyValue =
+          (details[
+            "template_clinical_encounter_v1/service_request/request/urgency|value"
+          ] as string) || "Routine";
+
+        const requesting_provider =
+          (details[
+            "template_clinical_encounter_v1/service_request/request/requesting_provider"
+          ] as string) || "Unknown";
+
+        const request_status_value =
+          (details[
+            "template_clinical_encounter_v1/service_request/request/request_status|value"
+          ] as string) || "Requested";
+
+        // Normalize urgency to "routine" | "urgent" for UI
+        const urgencyText = urgencyValue.toLowerCase();
+        const urgency = urgencyText === "urgent" ? "urgent" : "routine";
+
+        const status = request_status_value;
+
+        const referral: ReferralRecord = {
+          composition_uid: comp.composition_uid,
+          recorded_time: comp.start_time,
+          physician_department,
+          receiving_physician,
+          clinical_indication,
+          urgency,
+          comment: narrative || undefined,
+          referred_by: requesting_provider,
+          status,
+        };
+
+        return referral;
+      } catch (error) {
+        console.error(
+          `Failed to fetch or parse referral composition ${comp.composition_uid}:`,
+          error
+        );
+        return null;
+      }
+    })
+  );
+
+  // Filter out non-referral compositions and nulls
+  return allReferrals.filter((r): r is ReferralRecord => r !== null);
 }
 
 export async function getOpenEHRTemplates(): Promise<

@@ -1,80 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
-
-// In-memory storage for referrals (dummy data)
-// In production, this would be stored in EHRbase or a database
-interface ReferralRecord {
-  composition_uid: string;
-  recorded_time: string;
-  physician_department: string;
-  clinical_indication: string;
-  urgency: string;
-  comment?: string;
-  referred_by: string;
-  status: string;
-}
-
-// Initialize with dummy data for demonstration
-const referralStore: Record<string, ReferralRecord[]> = {
-  // Sample patient ID with dummy referrals
-  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
-    {
-      composition_uid: "referral-1731847200000-001",
-      recorded_time: "2024-11-15T10:30:00.000Z",
-      physician_department: "Cardiology - Dr. Michael Chen, MD",
-      clinical_indication: "Evaluation of chest pain and abnormal ECG findings. Patient reports intermittent chest discomfort on exertion. ECG shows ST-segment changes. Lipid panel shows elevated LDL (165 mg/dL).",
-      urgency: "Routine",
-      comment: "Patient has family history of coronary artery disease. Request stress test and echocardiogram. Please evaluate for possible coronary artery disease.",
-      referred_by: "Dr. Sarah Mitchell, MD",
-      status: "pending"
-    },
-    {
-      composition_uid: "referral-1731674400000-002",
-      recorded_time: "2024-11-10T14:15:00.000Z",
-      physician_department: "Endocrinology - Dr. Patricia Williams, MD",
-      clinical_indication: "Management of prediabetes and metabolic syndrome. Fasting glucose 110 mg/dL, HbA1c 6.2%. BMI 32. Patient struggling with weight management despite lifestyle modifications.",
-      urgency: "Routine",
-      comment: "Patient requires comprehensive diabetes prevention program. Please assess for insulin resistance and provide dietary counseling.",
-      referred_by: "Dr. James Rodriguez, MD",
-      status: "scheduled"
-    },
-    {
-      composition_uid: "referral-1731501600000-003",
-      recorded_time: "2024-11-05T09:00:00.000Z",
-      physician_department: "Gastroenterology - Dr. Robert Taylor, MD",
-      clinical_indication: "Chronic abdominal pain and altered bowel habits for 3 months. Patient reports alternating constipation and diarrhea. No red flag symptoms. Negative fecal occult blood test.",
-      urgency: "Routine",
-      comment: "Suspect irritable bowel syndrome. Please evaluate and recommend management plan. Consider colonoscopy if indicated.",
-      referred_by: "Dr. Sarah Mitchell, MD",
-      status: "completed"
-    },
-    {
-      composition_uid: "referral-1730896800000-004",
-      recorded_time: "2024-10-28T16:45:00.000Z",
-      physician_department: "Orthopedics - Dr. David Anderson, MD",
-      clinical_indication: "Chronic low back pain with radiculopathy. Pain radiating to left leg. MRI shows L4-L5 disc herniation with nerve root compression. Conservative management has failed.",
-      urgency: "Urgent",
-      comment: "Patient experiencing significant functional impairment. Failed 6 weeks of physical therapy and NSAIDs. Please evaluate for surgical intervention.",
-      referred_by: "Dr. James Rodriguez, MD",
-      status: "completed"
-    },
-    {
-      composition_uid: "referral-1729687200000-005",
-      recorded_time: "2024-10-15T11:20:00.000Z",
-      physician_department: "Dermatology - Dr. Lisa Martinez, MD",
-      clinical_indication: "Evaluation of suspicious skin lesion on upper back. Asymmetric pigmented lesion, 8mm diameter, irregular borders. Patient has history of significant sun exposure.",
-      urgency: "Urgent",
-      comment: "Concern for possible melanoma. Request urgent evaluation and biopsy if indicated. Patient anxious about findings.",
-      referred_by: "Dr. Sarah Mitchell, MD",
-      status: "completed"
-    }
-  ]
-};
+import { db } from "@/lib/db";
+import { patients } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getOpenEHREHRBySubjectId, getOpenEHRReferrals } from "@/lib/openehr/openehr";
+import { ClinicalEncounterComposition, createClinicalEncounter } from "@/lib/openehr/encounter";
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/referrals
- * Retrieve referral records for a patient (from dummy data)
+ * Retrieve referral records for a patient from OpenEHR (SERVICE_REQUEST in clinical encounter)
  */
 export async function GET(
   request: NextRequest,
@@ -103,9 +38,36 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const records = referralStore[patientid] || [];
+    // Fetch patient to get National ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
 
-    return NextResponse.json({ referrals: records });
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found" },
+        { status: 404 }
+      );
+    }
+
+    // Find EHR by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
+    }
+
+    if (!ehrId) {
+      return NextResponse.json({ referrals: [] }, { status: 200 });
+    }
+
+    const referrals = await getOpenEHRReferrals(ehrId);
+
+    return NextResponse.json({ referrals }, { status: 200 });
   } catch (error) {
     console.error("Error fetching referrals:", error);
     return NextResponse.json(
@@ -117,13 +79,8 @@ export async function GET(
 
 /**
  * POST /api/d/[workspaceid]/patients/[patientid]/referrals
- * Create a new referral record (dummy data storage)
- *
- * Follows openEHR Referral concepts:
- * - physician_department (referred to)
- * - clinical_indication (reason for referral)
- * - urgency (yes/no or priority level)
- * - comment (additional notes)
+ * Create a new referral record in OpenEHR as a SERVICE_REQUEST inside
+ * the clinical encounter template (template_clinical_encounter_v1).
  */
 export async function POST(
   request: NextRequest,
@@ -149,36 +106,142 @@ export async function POST(
 
     // Only doctors can create referrals
     if (membership.role !== "doctor") {
-      return NextResponse.json({ error: "Forbidden - Only doctors can create referrals" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden - Only doctors can create referrals" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
-    const { referral } = body;
-
-    const record = {
-      composition_uid: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      recorded_time: new Date().toISOString(),
-      physician_department: referral.physicianDepartment,
-      clinical_indication: referral.clinicalIndication,
-      urgency: referral.urgency, // "yes" or "no"
-      comment: referral.comment,
-      referred_by: user.name || user.email, // Track who made the referral
-      status: "pending", // pending, accepted, completed, cancelled
+    const { referral } = body as {
+      referral: {
+        physicianDepartment: string;
+        receivingPhysician?: string;
+        clinicalIndication: string;
+        urgency: "routine" | "urgent";
+        comment?: string;
+      };
     };
 
-    if (!referralStore[patientid]) {
-      referralStore[patientid] = [];
+    if (!referral) {
+      return NextResponse.json(
+        { error: "Referral payload is required" },
+        { status: 400 }
+      );
     }
 
-    referralStore[patientid].unshift(record);
+    if (!referral.physicianDepartment || !referral.clinicalIndication) {
+      return NextResponse.json(
+        {
+          error:
+            "Physician/Department and Clinical Indication are required for a referral",
+        },
+        { status: 400 }
+      );
+    }
 
-    console.log("✅ Referral recorded (dummy data):", record);
+    // Fetch patient to get National ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Patient not found" },
+        { status: 404 }
+      );
+    }
+
+    // Find EHR by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
+    }
+
+    if (!ehrId) {
+      return NextResponse.json(
+        { error: "No EHR found for this patient" },
+        { status: 404 }
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    const composition: ClinicalEncounterComposition = {
+      // Category
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
+
+      // Context - must match template codes (238 = 'other care')
+      "template_clinical_encounter_v1/context/start_time": now,
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+
+      // Language / territory / composer
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name":
+        user.name || user.email || "Unknown",
+
+      // SERVICE REQUEST (Referral) - use template local coded values
+      "template_clinical_encounter_v1/service_request/request/service_type|terminology":
+        "local",
+      "template_clinical_encounter_v1/service_request/request/service_type|code":
+        "at0005",
+      "template_clinical_encounter_v1/service_request/request/service_type|value":
+        "Referral to specialist",
+
+      "template_clinical_encounter_v1/service_request/request/clinical_indication":
+        referral.clinicalIndication,
+
+      "template_clinical_encounter_v1/service_request/request/requested_date": now,
+
+      "template_clinical_encounter_v1/service_request/request/requesting_provider":
+        user.name || user.email || "Unknown Provider",
+
+      "template_clinical_encounter_v1/service_request/request/receiving_provider":
+        referral.physicianDepartment,
+
+      // Store receiving physician name separately in service_name (TEXT)
+      ...(referral.receivingPhysician
+        ? {
+            "template_clinical_encounter_v1/service_request/request/service_name|other":
+              referral.receivingPhysician,
+          }
+        : {}),
+
+      // Add a description marker to distinguish referrals from lab orders
+      "template_clinical_encounter_v1/service_request/request/description":
+        "REFERRAL_REQUEST",
+
+      "template_clinical_encounter_v1/service_request/request/urgency|terminology":
+        "local",
+      "template_clinical_encounter_v1/service_request/request/urgency|code":
+        referral.urgency === "urgent" ? "at0015" : "at0014",
+      "template_clinical_encounter_v1/service_request/request/urgency|value":
+        referral.urgency === "urgent" ? "Urgent" : "Routine",
+
+      "template_clinical_encounter_v1/service_request/narrative":
+        referral.comment ||
+        `Referral to ${referral.physicianDepartment} due to ${referral.clinicalIndication}`,
+    };
+
+    const compositionUid = await createClinicalEncounter(ehrId, composition);
 
     return NextResponse.json(
       {
         success: true,
-        message: "Referral created successfully",
-        record,
+        message: "Referral created successfully in OpenEHR",
+        composition_uid: compositionUid,
       },
       { status: 201 }
     );
