@@ -404,16 +404,216 @@ ORDER BY
       }
     }
 
-    return Array.from(grouped.values()).filter(r => 
-      r.temperature !== undefined || 
-      r.systolic !== undefined || 
-      r.diastolic !== undefined || 
-      r.heart_rate !== undefined || 
-      r.respiratory_rate !== undefined || 
-      r.spo2 !== undefined
+    return Array.from(grouped.values()).filter(
+      (r) =>
+        r.temperature !== undefined ||
+        r.systolic !== undefined ||
+        r.diastolic !== undefined ||
+        r.heart_rate !== undefined ||
+        r.respiratory_rate !== undefined ||
+        r.spo2 !== undefined
     );
   } catch (error) {
     console.error("Error fetching vital signs via AQL:", error);
+    return [];
+  }
+}
+
+export interface PrescriptionRecord {
+  composition_uid: string;
+  recorded_time: string;
+  medication_item: string;
+  product_name?: string;
+  active_ingredient?: string;
+  usage?: string;
+  valid_until?: string;
+  instructions?: string;
+  issued_from?: string;
+  dose_amount?: string;
+  dose_unit?: string;
+  direction_duration?: string;
+  route: string;
+  timing_directions: string;
+  additional_instruction?: string;
+  clinical_indication?: string;
+  comment?: string;
+  prescribed_by: string;
+  status: string;
+}
+
+// Helper to find a value by field name in OpenEHR medication_order INSTRUCTION structure
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findMedicationValue(instruction: any, fieldName: string): string | undefined {
+  if (!instruction || typeof instruction !== "object") return undefined;
+
+  if (instruction.activities && Array.isArray(instruction.activities)) {
+    for (const activity of instruction.activities) {
+      const items = activity.description?.items;
+      if (!items || !Array.isArray(items)) continue;
+      for (const item of items) {
+        if (item.name?.value === fieldName && item.value?.value) {
+          return item.value.value as string;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export async function getOpenEHRPrescriptions(
+  ehrId: string
+): Promise<PrescriptionRecord[]> {
+  const query = `SELECT
+    c/uid/value as composition_uid,
+    c/context/start_time/value as recorded_time,
+    c/composer/name as composer_name,
+    i as full_instruction
+  FROM
+    EHR e
+      CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.encounter.v1]
+      CONTAINS INSTRUCTION i
+  WHERE
+    e/ehr_id/value = '${ehrId}'
+  ORDER BY
+    c/context/start_time/value DESC`;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await queryOpenEHR<any>(query);
+
+    const prescriptions: PrescriptionRecord[] = [];
+
+    for (const row of results) {
+      const instruction = row.full_instruction;
+      const archId = (instruction?.archetype_node_id as string | undefined)?.toLowerCase();
+      if (!archId || !archId.includes("medication_order")) {
+        continue; // skip non-medication instructions in the encounter template
+      }
+
+      const medicationItem =
+        findMedicationValue(instruction, "Medication item") || "";
+      const route = findMedicationValue(instruction, "Route") || "";
+      const timing =
+        findMedicationValue(instruction, "Timing - daily") || "";
+      const overallDirections =
+        findMedicationValue(instruction, "Overall directions description") ||
+        timing;
+
+      const additionalInstruction =
+        findMedicationValue(instruction, "Additional instruction") || "";
+      const clinicalIndication =
+        findMedicationValue(instruction, "Clinical indication") || "";
+      const comment = findMedicationValue(instruction, "Comment") || "";
+
+      // Parse structured comment for additional metadata encoded by the API
+      let productName: string | undefined;
+      let activeIngredient: string | undefined;
+      let usage: string | undefined;
+      let validUntil: string | undefined;
+      let instructions: string | undefined;
+      let issuedFrom: string | undefined;
+      if (comment) {
+        const productMatch = comment.match(/Product name:\s*([^|]+)/i);
+        if (productMatch) {
+          productName = productMatch[1].trim();
+        }
+        const activeMatch = comment.match(/Active ingredient:\s*([^|]+)/i);
+        if (activeMatch) {
+          activeIngredient = activeMatch[1].trim();
+        }
+        const usageMatch = comment.match(/Usage:\s*([^|]+)/i);
+        if (usageMatch) {
+          usage = usageMatch[1].trim();
+        }
+        const validMatch = comment.match(/Valid until:\s*([^|]+)/i);
+        if (validMatch) {
+          validUntil = validMatch[1].trim();
+        }
+        const instrMatch = comment.match(/Instructions:\s*([^|]+)/i);
+        if (instrMatch) {
+          instructions = instrMatch[1].trim();
+        }
+        const issuedMatch = comment.match(/Issued from:\s*([^|]+)/i);
+        if (issuedMatch) {
+          issuedFrom = issuedMatch[1].trim();
+        }
+      }
+
+      // Derive structured dosage fields from our own overallDirections format:
+      // "<doseAmount> <doseUnit>, <Route>, for <Duration>, PRN ..."
+      let doseAmountText: string | undefined;
+      let doseUnit: string | undefined;
+      let directionDuration: string | undefined;
+      if (overallDirections) {
+        const parts = overallDirections.split(",").map((p) => p.trim());
+        if (parts.length > 0) {
+          const first = parts[0]; // e.g. "500 mg"
+          const tokens = first.split(/\s+/);
+          if (tokens.length >= 2) {
+            doseUnit = tokens[tokens.length - 1];
+            doseAmountText = tokens.slice(0, -1).join(" ");
+          } else {
+            doseAmountText = first;
+          }
+        }
+        const durationPart = parts.find((p) => p.toLowerCase().startsWith("for "));
+        if (durationPart) {
+          directionDuration = durationPart.slice(4).trim();
+        }
+      }
+
+      // Determine status based on validity
+      let status = "active";
+      if (validUntil) {
+        try {
+          const today = new Date();
+          const todayDateOnly = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate()
+          );
+          const validDate = new Date(validUntil);
+          const validDateOnly = new Date(
+            validDate.getFullYear(),
+            validDate.getMonth(),
+            validDate.getDate()
+          );
+          if (validDateOnly < todayDateOnly) {
+            status = "expired";
+          }
+        } catch {
+          // if parsing fails, keep status as 'active'
+        }
+      }
+
+      prescriptions.push({
+        composition_uid: row.composition_uid,
+        recorded_time: row.recorded_time,
+        medication_item: medicationItem,
+        product_name: productName,
+        active_ingredient: activeIngredient,
+        usage,
+        valid_until: validUntil,
+        instructions,
+        issued_from: issuedFrom,
+        // Structured fields derived from overall_directions_description
+        dose_amount: doseAmountText || overallDirections || undefined,
+        dose_unit: doseUnit,
+        direction_duration: directionDuration,
+        route,
+        timing_directions: timing || overallDirections,
+        additional_instruction: additionalInstruction || undefined,
+        clinical_indication: clinicalIndication || undefined,
+        comment: comment || undefined,
+        prescribed_by: row.composer_name || "Unknown",
+        status,
+      });
+    }
+
+    return prescriptions;
+  } catch (error) {
+    console.error("Error fetching prescriptions via AQL:", error);
     return [];
   }
 }

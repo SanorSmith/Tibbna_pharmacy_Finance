@@ -15,7 +15,7 @@ import { VitalSignsTab } from "./components/VitalSignsTab";
 import { DiagnosticsTab } from "./components/DiagnosticsTab";
 import EnhancedOrdersTab from "./components/EnhancedOrdersTab";
 import { LabsTab } from "./components/LabsTab";
-import { MedsTab } from "./components/MedsTab";
+import { MedsTab, type PrescriptionRecord } from "./components/MedsTab";
 import { CarePlansTab } from "./components/CarePlansTab";
 import { ReferralsTab } from "./components/ReferralsTab";
 import { VaccinationsTab } from "./components/VaccinationsTab";
@@ -165,8 +165,40 @@ export default function PatientDashboard({
   const [imagingResults, setImagingResults] = useState<ImagingResult[]>([]);
   const [loadingImaging, setLoadingImaging] = useState(false);
 
+  // Prescriptions state (openEHR medication orders)
+  const [prescriptions, setPrescriptions] = useState<PrescriptionRecord[]>([]);
+  const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
+
   // Track which tabs have been loaded to avoid redundant API calls
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(["dashboard"]));
+
+  // Load prescriptions from OpenEHR-backed API
+  const loadPrescriptions = useCallback(async (reset?: boolean) => {
+    try {
+      // If we already have data and not explicitly resetting, avoid refetching
+      if (!reset && prescriptions.length > 0) {
+        return;
+      }
+
+      setLoadingPrescriptions(true);
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patient.patientid}/prescriptions`,
+        { cache: "no-store" }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setPrescriptions(data.prescriptions || []);
+      } else {
+        setPrescriptions([]);
+      }
+    } catch (error) {
+      console.error("Error loading prescriptions:", error);
+      setPrescriptions([]);
+    } finally {
+      setLoadingPrescriptions(false);
+    }
+  }, [workspaceid, patient.patientid, prescriptions.length]);
 
   // Handle tab changes and lazy load data
   const handleTabChange = (tabValue: string) => {
@@ -203,7 +235,10 @@ export default function PatientDashboard({
         // Test orders are now handled by OrdersTab component
         break;
       case "prescriptions":
-        // Prescriptions are now handled by MedsTab component
+        // Load prescriptions when prescriptions tab is first opened
+        if (prescriptions.length === 0) {
+          loadPrescriptions(true);
+        }
         break;
       case "careplans":
         // Care plans are now handled by CarePlansTab component
@@ -667,6 +702,9 @@ Results
             <MedsTab
               workspaceid={workspaceid}
               patientid={patient.patientid}
+              prescriptions={prescriptions}
+              loadingPrescriptions={loadingPrescriptions}
+              loadPrescriptions={() => loadPrescriptions(true)}
             />
           )}
         </TabsContent>
