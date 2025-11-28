@@ -126,9 +126,10 @@ export async function POST(
       // Use National ID if available, otherwise use patient UUID
       const subjectId = body.nationalid || newPatientId;
       ehrId = await createOpenEHREHR(subjectId);
-    } catch (ehrErr: any) {
+    } catch (ehrErr: unknown) {
       // If 409 conflict, EHR already exists - try to fetch it
-      if (ehrErr?.response?.status === 409 || ehrErr?.status === 409) {
+      const axiosError = ehrErr as { response?: { status?: number }; status?: number };
+      if (axiosError?.response?.status === 409 || axiosError?.status === 409) {
         console.log("[patients][POST] EHR already exists, fetching existing EHR ID");
         try {
           const subjectId = body.nationalid || newPatientId;

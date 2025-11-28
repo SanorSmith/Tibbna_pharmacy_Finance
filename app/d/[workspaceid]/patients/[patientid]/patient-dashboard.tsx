@@ -167,11 +167,9 @@ export default function PatientDashboard({
 
   // Track which tabs have been loaded to avoid redundant API calls
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(["dashboard"]));
-  const [activeTab, setActiveTab] = useState("dashboard");
 
   // Handle tab changes and lazy load data
   const handleTabChange = (tabValue: string) => {
-    setActiveTab(tabValue);
     
     if (loadedTabs.has(tabValue)) {
       return; // Already loaded
