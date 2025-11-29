@@ -16,8 +16,6 @@ import {
   AlertCircle,
   Clock,
   FileText,
-  Pill,
-  Stethoscope,
   Home,
   Users,
 } from "lucide-react";
@@ -52,6 +50,12 @@ type ReferralRecord = {
   status: string;
 };
 
+type EnhancedReferralRecord = ReferralRecord & {
+  patientid: string;
+  patientName: string;
+  patientNationalId: string;
+};
+
 type Notification = {
   workspaceid: string;
 };
@@ -72,8 +76,8 @@ export default function NotificationsList({ workspaceid }: Notification) {
   // Fetch all referrals for all patients
   const { data: allReferrals = [], isLoading: loadingReferrals } = useQuery({
     queryKey: ["referrals", workspaceid],
-    queryFn: async () => {
-      const referrals: ReferralRecord[] = [];
+    queryFn: async (): Promise<EnhancedReferralRecord[]> => {
+      const referrals: EnhancedReferralRecord[] = [];
       
       // Fetch referrals for each patient
       for (const patient of allPatients) {
@@ -429,7 +433,7 @@ export default function NotificationsList({ workspaceid }: Notification) {
                       </tr>
                     </thead>
                     <tbody>
-                      {(allReferrals as any[]).map((referral: any) => (
+                      {allReferrals.map((referral) => (
                         <tr
                           key={referral.composition_uid}
                           className="border-t hover:bg-muted/50"
