@@ -425,14 +425,17 @@ export default function TodosList({ workspaceid }: Props) {
               variant="outline"
               onClick={() => setShowAddDialog(false)}
               disabled={createMutation.isPending}
+              className="bg-blue-100/90 hover:bg-blue-200"
             >
               Cancel
             </Button>
             <Button
               onClick={handleAddTodo}
               disabled={!formData.title.trim() || createMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 "
             >
               {createMutation.isPending ? "Adding..." : "Add Todo"}
+              
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -19,8 +19,16 @@ import {
   Pill,
   Stethoscope,
   Home,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
+
+// Helper function to format tab counts
+const formatTabCount = (count: number) => {
+  if (count === 0) return "";
+  if (count > 99) return "99+";
+  return count.toString();
+};
 
 type Patient = {
   patientid: string;
@@ -30,6 +38,18 @@ type Patient = {
   phone?: string | null;
   lastvisit?: string | null;
   chronicconditions?: string[];
+};
+
+type ReferralRecord = {
+  composition_uid: string;
+  recorded_time: string;
+  physician_department: string;
+  receiving_physician?: string;
+  clinical_indication: string;
+  urgency: string;
+  comment?: string;
+  referred_by: string;
+  status: string;
 };
 
 type Notification = {
@@ -47,6 +67,37 @@ export default function NotificationsList({ workspaceid }: Notification) {
       }
       return [];
     },
+  });
+
+  // Fetch all referrals for all patients
+  const { data: allReferrals = [], isLoading: loadingReferrals } = useQuery({
+    queryKey: ["referrals", workspaceid],
+    queryFn: async () => {
+      const referrals: ReferralRecord[] = [];
+      
+      // Fetch referrals for each patient
+      for (const patient of allPatients) {
+        try {
+          const res = await fetch(`/api/d/${workspaceid}/patients/${patient.patientid}/referrals`);
+          if (res.ok) {
+            const data = await res.json();
+            const patientReferrals = (data.referrals as ReferralRecord[]) || [];
+            // Add patient info to each referral
+            referrals.push(...patientReferrals.map(referral => ({
+              ...referral,
+              patientid: patient.patientid,
+              patientName: `${patient.firstname} ${patient.lastname}`,
+              patientNationalId: patient.nationalid || patient.patientid,
+            })));
+          }
+        } catch (error) {
+          console.error(`Error fetching referrals for patient ${patient.patientid}:`, error);
+        }
+      }
+      
+      return referrals;
+    },
+    enabled: allPatients.length > 0,
   });
 
   // Filter chronic patients
@@ -106,12 +157,17 @@ export default function NotificationsList({ workspaceid }: Notification) {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="chronic" className="w-full">
-        <TabsList className="grid w-full gap-1 grid-cols-5">
+        <TabsList className="grid w-full gap-1 grid-cols-4">
           <TabsTrigger
             value="chronic"
             className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
           >
             Chronic Diseases
+            {formatTabCount(chronicPatients.length) && (
+              <span className="ml-2 bg-white text-blue-600 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                {formatTabCount(chronicPatients.length)}
+              </span>
+            )}
           </TabsTrigger>
 
           <TabsTrigger
@@ -119,27 +175,30 @@ export default function NotificationsList({ workspaceid }: Notification) {
             className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
           >
             Overdue Visits
+            {formatTabCount(overduePatients.length) && (
+              <span className="ml-2 bg-white text-blue-600 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                {formatTabCount(overduePatients.length)}
+              </span>
+            )}
           </TabsTrigger>
 
           <TabsTrigger
-            value="acute"
+            value="results"
             className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
           >
-            Acute Results
+            Results & Labs
           </TabsTrigger>
 
           <TabsTrigger
-            value="lab"
+            value="referrals"
             className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
           >
-            Lab Comments
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="pharmacy"
-            className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-          >
-            Pharmacy Notes
+            Referrals
+            {formatTabCount(allReferrals.length) && (
+              <span className="ml-2 bg-white text-blue-600 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                {formatTabCount(allReferrals.length)}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -307,56 +366,131 @@ export default function NotificationsList({ workspaceid }: Notification) {
           </Card>
         </TabsContent>
 
-        {/* Acute Results Tab */}
-        <TabsContent value="acute">
+        {/* Results & Labs Tab (Combined Acute Results and Lab Comments) */}
+        <TabsContent value="results">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-600" />
-                Acute Patient Results
+                Results & Laboratory Updates
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                No acute results at this time. This section will display urgent
-                lab results and test outcomes requiring immediate attention.
+                This section combines acute results and laboratory comments. 
+                No urgent results or lab updates at this time.
               </p>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Lab Comments Tab */}
-        <TabsContent value="lab">
+        {/* Referrals Tab */}
+        <TabsContent value="referrals">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Stethoscope className="h-5 w-5 text-purple-600" />
-                Lab Comments & Notes
+                <Users className="h-5 w-5 text-purple-600" />
+                Patient Referrals
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                No lab comments available. This section will display comments
-                from laboratory staff regarding test results.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Pharmacy Notes Tab */}
-        <TabsContent value="pharmacy">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Pill className="h-5 w-5 text-green-600" />
-                Pharmacy Comments & Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                No pharmacy comments available. This section will display notes
-                from pharmacy staff regarding prescriptions and medications.
-              </p>
+              {loadingReferrals ? (
+                <p className="text-sm text-muted-foreground">Loading referrals...</p>
+              ) : allReferrals.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No referrals found. This section will display patient referrals from OpenEHR.
+                </p>
+              ) : (
+                <div className="rounded-md border">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Patient Name
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Patient ID
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Department
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Clinical Indication
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Urgency
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Date
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(allReferrals as any[]).map((referral: any) => (
+                        <tr
+                          key={referral.composition_uid}
+                          className="border-t hover:bg-muted/50"
+                        >
+                          <td className="py-3 px-4 font-medium">
+                            {referral.patientName}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            {referral.patientNationalId}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium">{referral.physician_department}</span>
+                              {referral.receiving_physician && (
+                                <span className="text-xs text-muted-foreground">
+                                  Dr. {referral.receiving_physician}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            <div className="max-w-xs">
+                              <p className="truncate" title={referral.clinical_indication}>
+                                {referral.clinical_indication}
+                              </p>
+                              {referral.comment && (
+                                <p className="text-xs text-muted-foreground truncate" title={referral.comment}>
+                                  {referral.comment}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-1 text-xs rounded-full capitalize ${
+                                referral.urgency === "urgent"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-green-100 text-green-800"
+                              }`}
+                            >
+                              {referral.urgency || "routine"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            {new Date(referral.recorded_time).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-4">
+                            <Link
+                              href={`/d/${workspaceid}/patients/${referral.patientid}`}
+                            >
+                              <Button size="sm" variant="outline">
+                                View Patient
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
