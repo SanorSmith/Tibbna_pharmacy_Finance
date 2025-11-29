@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, Package, TestTube, Building2, Loader2 } from "lucide-react";
+import { Plus, History, Package, TestTube, Building2 } from "lucide-react";
 
 // ---------- Types ----------
 export interface TestOrderRecord {

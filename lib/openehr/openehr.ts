@@ -150,6 +150,16 @@ function findValueByName(instruction: any, fieldName: string): string | undefine
   return undefined;
 }
 
+// Define type for OpenEHR query results
+interface OpenEHRResult {
+  full_composition: {
+    content?: unknown[];
+    narrative?: unknown;
+  };
+  composition_uid: string;
+  recorded_time: string;
+}
+
 export async function getOpenEHRTestOrders(ehrId: string): Promise<TestOrderRecord[]> {
   // Use only encounter compositions query since it finds all test orders
   const encounterQuery = `SELECT
@@ -166,7 +176,7 @@ export async function getOpenEHRTestOrders(ehrId: string): Promise<TestOrderReco
 
   try {
     // Get only encounter compositions (this finds all test orders)
-    const encounterResults = await queryOpenEHR<any>(encounterQuery);
+    const encounterResults = await queryOpenEHR<OpenEHRResult>(encounterQuery);
     
     console.log(`Found ${encounterResults.length} encounter compositions`);
     
@@ -174,7 +184,8 @@ export async function getOpenEHRTestOrders(ehrId: string): Promise<TestOrderReco
     
     // Process encounter compositions
     for (const row of encounterResults) {
-      const composition = row.full_composition;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const composition = row.full_composition as any;
       
       // Look for service_request instructions within the composition
       if (composition?.content) {

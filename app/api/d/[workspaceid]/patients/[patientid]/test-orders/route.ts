@@ -115,8 +115,6 @@ export async function POST(
     const body = await request.json();
     const {
       service_name,
-      service_type_code,
-      service_type_value,
       description,
       clinical_indication,
       urgency,
