@@ -66,7 +66,7 @@ const carePlansStore: Record<string, CarePlan[]> = {
       care_plan_name: "Asthma Action Plan",
       description: "Personalized asthma action plan to maintain control and prevent exacerbations. Includes trigger identification and avoidance, proper inhaler technique, and emergency response protocol.",
       reason: "Mild intermittent asthma with exercise and cold air triggers. Last exacerbation was 2 years ago. Patient needs updated action plan for optimal control.",
-      care_plan_schedule: "Follow-up every 6 months or as needed for exacerbations. Peak flow monitoring during symptomatic periods. Annual flu vaccination. Spirometry annually.",
+      care_plan_schedule: "Follow-up every 6 months or as needed for exacerbations. Peak flow monitoring during symptomatic periods. Spirometry annually.",
       care_plan_expire: "2025-09-20T00:00:00.000Z",
       care_plan_completed: "",
       comment: "Patient well-controlled on PRN albuterol. Educated on proper inhaler technique. Provided written asthma action plan with green/yellow/red zones.",

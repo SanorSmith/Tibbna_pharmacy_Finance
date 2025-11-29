@@ -136,88 +136,108 @@ function findValueByName(instruction: any, fieldName: string): string | undefine
 }
 
 export async function getOpenEHRTestOrders(ehrId: string): Promise<TestOrderRecord[]> {
-  const query = `SELECT
+  // Use only encounter compositions query since it finds all test orders
+  const encounterQuery = `SELECT
     c/uid/value as composition_uid,
     c/context/start_time/value as recorded_time,
-    i as full_instruction
-FROM
+    c as full_composition
+  FROM
     EHR e
-    CONTAINS COMPOSITION c
-    CONTAINS INSTRUCTION i[openEHR-EHR-INSTRUCTION.service_request.v1]
-WHERE
+    CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.encounter.v1]
+  WHERE
     e/ehr_id/value = '${ehrId}'
-ORDER BY
+  ORDER BY
     c/context/start_time/value DESC`;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results = await queryOpenEHR<any>(query);
+    // Get only encounter compositions (this finds all test orders)
+    const encounterResults = await queryOpenEHR<any>(encounterQuery);
     
-    return results.map(row => {
-      const instruction = row.full_instruction;
+    console.log(`Found ${encounterResults.length} encounter compositions`);
+    
+    const testOrders: TestOrderRecord[] = [];
+    
+    // Process encounter compositions
+    for (const row of encounterResults) {
+      const composition = row.full_composition;
       
-      // Extract fields using the exact field names from OpenEHR structure
-      const serviceName = findValueByName(instruction, 'Service Name') || "";
-      const description = findValueByName(instruction, 'Description') || "";
-      const clinicalIndication = findValueByName(instruction, 'Clinical Indication') || "";
-      const requestingProvider = findValueByName(instruction, 'Requesting Provider') || "";
-      const receivingProvider = findValueByName(instruction, 'Receiving Provider') || "";
-      const requestId = findValueByName(instruction, 'request_id') || "";
-      const narrative = findValueByName(instruction, 'narrative') || "";
-      
-      // Extract urgency from description or narrative (template doesn't support urgency field)
-      let urgency = "routine";
-      if (description && description.toLowerCase().includes('urgency: urgent')) {
-        urgency = "urgent";
-      } else if (narrative && narrative.toLowerCase().includes('(urgent)')) {
-        urgency = "urgent";
-      }
-      
-      // Extract enhanced fields from description and narrative
-      let testCategory = "";
-      const isPackage = true; // All orders are now test groups (packages)
-      let targetLab = receivingProvider;
-      
-      // Extract category from description (format: "Test Group: ... | Category: Biochemistry | ...")
-      if (description) {
-        const categoryMatch = description.match(/Category:\s*([^|]+)/);
-        if (categoryMatch) {
-          testCategory = categoryMatch[1].trim();
+      // Look for service_request instructions within the composition
+      if (composition?.content) {
+        for (const item of composition.content) {
+          if (item.archetype_node_id === 'openEHR-EHR-INSTRUCTION.service_request.v1') {
+            const instruction = item;
+            console.log("Found service request in encounter:", JSON.stringify(instruction, null, 2));
+            
+            // Extract fields using the exact field names from OpenEHR structure
+            const serviceName = findValueByName(instruction, 'Service Name') || "";
+            const description = findValueByName(instruction, 'Description') || "";
+            const clinicalIndication = findValueByName(instruction, 'Clinical Indication') || "";
+            const requestingProvider = findValueByName(instruction, 'Requesting Provider') || "";
+            const receivingProvider = findValueByName(instruction, 'Receiving Provider') || "";
+            const requestId = findValueByName(instruction, 'request_id') || "";
+            const narrative = findValueByName(instruction, 'narrative') || "";
+            
+            // Skip vaccination requests (they have different request_id pattern or service names)
+            if (requestId.startsWith('VACC-') || 
+                serviceName.toLowerCase().includes('vaccin') || 
+                description.toLowerCase().includes('vaccin') ||
+                narrative.toLowerCase().includes('vaccin')) {
+              console.log("Skipping vaccination request:", serviceName);
+              continue;
+            }
+            
+            // Extract urgency from description or narrative
+            let urgency = "routine";
+            if (description && description.toLowerCase().includes('urgency: urgent')) {
+              urgency = "urgent";
+            } else if (narrative && narrative.toLowerCase().includes('(urgent)')) {
+              urgency = "urgent";
+            }
+            
+            // Extract enhanced fields
+            let testCategory = "";
+            let targetLab = receivingProvider;
+            
+            if (description) {
+              const categoryMatch = description.match(/Category:\s*([^|]+)/);
+              if (categoryMatch) {
+                testCategory = categoryMatch[1].trim();
+              }
+              
+              const labMatch = description.match(/Laboratory:\s*([^|]+)/);
+              if (labMatch) {
+                targetLab = labMatch[1].trim();
+              }
+            }
+            
+            testOrders.push({
+              composition_uid: row.composition_uid,
+              recorded_time: row.recorded_time,
+              service_name: serviceName,
+              service_type_code: "",
+              service_type_value: "",
+              description: description,
+              clinical_indication: clinicalIndication,
+              urgency: urgency,
+              requesting_provider: requestingProvider,
+              receiving_provider: receivingProvider,
+              request_id: requestId,
+              narrative: narrative,
+              test_category: testCategory,
+              is_package: true,
+              target_lab: targetLab,
+            });
+          }
         }
-        
-        // Extract lab from description (format: "... | Laboratory: Biochemistry | ...")
-        const labMatch = description.match(/Laboratory:\s*([^|]+)/);
-        if (labMatch) {
-          targetLab = labMatch[1].trim();
-        }
       }
-      
-      // Fallback: try to extract from narrative
-      if (!targetLab && narrative) {
-        const labMatch = narrative.match(/to\s+([^:]+)\s*\(/);
-        if (labMatch) {
-          targetLab = labMatch[1].trim();
-        }
-      }
-      
-      return {
-        composition_uid: row.composition_uid,
-        recorded_time: row.recorded_time,
-        service_name: serviceName,
-        service_type_code: "",
-        service_type_value: "",
-        description: description,
-        clinical_indication: clinicalIndication,
-        urgency: urgency,
-        requesting_provider: requestingProvider,
-        receiving_provider: receivingProvider,
-        request_id: requestId,
-        narrative: narrative,
-        test_category: testCategory,
-        is_package: isPackage,
-        target_lab: targetLab,
-      } as TestOrderRecord;
-    });
+    }
+    
+    // Sort results by recorded_time descending
+    testOrders.sort((a, b) => new Date(b.recorded_time).getTime() - new Date(a.recorded_time).getTime());
+    
+    console.log(`Returning ${testOrders.length} test orders from encounter compositions`);
+    return testOrders;
+    
   } catch (error) {
     console.error("Error fetching test orders via AQL:", error);
     return [];
@@ -930,8 +950,37 @@ export async function createOpenEHRComposition(
     
     const duration = Date.now() - startTime;
     console.log(`EHRBase composition created in ${duration}ms`);
+    console.log("EHRBase response structure:", JSON.stringify(response.data, null, 2));
     
-    return response.data.uid?.value || response.data.composition_uid || response.data.uid;
+    // Handle different response formats from EHRBase
+    let compositionId: string | undefined;
+    
+    if (response.data?.uid?.value) {
+      compositionId = response.data.uid.value;
+    } else if (response.data?.composition_uid) {
+      compositionId = response.data.composition_uid;
+    } else if (response.data?.uid) {
+      compositionId = response.data.uid;
+    } else if (typeof response.data === 'string') {
+      compositionId = response.data;
+    } else {
+      // EHRBase returns the composition in the response data itself
+      // Look for _uid field in any of the template entries
+      for (const [key, value] of Object.entries(response.data)) {
+        if (key.endsWith('/_uid') && typeof value === 'string') {
+          compositionId = value;
+          break;
+        }
+      }
+    }
+    
+    if (!compositionId) {
+      console.error("Unexpected EHRBase response structure:", JSON.stringify(response.data, null, 2));
+      throw new Error("Unable to extract composition ID from EHRBase response");
+    }
+    
+    console.log(`Successfully created composition with ID: ${compositionId}`);
+    return compositionId;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {

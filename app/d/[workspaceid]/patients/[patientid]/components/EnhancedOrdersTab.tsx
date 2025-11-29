@@ -1971,7 +1971,7 @@ export default function EnhancedOrdersTab({
                 <tbody>
                   {testOrderRecords.map((order, index) => (
                     <tr
-                      key={order.composition_uid}
+                      key={`${order.composition_uid}-${index}`}
                       className={`border-b ${
                         index % 2 === 0 ? "bg-background" : "bg-muted/25"
                       } hover:bg-muted/50 transition-colors`}
