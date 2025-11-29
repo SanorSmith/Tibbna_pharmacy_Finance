@@ -1705,8 +1705,11 @@ export default function EnhancedOrdersTab({
           setLoadingMoreTestOrders(true);
         }
 
-        const offset = testOrdersOffsetRef.current;
-        const limit = reset ? 2 : 3;
+        const offset = reset ? 0 : testOrdersOffsetRef.current;
+        const limit = reset ? 4 : 5; // Show first 4 recent, then 5 more when loading more
+        
+        console.log("DEBUG: Loading test orders - reset:", reset, "offset:", offset, "limit:", limit);
+        
         const res = await fetch(
           `/api/d/${workspaceid}/patients/${patientid}/test-orders?limit=${limit}&offset=${offset}`,
           { cache: "no-store" }
@@ -1717,6 +1720,8 @@ export default function EnhancedOrdersTab({
           return;
         }
         const data = await res.json();
+        console.log("DEBUG: Loaded test orders:", data.testOrders?.length, "orders");
+        console.log("DEBUG: Test orders data:", data.testOrders);
 
         if (reset) {
           setTestOrderRecords(data.testOrders || []);
@@ -1749,24 +1754,9 @@ export default function EnhancedOrdersTab({
   );
 
   useEffect(() => {
-    // Check if data is already cached in sessionStorage
-    const cachedData = sessionStorage.getItem(CACHE_KEY);
-    if (cachedData) {
-      try {
-        const parsed = JSON.parse(cachedData);
-        if (parsed.testOrders && parsed.testOrders.length > 0) {
-          setTestOrderRecords(parsed.testOrders);
-          testOrdersOffsetRef.current =
-            parsed.offset || parsed.testOrders.length;
-          setTestOrdersHasMore(parsed.hasMore || false);
-          hasLoadedTestOrders.current = true;
-          return; // Don't fetch if we have cached data
-        }
-      } catch (error) {
-        console.error("Failed to parse cached test orders:", error);
-      }
-    }
-
+    // Force clear cache to ensure only 4 orders load initially
+    sessionStorage.removeItem(CACHE_KEY);
+    
     // Only load if not already loaded
     if (!hasLoadedTestOrders.current) {
       loadTestOrders(true);
@@ -1855,7 +1845,7 @@ export default function EnhancedOrdersTab({
       // reload list
       hasLoadedTestOrders.current = false;
       sessionStorage.removeItem(CACHE_KEY);
-      setTimeout(() => loadTestOrders(true), 500);
+      setTimeout(() => loadTestOrders(true), 100); // Reduced delay from 500ms to 100ms
     } catch (err) {
       console.error(err);
       const errorMessage =
@@ -1922,19 +1912,14 @@ export default function EnhancedOrdersTab({
                   disabled={loadingMoreTestOrders}
                   variant="outline"
                   size="sm"
-                  className="bg-orange-500 hover:bg-orange-600 text-white border-none flex items-center"
+                  className="bg-orange-500 hover:bg-orange-600 text-white border-none flex items-center gap-1 text-xs"
                 >
                   {loadingMoreTestOrders ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                      Loading...
-                    </>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                   ) : (
-                    <>
-                      <History className="h-4 w-4" />
-                      History
-                    </>
+                    <History className="w-3 h-3" />
                   )}
+                  {loadingMoreTestOrders ? "Loading..." : "History"}
                 </Button>
               )}
             </div>
@@ -1971,7 +1956,7 @@ export default function EnhancedOrdersTab({
                 <tbody>
                   {testOrderRecords.map((order, index) => (
                     <tr
-                      key={order.composition_uid}
+                      key={`${order.composition_uid}-${index}`}
                       className={`border-b ${
                         index % 2 === 0 ? "bg-background" : "bg-muted/25"
                       } hover:bg-muted/50 transition-colors`}
@@ -1987,9 +1972,13 @@ export default function EnhancedOrdersTab({
                             <div className="font-medium">
                               {order.service_name}
                             </div>
-                            {order.description && (
+                            {order.description && order.description.trim() ? (
                               <div className="text-xs text-muted-foreground line-clamp-1">
                                 {order.description}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground line-clamp-1">
+                                {order.clinical_indication || "No additional details"}
                               </div>
                             )}
                           </div>
@@ -2342,7 +2331,7 @@ export default function EnhancedOrdersTab({
         </DialogContent>
       </Dialog>
 
-      {/* Enhanced Details Dialog */}
+       {/* Enhanced Details Dialog */}
       <Dialog
         open={showTestOrderDetails}
         onOpenChange={setShowTestOrderDetails}

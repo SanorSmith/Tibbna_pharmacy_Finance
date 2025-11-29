@@ -459,10 +459,10 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
                   <span className="text-sm text-gray-500">Clinical Indication:</span>
                   <p className="text-sm mt-1">{selectedTestOrder.clinical_indication || 'Not specified'}</p>
                 </div>
-                {selectedTestOrder.description && (
+                {selectedTestOrder.narrative && (
                   <div className="mt-3">
                     <span className="text-sm text-gray-500">Description:</span>
-                    <p className="text-sm mt-1">{selectedTestOrder.description}</p>
+                    <p className="text-sm mt-1">{selectedTestOrder.narrative}</p>
                   </div>
                 )}
               </div>

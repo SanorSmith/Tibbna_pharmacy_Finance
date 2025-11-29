@@ -176,49 +176,6 @@ const medicalHistoryStore: Record<string, MedicalHistoryRecord[]> = {
     },
     
     // Immunizations
-    {
-      composition_uid: "medical-history-1731069600000-flu001",
-      recorded_time: "2024-10-15T11:00:00.000Z",
-      symptom_sign_name: "Influenza Vaccination",
-      body_site: "Left deltoid",
-      description: "Annual influenza vaccine administered. Quadrivalent inactivated influenza vaccine (IIV4) for 2024-2025 season.",
-      occurrence: "recurrence",
-      date_time: "2024-10-15T11:00:00.000Z",
-      vaccine: "Influenza vaccine (Fluzone Quadrivalent)",
-      comment: "No adverse reactions. Patient tolerated well. Next dose due October 2025.",
-      recorded_by: "Nurse Jennifer Martinez, RN",
-      status: "active",
-      category: "immunization"
-    },
-    {
-      composition_uid: "medical-history-1730983200000-covid001",
-      recorded_time: "2024-09-20T14:30:00.000Z",
-      symptom_sign_name: "COVID-19 Vaccination (Booster)",
-      body_site: "Right deltoid",
-      description: "COVID-19 booster vaccination administered. Updated mRNA vaccine targeting current variants.",
-      occurrence: "recurrence",
-      date_time: "2024-09-20T14:30:00.000Z",
-      vaccine: "COVID-19 mRNA vaccine (Moderna Spikevax)",
-      comment: "Mild arm soreness reported. No systemic reactions. Patient up to date with COVID-19 vaccinations.",
-      recorded_by: "Nurse David Lee, RN",
-      status: "active",
-      category: "immunization"
-    },
-    {
-      composition_uid: "medical-history-1730896800000-tdap001",
-      recorded_time: "2022-05-10T10:00:00.000Z",
-      symptom_sign_name: "Tdap Vaccination",
-      body_site: "Left deltoid",
-      description: "Tetanus, diphtheria, and pertussis (Tdap) booster vaccination administered. Routine adult immunization.",
-      occurrence: "recurrence",
-      date_time: "2022-05-10T10:00:00.000Z",
-      vaccine: "Tdap (Boostrix)",
-      comment: "No adverse reactions. Next Td booster due in 2032.",
-      recorded_by: "Nurse Mary Johnson, RN",
-      status: "active",
-      category: "immunization"
-    },
-    
     // Social History
     {
       composition_uid: "medical-history-1730810400000-smoking001",

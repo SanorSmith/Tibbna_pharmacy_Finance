@@ -115,8 +115,6 @@ export async function POST(
     const body = await request.json();
     const {
       service_name,
-      service_type_code,
-      service_type_value,
       description,
       clinical_indication,
       urgency,
@@ -183,20 +181,20 @@ export async function POST(
 
     // Enhanced Service Request Details
     compositionData["template_clinical_encounter_v1/service_request/request/service_name|other"] = service_name;
-    compositionData["template_clinical_encounter_v1/service_request/request/description"] = description || `Test Type: ${service_type_value || 'Not specified'} (Code: ${service_type_code || 'N/A'}) | Urgency: ${urgency || 'routine'}`;
+    compositionData["template_clinical_encounter_v1/service_request/request/description"] = description || "";
     compositionData["template_clinical_encounter_v1/service_request/request/clinical_indication"] = clinical_indication;
     compositionData["template_clinical_encounter_v1/service_request/request/requested_date"] = eventTime;
     compositionData["template_clinical_encounter_v1/service_request/request/requesting_provider"] = requesting_provider || "Dr. Unknown";
     compositionData["template_clinical_encounter_v1/service_request/request/receiving_provider"] = receiving_provider || "Clinical Laboratory";
     
-    // Store urgency in description and narrative (OpenEHR template doesn't support urgency field directly)
-    // The urgency is already included in the description field above
-    
+    // Store test order marker in the request_id - this is already working and supported
     compositionData["template_clinical_encounter_v1/service_request/request/timing"] = eventTime;
     compositionData["template_clinical_encounter_v1/service_request/request_id"] = `testreq-${Date.now()}`;
     
     // Enhanced narrative with package/individual test info and target lab
-    const enhancedNarrative = narrative || `${is_package ? 'Package' : 'Individual'} test order: ${service_name} to ${target_lab || receiving_provider} (${urgency || 'routine'}) ordered due to ${clinical_indication}`;
+    const enhancedNarrative = narrative || 
+      `${is_package ? 'Package' : 'Individual'} test order: ${service_name} to ${target_lab || receiving_provider} (${urgency || 'routine'}) ordered due to ${clinical_indication}` +
+      (description ? `\n\nTest Details: ${description}` : "");
     compositionData["template_clinical_encounter_v1/service_request/narrative"] = enhancedNarrative;
     compositionData["template_clinical_encounter_v1/service_request/language|code"] = "en";
     compositionData["template_clinical_encounter_v1/service_request/language|terminology"] = "ISO_639-1";
