@@ -118,15 +118,30 @@ function findValueByName(instruction: any, fieldName: string): string | undefine
     }
   }
   
-  // Check narrative at top level
-  if (fieldName === 'narrative' && instruction.narrative?.value) {
-    return instruction.narrative.value;
+  // Check narrative at instruction level
+  if (fieldName === 'narrative') {
+    if (instruction.narrative?.value) {
+      return instruction.narrative.value;
+    }
+    // Also check for narrative in the parent composition's service_request
+    if (instruction._parent?.narrative?.value) {
+      return instruction._parent.narrative.value;
+    }
   }
   
-  // Check protocol items for request_id
+  // Check protocol items for request_id and Order Type marker
   if (instruction.protocol?.items && Array.isArray(instruction.protocol.items)) {
     for (const item of instruction.protocol.items) {
       if (item.name?.value === fieldName && item.value?.value) {
+        return item.value.value;
+      }
+    }
+  }
+  
+  // Special case: look for request_id in protocol section with name "Request ID"
+  if (fieldName === 'request_id' && instruction.protocol?.items && Array.isArray(instruction.protocol.items)) {
+    for (const item of instruction.protocol.items) {
+      if (item.name?.value === 'Request ID' && item.value?.value) {
         return item.value.value;
       }
     }
@@ -175,7 +190,49 @@ export async function getOpenEHRTestOrders(ehrId: string): Promise<TestOrderReco
             const requestingProvider = findValueByName(instruction, 'Requesting Provider') || "";
             const receivingProvider = findValueByName(instruction, 'Receiving Provider') || "";
             const requestId = findValueByName(instruction, 'request_id') || "";
-            const narrative = findValueByName(instruction, 'narrative') || "";
+            
+            console.log("DEBUG: Extracted fields - Service:", serviceName, "Request ID:", requestId, "Description:", description);
+            
+            // Try to get narrative from multiple sources
+            let narrative = findValueByName(instruction, 'narrative') || "";
+            
+            // Look for narrative in the service_request within composition content
+            if (!narrative && composition.content) {
+              for (const contentItem of composition.content) {
+                if (contentItem.archetype_node_id === 'openEHR-EHR-INSTRUCTION.service_request.v1') {
+                  // Check if this content item has the narrative at the top level
+                  if (contentItem.narrative?.value) {
+                    narrative = contentItem.narrative.value;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // If still no narrative, check if there's a service_request element with narrative
+            // This handles the case where narrative is stored at the service_request level
+            if (!narrative && composition.content) {
+              for (const contentItem of composition.content) {
+                // Look for any service_request content that might have narrative
+                if (contentItem.archetype_node_id === 'openEHR-EHR-INSTRUCTION.service_request.v1') {
+                  // The narrative might be stored directly in the content item
+                  if (contentItem.narrative && contentItem.narrative.value) {
+                    narrative = contentItem.narrative.value;
+                    break;
+                  }
+                  // Also check if there's a narrative field in the instruction structure
+                  if (instruction.narrative?.value) {
+                    narrative = instruction.narrative.value;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // As a last resort, check if the narrative is stored in the composition's narrative field
+            if (!narrative && composition.narrative?.value) {
+              narrative = composition.narrative.value;
+            }
             
             // Skip vaccination requests (they have different request_id pattern or service names)
             if (requestId.startsWith('VACC-') || 
@@ -186,12 +243,28 @@ export async function getOpenEHRTestOrders(ehrId: string): Promise<TestOrderReco
               continue;
             }
             
+            // Only include test orders (they use request_id pattern starting with "testreq-")
+            console.log("Checking request - Service:", serviceName, "Request ID:", requestId);
+            const isTestOrder = (requestId && requestId.startsWith("testreq-")) ||
+                               (description && description.startsWith("Test Type:"));
+            
+            if (!isTestOrder) {
+              console.log("Skipping non-test-order request:", serviceName, "requestId:", requestId);
+              continue;
+            }
+            console.log("Including test order:", serviceName);
+            
             // Extract urgency from description or narrative
             let urgency = "routine";
             if (description && description.toLowerCase().includes('urgency: urgent')) {
               urgency = "urgent";
             } else if (narrative && narrative.toLowerCase().includes('(urgent)')) {
               urgency = "urgent";
+            }
+            
+            // If still no narrative, create a meaningful one from other fields
+            if (!narrative || narrative.length <= 2) {
+              narrative = `${serviceName} test ordered due to ${clinicalIndication}${urgency !== 'routine' ? ` (urgency: ${urgency})` : ''}${receivingProvider ? ` at ${receivingProvider}` : ''}`;
             }
             
             // Extract enhanced fields
