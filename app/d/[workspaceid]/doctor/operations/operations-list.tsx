@@ -159,65 +159,70 @@ export default function OperationsList({ workspaceid, userid }: Props) {
           </p>
         </div>
       </div>
-
+  
       {/* Filter Buttons */}
       <div className="flex gap-2">
         <Button
-          className={`text-white ${
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "all"
-              ? "bg-orange-400 hover:bg-orange-500"
-              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
           }`}
           size="sm"
           onClick={() => setFilter("all")}
+          variant="ghost"
         >
           All
         </Button>
 
         <Button
-          className={`text-white ${
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "scheduled"
-              ? "bg-orange-400 hover:bg-orange-500"
-              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
           }`}
           size="sm"
           onClick={() => setFilter("scheduled")}
+          variant="ghost"
         >
           Scheduled
         </Button>
 
         <Button
-          className={`text-white ${
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "in_progress"
-              ? "bg-orange-400 hover:bg-orange-500"
-              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
           }`}
           size="sm"
           onClick={() => setFilter("in_progress")}
+          variant="ghost"
         >
           In Progress
         </Button>
 
         <Button
-          className={`text-white ${
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "completed"
-              ? "bg-orange-400 hover:bg-orange-500"
-              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
           }`}
           size="sm"
           onClick={() => setFilter("completed")}
+          variant="ghost"
         >
           Completed
         </Button>
 
         <Button
-          className={`text-white ${
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "cancelled"
-              ? "bg-orange-400 hover:bg-orange-500"
-              : "bg-[#618FF5] hover:bg-[#4A78E0]"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
           }`}
           size="sm"
           onClick={() => setFilter("cancelled")}
+          variant="ghost"
         >
           Cancelled
         </Button>

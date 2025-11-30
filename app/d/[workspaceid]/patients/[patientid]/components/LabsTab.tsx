@@ -172,7 +172,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
 
   return (
     <div>
-      <Card>
+       <Card className="bg-card-bg">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>

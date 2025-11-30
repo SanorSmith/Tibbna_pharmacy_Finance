@@ -515,86 +515,86 @@ export default function PatientDashboard({
         <TabsList className="flex w-full overflow-x-auto space-x-1">
   <TabsTrigger
     value="dashboard"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+    className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
   >
     Dashboard
   </TabsTrigger>
 
   <TabsTrigger
     value="vitalsigns"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+    className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
   >
     Vitals
   </TabsTrigger>
 
   <TabsTrigger
     value="diagnostics"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Diagnoses
   </TabsTrigger>
 
 
   <TabsTrigger
     value="testorders"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
+   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
   >
     Orders
   </TabsTrigger>
 
   <TabsTrigger
     value="lab"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
 Results
   </TabsTrigger>
 
   <TabsTrigger
     value="prescriptions"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Meds
   </TabsTrigger>
 
   <TabsTrigger
     value="careplans"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+ className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Care Plans
   </TabsTrigger>
 
   <TabsTrigger
     value="referrals"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+ className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Referrals
   </TabsTrigger>
 
   <TabsTrigger
     value="vaccinations"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+ className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Vaccines
   </TabsTrigger>
 
   <TabsTrigger
     value="notes"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+ className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Notes
   </TabsTrigger>
 
   <TabsTrigger
     value="appointments"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+ className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Appointments
   </TabsTrigger>
 
   <TabsTrigger
     value="imaging"
-    className="rounded-md data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
-  >
+ className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
+   >
     Imaging
   </TabsTrigger>
 </TabsList>

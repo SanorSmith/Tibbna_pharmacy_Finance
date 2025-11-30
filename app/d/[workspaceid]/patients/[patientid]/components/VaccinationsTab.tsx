@@ -70,7 +70,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
 
   return (
     <>
-      <Card>
+      <Card className="bg-card-bg">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -102,9 +102,6 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
             </div>
           ) : vaccinationRecords.length === 0 ? (
             <div className="text-center py-12">
-              <div className="mx-auto w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
-                <span className="text-3xl">💉</span>
-              </div>
               <h3 className="text-lg font-semibold mb-2">
                 No Vaccination Records
               </h3>
@@ -114,6 +111,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
               <Button
                 onClick={() => setShowVaccinationForm(true)}
                 variant="outline"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Record First Vaccination
               </Button>

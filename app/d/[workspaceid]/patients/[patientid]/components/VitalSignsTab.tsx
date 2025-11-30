@@ -117,13 +117,13 @@ export function VitalSignsTab({
               Loading vital signs...
             </div>
           ) : vitalSignsRecords.length === 0 ? (
-            <div className="text-center py-6 text-xs col-span-4">
+            <div className="text-center py-6  text-xs col-span-4">
               <p>No Vital Signs Recorded</p>
               <Button
                 onClick={() => setShowVitalSignsForm(true)}
                 variant="outline"
                 size="sm"
-                className="mt-2"
+                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Record First
               </Button>

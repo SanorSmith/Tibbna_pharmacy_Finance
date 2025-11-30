@@ -92,7 +92,7 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
 
   return (
     <>
-      <Card>
+       <Card className="bg-card-bg">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -122,9 +122,6 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
             </div>
           ) : referralRecords.length === 0 ? (
             <div className="text-center py-12">
-              <div className="mx-auto w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mb-4">
-                <span className="text-3xl">🏥</span>
-              </div>
               <h3 className="text-lg font-semibold mb-2">No Referrals</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Create a referral to another physician or department
@@ -132,6 +129,7 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
               <Button
                 onClick={() => setShowReferralForm(true)}
                 variant="outline"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Create First Referral
               </Button>

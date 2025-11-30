@@ -1890,7 +1890,7 @@ export default function EnhancedOrdersTab({
 
   return (
     <>
-      <Card>
+       <Card className="bg-card-bg">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-xl font-semibold">
@@ -1898,7 +1898,7 @@ export default function EnhancedOrdersTab({
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button
-                className="bg-blue-500 hover:bg-blue-700 text-white flex items-center gap-1"
+                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
                 size="sm"
                 onClick={() => setShowTestOrderForm(true)}
               >
@@ -1936,7 +1936,9 @@ export default function EnhancedOrdersTab({
               <div className="text-muted-foreground mb-4">
                 No test orders have been recorded yet
               </div>
-              <Button size="sm" onClick={() => setShowTestOrderForm(true)}>
+              <Button size="sm" onClick={() => setShowTestOrderForm(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
                 Add First Test Order
               </Button>
             </div>

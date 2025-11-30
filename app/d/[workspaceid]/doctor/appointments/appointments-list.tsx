@@ -127,61 +127,53 @@ export default function AppointmentsList({
       {/* Filter Buttons */}
       <div className="flex gap-2">
         <Button
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
+            filter === "all"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
+          }`}
           size="sm"
           onClick={() => setFilter("all")}
-          className={`
-      ${
-        filter === "all"
-          ? "bg-orange-400 text-white hover:bg-orange-500"
-          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
-      } 
-      transition-colors
-    `}
+          variant="ghost"
         >
           All
         </Button>
 
         <Button
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
+            filter === "today"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
+          }`}
           size="sm"
           onClick={() => setFilter("today")}
-          className={`
-      ${
-        filter === "today"
-          ? "bg-orange-400 text-white hover:bg-orange-500"
-          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
-      } 
-      transition-colors
-    `}
+          variant="ghost"
         >
           Today
         </Button>
 
         <Button
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
+            filter === "upcoming"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
+          }`}
           size="sm"
           onClick={() => setFilter("upcoming")}
-          className={`
-      ${
-        filter === "upcoming"
-          ? "bg-orange-400 text-white hover:bg-orange-500"
-          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
-      } 
-      transition-colors
-    `}
+          variant="ghost"
         >
           Upcoming
         </Button>
 
         <Button
+          className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
+            filter === "past"
+              ? "bg-card-hover text-card-text"
+              : "bg-card-bg text-card-smtext"
+          }`}
           size="sm"
           onClick={() => setFilter("past")}
-          className={`
-      ${
-        filter === "past"
-          ? "bg-orange-400 text-white hover:bg-orange-500"
-          : "bg-[#618FF5] text-white hover:bg-[#4a75d6]"
-      } 
-      transition-colors
-    `}
+          variant="ghost"
         >
           Past
         </Button>
