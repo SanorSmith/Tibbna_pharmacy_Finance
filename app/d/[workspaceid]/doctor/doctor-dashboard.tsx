@@ -347,9 +347,6 @@ export default function DoctorDashboard({
                       minute: "2-digit",
                     })}
                   </div>
-                  <div className="text-xs opacity-75 truncate">
-                    {nextAppointment.notes?.patientname || "Patient"}
-                  </div>
                 </div>
               )}
             </div>
