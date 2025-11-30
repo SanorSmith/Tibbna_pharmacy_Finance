@@ -72,7 +72,7 @@ export function VitalSignsTab({
   return (
     <div className="space-y-2">
       {/* Card Header */}
-      <Card className="">
+      <Card className="bg-card-bg">
         <CardHeader className="py-2 px-3">
           <div className="flex items-center justify-between">
             <div>
@@ -85,7 +85,7 @@ export function VitalSignsTab({
               <Button
                 size="sm"
                 onClick={() => setShowVitalSignsForm(true)}
-                className="bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
+                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
               >
                 <Plus className="w-3 h-3" /> Record
               </Button>
@@ -95,7 +95,7 @@ export function VitalSignsTab({
                   onClick={() => loadVitalSigns(false)}
                   disabled={loadingMoreVitals}
                   variant="outline"
-                  className="bg-orange-500 hover:bg-orange-600 text-white border-none flex items-center gap-1 text-xs"
+                  className="bg-orange-400 hover:bg-orange-500 text-white border-none flex items-center gap-1 text-xs"
                 >
                   {loadingMoreVitals ? (
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
@@ -110,20 +110,20 @@ export function VitalSignsTab({
         </CardHeader>
 
         {/* Card Content */}
-        <CardContent className="grid grid-cols-4 gap-2 py-1">
+        <CardContent className="grid grid-cols-2 gap-2 py-1 ml-24">
           {loadingVitalSigns ? (
             <div className="flex justify-center py-6 text-sm text-muted-foreground col-span-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-1"></div>
               Loading vital signs...
             </div>
           ) : vitalSignsRecords.length === 0 ? (
-            <div className="text-center py-6 text-xs col-span-4">
+            <div className="text-center py-6  text-xs col-span-4">
               <p>No Vital Signs Recorded</p>
               <Button
                 onClick={() => setShowVitalSignsForm(true)}
                 variant="outline"
                 size="sm"
-                className="mt-2"
+                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Record First
               </Button>
@@ -132,10 +132,10 @@ export function VitalSignsTab({
             vitalSignsRecords.map((record, index) => (
               <div
                 key={index}
-                className="border rounded p-2 bg-blue-100/90 hover:shadow-sm transition-shadow text-xs"
+                className="border rounded-lg p-2 transition-shadow text-xs"
               >
                 {/* Time */}
-                <div className="flex items-center gap-1 text-blue-700 mb-1">
+                <div className="flex items-center gap-1 text-card-text mb-1">
                   <Clock className="w-3 h-3" />
                   <span>
                     {record.recorded_time
@@ -150,12 +150,12 @@ export function VitalSignsTab({
                 </div>
 
                 {/* Vital Signs Grid */}
-                <div className="grid grid-cols-2 gap-2 text-center text-sm text-blue-700">
+                <div className="grid grid-cols-2 gap-2 text-center text-sm text-card-text">
                   {record.temperature && (
                     <div className="flex items-center gap-2">
-                      <Thermometer className="w-5 h-5 text-blue-600" />
+                      <Thermometer className="w-5 h-5" />
                       <div>
-                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                        <div className="text-muted-foreground font-semibold text-sm text-card-text">
                           Temperature
                         </div>
                         <div className="font-semibold">
@@ -166,9 +166,9 @@ export function VitalSignsTab({
                   )}
                   {(record.systolic || record.diastolic) && (
                     <div className="flex items-center gap-2">
-                      <Heart className="w-5 h-5 text-blue-600" />
+                      <Heart className="w-5 h-5" />
                       <div>
-                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                        <div className="text-muted-foreground font-semibold text-sm text-card-text">
                           Blood Pressure
                         </div>
                         <div className="font-semibold">
@@ -179,9 +179,9 @@ export function VitalSignsTab({
                   )}
                   {record.heart_rate && (
                     <div className="flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-blue-600" />
+                      <Activity className="w-5 h-5" />
                       <div>
-                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                        <div className="text-muted-foreground font-semibold text-sm text-card-text">
                           Heart Rate
                         </div>
                         <div className="font-semibold">
@@ -192,9 +192,9 @@ export function VitalSignsTab({
                   )}
                   {record.respiratory_rate && (
                     <div className="flex items-center gap-2">
-                      <Wind className="w-5 h-5 text-blue-600" />
+                      <Wind className="w-5 h-5" />
                       <div>
-                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">
+                        <div className="text-muted-foreground font-semibold text-sm text-card-text">
                           Respiratory
                         </div>
                         <div className="font-semibold">
@@ -205,9 +205,9 @@ export function VitalSignsTab({
                   )}
                   {record.spo2 && (
                     <div className="flex items-center gap-2">
-                      <Droplets className="w-5 h-5 text-blue-600" />
+                      <Droplets className="w-5 h-5" />
                       <div>
-                        <div className="text-muted-foreground font-semibold text-sm text-blue-600">SpO2</div>
+                        <div className="text-muted-foreground font-semibold text-sm text-card-text">SpO2</div>
                         <div className="font-semibold">{record.spo2}%</div>
                       </div>
                     </div>

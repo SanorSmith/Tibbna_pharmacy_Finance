@@ -195,7 +195,8 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
       </div>
       {isAdmin && (
         <div className="mb-4 flex justify-end">
-          <Button onClick={handleOpenAdd}>
+          <Button onClick={handleOpenAdd}
+          className="bg-blue-600 hover:bg-blue-700">
             <Plus className="h-4 w-4 mr-2" />
             Add Staff
           </Button>

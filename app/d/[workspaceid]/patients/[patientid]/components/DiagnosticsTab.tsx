@@ -69,7 +69,7 @@ export function DiagnosticsTab({
 
   return (
     <div className="space-y-4">
-      <Card>
+       <Card className="bg-card-bg">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-xl font-semibold">Diagnostics</CardTitle>
@@ -112,7 +112,8 @@ export function DiagnosticsTab({
           ) : diagnoses.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-muted-foreground mb-4">No diagnoses have been recorded yet</div>
-              <Button size="sm" onClick={() => setShowDiagnosisForm(true)}>
+              <Button size="sm" onClick={() => setShowDiagnosisForm(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white">
                 Add First Diagnosis
               </Button>
             </div>

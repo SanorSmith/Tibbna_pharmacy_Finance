@@ -12,6 +12,8 @@ import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
 type Appointment = {
   appointmentid: string;
@@ -35,6 +37,8 @@ type Patient = {
   nationalid?: string | null;
   phone?: string | null;
   email?: string | null;
+  gender?: string | null;
+  createdat?: string | null;
 };
 
 type DoctorInfo = {
@@ -67,10 +71,10 @@ type Operation = {
   scheduleddate: string;
   duration: string;
   theater: string;
-  anesthesiatype: string;
-  operationdiagnosis: string;
-  preoperativeassessment: string;
-  operationdetails: string;
+  anesthesiatype?: string | null;
+  operationdiagnosis?: string | null;
+  preoperativeassessment?: string | null;
+  operationdetails?: string | null;
   status: string;
   createdat: string;
 };
@@ -87,6 +91,7 @@ type Todo = {
   createdat: string;
   updatedat: string;
 };
+
 
 export default function DoctorDashboard({
   workspaceid,
@@ -168,6 +173,23 @@ export default function DoctorDashboard({
     },
   });
 
+  // Calculate overdue patients
+  const overduePatients = useMemo(() => {
+    const now = new Date();
+    return patients.filter(patient => {
+      // Check if patient has any overdue appointments
+      const patientAppointments = allAppointments.filter(appt => 
+        appt.patientid === patient.patientid && 
+        appt.status === 'scheduled'
+      );
+      
+      return patientAppointments.some(appt => {
+        const apptTime = new Date(appt.starttime);
+        return apptTime < now; // Appointment time has passed
+      });
+    }).length;
+  }, [patients, allAppointments]);
+
   const loading =
     loadingAppts ||
     loadingOps ||
@@ -198,12 +220,109 @@ export default function DoctorDashboard({
     });
   }, [allAppointments]);
 
+  const doctorsCount = useMemo(() => {
+    return staff.filter((s) => s.role.toLowerCase().includes("doctor")).length;
+  }, [staff]);
+
+  const nursesCount = useMemo(() => {
+    return staff.filter((s) => s.role.toLowerCase().includes("nurse")).length;
+  }, [staff]);
+
+  const nextHighPriorityTodo = useMemo(() => {
+    const highPriorityTodos = todos
+      .filter((t) => !t.completed && t.priority === "high")
+      .sort((a, b) => {
+        // Sort by due date (earliest first) or created date if no due date
+        const aDate = a.duedate ? new Date(a.duedate).getTime() : new Date(a.createdat).getTime();
+        const bDate = b.duedate ? new Date(b.duedate).getTime() : new Date(b.createdat).getTime();
+        return aDate - bDate;
+      });
+    
+    return highPriorityTodos[0];
+  }, [todos]);
+
+  const nextOperation = useMemo(() => {
+    const scheduledOperations = operations
+      .filter((o) => o.status === "scheduled")
+      .sort((a, b) => new Date(a.scheduleddate).getTime() - new Date(b.scheduleddate).getTime());
+    
+    return scheduledOperations[0];
+  }, [operations]);
+
+  const nextAppointment = useMemo(() => {
+    const now = new Date();
+    const scheduledAppointments = allAppointments
+      .filter((a) => {
+        const apptDate = new Date(a.starttime);
+        return apptDate >= now && a.status === "scheduled";
+      })
+      .sort((a, b) => new Date(a.starttime).getTime() - new Date(b.starttime).getTime());
+    
+    return scheduledAppointments[0];
+  }, [allAppointments]);
+
+  
+  // Chart data calculations
+  const weeklyVisitsData = useMemo(() => {
+    const today = new Date();
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Initialize data for the past 7 days
+    const weekData = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayName = daysOfWeek[date.getDay()];
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // Count appointments for this day
+      const dayAppointments = allAppointments.filter(appt => {
+        const apptDate = new Date(appt.starttime).toISOString().split('T')[0];
+        return apptDate === dateStr && appt.status !== 'cancelled';
+      }).length;
+      
+      // Count new registrations for this day
+      const dayRegistrations = patients.filter(p => {
+        if (!p.createdat) return false;
+        const createdDate = new Date(p.createdat).toISOString().split('T')[0];
+        return createdDate === dateStr;
+      }).length;
+      
+      // Count gender breakdown for appointments this day
+      let dayMaleAppointments = 0;
+      let dayFemaleAppointments = 0;
+      
+      allAppointments.forEach(appt => {
+        const apptDate = new Date(appt.starttime).toISOString().split('T')[0];
+        if (apptDate === dateStr && appt.status !== 'cancelled') {
+          const patient = patients.find(p => p.patientid === appt.patientid);
+          if (patient?.gender?.toLowerCase() === 'male') {
+            dayMaleAppointments++;
+          } else if (patient?.gender?.toLowerCase() === 'female') {
+            dayFemaleAppointments++;
+          }
+        }
+      });
+      
+      weekData.push({
+        name: dayName,
+        date: dateStr,
+        appointments: dayAppointments,
+        registrations: dayRegistrations,
+        male: dayMaleAppointments,
+        female: dayFemaleAppointments,
+        total: dayAppointments + dayRegistrations
+      });
+    }
+    
+    return weekData;
+  }, [patients, allAppointments]);
+
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading...</div>;
   }
 
   const cardBaseClasses =
-    "bg-[#618FF5] hover:bg-[#4F78D1] rounded-lg transition-colors cursor-pointer text-white";
+    "bg-card-bg hover:bg-card-hover rounded-lg transition-colors cursor-pointer text-card-text";
 
   return (
     <div className="space-y-4 mr-4 ml-4">
@@ -216,12 +335,23 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-lg font-semibold mb-4">Appointments</div>
-              <div className="text-2xl font-bold">{allAppointments.length}</div>
-              <div className="text-xs opacity-90 mt-1">
-                {todayAppointments.length} today • {upcomingAppointments.length}{" "}
-                upcoming
-              </div>
+              <div className="text-xl font-semibold mb-4">Appointments ({allAppointments.length})</div>
+              <div className="text-sm opacity-75 mt-2">{todayAppointments.length} today - {upcomingAppointments.length} upcoming</div>
+              {nextAppointment && (
+                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                  <div className="font-medium">Next appointment:</div>
+                  <div className="truncate">
+                    {new Date(nextAppointment.starttime).toLocaleDateString()} at{" "}
+                    {new Date(nextAppointment.starttime).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                  <div className="text-xs opacity-75 truncate">
+                    {nextAppointment.notes?.patientname || "Patient"}
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -233,9 +363,35 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-lg font-semibold mb-4">Patients</div>
-              <div className="text-2xl font-bold">{patients.length}</div>
-              <div className="text-xs opacity-90 mt-1">In your care</div>
+              <div className="text-xl font-semibold mb-4">Patients ({patients.length})</div>
+              
+              {/* Mini Weekly Activity Chart */}
+              <div className="mt-4">
+                <div className="text-sm font-medium text-card-smtext mb-2">Weekly Activity</div>
+                <ChartContainer 
+                  config={{
+                    appointments: { label: "Appointments", color: "#3b82f6" },
+                    registrations: { label: "New Reg.", color: "#8b5cf6" },
+                    male: { label: "Male", color: "#16a34a" },
+                    female: { label: "Female", color: "#dc2626" },
+                  }} 
+                  className="h-40"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyVisitsData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="appointments" fill="#3b82f6" name="Appointments" />
+                      <Bar dataKey="registrations" fill="#8b5cf6" name="New Reg." />
+                      <Bar dataKey="male" fill="#16a34a" name="Male" />
+                      <Bar dataKey="female" fill="#dc2626" name="Female" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -247,14 +403,32 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-lg font-semibold mb-4">Operations</div>
-              <div className="text-2xl font-bold">{operations.length}</div>
-              <div className="text-xs opacity-90 mt-1">
+              <div className="text-xl font-semibold mb-4">Operations ({operations.length})</div>
+              <div className="text-base opacity-90 mt-1">
                 {operations.filter((o) => o.status === "scheduled").length}{" "}
                 scheduled •{" "}
                 {operations.filter((o) => o.status === "in_progress").length} in
                 progress
               </div>
+              {nextOperation ? (
+                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                  <div className="font-medium text-blue-600">Next Operation:</div>
+                  <div>
+                    {new Date(nextOperation.scheduleddate).toLocaleDateString()} •{" "}
+                    {new Date(nextOperation.scheduleddate).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                  <div className="truncate">
+                    {nextOperation.operationname}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                  <div className="font-medium text-gray-500">No operation scheduled</div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -266,9 +440,13 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-lg font-semibold mb-4">Notifications</div>
-              <div className="text-2xl font-bold">{patients.length}</div>
-              <div className="text-xs opacity-90 mt-1">Alerts & updates</div>
+              <div className="text-xl font-semibold mb-4">Notifications</div>
+              <div className={`text-3xl font-bold ${overduePatients > 0 ? 'text-red-600' : ''}`}>
+                {overduePatients}
+              </div>
+              <div className="text-sm opacity-90 mt-1">
+                {overduePatients === 1 ? 'Patient overdue' : overduePatients === 0 ? 'No overdue patients' : 'Patients overdue'}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -280,9 +458,10 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-lg font-semibold mb-4">Contacts</div>
-              <div className="text-2xl font-bold">{staff.length}</div>
-              <div className="text-xs opacity-90 mt-1">Staff members</div>
+              <div className="text-xl font-semibold mb-4">Contacts ({staff.length})</div>
+              <div className="text-base opacity-90 mt-1">
+                {doctorsCount} doctors • {nursesCount} nurses
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -294,15 +473,27 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-lg font-semibold mb-4">To do</div>
-              <div className="text-2xl font-bold">{todos.length}</div>
-              <div className="text-xs opacity-90 mt-1">
+              <div className="text-xl font-semibold mb-4">To do ({todos.length})</div>
+              <div className="text-base opacity-90 mt-1">
                 <span className="text-orange-600">
                   {todos.filter((t) => !t.completed).length} active
                 </span>
                 {" • "}
                 {todos.filter((t) => t.completed).length} completed
               </div>
+              {nextHighPriorityTodo && (
+                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                  <div className="font-medium text-red-600">Next High Priority:</div>
+                  <div className="truncate">
+                    {nextHighPriorityTodo.title}
+                  </div>
+                  {nextHighPriorityTodo.duedate && (
+                    <div>
+                      Due: {new Date(nextHighPriorityTodo.duedate).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

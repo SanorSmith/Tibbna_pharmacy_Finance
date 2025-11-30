@@ -129,7 +129,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
 
   return (
     <>
-      <Card>
+       <Card className="bg-card-bg">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
             <CardTitle>
@@ -147,7 +147,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                 variant={showHistory ? "outline" : "secondary"}
                 size="sm"
                 onClick={() => setShowHistory((prev) => !prev)}
-                className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1"
+                className="bg-card-hover hover:bg-gray-600/50 text-card-smtext hover:text-card-text font-bold flex items-center gap-1"
               >
                 <History className="w-4 h-4" />
                 <span>{showHistory ? "Show Active" : "History"}</span>
