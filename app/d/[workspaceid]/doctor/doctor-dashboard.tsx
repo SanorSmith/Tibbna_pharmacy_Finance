@@ -339,8 +339,8 @@ export default function DoctorDashboard({
               <div className="text-base opacity-90 mt-2">{todayAppointments.length} today - {upcomingAppointments.length} upcoming</div>
               {nextAppointment && (
                 <div className="text-base opacity-90 mt-2 border-t pt-2">
-                  <div className="font-medium">Next appointment:</div>
-                  <div className="truncate">
+                  <div className="font-medium text-card-smtext">Next appointment:</div>
+                  <div className="truncate text-card-smtext">
                     {new Date(nextAppointment.starttime).toLocaleDateString()} at{" "}
                     {new Date(nextAppointment.starttime).toLocaleTimeString([], {
                       hour: "2-digit",
