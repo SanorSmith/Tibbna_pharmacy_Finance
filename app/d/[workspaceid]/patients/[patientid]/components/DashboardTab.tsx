@@ -123,7 +123,7 @@ export function DashboardTab({
       <div className="space-y-2">
         <div className="grid gap-2 md:grid-cols-3">
            {/* Vitals Card */}
-          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white relative h-full">
+          <Card className="col-span-1 bg-card-bg hover:bg-card-hover text-card-text rounded-lg relative h-full">
             {/* Date on top-right */}
             {vitalSigns.length > 0 && (
               <span className="absolute top-2 right-3 text-[9px] opacity-80">
@@ -135,7 +135,7 @@ export function DashboardTab({
 
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
-                <CardTitle className="text-sm flex items-center gap-1.5">
+                <CardTitle className="text-xl flex items-center gap-1.5">
                   <Heart className="h-3.5 w-3.5" />
                   Vitals
                 </CardTitle>
@@ -149,9 +149,9 @@ export function DashboardTab({
                   <p className="text-xs opacity-90">Loading...</p>
                 </div>
               ) : vitalSigns.length === 0 ? (
-                <div className="text-center py-1.5">
+                <div className="text-center py-1">
                   <Heart className="h-5 w-5 opacity-70 mx-auto mb-1" />
-                  <p className="text-xs opacity-90">No vitals</p>
+                  <p className="text-md opacity-90">No vitals</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
@@ -159,10 +159,10 @@ export function DashboardTab({
                   {vitalSigns[0].systolic &&
                     vitalSigns[0].diastolic && (
                       <div className="flex items-start gap-1.5">
-                        <Gauge className="h-3 w-3 mt-[2px] opacity-90" />
+                        <Gauge className="h-3 w-3 opacity-90" />
                         <div>
-                          <p className="text-[9px] opacity-90">Blood Pressure</p>
-                          <p className="font-semibold text-xs mt-0.5">
+                          <p className="text-sm opacity-90">Blood Pressure</p>
+                          <p className="font-semibold text-sm">
                             {vitalSigns[0].systolic}/{vitalSigns[0].diastolic}
                           </p>
                         </div>
@@ -174,8 +174,8 @@ export function DashboardTab({
                     <div className="flex items-start gap-1.5">
                       <Activity className="h-3 w-3 mt-[2px] opacity-90" />
                       <div>
-                        <p className="text-[9px] opacity-90">Heart Rate</p>
-                        <p className="font-semibold text-xs mt-0.5">
+                        <p className="text-sm opacity-90">Heart Rate</p>
+                        <p className="font-semibold text-sm mt-0.5">
                           {vitalSigns[0].heart_rate}
                         </p>
                       </div>
@@ -187,8 +187,8 @@ export function DashboardTab({
                     <div className="flex items-start gap-1.5">
                       <Thermometer className="h-3 w-3 mt-[2px] opacity-90" />
                       <div>
-                        <p className="text-[9px] opacity-90">Temperature</p>
-                        <p className="font-semibold text-xs mt-0.5">
+                        <p className="text-sm opacity-90">Temperature</p>
+                        <p className="font-semibold text-sm mt-0.5">
                           {vitalSigns[0].temperature}°C
                         </p>
                       </div>
@@ -200,8 +200,8 @@ export function DashboardTab({
                     <div className="flex items-start gap-1.5">
                       <Droplet className="h-3 w-3 mt-[2px] opacity-90" />
                       <div>
-                        <p className="text-[9px] opacity-90">SpO2</p>
-                        <p className="font-semibold text-xs mt-0.5">
+                        <p className="text-sm opacity-90">SpO2</p>
+                        <p className="font-semibold text-sm mt-0.5">
                           {vitalSigns[0].spo2}%
                         </p>
                       </div>
@@ -212,7 +212,7 @@ export function DashboardTab({
             </CardContent>
           </Card>
            {/* Diagnosis Card */}
-          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
+          <Card className="col-span-1 bg-card-bg hover:bg-card-hover text-card-text rounded-lg h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -283,7 +283,7 @@ export function DashboardTab({
             </CardContent>
           </Card>
           {/* Appointments Card */}
-          <Card className="bg-[#618FF5] text-white rounded-lg h-full">
+          <Card className="bg-card-bg hover:bg-card-hover text-card-text rounded-lg  h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -342,7 +342,7 @@ export function DashboardTab({
           </Card>
 
           {/* Labs Card */}
-          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
+          <Card className="col-span-1 bg-card-bg hover:bg-card-hover text-card-text rounded-lg  h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
                 <CardTitle className="text-sm flex items-center gap-1.5">
@@ -400,10 +400,10 @@ export function DashboardTab({
          
 
           {/* Imaging Card */}
-          <Card className="col-span-1 bg-[#618FF5] rounded-lg text-white h-full">
+          <Card className="col-span-1 bg-card-bg hover:bg-card-hover text-card-text rounded-lg  h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
-                <CardTitle className="text-sm flex items-center gap-1.5">
+                <CardTitle className="text-xl flex items-center gap-1.5">
                   <ImageIcon className="h-3.5 w-3.5" />
                   Imaging
                 </CardTitle>
@@ -458,10 +458,10 @@ export function DashboardTab({
           </Card>
 
           {/* Care Plan Card */}
-          <Card className="col-span-1 bg-[#618FF5] rounded-lg  text-white h-full">
+          <Card className="col-span-1 bg-card-bg hover:bg-card-hover text-card-text rounded-lg  h-full">
             <CardHeader className="py-1.5 px-3">
               <div className="flex items-center">
-                <CardTitle className="text-sm flex items-center gap-1.5">
+                <CardTitle className="text-xl flex items-center gap-1.5">
                   <Heart className="h-3.5 w-3.5" />
                   Care Plan
                 </CardTitle>
@@ -476,7 +476,7 @@ export function DashboardTab({
               ) : carePlans.length === 0 ? (
                 <div className="text-center py-1.5">
                   <Heart className="h-5 w-5 opacity-70 mx-auto mb-1" />
-                  <p className="text-xs opacity-90">No care plans</p>
+                  <p className="text-md opacity-90">No care plans</p>
                 </div>
               ) : (
                 <div className="space-y-1">
