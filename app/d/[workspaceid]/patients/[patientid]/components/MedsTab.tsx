@@ -132,7 +132,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
        <Card className="bg-card-bg">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
-            <CardTitle>
+            <CardTitle className="text-xl font-semibold">
               {showHistory ? "Prescription History" : "Prescriptions"}
             </CardTitle>
             <div className="flex items-center gap-2">

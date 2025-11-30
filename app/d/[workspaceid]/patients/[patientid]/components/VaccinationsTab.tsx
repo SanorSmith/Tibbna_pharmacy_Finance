@@ -74,7 +74,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl">
+              <CardTitle className="text-xl font-semibold">
                 Vaccination Records
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">

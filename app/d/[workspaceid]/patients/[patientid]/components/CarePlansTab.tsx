@@ -138,7 +138,7 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Care Plans</CardTitle>
+            <CardTitle className="text-xl font-semibold">Care Plans</CardTitle>
             <div className="flex gap-2">
               <Button className="bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => setShowOperationDialog(true)}>
                 <Scissors className="h-4 w-4 mr-1" />
