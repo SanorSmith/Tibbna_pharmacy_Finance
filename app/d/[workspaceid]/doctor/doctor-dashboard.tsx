@@ -195,7 +195,7 @@ export default function DoctorDashboard({
           const res = await fetch(`/api/d/${workspaceid}/patients/${patient.patientid}/referrals`);
           if (res.ok) {
             const data = await res.json();
-            const patientReferrals = (data.referrals as any[]) || [];
+            const patientReferrals = (data.referrals as ReferralRecord[]) || [];
             // Add patient info to each referral
             referrals.push(...patientReferrals.map(referral => ({
               ...referral,
