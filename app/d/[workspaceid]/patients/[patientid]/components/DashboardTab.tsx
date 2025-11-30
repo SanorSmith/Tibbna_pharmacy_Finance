@@ -238,10 +238,10 @@ export function DashboardTab({
                     <div key={diagnosis.composition_uid} className="py-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs truncate">
+                          <div className="font-medium text-sm truncate">
                             {diagnosis.problem_diagnosis}
                           </div>
-                          <div className="text-[10px] opacity-90">
+                          <div className="text-xs opacity-90">
                             {new Date(
                               diagnosis.recorded_time
                             ).toLocaleDateString()}
@@ -249,22 +249,22 @@ export function DashboardTab({
                         </div>
                         <div
                           className={(() => {
-                            const base = "px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 capitalize font-medium";
+                            const base = "px-1.5 py-0.5 rounded text-xs ml-2 shrink-0 capitalize font-medium";
                             switch (diagnosis.clinical_status?.toLowerCase()) {
                               case "active":
-                                return `${base} bg-green-200 text-green-800`;
+                                return `${base} bg-green-400 text-green-900`;
                               case "inactive":
-                                return `${base} bg-gray-200 text-gray-700`;
+                                return `${base} bg-gray-300 text-gray-800`;
                               case "resolved":
-                                return `${base} bg-blue-200 text-blue-800`;
+                                return `${base} bg-blue-400 text-blue-900`;
                               case "recurrence":
-                                return `${base} bg-orange-200 text-orange-800`;
+                                return `${base} bg-orange-400 text-orange-900`;
                               case "relapse":
-                                return `${base} bg-red-200 text-red-800`;
+                                return `${base} bg-red-400 text-red-900`;
                               case "remission":
-                                return `${base} bg-emerald-200 text-emerald-800`;
+                                return `${base} bg-emerald-400 text-emerald-900`;
                               default:
-                                return `${base} bg-slate-200 text-slate-800`;
+                                return `${base} bg-slate-300 text-slate-900`;
                             }
                           })()}
                         >
@@ -370,13 +370,13 @@ export function DashboardTab({
                     <div key={lab.labid} className="py-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs truncate">{lab.test_name}</div>
-                          <div className="text-[10px] opacity-90">
+                          <div className="font-medium text-sm truncate">{lab.test_name}</div>
+                          <div className="text-xs opacity-90">
                             {new Date(lab.test_date).toLocaleDateString()}
                           </div>
                         </div>
                         <div
-                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                          className={`px-1.5 py-0.5 rounded text-xs ml-2 shrink-0 ${
                             lab.status === "completed"
                               ? "bg-green-400 text-green-900"
                               : lab.status === "pending"
@@ -388,7 +388,7 @@ export function DashboardTab({
                         </div>
                       </div>
                       {lab.result && (
-                        <div className="text-xs font-medium mt-1 truncate">
+                        <div className="text-sm font-medium mt-1 truncate">
                           Result: {lab.result}
                         </div>
                       )}
@@ -428,15 +428,15 @@ export function DashboardTab({
                     <div key={img.imagingid} className="py-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs truncate">
+                          <div className="font-medium text-sm truncate">
                             {img.study_type}
                           </div>
-                          <div className="text-[10px] opacity-90">
+                          <div className="text-xs opacity-90">
                             {new Date(img.study_date).toLocaleDateString()}
                           </div>
                         </div>
                         <div
-                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                          className={`px-1.5 py-0.5 rounded text-xs ml-2 shrink-0 ${
                             img.status === "completed"
                               ? "bg-green-400 text-green-900"
                               : img.status === "scheduled"
@@ -448,7 +448,7 @@ export function DashboardTab({
                         </div>
                       </div>
                       {img.findings && (
-                        <div className="text-xs opacity-90 mt-1 line-clamp-2">
+                        <div className="text-sm opacity-90 mt-1 line-clamp-2">
                           {img.findings}
                         </div>
                       )}
@@ -486,15 +486,15 @@ export function DashboardTab({
                     <div key={plan.planid} className="py-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs truncate">
+                          <div className="font-medium text-sm truncate">
                             {plan.plan_name}
                           </div>
-                          <div className="text-[10px] opacity-90">
+                          <div className="text-xs opacity-90">
                             {new Date(plan.created_date).toLocaleDateString()}
                           </div>
                         </div>
                         <div
-                          className={`px-1.5 py-0.5 rounded text-[10px] ml-2 shrink-0 ${
+                          className={`px-1.5 py-0.5 rounded text-xs ml-2 shrink-0 ${
                             plan.status === "active"
                               ? "bg-green-400 text-green-900"
                               : plan.status === "draft"
@@ -506,7 +506,7 @@ export function DashboardTab({
                         </div>
                       </div>
                       {plan.description && (
-                        <div className="text-xs opacity-90 mt-1 line-clamp-2">
+                        <div className="text-sm opacity-90 mt-1 line-clamp-2">
                           {plan.description}
                         </div>
                       )}
