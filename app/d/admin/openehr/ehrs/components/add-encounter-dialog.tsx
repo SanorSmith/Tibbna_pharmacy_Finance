@@ -45,6 +45,8 @@ export function AddEncounterDialog({
     diastolicBP: "",
     heartRate: "",
     bodyTemperature: "",
+    respiratoryRate: "",
+    spO2: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,7 +106,10 @@ export function AddEncounterDialog({
         formData.systolicBP ||
         formData.diastolicBP ||
         formData.heartRate ||
-        formData.bodyTemperature
+        formData.bodyTemperature ||
+        formData.respiratoryRate ||
+        formData.spO2
+
       ) {
         const vitalSigns: Partial<ClinicalEncounterComposition> = {
           "template_clinical_encounter_v1/vital_signs/any_event:0/time":
@@ -152,7 +157,22 @@ export function AddEncounterDialog({
             "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|unit"
           ] = "°C";
         }
-
+        if (formData.respiratoryRate) {
+          vitalSigns[
+            "template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|magnitude"
+          ] = parseFloat(formData.respiratoryRate);
+          vitalSigns[
+            "template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|unit"
+          ] = "/min";
+        }
+        if (formData.spO2) {
+          vitalSigns[
+            "template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"
+          ] = parseFloat(formData.spO2);
+          vitalSigns[
+            "template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|unit"
+          ] = "%";
+        }
         Object.assign(composition, vitalSigns);
       }
 
@@ -182,6 +202,8 @@ export function AddEncounterDialog({
         diastolicBP: "",
         heartRate: "",
         bodyTemperature: "",
+        respiratoryRate: "",
+        spO2: "",
       });
       onSuccess();
       onClose();
@@ -354,6 +376,39 @@ export function AddEncounterDialog({
                     })
                   }
                   placeholder="37.0"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="respiratoryRate">
+                  {ttt("Respiratory Rate")} (/min)
+                </Label>
+                <Input
+                  id="respiratoryRate"
+                  type="number"
+                  step="0.1"
+                  value={formData.respiratoryRate}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      respiratoryRate: e.target.value,
+                    })
+                  }
+                  placeholder="16"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="spO2">{ttt("SpO2")} (%)</Label>
+                <Input
+                  id="spO2"
+                  type="number"
+                  step="0.1"
+                  value={formData.spO2}
+                  onChange={(e) =>
+                    setFormData({ ...formData, spO2: e.target.value })
+                  }
+                  placeholder="98"
                 />
               </div>
             </div>

@@ -1,4 +1,6 @@
-import { Header } from "@/components/sidebar/header";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/user";
+import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 
 interface CompanyDashboardProps {
   params: Promise<{ workspaceid: string }>;
@@ -6,20 +8,48 @@ interface CompanyDashboardProps {
 
 export default async function Dashboard({ params }: CompanyDashboardProps) {
   const { workspaceid } = await params;
-  return (
-    <>
-      <Header />
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div
-          className="grid auto-rows-min gap-4 md:grid-cols-3"
-          title={workspaceid}
-        >
-          <div className="bg-muted/50 aspect-video rounded-xl" />
-          <div className="bg-muted/50 aspect-video rounded-xl" />
-          <div className="bg-muted/50 aspect-video rounded-xl" />
-        </div>
-        <div className="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
-      </div>
-    </>
+  
+  // Get user and their role in this workspace
+  const user = await getUser();
+  
+  if (!user) {
+    redirect("/");
+  }
+
+  // Get user's workspaces to find their role
+  const workspaces = await getUserWorkspaces(user.userid);
+  const membership = workspaces.find(
+    (w) => w.workspace.workspaceid === workspaceid
   );
+
+  if (!membership) {
+    redirect("/d/empty");
+  }
+
+  // Role-based routing
+  const userRole = membership.role?.toLowerCase();
+
+  switch (userRole) {
+    case "doctor":
+      redirect(`/d/${workspaceid}/doctor`);
+      break;
+    case "nurse":
+      redirect(`/d/${workspaceid}/nurse`);
+      break;
+    case "admin":
+      redirect(`/d/${workspaceid}/admin`);
+      break;
+    case "receptionist":
+      redirect(`/d/${workspaceid}/reception`);
+      break;
+    case "pharmacist":
+      redirect(`/d/${workspaceid}/pharmacy`);
+      break;
+    case "lab_technician":
+      redirect(`/d/${workspaceid}/lab`);
+      break;
+    default:
+      // Default dashboard for unknown roles
+      redirect(`/d/${workspaceid}/dashboard`);
+  }
 }

@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { SessionProvider } from "next-auth/react";
 import { RootProviders } from "@/contexts/rootproviders";
+import Providers from "@/components/providers";
 import { commonSettings } from "@/content/common";
 
 const geistSans = Geist({
@@ -82,9 +83,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6/index.global.min.css"
+        />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6/index.global.min.css"
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <SessionProvider>
-          <RootProviders>{children}</RootProviders>
+          <Providers>
+            <RootProviders>{children}</RootProviders>
+          </Providers>
         </SessionProvider>
       </body>
     </html>

@@ -55,7 +55,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-blue-100/80">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5" />
@@ -63,7 +63,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 ">
           {/* Theme Selection */}
           <Card>
             <CardHeader>

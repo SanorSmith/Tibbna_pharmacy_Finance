@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkIsAdmin } from "@/lib/db/queries/admin/shared";
+import { getUser } from "@/lib/user";
 import {
   getOpenEHREHRs,
   createOpenEHREHR,
@@ -8,9 +9,9 @@ import {
 
 export async function GET() {
   try {
-    const isAdmin = await checkIsAdmin();
-
-    if (!isAdmin) {
+    // Allow authenticated users (doctors, nurses, admins) to view EHRs
+    const user = await getUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

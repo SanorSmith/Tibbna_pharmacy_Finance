@@ -1,18 +1,24 @@
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import { DynamicBreadcrumb } from "@/components/sidebar/breadcrumb";
-
-export function Header() {
+export function Header({
+  middleSlot,
+  rightSlot,
+}: {
+  middleSlot?: React.ReactNode;
+  rightSlot?: React.ReactNode;
+}) {
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-      <div className="flex items-center gap-2 px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Separator
-          orientation="vertical"
-          className="mr-2 data-[orientation=vertical]:h-4"
-        />
-        <DynamicBreadcrumb />
+    <header className="flex h-16 shrink-0 items-center bg-[#618FF5] justify-between mt-8 gap-4 px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+      <div className="flex items-center flex-1 min-w-0">
+        {/* <SidebarTrigger className="-ml-1" /> */}
+        <h1 className="text-xl text-white font-bold whitespace-nowrap mr-8">
+          Tibbna-EHR
+        </h1>
+        {middleSlot && (
+          <div className="flex-1 max-w-xl ml-16">
+            {middleSlot}
+          </div>
+        )}
       </div>
+      {rightSlot && <div className="flex items-center gap-2">{rightSlot}</div>}
     </header>
   );
 }

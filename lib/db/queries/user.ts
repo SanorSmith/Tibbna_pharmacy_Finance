@@ -118,6 +118,14 @@ export async function updateSessionActivity(
       return false;
     }
 
+    // Optimization: Only update if last active was more than 5 minutes ago
+    const lastActive = existingSession[0].lastactive;
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    if (lastActive && lastActive > fiveMinutesAgo) {
+      return true; // Skip update, consider it successful
+    }
+
     await db
       .update(userSessions)
       .set({ lastactive: new Date() })
