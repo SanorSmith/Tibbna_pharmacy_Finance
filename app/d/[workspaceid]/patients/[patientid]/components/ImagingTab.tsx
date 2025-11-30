@@ -63,7 +63,7 @@ export default function ImagingTab({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Imaging Requests</CardTitle>
+            <CardTitle className="text-xl font-semibold">Imaging Requests</CardTitle>
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               size="sm"
@@ -165,7 +165,7 @@ export default function ImagingTab({
       {/* Imaging Results Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Imaging Results</CardTitle>
+          <CardTitle className="text-xl font-semibold">Imaging Results</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingImaging ? (

@@ -336,19 +336,16 @@ export default function DoctorDashboard({
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
               <div className="text-xl font-semibold mb-4">Appointments ({allAppointments.length})</div>
-              <div className="text-sm opacity-75 mt-2">{todayAppointments.length} today - {upcomingAppointments.length} upcoming</div>
+              <div className="text-base opacity-90 mt-2">{todayAppointments.length} today - {upcomingAppointments.length} upcoming</div>
               {nextAppointment && (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
-                  <div className="font-medium">Next appointment:</div>
-                  <div className="truncate">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
+                  <div className="font-medium text-card-smtext">Next appointment:</div>
+                  <div className="truncate text-card-smtext">
                     {new Date(nextAppointment.starttime).toLocaleDateString()} at{" "}
                     {new Date(nextAppointment.starttime).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
-                  </div>
-                  <div className="text-xs opacity-75 truncate">
-                    {nextAppointment.notes?.patientname || "Patient"}
                   </div>
                 </div>
               )}
@@ -404,14 +401,14 @@ export default function DoctorDashboard({
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
               <div className="text-xl font-semibold mb-4">Operations ({operations.length})</div>
-              <div className="text-base opacity-90 mt-1">
+              <div className="text-lg opacity-90 mt-1">
                 {operations.filter((o) => o.status === "scheduled").length}{" "}
                 scheduled •{" "}
                 {operations.filter((o) => o.status === "in_progress").length} in
                 progress
               </div>
               {nextOperation ? (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
                   <div className="font-medium text-blue-600">Next Operation:</div>
                   <div>
                     {new Date(nextOperation.scheduleddate).toLocaleDateString()} •{" "}
@@ -425,7 +422,7 @@ export default function DoctorDashboard({
                   </div>
                 </div>
               ) : (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
                   <div className="font-medium text-gray-500">No operation scheduled</div>
                 </div>
               )}
@@ -444,7 +441,7 @@ export default function DoctorDashboard({
               <div className={`text-3xl font-bold ${overduePatients > 0 ? 'text-red-600' : ''}`}>
                 {overduePatients}
               </div>
-              <div className="text-sm opacity-90 mt-1">
+              <div className="text-base opacity-90 mt-1">
                 {overduePatients === 1 ? 'Patient overdue' : overduePatients === 0 ? 'No overdue patients' : 'Patients overdue'}
               </div>
             </div>
@@ -459,7 +456,7 @@ export default function DoctorDashboard({
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
               <div className="text-xl font-semibold mb-4">Contacts ({staff.length})</div>
-              <div className="text-base opacity-90 mt-1">
+              <div className="text-lg opacity-90 mt-1">
                 {doctorsCount} doctors • {nursesCount} nurses
               </div>
             </div>
@@ -474,7 +471,7 @@ export default function DoctorDashboard({
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
               <div className="text-xl font-semibold mb-4">To do ({todos.length})</div>
-              <div className="text-base opacity-90 mt-1">
+              <div className="text-lg opacity-90 mt-1">
                 <span className="text-orange-600">
                   {todos.filter((t) => !t.completed).length} active
                 </span>
@@ -482,7 +479,7 @@ export default function DoctorDashboard({
                 {todos.filter((t) => t.completed).length} completed
               </div>
               {nextHighPriorityTodo && (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
                   <div className="font-medium text-red-600">Next High Priority:</div>
                   <div className="truncate">
                     {nextHighPriorityTodo.title}

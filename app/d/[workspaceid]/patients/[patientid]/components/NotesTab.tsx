@@ -68,7 +68,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Clinical Notes</CardTitle>
+              <CardTitle className="text-xl font-semibold">Clinical Notes</CardTitle>
             </div>
             <Button
               size="sm"

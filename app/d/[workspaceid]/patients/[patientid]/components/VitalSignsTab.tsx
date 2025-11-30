@@ -76,7 +76,7 @@ export function VitalSignsTab({
         <CardHeader className="py-2 px-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Vital Signs Monitor</CardTitle>
+              <CardTitle className="text-xl font-semibold">Vital Signs Monitor</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Track essential health metrics
               </p>
