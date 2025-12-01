@@ -6,12 +6,32 @@
 "use client";
 import { use, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Building, Mail, MapPin, Phone, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  Building,
+  Mail,
+  MapPin,
+  Phone,
+  Plus,
+  Edit,
+  Trash2,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,9 +67,12 @@ export default function DepartmentsPage({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(
+    null
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
+  const [departmentToDelete, setDepartmentToDelete] =
+    useState<Department | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Fetch departments
@@ -114,7 +137,10 @@ export default function DepartmentsPage({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Failed to ${editingDepartment ? "update" : "register"} department`);
+        throw new Error(
+          data.error ||
+            `Failed to ${editingDepartment ? "update" : "register"} department`
+        );
       }
 
       // Refresh the list
@@ -132,12 +158,15 @@ export default function DepartmentsPage({
 
   async function confirmDelete() {
     if (!departmentToDelete) return;
-    
+
     setDeleting(true);
     try {
-      const res = await fetch(`/api/d/${workspaceid}/departments/${departmentToDelete.departmentid}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/d/${workspaceid}/departments/${departmentToDelete.departmentid}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -175,92 +204,103 @@ export default function DepartmentsPage({
               Manage hospital departments and their contact information
             </p>
           </div>
-          <Button onClick={handleOpenAdd}>
+          <Button onClick={handleOpenAdd}
+           className="bg-blue-500 hover:bg-blue-600 ">
             <Plus className="h-4 w-4 mr-2" />
             Add Department
           </Button>
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingDepartment ? "Edit Department" : "Register New Department"}</DialogTitle>
-                <DialogDescription>
-                  {editingDepartment ? "Update department information" : "Add a new department with contact information"}
-                </DialogDescription>
-              </DialogHeader>
-              <form action={handleSubmit} className="space-y-6">
-                {error && (
-                  <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md text-sm">
-                    {error}
-                  </div>
-                )}
-
-                {/* Registration Section */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold">Registration</h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Department Name *</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      placeholder="e.g., Cardiology, Emergency, Radiology"
-                      defaultValue={editingDepartment?.name || ""}
-                      required
-                    />
-                  </div>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingDepartment
+                  ? "Edit Department"
+                  : "Register New Department"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingDepartment
+                  ? "Update department information"
+                  : "Add a new department with contact information"}
+              </DialogDescription>
+            </DialogHeader>
+            <form action={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md text-sm">
+                  {error}
                 </div>
+              )}
 
-                {/* Contact Details Section */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold">Contact Details</h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="e.g., +1 (555) 123-4567"
-                      defaultValue={editingDepartment?.phone || ""}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="e.g., cardiology@hospital.com"
-                      defaultValue={editingDepartment?.email || ""}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea
-                      id="address"
-                      name="address"
-                      placeholder="e.g., Building A, Floor 3, Room 301"
-                      rows={3}
-                      defaultValue={editingDepartment?.address || ""}
-                    />
-                  </div>
+              {/* Registration Section */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Registration</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Department Name *</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="e.g., Cardiology, Emergency, Radiology"
+                    defaultValue={editingDepartment?.name || ""}
+                    required
+                  />
                 </div>
+              </div>
 
-                <div className="flex gap-4 justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setDialogOpen(false)}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Saving..." : editingDepartment ? "Save Changes" : "Register Department"}
-                  </Button>
+              {/* Contact Details Section */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Contact Details</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="e.g., +1 (555) 123-4567"
+                    defaultValue={editingDepartment?.phone || ""}
+                  />
                 </div>
-              </form>
-            </DialogContent>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="e.g., cardiology@hospital.com"
+                    defaultValue={editingDepartment?.email || ""}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Textarea
+                    id="address"
+                    name="address"
+                    placeholder="e.g., Building A, Floor 3, Room 301"
+                    rows={3}
+                    defaultValue={editingDepartment?.address || ""}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting
+                    ? "Saving..."
+                    : editingDepartment
+                    ? "Save Changes"
+                    : "Register Department"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
         </Dialog>
 
         {departments.length === 0 ? (
@@ -271,7 +311,10 @@ export default function DepartmentsPage({
               <p className="text-muted-foreground text-center mb-4">
                 Get started by creating your first department
               </p>
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button
+                onClick={() => setDialogOpen(true)}
+                className="bg-blue-500 hover:bg-blue-600 "
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Department
               </Button>
@@ -280,7 +323,10 @@ export default function DepartmentsPage({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {departments.map((dept) => (
-              <Card key={dept.departmentid} className="hover:shadow-lg transition-shadow">
+              <Card
+                key={dept.departmentid}
+                className="hover:shadow-lg transition-shadow"
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -326,7 +372,9 @@ export default function DepartmentsPage({
                   {dept.address && (
                     <div className="flex items-start gap-2 text-sm">
                       <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span className="text-muted-foreground">{dept.address}</span>
+                      <span className="text-muted-foreground">
+                        {dept.address}
+                      </span>
                     </div>
                   )}
                   {!dept.phone && !dept.email && !dept.address && (
@@ -346,7 +394,8 @@ export default function DepartmentsPage({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Department</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete &quot;{departmentToDelete?.name}&quot;? This action cannot be undone.
+                Are you sure you want to delete &quot;{departmentToDelete?.name}
+                &quot;? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
