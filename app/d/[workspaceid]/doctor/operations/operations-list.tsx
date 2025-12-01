@@ -166,7 +166,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "all"
                ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("all")}
@@ -179,7 +179,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "scheduled"
               ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("scheduled")}
@@ -192,7 +192,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "in_progress"
                ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("in_progress")}
@@ -205,7 +205,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "completed"
                ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("completed")}
@@ -218,7 +218,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "cancelled"
                ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("cancelled")}
