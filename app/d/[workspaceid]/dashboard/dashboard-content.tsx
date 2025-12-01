@@ -5,21 +5,27 @@
  */
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Users, 
-  UserCheck, 
-  Calendar, 
-  Building, 
-  TestTube, 
+import {
+  Users,
+  UserCheck,
+  Calendar,
+  Building,
+  TestTube,
   Pill,
   Activity,
   TrendingUp,
   Clock,
   AlertCircle,
   Trash2,
-  Search
+  Search,
 } from "lucide-react";
 import {
   Table,
@@ -63,7 +69,11 @@ type Patient = {
   phone?: string | null;
 };
 
-export default function DashboardContent({ workspaceid }: { workspaceid: string }) {
+export default function DashboardContent({
+  workspaceid,
+}: {
+  workspaceid: string;
+}) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [patientsList, setPatientsList] = useState<Patient[]>([]);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
@@ -89,18 +99,25 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
 
   async function handleDeletePatient() {
     if (!patientToDelete) return;
-    
+
     try {
       setDeletingId(patientToDelete.patientid);
-      const res = await fetch(`/api/d/${workspaceid}/patients/${patientToDelete.patientid}`, {
-        method: "DELETE",
-      });
-      
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patientToDelete.patientid}`,
+        {
+          method: "DELETE",
+        }
+      );
+
       if (res.ok) {
         // Remove from list
-        setPatientsList((prev) => prev.filter(p => p.patientid !== patientToDelete.patientid));
+        setPatientsList((prev) =>
+          prev.filter((p) => p.patientid !== patientToDelete.patientid)
+        );
         // Update stats count
-        setStats((prev) => prev ? ({ ...prev, patients: prev.patients - 1 }) : null);
+        setStats((prev) =>
+          prev ? { ...prev, patients: prev.patients - 1 } : null
+        );
       } else {
         alert("Failed to delete patient");
       }
@@ -116,12 +133,19 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
   useEffect(() => {
     // Prevent duplicate fetches
     if (hasFetched.current) return;
-    
+
     async function fetchStats() {
       try {
         hasFetched.current = true;
         // Fetch all data in parallel
-        const [patientsRes, staffRes, appointmentsRes, departmentsRes, labsRes, pharmaciesRes] = await Promise.all([
+        const [
+          patientsRes,
+          staffRes,
+          appointmentsRes,
+          departmentsRes,
+          labsRes,
+          pharmaciesRes,
+        ] = await Promise.all([
           fetch(`/api/d/${workspaceid}/patients`),
           fetch(`/api/d/${workspaceid}/staff`),
           fetch(`/api/d/${workspaceid}/appointments`),
@@ -130,14 +154,15 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
           fetch(`/api/d/${workspaceid}/pharmacies`),
         ]);
 
-        const [patients, staff, appointments, departments, labs, pharmacies] = await Promise.all([
-          patientsRes.json(),
-          staffRes.json(),
-          appointmentsRes.json(),
-          departmentsRes.json(),
-          labsRes.json(),
-          pharmaciesRes.json(),
-        ]);
+        const [patients, staff, appointments, departments, labs, pharmacies] =
+          await Promise.all([
+            patientsRes.json(),
+            staffRes.json(),
+            appointmentsRes.json(),
+            departmentsRes.json(),
+            labsRes.json(),
+            pharmaciesRes.json(),
+          ]);
 
         // Calculate today's appointments
         const today = new Date();
@@ -145,14 +170,16 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        const todayAppointments = appointments.appointments?.filter((apt: { starttime: string }) => {
-          const aptDate = new Date(apt.starttime);
-          return aptDate >= today && aptDate < tomorrow;
-        }).length || 0;
+        const todayAppointments =
+          appointments.appointments?.filter((apt: { starttime: string }) => {
+            const aptDate = new Date(apt.starttime);
+            return aptDate >= today && aptDate < tomorrow;
+          }).length || 0;
 
-        const pendingAppointments = appointments.appointments?.filter((apt: { status: string }) => 
-          apt.status === "scheduled"
-        ).length || 0;
+        const pendingAppointments =
+          appointments.appointments?.filter(
+            (apt: { status: string }) => apt.status === "scheduled"
+          ).length || 0;
 
         setStats({
           patients: patients.patients?.length || 0,
@@ -164,7 +191,7 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
           todayAppointments,
           pendingAppointments,
         });
-        
+
         const pList = patients.patients || [];
         setPatientsList(pList);
         setFilteredPatients(pList);
@@ -179,11 +206,15 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
   }, [workspaceid]);
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading dashboard...</p>;
+    return (
+      <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+    );
   }
 
   if (!stats) {
-    return <p className="text-sm text-destructive">Failed to load dashboard data.</p>;
+    return (
+      <p className="text-sm text-destructive">Failed to load dashboard data.</p>
+    );
   }
 
   return (
@@ -194,7 +225,9 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Patients
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -207,27 +240,27 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Staff Members</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Staff Members
+              </CardTitle>
               <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.staff}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Active staff
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Active staff</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Appointments</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Appointments
+              </CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.appointments}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                All time
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">All time</p>
             </CardContent>
           </Card>
 
@@ -252,11 +285,15 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Today&apos;s Appointments</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Today&apos;s Appointments
+              </CardTitle>
               <Clock className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.todayAppointments}</div>
+              <div className="text-2xl font-bold">
+                {stats.todayAppointments}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Scheduled for today
               </p>
@@ -265,11 +302,15 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
 
           <Card className="border-l-4 border-l-amber-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Appointments</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Pending Appointments
+              </CardTitle>
               <AlertCircle className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingAppointments}</div>
+              <div className="text-2xl font-bold">
+                {stats.pendingAppointments}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Awaiting check-in
               </p>
@@ -278,7 +319,9 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
 
           <Card className="border-l-4 border-l-green-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">System Status</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                System Status
+              </CardTitle>
               <Activity className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -297,7 +340,9 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Laboratories</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Laboratories
+              </CardTitle>
               <TestTube className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -327,7 +372,9 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">+{stats.patients + stats.staff}</div>
+              <div className="text-2xl font-bold">
+                +{stats.patients + stats.staff}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Total registrations
               </p>
@@ -347,14 +394,14 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
             </CardHeader>
             <CardContent>
               <Link href={`/d/${workspaceid}/patients`}>
-                <Button className="w-full">
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <Users className="h-4 w-4 mr-2" />
                   Go to Patients
                 </Button>
               </Link>
             </CardContent>
           </Card>
-          
+
           {/* Other quick actions... */}
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>
@@ -363,7 +410,7 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
             </CardHeader>
             <CardContent>
               <Link href={`/d/${workspaceid}/staff`}>
-                <Button className="w-full">
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <UserCheck className="h-4 w-4 mr-2" />
                   Go to Staff
                 </Button>
@@ -378,7 +425,7 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
             </CardHeader>
             <CardContent>
               <Link href={`/d/${workspaceid}/appointments`}>
-                <Button className="w-full">
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <Calendar className="h-4 w-4 mr-2" />
                   Go to Appointments
                 </Button>
@@ -393,7 +440,7 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
             </CardHeader>
             <CardContent>
               <Link href={`/d/${workspaceid}/departments`}>
-                <Button className="w-full" variant="outline">
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <Building className="h-4 w-4 mr-2" />
                   Go to Departments
                 </Button>
@@ -408,7 +455,7 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
             </CardHeader>
             <CardContent>
               <Link href={`/d/${workspaceid}/lab`}>
-                <Button className="w-full" variant="outline">
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <TestTube className="h-4 w-4 mr-2" />
                   Go to Labs
                 </Button>
@@ -423,7 +470,7 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
             </CardHeader>
             <CardContent>
               <Link href={`/d/${workspaceid}/pharmacy`}>
-                <Button className="w-full" variant="outline">
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <Pill className="h-4 w-4 mr-2" />
                   Go to Pharmacies
                 </Button>
@@ -469,7 +516,10 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
                 <TableBody>
                   {filteredPatients.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-8 text-muted-foreground"
+                      >
                         No patients found
                       </TableCell>
                     </TableRow>
@@ -477,14 +527,19 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
                     filteredPatients.map((patient) => (
                       <TableRow key={patient.patientid}>
                         <TableCell className="font-medium">
-                          {patient.firstname} {patient.middlename ? patient.middlename + " " : ""}
+                          {patient.firstname}{" "}
+                          {patient.middlename ? patient.middlename + " " : ""}
                           {patient.lastname}
                         </TableCell>
                         <TableCell>{patient.nationalid || "N/A"}</TableCell>
                         <TableCell>
                           <div className="text-sm">
                             {patient.email && <div>{patient.email}</div>}
-                            {patient.phone && <div className="text-muted-foreground">{patient.phone}</div>}
+                            {patient.phone && (
+                              <div className="text-muted-foreground">
+                                {patient.phone}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -505,22 +560,33 @@ export default function DashboardContent({ workspaceid }: { workspaceid: string 
               </Table>
             </div>
             <div className="mt-4 text-xs text-muted-foreground">
-              Showing {filteredPatients.length} of {patientsList.length} patients
+              Showing {filteredPatients.length} of {patientsList.length}{" "}
+              patients
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <AlertDialog open={!!patientToDelete} onOpenChange={(open) => !open && setPatientToDelete(null)}>
+      <AlertDialog
+        open={!!patientToDelete}
+        onOpenChange={(open) => !open && setPatientToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the patient <strong>{patientToDelete?.firstname} {patientToDelete?.lastname}</strong> from the database and their OpenEHR record. This action cannot be undone.
+              This will permanently delete the patient{" "}
+              <strong>
+                {patientToDelete?.firstname} {patientToDelete?.lastname}
+              </strong>{" "}
+              from the database and their OpenEHR record. This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={!!deletingId}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
               onClick={(e) => {
