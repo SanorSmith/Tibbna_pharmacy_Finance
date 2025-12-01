@@ -130,7 +130,7 @@ export default function AppointmentsList({
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "all"
               ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("all")}
@@ -143,7 +143,7 @@ export default function AppointmentsList({
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "today"
               ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("today")}
@@ -156,7 +156,7 @@ export default function AppointmentsList({
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "upcoming"
               ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("upcoming")}
@@ -169,7 +169,7 @@ export default function AppointmentsList({
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "past"
               ? "bg-orange-400 text-white"
-              : "bg-[#336699] text-white"
+              : "bg-[#4684c2] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("past")}
