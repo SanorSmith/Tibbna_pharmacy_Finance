@@ -10,7 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
 import Link from "next/link";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { VitalSignsTab } from "./components/VitalSignsTab";
 import { DiagnosticsTab } from "./components/DiagnosticsTab";
 import EnhancedOrdersTab from "./components/EnhancedOrdersTab";
@@ -60,15 +64,17 @@ export default function PatientDashboard({
 }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [diagnoses, setDiagnoses] = useState<DashboardTypes.DiagnosisRecord[]>([]);
+  const [diagnoses, setDiagnoses] = useState<DashboardTypes.DiagnosisRecord[]>(
+    []
+  );
   const [loadingDiagnoses, setLoadingDiagnoses] = useState(false);
   const diagnosesOffsetRef = useRef(0);
   const hasLoadedDiagnoses = useRef(false); // Track if data has been loaded
   const [diagnosesHasMore, setDiagnosesHasMore] = useState(false);
-  
+
   // Use sessionStorage to persist cache across component remounts
   const DIAGNOSES_CACHE_KEY = `diagnoses_${patient.patientid}`;
-  
+
   useEffect(() => {
     // Check if diagnoses are already cached in sessionStorage
     const cachedData = sessionStorage.getItem(DIAGNOSES_CACHE_KEY);
@@ -87,7 +93,8 @@ export default function PatientDashboard({
     }
   }, [patient.patientid, DIAGNOSES_CACHE_KEY]);
   const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
-  const [selectedDiagnosis, setSelectedDiagnosis] = useState<DashboardTypes.DiagnosisRecord | null>(null);
+  const [selectedDiagnosis, setSelectedDiagnosis] =
+    useState<DashboardTypes.DiagnosisRecord | null>(null);
   const [showDiagnosisDetails, setShowDiagnosisDetails] = useState(false);
 
   // Vital Signs state management
@@ -118,11 +125,6 @@ export default function PatientDashboard({
     respiratoryRate: "",
     spO2: "",
   });
-
-
-
-
-
 
   // Imaging state management (openEHR compliant)
   interface ImagingRequest {
@@ -170,44 +172,48 @@ export default function PatientDashboard({
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
 
   // Track which tabs have been loaded to avoid redundant API calls
-  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(["dashboard"]));
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(
+    new Set(["dashboard"])
+  );
 
   // Load prescriptions from OpenEHR-backed API
-  const loadPrescriptions = useCallback(async (reset?: boolean) => {
-    try {
-      // If we already have data and not explicitly resetting, avoid refetching
-      if (!reset && prescriptions.length > 0) {
-        return;
-      }
+  const loadPrescriptions = useCallback(
+    async (reset?: boolean) => {
+      try {
+        // If we already have data and not explicitly resetting, avoid refetching
+        if (!reset && prescriptions.length > 0) {
+          return;
+        }
 
-      setLoadingPrescriptions(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patient.patientid}/prescriptions`,
-        { cache: "no-store" }
-      );
+        setLoadingPrescriptions(true);
+        const res = await fetch(
+          `/api/d/${workspaceid}/patients/${patient.patientid}/prescriptions`,
+          { cache: "no-store" }
+        );
 
-      if (res.ok) {
-        const data = await res.json();
-        setPrescriptions(data.prescriptions || []);
-      } else {
+        if (res.ok) {
+          const data = await res.json();
+          setPrescriptions(data.prescriptions || []);
+        } else {
+          setPrescriptions([]);
+        }
+      } catch (error) {
+        console.error("Error loading prescriptions:", error);
         setPrescriptions([]);
+      } finally {
+        setLoadingPrescriptions(false);
       }
-    } catch (error) {
-      console.error("Error loading prescriptions:", error);
-      setPrescriptions([]);
-    } finally {
-      setLoadingPrescriptions(false);
-    }
-  }, [workspaceid, patient.patientid, prescriptions.length]);
+    },
+    [workspaceid, patient.patientid, prescriptions.length]
+  );
 
   // Handle tab changes and lazy load data
   const handleTabChange = (tabValue: string) => {
-    
     if (loadedTabs.has(tabValue)) {
       return; // Already loaded
     }
 
-    setLoadedTabs(prev => new Set(prev).add(tabValue));
+    setLoadedTabs((prev) => new Set(prev).add(tabValue));
 
     // Load data based on tab
     switch (tabValue) {
@@ -286,7 +292,7 @@ export default function PatientDashboard({
   const loadVitalSigns = useCallback(
     async (reset = true) => {
       try {
-       if (reset) {
+        if (reset) {
           setLoadingVitalSigns(true);
           vitalsOffsetRef.current = 0;
         } else {
@@ -315,9 +321,9 @@ export default function PatientDashboard({
           }
           setVitalsHasMore(data.hasMore || false);
         } else {
-          console.error('Failed to load vital signs, status:', res.status);
+          console.error("Failed to load vital signs, status:", res.status);
           const errorText = await res.text();
-          console.error('Error response:', errorText);
+          console.error("Error response:", errorText);
         }
       } catch (e) {
         console.error("Failed to load vital signs:", e);
@@ -331,7 +337,6 @@ export default function PatientDashboard({
     },
     [workspaceid, patient.patientid]
   );
-
 
   const loadDiagnoses = useCallback(
     async (reset = true) => {
@@ -355,28 +360,28 @@ export default function PatientDashboard({
 
         if (res.ok) {
           const data = await res.json();
-         if (reset) {
+          if (reset) {
             setDiagnoses(data.diagnoses || []);
             diagnosesOffsetRef.current = data.diagnoses?.length || 0;
             hasLoadedDiagnoses.current = true; // Mark as loaded
-            
+
             // Cache the data in sessionStorage
-            sessionStorage.setItem(DIAGNOSES_CACHE_KEY, JSON.stringify({
-              diagnoses: data.diagnoses || [],
-              hasMore: data.hasMore || false
-            }));
+            sessionStorage.setItem(
+              DIAGNOSES_CACHE_KEY,
+              JSON.stringify({
+                diagnoses: data.diagnoses || [],
+                hasMore: data.hasMore || false,
+              })
+            );
           } else {
-            setDiagnoses((prev) => [
-              ...prev,
-              ...(data.diagnoses || []),
-            ]);
+            setDiagnoses((prev) => [...prev, ...(data.diagnoses || [])]);
             diagnosesOffsetRef.current += data.diagnoses?.length || 0;
           }
           setDiagnosesHasMore(data.hasMore || false);
         } else {
-          console.error('Failed to load diagnoses, status:', res.status);
+          console.error("Failed to load diagnoses, status:", res.status);
           const errorText = await res.text();
-          console.error('Error response:', errorText);
+          console.error("Error response:", errorText);
         }
       } catch (e) {
         console.error("Failed to load diagnoses:", e);
@@ -390,10 +395,6 @@ export default function PatientDashboard({
     },
     [workspaceid, patient.patientid, DIAGNOSES_CACHE_KEY]
   );
-
-
-
-
 
   const loadImaging = useCallback(async () => {
     try {
@@ -415,9 +416,6 @@ export default function PatientDashboard({
     }
   }, [workspaceid, patient.patientid]);
 
-
-
-
   // Load essential data on mount for dashboard view only
   useEffect(() => {
     // Only load data needed for the default "dashboard" tab
@@ -425,12 +423,7 @@ export default function PatientDashboard({
     loadVitalSigns();
     loadImaging();
     loadDiagnoses();
-  }, [
-    loadAppointments,
-    loadVitalSigns,
-    loadImaging,
-    loadDiagnoses,
-  ]);
+  }, [loadAppointments, loadVitalSigns, loadImaging, loadDiagnoses]);
 
   return (
     <div className="space-y-2 pt-0">
@@ -442,8 +435,8 @@ export default function PatientDashboard({
               variant="outline"
               size="icon"
               aria-label="Back to Doctor Dashboard"
-               className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-          >
+              className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
+            >
               <Home className="h-4 w-4" />
             </Button>
           </Link>
@@ -453,7 +446,7 @@ export default function PatientDashboard({
           <div className="flex gap-8">
             {/* Left column: Patient name */}
             <div className="flex flex-col justify-center">
-              {(patient.nationalid || patient.phone || patient.email) ? (
+              {patient.nationalid || patient.phone || patient.email ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="font-semibold leading-tight truncate cursor-pointer">
@@ -464,19 +457,30 @@ export default function PatientDashboard({
                     <div className="space-y-1">
                       {patient.nationalid && (
                         <div>
-                          <span className="font-medium">National ID:</span> {patient.nationalid}
+                          <span className="font-medium">National ID:</span>{" "}
+                          {patient.nationalid}
                         </div>
                       )}
                       {patient.phone && (
                         <div>
-                          <span className="font-medium">Phone:</span> 
-                          <a href={`tel:${patient.phone}`} className="hover:underline ml-1">{patient.phone}</a>
+                          <span className="font-medium">Phone:</span>
+                          <a
+                            href={`tel:${patient.phone}`}
+                            className="hover:underline ml-1"
+                          >
+                            {patient.phone}
+                          </a>
                         </div>
                       )}
                       {patient.email && (
                         <div>
-                          <span className="font-medium">Email:</span> 
-                          <a href={`mailto:${patient.email}`} className="hover:underline ml-1">{patient.email}</a>
+                          <span className="font-medium">Email:</span>
+                          <a
+                            href={`mailto:${patient.email}`}
+                            className="hover:underline ml-1"
+                          >
+                            {patient.email}
+                          </a>
                         </div>
                       )}
                     </div>
@@ -488,17 +492,26 @@ export default function PatientDashboard({
                 </div>
               )}
             </div>
-            
+
             {/* Right column: Demographics */}
             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
               <span>
-                Age: <span className="font-medium text-foreground">{age !== null ? `${age} years` : "N/A"}</span>
+                Age:{" "}
+                <span className="font-medium text-foreground">
+                  {age !== null ? `${age} years` : "N/A"}
+                </span>
               </span>
               <span>
-                Gender: <span className="font-medium text-foreground capitalize">{patient.gender || "N/A"}</span>
+                Gender:{" "}
+                <span className="font-medium text-foreground capitalize">
+                  {patient.gender || "N/A"}
+                </span>
               </span>
               <span>
-                Blood Group: <span className="font-medium text-foreground">{patient.bloodgroup || "N/A"}</span>
+                Blood Group:{" "}
+                <span className="font-medium text-foreground">
+                  {patient.bloodgroup || "N/A"}
+                </span>
               </span>
             </div>
           </div>
@@ -512,324 +525,323 @@ export default function PatientDashboard({
           className="w-full"
           onValueChange={handleTabChange}
         >
-        <TabsList className="flex w-full overflow-x-auto space-x-1">
-  <TabsTrigger
-    value="dashboard"
-    className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-  >
-    Dashboard
-  </TabsTrigger>
+          <TabsList className="flex w-full overflow-x-auto space-x-1">
+            <TabsTrigger
+              value="dashboard"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Dashboard
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="vitalsigns"
-    className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-  >
-    Vitals
-  </TabsTrigger>
+            <TabsTrigger
+              value="vitalsigns"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Vitals
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="diagnostics"
-   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Diagnoses
-  </TabsTrigger>
+            <TabsTrigger
+              value="diagnostics"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Diagnoses
+            </TabsTrigger>
 
+            <TabsTrigger
+              value="testorders"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Orders
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="testorders"
-   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-  >
-    Orders
-  </TabsTrigger>
+            <TabsTrigger
+              value="lab"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Results
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="lab"
-   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-Results
-  </TabsTrigger>
+            <TabsTrigger
+              value="prescriptions"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Meds
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="prescriptions"
-   className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Meds
-  </TabsTrigger>
+            <TabsTrigger
+              value="careplans"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Care Plans
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="careplans"
- className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Care Plans
-  </TabsTrigger>
+            <TabsTrigger
+              value="referrals"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Referrals
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="referrals"
- className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Referrals
-  </TabsTrigger>
+            <TabsTrigger
+              value="vaccinations"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Vaccines
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="vaccinations"
- className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Vaccines
-  </TabsTrigger>
+            <TabsTrigger
+              value="notes"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Notes
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="notes"
- className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Notes
-  </TabsTrigger>
+            <TabsTrigger
+              value="appointments"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Appointments
+            </TabsTrigger>
 
-  <TabsTrigger
-    value="appointments"
- className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Appointments
-  </TabsTrigger>
+            <TabsTrigger
+              value="imaging"
+              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#336699] text-white border-[0.5px] border-gray-400 font-bold"
+            >
+              Imaging
+            </TabsTrigger>
+          </TabsList>
 
-  <TabsTrigger
-    value="imaging"
- className="rounded-md data-[state=active]:bg-card-hover data-[state=active]:text-card-text bg-card-bg text-card-smtext border-[0.5px] border-gray-400 font-bold"
-   >
-    Imaging
-  </TabsTrigger>
-</TabsList>
-
-
-        {/* Dashboard Tab */}
-        <TabsContent value="dashboard" className="space-y-4 mt-4">
-          <DashboardTypes.DashboardTab
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-            appointments={appointments}
-            vitalSigns={vitalSignsRecords}
-            diagnoses={diagnoses}
-            labs={[] as DashboardTypes.LabRecord[]} // Empty array for labs
-            imaging={[] as DashboardTypes.ImagingRecord[]} // Empty array for imaging  
-            carePlans={[] as DashboardTypes.CarePlanRecord[]} // Empty array for care plans
-            loadingVitalSigns={loadingVitalSigns}
-            loadingDiagnoses={loadingDiagnoses}
-            loadingLabs={false} // No loading state for lab results
-            loadingImaging={loadingImaging}
-            loadingCarePlans={false} // No loading state for care plans
-          />
-        </TabsContent>
-
-        {/* Appointments Tab */}
-        <TabsContent value="appointments" className="space-y-4">
-          <AppointmentsTab
-            appointments={appointments}
-            loading={loading}
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-            onAppointmentAdded={loadAppointments}
-          />
-        </TabsContent>
-
-        {/* Vital Signs Tab - openEHR Compliant */}
-        <TabsContent value="vitalsigns" className="space-y-4">
-          <VitalSignsTab
-            vitalSignsRecords={vitalSignsRecords}
-            loadingVitalSigns={loadingVitalSigns}
-            loadingMoreVitals={loadingMoreVitals}
-            showVitalSignsForm={showVitalSignsForm}
-            setShowVitalSignsForm={setShowVitalSignsForm}
-            loadVitalSigns={loadVitalSigns}
-            vitalsHasMore={vitalsHasMore}
-            vitalSignsForm={vitalSignsForm}
-            setVitalSignsForm={setVitalSignsForm}
-            workspaceid={workspaceid}
-            patient={patient}
-          />
-        </TabsContent>
-
-        {/* Vaccinations Tab - Now using VaccinationsTab component */}
-        <TabsContent value="vaccinations" className="space-y-4">
-          {loadedTabs.has("vaccinations") && (
-            <VaccinationsTab
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-4 mt-4">
+            <DashboardTypes.DashboardTab
               workspaceid={workspaceid}
               patientid={patient.patientid}
+              appointments={appointments}
+              vitalSigns={vitalSignsRecords}
+              diagnoses={diagnoses}
+              labs={[] as DashboardTypes.LabRecord[]} // Empty array for labs
+              imaging={[] as DashboardTypes.ImagingRecord[]} // Empty array for imaging
+              carePlans={[] as DashboardTypes.CarePlanRecord[]} // Empty array for care plans
+              loadingVitalSigns={loadingVitalSigns}
+              loadingDiagnoses={loadingDiagnoses}
+              loadingLabs={false} // No loading state for lab results
+              loadingImaging={loadingImaging}
+              loadingCarePlans={false} // No loading state for care plans
             />
-          )}
-        </TabsContent>
+          </TabsContent>
 
-        {/* Referrals Tab - Now using ReferralsTab component */}
-        <TabsContent value="referrals" className="space-y-4">
-          {loadedTabs.has("referrals") && (
-            <ReferralsTab
+          {/* Appointments Tab */}
+          <TabsContent value="appointments" className="space-y-4">
+            <AppointmentsTab
+              appointments={appointments}
+              loading={loading}
               workspaceid={workspaceid}
               patientid={patient.patientid}
+              onAppointmentAdded={loadAppointments}
             />
-          )}
-        </TabsContent>
+          </TabsContent>
 
-        {/* Diagnostics Tab - Based on openEHR Problem/Diagnosis */}
-        <TabsContent value="diagnostics" className="space-y-4">
-          <DiagnosticsTab
-            diagnoses={diagnoses}
-            loadingDiagnoses={loadingDiagnoses}
-            loadingMoreDiagnoses={loadingMoreDiagnoses}
-            loadDiagnoses={loadDiagnoses}
-            diagnosesHasMore={diagnosesHasMore}
-            selectedDiagnosis={selectedDiagnosis}
-            setSelectedDiagnosis={setSelectedDiagnosis}
-            showDiagnosisDetails={showDiagnosisDetails}
-            setShowDiagnosisDetails={setShowDiagnosisDetails}
-            workspaceid={workspaceid}
-            patientid={patient.patientid}
-            patient={patient}
-          />
-        </TabsContent>
+          {/* Vital Signs Tab - openEHR Compliant */}
+          <TabsContent value="vitalsigns" className="space-y-4">
+            <VitalSignsTab
+              vitalSignsRecords={vitalSignsRecords}
+              loadingVitalSigns={loadingVitalSigns}
+              loadingMoreVitals={loadingMoreVitals}
+              showVitalSignsForm={showVitalSignsForm}
+              setShowVitalSignsForm={setShowVitalSignsForm}
+              loadVitalSigns={loadVitalSigns}
+              vitalsHasMore={vitalsHasMore}
+              vitalSignsForm={vitalSignsForm}
+              setVitalSignsForm={setVitalSignsForm}
+              workspaceid={workspaceid}
+              patient={patient}
+            />
+          </TabsContent>
 
+          {/* Vaccinations Tab - Now using VaccinationsTab component */}
+          <TabsContent value="vaccinations" className="space-y-4">
+            {loadedTabs.has("vaccinations") && (
+              <VaccinationsTab
+                workspaceid={workspaceid}
+                patientid={patient.patientid}
+              />
+            )}
+          </TabsContent>
 
-        {/* Lab Results Tab - Now using LabsTab component */}
-        <TabsContent value="lab" className="space-y-4">
-          {loadedTabs.has("lab") && (
-            <LabsTab
+          {/* Referrals Tab - Now using ReferralsTab component */}
+          <TabsContent value="referrals" className="space-y-4">
+            {loadedTabs.has("referrals") && (
+              <ReferralsTab
+                workspaceid={workspaceid}
+                patientid={patient.patientid}
+              />
+            )}
+          </TabsContent>
+
+          {/* Diagnostics Tab - Based on openEHR Problem/Diagnosis */}
+          <TabsContent value="diagnostics" className="space-y-4">
+            <DiagnosticsTab
+              diagnoses={diagnoses}
+              loadingDiagnoses={loadingDiagnoses}
+              loadingMoreDiagnoses={loadingMoreDiagnoses}
+              loadDiagnoses={loadDiagnoses}
+              diagnosesHasMore={diagnosesHasMore}
+              selectedDiagnosis={selectedDiagnosis}
+              setSelectedDiagnosis={setSelectedDiagnosis}
+              showDiagnosisDetails={showDiagnosisDetails}
+              setShowDiagnosisDetails={setShowDiagnosisDetails}
               workspaceid={workspaceid}
               patientid={patient.patientid}
+              patient={patient}
             />
-          )}
-        </TabsContent>
+          </TabsContent>
 
-        {/* Prescriptions Tab - Now using MedsTab component */}
-        <TabsContent value="prescriptions" className="space-y-4">
-          {loadedTabs.has("prescriptions") && (
-            <MedsTab
-              workspaceid={workspaceid}
-              patientid={patient.patientid}
-              prescriptions={prescriptions}
-              loadingPrescriptions={loadingPrescriptions}
-              loadPrescriptions={() => loadPrescriptions(true)}
-            />
-          )}
-        </TabsContent>
+          {/* Lab Results Tab - Now using LabsTab component */}
+          <TabsContent value="lab" className="space-y-4">
+            {loadedTabs.has("lab") && (
+              <LabsTab
+                workspaceid={workspaceid}
+                patientid={patient.patientid}
+              />
+            )}
+          </TabsContent>
 
-        {/* Vitals Card Tab - Moved from top to card */}
-        <TabsContent value="vitalscard" className="space-y-4">
-          <div className="bg-white rounded-lg border p-6">
-            <h3 className="text-lg font-semibold mb-4">Latest Vital Signs</h3>
-            {vitalSignsRecords.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No vital signs recorded yet.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {vitalSignsRecords[0].systolic &&
-                  vitalSignsRecords[0].diastolic && (
+          {/* Prescriptions Tab - Now using MedsTab component */}
+          <TabsContent value="prescriptions" className="space-y-4">
+            {loadedTabs.has("prescriptions") && (
+              <MedsTab
+                workspaceid={workspaceid}
+                patientid={patient.patientid}
+                prescriptions={prescriptions}
+                loadingPrescriptions={loadingPrescriptions}
+                loadPrescriptions={() => loadPrescriptions(true)}
+              />
+            )}
+          </TabsContent>
+
+          {/* Vitals Card Tab - Moved from top to card */}
+          <TabsContent value="vitalscard" className="space-y-4">
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="text-lg font-semibold mb-4">Latest Vital Signs</h3>
+              {vitalSignsRecords.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No vital signs recorded yet.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {vitalSignsRecords[0].systolic &&
+                    vitalSignsRecords[0].diastolic && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="text-xs text-muted-foreground mb-1">
+                          Blood Pressure
+                        </div>
+                        <div className="text-xl font-semibold text-gray-900">
+                          {vitalSignsRecords[0].systolic}/
+                          {vitalSignsRecords[0].diastolic}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          mmHg
+                        </div>
+                      </div>
+                    )}
+                  {vitalSignsRecords[0].heart_rate && (
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="text-xs text-muted-foreground mb-1">
-                        Blood Pressure
+                        Heart Rate
                       </div>
                       <div className="text-xl font-semibold text-gray-900">
-                        {vitalSignsRecords[0].systolic}/
-                        {vitalSignsRecords[0].diastolic}
+                        {vitalSignsRecords[0].heart_rate}
                       </div>
-                      <div className="text-xs text-muted-foreground">mmHg</div>
+                      <div className="text-xs text-muted-foreground">bpm</div>
                     </div>
                   )}
-                {vitalSignsRecords[0].heart_rate && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Heart Rate
+                  {vitalSignsRecords[0].temperature && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Temperature
+                      </div>
+                      <div className="text-xl font-semibold text-gray-900">
+                        {vitalSignsRecords[0].temperature}
+                      </div>
+                      <div className="text-xs text-muted-foreground">°C</div>
                     </div>
-                    <div className="text-xl font-semibold text-gray-900">
-                      {vitalSignsRecords[0].heart_rate}
+                  )}
+                  {vitalSignsRecords[0].spo2 && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="text-xs text-muted-foreground mb-1">
+                        SpO2
+                      </div>
+                      <div className="text-xl font-semibold text-gray-900">
+                        {vitalSignsRecords[0].spo2}
+                      </div>
+                      <div className="text-xs text-muted-foreground">%</div>
                     </div>
-                    <div className="text-xs text-muted-foreground">bpm</div>
-                  </div>
-                )}
-                {vitalSignsRecords[0].temperature && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Temperature
-                    </div>
-                    <div className="text-xl font-semibold text-gray-900">
-                      {vitalSignsRecords[0].temperature}
-                    </div>
-                    <div className="text-xs text-muted-foreground">°C</div>
-                  </div>
-                )}
-                {vitalSignsRecords[0].spo2 && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-xs text-muted-foreground mb-1">SpO2</div>
-                    <div className="text-xl font-semibold text-gray-900">
-                      {vitalSignsRecords[0].spo2}
-                    </div>
-                    <div className="text-xs text-muted-foreground">%</div>
-                  </div>
-                )}
+                  )}
+                </div>
+              )}
+              <div className="mt-6">
+                <VitalSignsTab
+                  vitalSignsRecords={vitalSignsRecords}
+                  loadingVitalSigns={loadingVitalSigns}
+                  loadingMoreVitals={loadingMoreVitals}
+                  showVitalSignsForm={showVitalSignsForm}
+                  setShowVitalSignsForm={setShowVitalSignsForm}
+                  loadVitalSigns={loadVitalSigns}
+                  vitalsHasMore={vitalsHasMore}
+                  vitalSignsForm={vitalSignsForm}
+                  setVitalSignsForm={setVitalSignsForm}
+                  workspaceid={workspaceid}
+                  patient={patient}
+                />
               </div>
-            )}
-            <div className="mt-6">
-              <VitalSignsTab
-                vitalSignsRecords={vitalSignsRecords}
-                loadingVitalSigns={loadingVitalSigns}
-                loadingMoreVitals={loadingMoreVitals}
-                showVitalSignsForm={showVitalSignsForm}
-                setShowVitalSignsForm={setShowVitalSignsForm}
-                loadVitalSigns={loadVitalSigns}
-                vitalsHasMore={vitalsHasMore}
-                vitalSignsForm={vitalSignsForm}
-                setVitalSignsForm={setVitalSignsForm}
-                workspaceid={workspaceid}
-                patient={patient}
-              />
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        {/* Test Orders Tab - Enhanced with packages and lab selection */}
-        <TabsContent value="testorders" className="space-y-4">
-          {loadedTabs.has("testorders") && (
-            <EnhancedOrdersTab
+          {/* Test Orders Tab - Enhanced with packages and lab selection */}
+          <TabsContent value="testorders" className="space-y-4">
+            {loadedTabs.has("testorders") && (
+              <EnhancedOrdersTab
+                workspaceid={workspaceid}
+                patientid={patient.patientid}
+              />
+            )}
+          </TabsContent>
+
+          {/* Imaging Tab - openEHR Compliant */}
+          <TabsContent value="imaging" className="space-y-4">
+            <ImagingTab
+              imagingRequests={imagingRequests}
+              imagingResults={imagingResults}
+              loadingImaging={loadingImaging}
+              showImagingRequestForm={showImagingRequestForm}
+              setShowImagingRequestForm={setShowImagingRequestForm}
+              loadImaging={loadImaging}
               workspaceid={workspaceid}
-              patientid={patient.patientid}
+              patient={patient}
+              fullName={fullName}
             />
-          )}
-        </TabsContent>
+          </TabsContent>
 
-        
-        {/* Imaging Tab - openEHR Compliant */}
-        <TabsContent value="imaging" className="space-y-4">
-          <ImagingTab
-            imagingRequests={imagingRequests}
-            imagingResults={imagingResults}
-            loadingImaging={loadingImaging}
-            showImagingRequestForm={showImagingRequestForm}
-            setShowImagingRequestForm={setShowImagingRequestForm}
-            loadImaging={loadImaging}
-            workspaceid={workspaceid}
-            patient={patient}
-            fullName={fullName}
-          />
-        </TabsContent>
+          {/* Care Plans Tab - Now using CarePlansTab component */}
+          <TabsContent value="careplans" className="space-y-4">
+            {loadedTabs.has("careplans") && (
+              <CarePlansTab
+                workspaceid={workspaceid}
+                patientid={patient.patientid}
+              />
+            )}
+          </TabsContent>
 
-        {/* Care Plans Tab - Now using CarePlansTab component */}
-        <TabsContent value="careplans" className="space-y-4">
-          {loadedTabs.has("careplans") && (
-            <CarePlansTab
-              workspaceid={workspaceid}
-              patientid={patient.patientid}
-            />
-          )}
-        </TabsContent>
-
-        {/* Notes Tab - Now using NotesTab component */}
-        <TabsContent value="notes" className="space-y-4">
-          {loadedTabs.has("notes") && (
-            <NotesTab
-              workspaceid={workspaceid}
-              patientid={patient.patientid}
-            />
-          )}
-        </TabsContent>
-
-      </Tabs>
+          {/* Notes Tab - Now using NotesTab component */}
+          <TabsContent value="notes" className="space-y-4">
+            {loadedTabs.has("notes") && (
+              <NotesTab
+                workspaceid={workspaceid}
+                patientid={patient.patientid}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

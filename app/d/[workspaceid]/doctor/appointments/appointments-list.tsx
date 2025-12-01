@@ -129,8 +129,8 @@ export default function AppointmentsList({
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "all"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+              ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("all")}
@@ -142,8 +142,8 @@ export default function AppointmentsList({
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "today"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+              ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("today")}
@@ -155,8 +155,8 @@ export default function AppointmentsList({
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "upcoming"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+              ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("upcoming")}
@@ -168,8 +168,8 @@ export default function AppointmentsList({
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "past"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+              ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("past")}

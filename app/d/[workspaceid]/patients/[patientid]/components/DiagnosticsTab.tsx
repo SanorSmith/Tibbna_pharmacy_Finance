@@ -88,6 +88,7 @@ export function DiagnosticsTab({
                   onClick={() => loadDiagnoses(false)}
                   disabled={loadingMoreDiagnoses}
                   variant="outline"
+                  size="sm"
                   className="bg-orange-500 hover:bg-orange-600 text-white border-none flex items-center gap-2"
                 >
                   {loadingMoreDiagnoses ? (
