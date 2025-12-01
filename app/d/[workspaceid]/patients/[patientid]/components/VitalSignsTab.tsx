@@ -95,7 +95,7 @@ export function VitalSignsTab({
                   onClick={() => loadVitalSigns(false)}
                   disabled={loadingMoreVitals}
                   variant="outline"
-                  className="bg-orange-400 hover:bg-orange-500 text-white border-none flex items-center gap-1 text-xs"
+                  className="bg-orange-500 hover:bg-orange-600 hover:text-white text-white border-none flex items-center gap-1 text-xs"
                 >
                   {loadingMoreVitals ? (
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>

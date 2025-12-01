@@ -73,33 +73,21 @@ export default function NotificationsList({ workspaceid }: Notification) {
     },
   });
 
-  // Fetch all referrals for all patients
+  // Fetch all referrals for all patients in bulk
   const { data: allReferrals = [], isLoading: loadingReferrals } = useQuery({
     queryKey: ["referrals", workspaceid],
     queryFn: async (): Promise<EnhancedReferralRecord[]> => {
-      const referrals: EnhancedReferralRecord[] = [];
-      
-      // Fetch referrals for each patient
-      for (const patient of allPatients) {
-        try {
-          const res = await fetch(`/api/d/${workspaceid}/patients/${patient.patientid}/referrals`);
-          if (res.ok) {
-            const data = await res.json();
-            const patientReferrals = (data.referrals as ReferralRecord[]) || [];
-            // Add patient info to each referral
-            referrals.push(...patientReferrals.map(referral => ({
-              ...referral,
-              patientid: patient.patientid,
-              patientName: `${patient.firstname} ${patient.lastname}`,
-              patientNationalId: patient.nationalid || patient.patientid,
-            })));
-          }
-        } catch (error) {
-          console.error(`Error fetching referrals for patient ${patient.patientid}:`, error);
+      try {
+        const res = await fetch(`/api/d/${workspaceid}/referrals`);
+        if (res.ok) {
+          const data = await res.json();
+          return (data.referrals as EnhancedReferralRecord[]) || [];
         }
+        return [];
+      } catch (error) {
+        console.error("Error fetching bulk referrals:", error);
+        return [];
       }
-      
-      return referrals;
     },
     enabled: allPatients.length > 0,
   });

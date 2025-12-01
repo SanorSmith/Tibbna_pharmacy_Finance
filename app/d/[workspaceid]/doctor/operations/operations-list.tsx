@@ -165,8 +165,8 @@ export default function OperationsList({ workspaceid, userid }: Props) {
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "all"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+               ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("all")}
@@ -178,8 +178,8 @@ export default function OperationsList({ workspaceid, userid }: Props) {
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "scheduled"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+              ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("scheduled")}
@@ -191,8 +191,8 @@ export default function OperationsList({ workspaceid, userid }: Props) {
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "in_progress"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+               ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("in_progress")}
@@ -204,8 +204,8 @@ export default function OperationsList({ workspaceid, userid }: Props) {
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "completed"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+               ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("completed")}
@@ -217,8 +217,8 @@ export default function OperationsList({ workspaceid, userid }: Props) {
         <Button
           className={`rounded-md font-bold border-[0.5px] border-gray-400 ${
             filter === "cancelled"
-              ? "bg-card-hover text-card-text"
-              : "bg-card-bg text-card-smtext"
+               ? "bg-orange-400 text-white"
+              : "bg-[#336699] text-white"
           }`}
           size="sm"
           onClick={() => setFilter("cancelled")}
