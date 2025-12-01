@@ -5,17 +5,26 @@
  */
 import { Header } from "@/components/sidebar/header";
 import RolesTable from "./roles-table";
+import { getUser } from "@/lib/user";
+import { getUserWorkspaces } from "@/lib/db/queries/workspace";
+import { redirect } from "next/navigation";
 
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
 }
 
 export default async function StaffRolesPage({ params }: PageProps) {
+  const user = await getUser();
+  if (!user) redirect("/");
+  
   const { workspaceid } = await params;
+  const workspaces = await getUserWorkspaces(user.userid);
+  const membership = workspaces.find((w) => w.workspace.workspaceid === workspaceid);
+  if (!membership) redirect("/d/empty");
 
   return (
     <>
-      <Header />
+      <Header userRole={membership.role} />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <div>

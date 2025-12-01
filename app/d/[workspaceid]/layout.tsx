@@ -50,6 +50,7 @@ export default async function HomeLayout({
                   <NavUser user={user} roleLabel={roleLabel} />
                 </>
               }
+              userRole={workspace.role}
             />
             {children}
           </SidebarInset>
