@@ -553,8 +553,15 @@ export async function PUT(
 
     // Update composition in OpenEHR
     // Note: This EHRbase instance does not support direct PUT updates (501 Not Implemented).
-    // Strategy: create a NEW composition with the updated diagnosis data, then delete the old one
-    // to avoid duplicates in the diagnosis list.
+    // Strategy: create a NEW composition with the updated diagnosis data and mark the old one as superseded
+    // This preserves history/version control for diagnoses
+    
+    // Add superseded reference in the new composition to link to the old version
+    compositionData["template_clinical_encounter_v1/problem_diagnosis/comment"] = 
+      compositionData["template_clinical_encounter_v1/problem_diagnosis/comment"]
+        ? `${compositionData["template_clinical_encounter_v1/problem_diagnosis/comment"]} | Supersedes: ${composition_uid}`
+        : `Supersedes: ${composition_uid}`;
+
     try {
       const newCompositionUid = await createOpenEHRComposition(
         ehrId,
@@ -562,19 +569,15 @@ export async function PUT(
         compositionData
       );
 
-      // Delete the old composition to prevent duplicates
-      try {
-        await deleteOpenEHRComposition(ehrId, composition_uid);
-        console.log(`Deleted old composition: ${composition_uid}`);
-      } catch (deleteError) {
-        console.error("Failed to delete old composition:", deleteError);
-        // Continue anyway - the new composition was created successfully
-      }
+      // Note: Old composition is preserved for history/version control
+      // It will be filtered out from the main diagnosis list by checking for newer versions
+      console.log(`Created new version of diagnosis. Old composition ${composition_uid} preserved for history.`);
 
       return NextResponse.json({
         success: true,
         composition_uid: newCompositionUid,
-        message: "Diagnosis updated successfully in OpenEHR",
+        old_composition_uid: composition_uid,
+        message: "Diagnosis updated successfully in OpenEHR (previous version preserved)",
       });
     } catch (ehrError: unknown) {
       const err = ehrError as {
