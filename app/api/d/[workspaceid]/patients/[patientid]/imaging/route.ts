@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
-
-// In-memory storage for imaging requests and results (dummy data)
-// In production, this would be stored in EHRbase or a database
+import { db } from "@/lib/db";
+import { patients } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import {
+  getOpenEHREHRBySubjectId,
+  createRadiologyReport,
+  listRadiologyReports,
+  getRadiologyReport,
+  type RadiologyReportComposition,
+} from "@/lib/openehr";
 
 // Imaging Request (openEHR: INSTRUCTION.imaging_exam_request)
 interface ImagingRequest {
@@ -62,9 +69,8 @@ interface ImagingResult {
   result_status: string; // preliminary, final, amended
 }
 
-// Initialize with dummy data for demonstration
+// Dummy data for demonstration (will be replaced by openEHR data)
 const imagingRequestStore: Record<string, ImagingRequest[]> = {
-  // Sample patient ID with dummy imaging requests
   "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
     {
       composition_uid: "imaging-request-1731847200000-xray001",
@@ -337,7 +343,7 @@ RECOMMENDATION: Clinical correlation. Consider orthopedic consultation for manag
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/imaging
- * Retrieve imaging requests and results for a patient
+ * Retrieve imaging requests and results for a patient from OpenEHR
  */
 export async function GET(
   request: NextRequest,
@@ -366,9 +372,69 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get imaging data from in-memory store
-    const requests = imagingRequestStore[patientid] || [];
-    const results = imagingResultStore[patientid] || [];
+    // Fetch patient to get National ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
+
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // Find EHR by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
+    }
+
+    if (!ehrId) {
+      return NextResponse.json({ 
+        requests: [],
+        results: []
+      }, { status: 200 });
+    }
+
+    // Get radiology reports from openEHR
+    const reportList = await listRadiologyReports(ehrId);
+
+    // Fetch full details for each report
+    const results: ImagingResult[] = await Promise.all(
+      reportList.map(async (item) => {
+        const composition = await getRadiologyReport(ehrId, item.composition_uid);
+        
+        // Extract data from the composition
+        const studyName = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/study_name"] || "";
+        const bodySite = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/target_body_site"] || "";
+        const findings = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/imaging_findings"] || "";
+        const impression = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/overall_impression"] || "";
+        const clinicalSummary = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/clinical_summary"] || "";
+        const status = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|value"] || "final";
+        const comment = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/comment:0"] || "";
+
+        return {
+          composition_uid: item.composition_uid,
+          recorded_time: item.start_time,
+          examination_name: studyName,
+          body_site: bodySite,
+          imaging_findings: findings,
+          impression: impression,
+          additional_details: clinicalSummary,
+          comment: comment,
+          reported_by: composition["template_radiology_report_v1/composer|name"] || "Unknown",
+          report_date: item.start_time,
+          result_status: status.toLowerCase(),
+        };
+      })
+    );
+
+    // For now, requests are empty as we're using radiology reports
+    // In future, we can add separate imaging request tracking
+    const requests: ImagingRequest[] = [];
 
     return NextResponse.json({ 
       requests,
@@ -385,7 +451,7 @@ export async function GET(
 
 /**
  * POST /api/d/[workspaceid]/patients/[patientid]/imaging
- * Create a new imaging request or result
+ * Create a new imaging request in OpenEHR as a radiology report
  */
 export async function POST(
   request: NextRequest,
@@ -418,75 +484,101 @@ export async function POST(
     const { type, data } = body; // type: 'request' or 'result'
 
     if (type === 'request') {
-      // Create imaging request
-      const imagingRequest: ImagingRequest = {
-        composition_uid: `imaging-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        recorded_time: new Date().toISOString(),
-        request_name: data.requestName,
-        description: data.description,
-        clinical_indication: data.clinicalIndication,
-        urgency: data.urgency || "routine",
-        supporting_doc_image: data.supportingDocImage,
-        patient_requirement: data.patientRequirement,
-        comment: data.comment,
-        target_body_site: data.targetBodySite,
-        structured_target_body_site: data.structuredTargetBodySite,
-        contrast_use: data.contrastUse,
-        requested_by: user.name || user.email,
-        request_status: "requested",
+      // Fetch patient to get National ID
+      const [patient] = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.patientid, patientid))
+        .limit(1);
+
+      if (!patient) {
+        return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+      }
+
+      // Find EHR by National ID or patient UUID
+      let ehrId: string | null = null;
+      if (patient.nationalid) {
+        ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+      }
+      if (!ehrId) {
+        ehrId = await getOpenEHREHRBySubjectId(patientid);
+      }
+
+      if (!ehrId) {
+        return NextResponse.json(
+          { error: "No EHR found for this patient" },
+          { status: 404 }
+        );
+      }
+
+      const now = new Date().toISOString();
+
+      // Map urgency to status
+      const statusMap: Record<string, string> = {
+        routine: "at0166",
+        urgent: "at0167",
+        emergency: "at0167",
       };
 
-      // Store in memory
-      if (!imagingRequestStore[patientid]) {
-        imagingRequestStore[patientid] = [];
-      }
-      imagingRequestStore[patientid].unshift(imagingRequest);
+      // Create radiology report composition for the imaging request
+      const composition: RadiologyReportComposition = {
+        // Language / territory / composer
+        "template_radiology_report_v1/language|code": "en",
+        "template_radiology_report_v1/language|terminology": "ISO_639-1",
+        "template_radiology_report_v1/territory|code": "US",
+        "template_radiology_report_v1/territory|terminology": "ISO_3166-1",
+        "template_radiology_report_v1/composer|name": user.name || user.email || "Unknown",
 
-      console.log("✅ Imaging request created:", imagingRequest);
+        // Category
+        "template_radiology_report_v1/category|code": "433",
+        "template_radiology_report_v1/category|terminology": "openehr",
+        "template_radiology_report_v1/category|value": "event",
+
+        // Context
+        "template_radiology_report_v1/context/start_time": now,
+        "template_radiology_report_v1/context/setting|value": "other care",
+        "template_radiology_report_v1/context/setting|code": "238",
+        "template_radiology_report_v1/context/setting|terminology": "openehr",
+        "template_radiology_report_v1/context/status": data.urgency || "routine",
+        "template_radiology_report_v1/context/report_id": `IMG-REQ-${Date.now()}`,
+
+        // Imaging Examination Result - any_event:0
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/study_name": data.requestName,
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/target_body_site": data.targetBodySite || "",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/clinical_indication": data.clinicalIndication || "",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/clinical_summary": data.description || "",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/comment:0": data.comment || "",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|code": statusMap[data.urgency] || "at0166",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|value": "Requested",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|terminology": "local",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/status_timestamp": now,
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/time": now,
+
+        // Study details
+        "template_radiology_report_v1/imaging_examination_result/study_description": data.description || "",
+        "template_radiology_report_v1/imaging_examination_result/report_identifier/identifier_value|id": `IMG-REQ-${Date.now()}`,
+
+        // Language and Encoding
+        "template_radiology_report_v1/imaging_examination_result/language|code": "en",
+        "template_radiology_report_v1/imaging_examination_result/language|terminology": "ISO_639-1",
+        "template_radiology_report_v1/imaging_examination_result/encoding|code": "UTF-8",
+        "template_radiology_report_v1/imaging_examination_result/encoding|terminology": "IANA_character-sets",
+      };
+
+      const compositionUid = await createRadiologyReport(ehrId, composition);
 
       return NextResponse.json(
         { 
           success: true,
-          message: "Imaging request created successfully",
-          record: imagingRequest
+          message: "Imaging request created successfully in OpenEHR",
+          composition_uid: compositionUid
         },
         { status: 201 }
       );
     } else if (type === 'result') {
-      // Create imaging result
-      const imagingResult: ImagingResult = {
-        composition_uid: `imaging-result-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        recorded_time: new Date().toISOString(),
-        request_uid: data.requestUid,
-        examination_name: data.examinationName,
-        body_structure: data.bodyStructure,
-        body_site: data.bodySite,
-        structured_body_site: data.structuredBodySite,
-        imaging_findings: data.imagingFindings,
-        additional_details: data.additionalDetails,
-        impression: data.impression,
-        comment: data.comment,
-        performed_by: data.performedBy,
-        reported_by: user.name || user.email,
-        report_date: new Date().toISOString(),
-        result_status: data.resultStatus || "final",
-      };
-
-      // Store in memory
-      if (!imagingResultStore[patientid]) {
-        imagingResultStore[patientid] = [];
-      }
-      imagingResultStore[patientid].unshift(imagingResult);
-
-      console.log("✅ Imaging result created:", imagingResult);
-
       return NextResponse.json(
-        { 
-          success: true,
-          message: "Imaging result created successfully",
-          record: imagingResult
-        },
-        { status: 201 }
+        { error: "Result creation not yet implemented. Use request type for now." },
+        { status: 400 }
       );
     } else {
       return NextResponse.json(
