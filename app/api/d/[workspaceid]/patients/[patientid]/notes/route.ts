@@ -77,16 +77,22 @@ export async function GET(
       noteList.map(async (item) => {
         const composition = await getClinicalNote(ehrId, item.composition_uid);
         
-        // Parse SOAP data from the protocol field
-        const protocol = composition["template_clinical_encounter_v2/clinical_synopsis/protocol"] || "";
-        const soapData = parseSOAPData(protocol);
+        // Only include compositions that start with "CLINICAL_NOTE:"
+        const problemDiagnosis = composition["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"] || "";
+        if (!problemDiagnosis.startsWith("CLINICAL_NOTE:")) {
+          return null;
+        }
+
+        // Parse SOAP data from the clinical_description field
+        const clinicalDescription = composition["template_clinical_encounter_v1/problem_diagnosis/clinical_description"] || "";
+        const soapData = parseSOAPData(clinicalDescription);
         
-        // Parse description field for additional context
-        const description = composition["template_clinical_encounter_v2/clinical_synopsis/description"] || "";
-        const descriptionParts = description.split(" | ");
-        const noteType = descriptionParts[0]?.trim() || "progress_note";
-        const noteTitle = descriptionParts[1]?.trim() || "";
-        const status = descriptionParts[2]?.trim() || "final";
+        // Parse comment field for additional context
+        const comment = composition["template_clinical_encounter_v1/problem_diagnosis/comment"] || "";
+        const commentParts = comment.split(" | ");
+        const noteType = commentParts[0]?.trim() || "progress_note";
+        const noteTitle = commentParts[1]?.trim() || "";
+        const status = commentParts[2]?.trim() || "final";
 
         return {
           composition_uid: item.composition_uid,
@@ -100,14 +106,17 @@ export async function GET(
           plan: soapData.plan || "",
           clinical_context: soapData.clinical_context || "",
           comment: soapData.comment || "",
-          author: composition["template_clinical_encounter_v2/composer|name"] || "Unknown",
+          author: composition["template_clinical_encounter_v1/composer|name"] || "Unknown",
           author_role: membership.role || "doctor",
           status: status,
         };
       })
     );
 
-    return NextResponse.json({ notes }, { status: 200 });
+    // Filter out null entries (non-clinical note compositions)
+    const filteredNotes = notes.filter((n) => n !== null);
+
+    return NextResponse.json({ notes: filteredNotes }, { status: 200 });
   } catch (error) {
     console.error("Error fetching clinical notes:", error);
     return NextResponse.json(
@@ -226,30 +235,32 @@ export async function POST(
     // Create description field with metadata
     const description = `${note.noteType || "progress_note"} | ${note.noteTitle || ""} | ${note.status || "final"}`;
 
-    // Create composition using clinical encounter v2 template with clinical_synopsis archetype
+    // Create composition using clinical encounter v1 template with CLINICAL_NOTE prefix
     const composition: ClinicalNoteComposition = {
       // Language / territory / composer
-      "template_clinical_encounter_v2/language|code": "en",
-      "template_clinical_encounter_v2/language|terminology": "ISO_639-1",
-      "template_clinical_encounter_v2/territory|code": "US",
-      "template_clinical_encounter_v2/territory|terminology": "ISO_3166-1",
-      "template_clinical_encounter_v2/composer|name": user.name || user.email || "Unknown",
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name": user.name || user.email || "Unknown",
 
       // Context
-      "template_clinical_encounter_v2/context/start_time": now,
-      "template_clinical_encounter_v2/context/setting|code": "238",
-      "template_clinical_encounter_v2/context/setting|value": "other care",
-      "template_clinical_encounter_v2/context/setting|terminology": "openehr",
+      "template_clinical_encounter_v1/context/start_time": now,
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
 
       // Category
-      "template_clinical_encounter_v2/category|code": "433",
-      "template_clinical_encounter_v2/category|value": "event",
-      "template_clinical_encounter_v2/category|terminology": "openehr",
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
 
-      // Clinical synopsis archetype fields
-      "template_clinical_encounter_v2/clinical_synopsis/data": note.synopsis,
-      "template_clinical_encounter_v2/clinical_synopsis/protocol": protocolData,
-      "template_clinical_encounter_v2/clinical_synopsis/description": description,
+      // Map clinical note fields to problem_diagnosis fields with CLINICAL_NOTE prefix
+      "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name": `CLINICAL_NOTE: ${note.noteType || "progress_note"}`,
+      "template_clinical_encounter_v1/problem_diagnosis/clinical_description": protocolData,
+      "template_clinical_encounter_v1/problem_diagnosis/variant:0": note.status || "final",
+      "template_clinical_encounter_v1/problem_diagnosis/body_site:0": note.noteTitle || "",
+      "template_clinical_encounter_v1/problem_diagnosis/comment": description,
     };
 
     const compositionUid = await createClinicalNote(ehrId, composition);

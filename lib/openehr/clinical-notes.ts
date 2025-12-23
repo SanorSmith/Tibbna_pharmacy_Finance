@@ -5,23 +5,25 @@ const basicAuth = Buffer.from(
 ).toString("base64");
 
 export interface ClinicalNoteComposition {
-  "template_clinical_encounter_v2/language|code"?: string;
-  "template_clinical_encounter_v2/language|terminology"?: string;
-  "template_clinical_encounter_v2/territory|code"?: string;
-  "template_clinical_encounter_v2/territory|terminology"?: string;
-  "template_clinical_encounter_v2/composer|name"?: string;
-  "template_clinical_encounter_v2/context/start_time"?: string;
-  "template_clinical_encounter_v2/context/setting|code"?: string;
-  "template_clinical_encounter_v2/context/setting|value"?: string;
-  "template_clinical_encounter_v2/context/setting|terminology"?: string;
-  "template_clinical_encounter_v2/category|code"?: string;
-  "template_clinical_encounter_v2/category|value"?: string;
-  "template_clinical_encounter_v2/category|terminology"?: string;
+  "template_clinical_encounter_v1/language|code"?: string;
+  "template_clinical_encounter_v1/language|terminology"?: string;
+  "template_clinical_encounter_v1/territory|code"?: string;
+  "template_clinical_encounter_v1/territory|terminology"?: string;
+  "template_clinical_encounter_v1/composer|name"?: string;
+  "template_clinical_encounter_v1/context/start_time"?: string;
+  "template_clinical_encounter_v1/context/setting|code"?: string;
+  "template_clinical_encounter_v1/context/setting|value"?: string;
+  "template_clinical_encounter_v1/context/setting|terminology"?: string;
+  "template_clinical_encounter_v1/category|code"?: string;
+  "template_clinical_encounter_v1/category|value"?: string;
+  "template_clinical_encounter_v1/category|terminology"?: string;
 
-  // Clinical synopsis archetype fields
-  "template_clinical_encounter_v2/clinical_synopsis/data"?: string;        // Synopsis (required)
-  "template_clinical_encounter_v2/clinical_synopsis/protocol"?: string;   // SOAP format data
-  "template_clinical_encounter_v2/clinical_synopsis/description"?: string; // Context and comments
+  // Use problem_diagnosis fields to store clinical note data with CLINICAL_NOTE prefix
+  "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/clinical_description"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/body_site:0"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/variant:0"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/comment"?: string;
 }
 
 export interface ClinicalNoteListItem {
@@ -46,7 +48,7 @@ export async function createClinicalNote(
       },
       params: {
         format: "FLAT",
-        templateId: "template_clinical_encounter_v2",
+        templateId: "template_clinical_encounter_v1",
       },
     });
 
@@ -64,8 +66,8 @@ export async function createClinicalNote(
 
 export async function listClinicalNotes(ehrId: string): Promise<ClinicalNoteListItem[]> {
   const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/query/aql`;
-  // Query for clinical encounters that have clinical_synopsis data
-  const query = `SELECT c/uid/value AS composition_uid, c/name/value AS composition_name, c/context/start_time/value AS start_time FROM EHR e CONTAINS COMPOSITION c CONTAINS EVALUATION eval[openEHR-EHR-EVALUATION.clinical_synopsis.v1] WHERE e/ehr_id/value = '${ehrId}' AND c/archetype_details/template_id/value = 'template_clinical_encounter_v2' ORDER BY c/context/start_time/value DESC`;
+  // Query for clinical encounters that have CLINICAL_NOTE prefix in problem_diagnosis_name
+  const query = `SELECT c/uid/value AS composition_uid, c/name/value AS composition_name, c/context/start_time/value AS start_time FROM EHR e CONTAINS COMPOSITION c CONTAINS EVALUATION eval[openEHR-EHR-EVALUATION.problem_diagnosis.v1] WHERE e/ehr_id/value = '${ehrId}' AND c/archetype_details/template_id/value = 'template_clinical_encounter_v1' AND eval/data/value LIKE 'CLINICAL_NOTE:%' ORDER BY c/context/start_time/value DESC`;
 
   const response = await axios.post(
     url,
@@ -103,8 +105,8 @@ export async function getClinicalNote(
   return response.data as ClinicalNoteComposition;
 }
 
-// Helper functions to parse SOAP data from protocol field
-export function parseSOAPData(protocol: string): {
+// Helper functions to parse SOAP data from clinical_description field
+export function parseSOAPData(clinicalDescription: string): {
   synopsis: string;
   subjective?: string;
   objective?: string;
@@ -113,7 +115,7 @@ export function parseSOAPData(protocol: string): {
   clinical_context?: string;
   comment?: string;
 } {
-  const lines = protocol.split('\n').filter(line => line.trim());
+  const lines = clinicalDescription.split('\n').filter(line => line.trim());
   
   const result: any = {
     synopsis: '',
@@ -159,7 +161,7 @@ export function parseSOAPData(protocol: string): {
   return result;
 }
 
-// Helper function to format SOAP data into protocol string
+// Helper function to format SOAP data into clinical_description string
 export function formatSOAPData(data: {
   synopsis: string;
   subjective?: string;
