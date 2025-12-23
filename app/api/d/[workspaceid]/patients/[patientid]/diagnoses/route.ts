@@ -11,6 +11,7 @@ import {
   getOpenEHRCompositions,
   getOpenEHRComposition,
   getOpenEHRDiagnoses,
+  deleteOpenEHRComposition,
 } from "@/lib/openehr/openehr";
 
 export async function GET(
@@ -173,61 +174,62 @@ export async function POST(
     }
 
     // Create composition data in FLAT format using correct template paths
+    // Using template_clinical_encounter_v1 which is known to work
     const compositionData: Record<string, unknown> = {
-      "template_clinical_encounter_v2/language|code": "en",
-      "template_clinical_encounter_v2/language|terminology": "ISO_639-1",
-      "template_clinical_encounter_v2/territory|code": "US",
-      "template_clinical_encounter_v2/territory|terminology": "ISO_3166-1",
-      "template_clinical_encounter_v2/composer|name": user.name || "Unknown",
-      "template_clinical_encounter_v2/context/start_time":
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name": user.name || "Unknown",
+      "template_clinical_encounter_v1/context/start_time":
         new Date().toISOString(),
-      "template_clinical_encounter_v2/context/setting|code": "238",
-      "template_clinical_encounter_v2/context/setting|value": "other care",
-      "template_clinical_encounter_v2/context/setting|terminology": "openehr",
-      "template_clinical_encounter_v2/category|code": "433",
-      "template_clinical_encounter_v2/category|value": "event",
-      "template_clinical_encounter_v2/category|terminology": "openehr",
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
     };
 
     // Add diagnosis to composition using correct template paths
 
     // Problem/Diagnosis Name (required)
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/problem_diagnosis_name"
+      "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"
     ] = problemDiagnosis;
 
     // Clinical Status (mapped to variant)
     if (clinicalStatus) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/variant:0"
+        "template_clinical_encounter_v1/problem_diagnosis/variant:0"
       ] = clinicalStatus;
     }
 
     // Clinical Description
     if (clinicalDescription) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/clinical_description"
+        "template_clinical_encounter_v1/problem_diagnosis/clinical_description"
       ] = clinicalDescription;
     }
 
     // Body Site
     if (bodySite) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/body_site:0"
+        "template_clinical_encounter_v1/problem_diagnosis/body_site:0"
       ] = bodySite;
     }
 
     // Date/Time of Onset
     if (dateOfOnset) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/date_time_of_onset"
+        "template_clinical_encounter_v1/problem_diagnosis/date_time_of_onset"
       ] = new Date(dateOfOnset).toISOString();
     }
 
     // Date/Time of Resolution
     if (dateOfResolution) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/date_time_of_resolution"
+        "template_clinical_encounter_v1/problem_diagnosis/date_time_of_resolution"
       ] = new Date(dateOfResolution).toISOString();
     }
 
@@ -238,22 +240,22 @@ export async function POST(
     // Comment
     if (comment) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/comment"
+        "template_clinical_encounter_v1/problem_diagnosis/comment"
       ] = comment;
     }
 
     // Set language and encoding for diagnosis
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/language|code"
+      "template_clinical_encounter_v1/problem_diagnosis/language|code"
     ] = "en";
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/language|terminology"
+      "template_clinical_encounter_v1/problem_diagnosis/language|terminology"
     ] = "ISO_639-1";
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/encoding|code"
+      "template_clinical_encounter_v1/problem_diagnosis/encoding|code"
     ] = "UTF-8";
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/encoding|terminology"
+      "template_clinical_encounter_v1/problem_diagnosis/encoding|terminology"
     ] = "IANA_character-sets";
 
     // Check if there's a recent composition with vitals that we can update
@@ -273,32 +275,32 @@ export async function POST(
         // Check if this composition has vital signs data
         const hasVitals =
           existingDetails[
-            "template_clinical_encounter_v2/vital_signs/any_event:0/body_temperature|magnitude"
+            "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"
           ] ||
           existingDetails[
-            "template_clinical_encounter_v2/vital_signs/any_event:0/systolic_blood_pressure|magnitude"
+            "template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude"
           ] ||
           existingDetails[
-            "template_clinical_encounter_v2/vital_signs/any_event:0/heart_rate|magnitude"
+            "template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"
           ];
 
         if (hasVitals) {
           // This composition has vitals, so we'll use the same timestamp and preserve vitals
           // Use the same timestamp as the existing composition to create a true unified encounter
-          compositionData["template_clinical_encounter_v2/context/start_time"] =
+          compositionData["template_clinical_encounter_v1/context/start_time"] =
             recentComposition.start_time;
 
           // Copy existing vital signs data
           const vitalSignsPaths = [
-            "template_clinical_encounter_v2/vital_signs/any_event:0/body_temperature|magnitude",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/body_temperature|unit",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/systolic_blood_pressure|magnitude",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/systolic_blood_pressure|unit",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/diastolic_blood_pressure|magnitude",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/diastolic_blood_pressure|unit",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/heart_rate|magnitude",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/heart_rate|unit",
-            "template_clinical_encounter_v2/vital_signs/any_event:0/time",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|unit",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|unit",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|unit",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|unit",
+            "template_clinical_encounter_v1/vital_signs/any_event:0/time",
           ];
 
           vitalSignsPaths.forEach((path) => {
@@ -325,7 +327,7 @@ export async function POST(
     // Create composition in OpenEHR
     compositionUid = await createOpenEHRComposition(
       ehrId,
-      "template_clinical_encounter_v2",
+      "template_clinical_encounter_v1",
       compositionData
     );
 
@@ -434,36 +436,52 @@ export async function PUT(
       composition_uid
     )) as Record<string, unknown>;
 
+    // Check if this is a care plan composition (not a diagnosis)
+    const isCarePlan = 
+      existingComposition["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"] === "Care Plan - See Goal Section" ||
+      (existingComposition["template_clinical_encounter_v2/problem_diagnosis/problem_diagnosis_name"] as string)?.includes("care plan") ||
+      (existingComposition["template_clinical_encounter_v2/problem_diagnosis/clinical_description"] as string)?.includes("This is a care plan composition");
+
+    if (isCarePlan) {
+      return NextResponse.json(
+        { 
+          error: "Cannot edit care plan compositions from the diagnosis tab. Please use the Care Plans tab instead." 
+        },
+        { status: 400 }
+      );
+    }
+
     // Create composition data in FLAT format using correct template paths
+    // Using template_clinical_encounter_v1 which is known to work
     const compositionData: Record<string, unknown> = {
-      "template_clinical_encounter_v2/language|code": "en",
-      "template_clinical_encounter_v2/language|terminology": "ISO_639-1",
-      "template_clinical_encounter_v2/territory|code": "US",
-      "template_clinical_encounter_v2/territory|terminology": "ISO_3166-1",
-      "template_clinical_encounter_v2/composer|name": user.name || "Unknown",
-      "template_clinical_encounter_v2/context/start_time":
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name": user.name || "Unknown",
+      "template_clinical_encounter_v1/context/start_time":
         existingComposition[
-          "template_clinical_encounter_v2/context/start_time"
+          "template_clinical_encounter_v1/context/start_time"
         ] || new Date().toISOString(),
-      "template_clinical_encounter_v2/context/setting|code": "238",
-      "template_clinical_encounter_v2/context/setting|value": "other care",
-      "template_clinical_encounter_v2/context/setting|terminology": "openehr",
-      "template_clinical_encounter_v2/category|code": "433",
-      "template_clinical_encounter_v2/category|value": "event",
-      "template_clinical_encounter_v2/category|terminology": "openehr",
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
     };
 
     // Copy existing vital signs data if present
     const vitalSignsPaths = [
-      "template_clinical_encounter_v2/vital_signs/any_event:0/body_temperature|magnitude",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/body_temperature|unit",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/systolic_blood_pressure|magnitude",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/systolic_blood_pressure|unit",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/diastolic_blood_pressure|magnitude",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/diastolic_blood_pressure|unit",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/heart_rate|magnitude",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/heart_rate|unit",
-      "template_clinical_encounter_v2/vital_signs/any_event:0/time",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|unit",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|unit",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|unit",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|unit",
+      "template_clinical_encounter_v1/vital_signs/any_event:0/time",
     ];
 
     vitalSignsPaths.forEach((path) => {
@@ -474,75 +492,84 @@ export async function PUT(
 
     // Update diagnosis fields
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/problem_diagnosis_name"
+      "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"
     ] = problemDiagnosis;
 
     // Clinical Status (mapped to variant)
     if (clinicalStatus) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/variant:0"
+        "template_clinical_encounter_v1/problem_diagnosis/variant:0"
       ] = clinicalStatus;
     }
 
     // Clinical Description
     if (clinicalDescription) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/clinical_description"
+        "template_clinical_encounter_v1/problem_diagnosis/clinical_description"
       ] = clinicalDescription;
     }
 
     // Body Site
     if (bodySite) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/body_site:0"
+        "template_clinical_encounter_v1/problem_diagnosis/body_site:0"
       ] = bodySite;
     }
 
     // Date/Time of Onset
     if (dateOfOnset) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/date_time_of_onset"
+        "template_clinical_encounter_v1/problem_diagnosis/date_time_of_onset"
       ] = new Date(dateOfOnset).toISOString();
     }
 
     // Date/Time of Resolution
     if (dateOfResolution) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/date_time_of_resolution"
+        "template_clinical_encounter_v1/problem_diagnosis/date_time_of_resolution"
       ] = new Date(dateOfResolution).toISOString();
     }
 
     // Comment
     if (comment) {
       compositionData[
-        "template_clinical_encounter_v2/problem_diagnosis/comment"
+        "template_clinical_encounter_v1/problem_diagnosis/comment"
       ] = comment;
     }
 
     // Set language and encoding for diagnosis
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/language|code"
+      "template_clinical_encounter_v1/problem_diagnosis/language|code"
     ] = "en";
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/language|terminology"
+      "template_clinical_encounter_v1/problem_diagnosis/language|terminology"
     ] = "ISO_639-1";
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/encoding|code"
+      "template_clinical_encounter_v1/problem_diagnosis/encoding|code"
     ] = "UTF-8";
     compositionData[
-      "template_clinical_encounter_v2/problem_diagnosis/encoding|terminology"
+      "template_clinical_encounter_v1/problem_diagnosis/encoding|terminology"
     ] = "IANA_character-sets";
 
     // Update composition in OpenEHR
     // Note: This EHRbase instance does not support direct PUT updates (501 Not Implemented).
-    // Strategy: create a NEW composition with the updated diagnosis data and keep the old
-    // composition as historical record.
+    // Strategy: create a NEW composition with the updated diagnosis data, then delete the old one
+    // to avoid duplicates in the diagnosis list.
     try {
       const newCompositionUid = await createOpenEHRComposition(
         ehrId,
-        "template_clinical_encounter_v2",
+        "template_clinical_encounter_v1",
         compositionData
       );
+
+      // Delete the old composition to prevent duplicates
+      try {
+        await deleteOpenEHRComposition(ehrId, composition_uid);
+        console.log(`Deleted old composition: ${composition_uid}`);
+      } catch (deleteError) {
+        console.error("Failed to delete old composition:", deleteError);
+        // Continue anyway - the new composition was created successfully
+      }
 
       return NextResponse.json({
         success: true,
