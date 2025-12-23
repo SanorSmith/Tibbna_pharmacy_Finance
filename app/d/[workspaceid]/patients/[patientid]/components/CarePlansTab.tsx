@@ -36,6 +36,14 @@ export interface CarePlan {
   recorded_time: string;
   care_plan_name: string;
   
+  // Care Plan Overview Fields
+  care_plan_description?: string;
+  care_plan_reason?: string;
+  care_plan_schedule?: string;
+  care_plan_expire?: string;
+  care_plan_completed?: string;
+  care_plan_comment?: string;
+  
   // Problem/Diagnosis
   problem_diagnosis?: string;
   clinical_description?: string;
@@ -213,8 +221,6 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Care Plan Name</TableHead>
-                    <TableHead>Problem/Diagnosis</TableHead>
-                    <TableHead>Goal</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Created By</TableHead>
@@ -226,16 +232,6 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
                     <TableRow key={plan.composition_uid}>
                       <TableCell className="font-medium">
                         {plan.care_plan_name || plan.problem_diagnosis || "Care Plan"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-xs truncate">
-                          {plan.problem_diagnosis || "-"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-xs truncate">
-                          {plan.goal_name || "-"}
-                        </div>
                       </TableCell>
                       <TableCell>
                         <span
@@ -284,120 +280,85 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
 
       {/* Care Plan Form Dialog - Minimal Required Fields */}
       <Dialog open={showCarePlanForm} onOpenChange={setShowCarePlanForm}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New Care Plan (openEHR)</DialogTitle>
             <DialogDescription>
               Create a care plan with minimal required information
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Required Fields Only */}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="problemDiagnosis">Problem/Diagnosis *</Label>
+          <div className="space-y-6 py-4">
+            {/* Care Plan Fields - Only 7 fields from diagram */}
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="carePlanName" className="text-base">Care Plan Name *</Label>
                 <Input
-                  id="problemDiagnosis"
-                  placeholder="e.g., Type 2 Diabetes Mellitus"
+                  id="carePlanName"
+                  placeholder="e.g., Diabetes Management Care Plan"
                   required
+                  className="h-11"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Primary medical condition or problem</p>
               </div>
 
-              <div>
-                <Label htmlFor="goalName">Care Goal *</Label>
-                <Input
-                  id="goalName"
-                  placeholder="e.g., Achieve HbA1c below 7%"
-                  required
+              <div className="space-y-2">
+                <Label htmlFor="carePlanDescription" className="text-base">Description</Label>
+                <Textarea
+                  id="carePlanDescription"
+                  rows={3}
+                  placeholder="Comprehensive description of the care plan..."
+                  className="resize-none"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Main objective of the care plan</p>
               </div>
 
-              <div>
-                <Label htmlFor="serviceName">Service/Intervention *</Label>
-                <Input
-                  id="serviceName"
-                  placeholder="e.g., Diabetes Management Program"
-                  required
+              <div className="space-y-2">
+                <Label htmlFor="carePlanReason" className="text-base">Reason</Label>
+                <Textarea
+                  id="carePlanReason"
+                  rows={3}
+                  placeholder="Reason for establishing this care plan..."
+                  className="resize-none"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Service or intervention to be provided</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="carePlanSchedule" className="text-base">Care Plan Schedule</Label>
+                <Textarea
+                  id="carePlanSchedule"
+                  rows={3}
+                  placeholder="e.g., Weekly check-ups, Monthly reviews..."
+                  className="resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="carePlanExpire" className="text-base">Care Plan Expire</Label>
+                  <Input
+                    id="carePlanExpire"
+                    type="date"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="carePlanCompleted" className="text-base">Care Plan Completed</Label>
+                  <Input
+                    id="carePlanCompleted"
+                    type="date"
+                    className="h-11"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="carePlanComment" className="text-base">Comment</Label>
+                <Textarea
+                  id="carePlanComment"
+                  rows={3}
+                  placeholder="Additional notes or comments..."
+                  className="resize-none"
+                />
               </div>
             </div>
-
-            {/* Optional Fields - Collapsible */}
-            <details className="border rounded-lg p-4">
-              <summary className="cursor-pointer font-medium text-sm">Additional Details (Optional)</summary>
-              <div className="space-y-3 mt-4">
-                <div>
-                  <Label htmlFor="clinicalDescription">Clinical Description</Label>
-                  <Textarea
-                    id="clinicalDescription"
-                    rows={2}
-                    placeholder="Additional clinical details..."
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="goalDescription">Goal Description</Label>
-                  <Textarea
-                    id="goalDescription"
-                    rows={2}
-                    placeholder="Detailed goal description..."
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="serviceDescription">Service Description</Label>
-                  <Textarea
-                    id="serviceDescription"
-                    rows={2}
-                    placeholder="Description of the service..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="severity">Severity</Label>
-                    <Select defaultValue="mild">
-                      <SelectTrigger id="severity">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Mild">Mild</SelectItem>
-                        <SelectItem value="Moderate">Moderate</SelectItem>
-                        <SelectItem value="Severe">Severe</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="urgency">Urgency</Label>
-                    <Select defaultValue="Routine">
-                      <SelectTrigger id="urgency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Routine">Routine</SelectItem>
-                        <SelectItem value="Urgent">Urgent</SelectItem>
-                        <SelectItem value="Emergency">Emergency</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="goalStartDate">Goal Start Date</Label>
-                    <Input id="goalStartDate" type="date" />
-                  </div>
-                  <div>
-                    <Label htmlFor="goalEndDate">Goal End Date</Label>
-                    <Input id="goalEndDate" type="date" />
-                  </div>
-                </div>
-              </div>
-            </details>
-
           </div>
           <DialogFooter>
             <Button
@@ -410,26 +371,22 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={async () => {
-                const problemDiagnosis = (document.getElementById("problemDiagnosis") as HTMLInputElement)?.value?.trim();
-                const goalName = (document.getElementById("goalName") as HTMLInputElement)?.value?.trim();
-                const serviceName = (document.getElementById("serviceName") as HTMLInputElement)?.value?.trim();
+                // Get only the 7 care plan fields
+                const carePlanName = (document.getElementById("carePlanName") as HTMLInputElement)?.value?.trim();
+                const carePlanDescription = (document.getElementById("carePlanDescription") as HTMLTextAreaElement)?.value?.trim();
+                const carePlanReason = (document.getElementById("carePlanReason") as HTMLTextAreaElement)?.value?.trim();
+                const carePlanSchedule = (document.getElementById("carePlanSchedule") as HTMLTextAreaElement)?.value?.trim();
+                const carePlanExpire = (document.getElementById("carePlanExpire") as HTMLInputElement)?.value;
+                const carePlanCompleted = (document.getElementById("carePlanCompleted") as HTMLInputElement)?.value;
+                const carePlanComment = (document.getElementById("carePlanComment") as HTMLTextAreaElement)?.value?.trim();
 
-                if (!problemDiagnosis || !goalName || !serviceName) {
-                  alert("Please fill in all required fields (marked with *)");
+                if (!carePlanName) {
+                  alert("Please fill in the Care Plan Name (required field)");
                   return;
                 }
 
                 try {
                   setSavingCarePlan(true);
-                  
-                  // Get optional field values
-                  const clinicalDescription = (document.getElementById("clinicalDescription") as HTMLTextAreaElement)?.value?.trim();
-                  const goalDescription = (document.getElementById("goalDescription") as HTMLTextAreaElement)?.value?.trim();
-                  const serviceDescription = (document.getElementById("serviceDescription") as HTMLTextAreaElement)?.value?.trim();
-                  const severity = (document.getElementById("severity") as HTMLSelectElement)?.value;
-                  const urgency = (document.getElementById("urgency") as HTMLSelectElement)?.value;
-                  const goalStartDate = (document.getElementById("goalStartDate") as HTMLInputElement)?.value;
-                  const goalEndDate = (document.getElementById("goalEndDate") as HTMLInputElement)?.value;
 
                   const res = await fetch(
                     `/api/d/${workspaceid}/patients/${patientid}/care-plans`,
@@ -438,22 +395,14 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         carePlan: {
-                          // Required fields
-                          problemDiagnosis,
-                          goalName,
-                          serviceName,
-                          
-                          // Optional fields (only include if provided)
-                          ...(clinicalDescription && { clinicalDescription }),
-                          ...(goalDescription && { goalDescription }),
-                          ...(serviceDescription && { serviceDescription }),
-                          ...(severity && { severity }),
-                          ...(urgency && { urgency }),
-                          ...(goalStartDate && { goalStartDate }),
-                          ...(goalEndDate && { goalEndDate }),
-                          
-                          // Default status
-                          status: "Active",
+                          carePlanName,
+                          carePlanDescription,
+                          carePlanReason,
+                          carePlanSchedule,
+                          carePlanExpire,
+                          carePlanCompleted,
+                          carePlanComment,
+                          status: carePlanCompleted ? "Completed" : "Active",
                         },
                       }),
                     }
@@ -463,20 +412,6 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
                     await loadCarePlans();
                     setShowCarePlanForm(false);
                     alert("Care plan created successfully in openEHR!");
-                    
-                    // Clear form
-                    (document.getElementById("problemDiagnosis") as HTMLInputElement).value = "";
-                    (document.getElementById("goalName") as HTMLInputElement).value = "";
-                    (document.getElementById("serviceName") as HTMLInputElement).value = "";
-                    if (document.getElementById("clinicalDescription")) {
-                      (document.getElementById("clinicalDescription") as HTMLTextAreaElement).value = "";
-                    }
-                    if (document.getElementById("goalDescription")) {
-                      (document.getElementById("goalDescription") as HTMLTextAreaElement).value = "";
-                    }
-                    if (document.getElementById("serviceDescription")) {
-                      (document.getElementById("serviceDescription") as HTMLTextAreaElement).value = "";
-                    }
                   } else {
                     const error = await res.json();
                     alert(`Failed to create care plan: ${error.error}`);
@@ -660,38 +595,28 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Care Plan Detail Modal */}
+      {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Care Plan Details</DialogTitle>
             <DialogDescription>
-              Complete information from openEHR composition
+              Complete information about this care plan
             </DialogDescription>
           </DialogHeader>
           {selectedCarePlan && (
             <div className="space-y-6 py-4">
               {/* Header Info */}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 p-5 rounded-lg">
+                <div className="grid grid-cols-2 gap-5">
                   <div>
-                    <p className="text-sm font-medium text-blue-900">Composition UID</p>
-                    <p className="text-sm text-blue-700 font-mono">{selectedCarePlan.composition_uid}</p>
+                    <p className="text-sm font-medium text-blue-900 mb-1">Care Plan Name</p>
+                    <p className="text-base font-semibold text-blue-800">{selectedCarePlan.care_plan_name}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-blue-900">Recorded Time</p>
-                    <p className="text-sm text-blue-700">
-                      {new Date(selectedCarePlan.recorded_time).toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">Created By</p>
-                    <p className="text-sm text-blue-700">{selectedCarePlan.created_by}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">Status</p>
+                    <p className="text-sm font-medium text-blue-900 mb-1">Status</p>
                     <span
-                      className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
                         selectedCarePlan.status?.toLowerCase() === "active"
                           ? "bg-green-100 text-green-800"
                           : selectedCarePlan.status?.toLowerCase() === "completed"
@@ -702,184 +627,97 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
                       {selectedCarePlan.status}
                     </span>
                   </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 mb-1">Created By</p>
+                    <p className="text-sm text-blue-700">{selectedCarePlan.created_by}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 mb-1">Recorded Time</p>
+                    <p className="text-sm text-blue-700">
+                      {new Date(selectedCarePlan.recorded_time).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Problem/Diagnosis Section */}
-              {selectedCarePlan.problem_diagnosis && (
-                <div className="border-b pb-4">
-                  <h3 className="text-lg font-semibold mb-3 text-amber-900">Problem/Diagnosis</h3>
-                  <div className="space-y-2 bg-amber-50 p-4 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-amber-900">Problem/Diagnosis Name</p>
-                      <p className="text-sm">{selectedCarePlan.problem_diagnosis}</p>
+              {/* Care Plan Fields - Matching Input Form */}
+              <div className="space-y-5">
+                {selectedCarePlan.care_plan_description && (
+                  <div className="space-y-2">
+                    <p className="text-base font-semibold text-gray-900">Description</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedCarePlan.care_plan_description}</p>
                     </div>
-                    {selectedCarePlan.clinical_description && (
-                      <div>
-                        <p className="text-sm font-medium text-amber-900">Clinical Description</p>
-                        <p className="text-sm">{selectedCarePlan.clinical_description}</p>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4">
-                      {selectedCarePlan.body_site && (
-                        <div>
-                          <p className="text-sm font-medium text-amber-900">Body Site</p>
-                          <p className="text-sm">{selectedCarePlan.body_site}</p>
-                        </div>
-                      )}
-                      {selectedCarePlan.severity && (
-                        <div>
-                          <p className="text-sm font-medium text-amber-900">Severity</p>
-                          <p className="text-sm">{selectedCarePlan.severity}</p>
-                        </div>
-                      )}
+                  </div>
+                )}
+
+                {selectedCarePlan.care_plan_reason && (
+                  <div className="space-y-2">
+                    <p className="text-base font-semibold text-gray-900">Reason</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedCarePlan.care_plan_reason}</p>
                     </div>
-                    {selectedCarePlan.date_of_onset && (
-                      <div>
-                        <p className="text-sm font-medium text-amber-900">Date of Onset</p>
-                        <p className="text-sm">
-                          {new Date(selectedCarePlan.date_of_onset).toLocaleString()}
+                  </div>
+                )}
+
+                {selectedCarePlan.care_plan_schedule && (
+                  <div className="space-y-2">
+                    <p className="text-base font-semibold text-gray-900">Care Plan Schedule</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedCarePlan.care_plan_schedule}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-5">
+                  {selectedCarePlan.care_plan_expire && (
+                    <div className="space-y-2">
+                      <p className="text-base font-semibold text-gray-900">Care Plan Expire</p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          {new Date(selectedCarePlan.care_plan_expire).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
                         </p>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  {selectedCarePlan.care_plan_completed && (
+                    <div className="space-y-2">
+                      <p className="text-base font-semibold text-gray-900">Care Plan Completed</p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          {new Date(selectedCarePlan.care_plan_completed).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
 
-              {/* Goal Section */}
-              {selectedCarePlan.goal_name && (
-                <div className="border-b pb-4">
-                  <h3 className="text-lg font-semibold mb-3 text-green-900">Goal</h3>
-                  <div className="space-y-2 bg-green-50 p-4 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-green-900">Goal Name</p>
-                      <p className="text-sm">{selectedCarePlan.goal_name}</p>
+                {selectedCarePlan.care_plan_comment && (
+                  <div className="space-y-2">
+                    <p className="text-base font-semibold text-gray-900">Comment</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedCarePlan.care_plan_comment}</p>
                     </div>
-                    {selectedCarePlan.goal_description && (
-                      <div>
-                        <p className="text-sm font-medium text-green-900">Goal Description</p>
-                        <p className="text-sm">{selectedCarePlan.goal_description}</p>
-                      </div>
-                    )}
-                    {selectedCarePlan.clinical_indication && (
-                      <div>
-                        <p className="text-sm font-medium text-green-900">Clinical Indication</p>
-                        <p className="text-sm">{selectedCarePlan.clinical_indication}</p>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4">
-                      {selectedCarePlan.goal_start_date && (
-                        <div>
-                          <p className="text-sm font-medium text-green-900">Start Date</p>
-                          <p className="text-sm">
-                            {new Date(selectedCarePlan.goal_start_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                      {selectedCarePlan.goal_end_date && (
-                        <div>
-                          <p className="text-sm font-medium text-green-900">Target End Date</p>
-                          <p className="text-sm">
-                            {new Date(selectedCarePlan.goal_end_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    {selectedCarePlan.goal_outcome && (
-                      <div>
-                        <p className="text-sm font-medium text-green-900">Expected Outcome</p>
-                        <p className="text-sm">{selectedCarePlan.goal_outcome}</p>
-                      </div>
-                    )}
-                    {selectedCarePlan.goal_comment && (
-                      <div>
-                        <p className="text-sm font-medium text-green-900">Comment</p>
-                        <p className="text-sm">{selectedCarePlan.goal_comment}</p>
-                      </div>
-                    )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Service Request Section */}
-              {selectedCarePlan.service_name && (
-                <div className="border-b pb-4">
-                  <h3 className="text-lg font-semibold mb-3 text-purple-900">Service Request</h3>
-                  <div className="space-y-2 bg-purple-50 p-4 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-purple-900">Service Name</p>
-                      <p className="text-sm">{selectedCarePlan.service_name}</p>
-                    </div>
-                    {selectedCarePlan.service_description && (
-                      <div>
-                        <p className="text-sm font-medium text-purple-900">Description</p>
-                        <p className="text-sm">{selectedCarePlan.service_description}</p>
-                      </div>
-                    )}
-                    {selectedCarePlan.service_clinical_indication && (
-                      <div>
-                        <p className="text-sm font-medium text-purple-900">Clinical Indication</p>
-                        <p className="text-sm">{selectedCarePlan.service_clinical_indication}</p>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-3 gap-4">
-                      {selectedCarePlan.urgency && (
-                        <div>
-                          <p className="text-sm font-medium text-purple-900">Urgency</p>
-                          <p className="text-sm">{selectedCarePlan.urgency}</p>
-                        </div>
-                      )}
-                      {selectedCarePlan.requested_date && (
-                        <div>
-                          <p className="text-sm font-medium text-purple-900">Requested Date</p>
-                          <p className="text-sm">
-                            {new Date(selectedCarePlan.requested_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                      {selectedCarePlan.request_status && (
-                        <div>
-                          <p className="text-sm font-medium text-purple-900">Request Status</p>
-                          <p className="text-sm">{selectedCarePlan.request_status}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {/* Technical Info - Collapsible */}
+              <details className="border-t pt-4">
+                <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-900">Technical Information</summary>
+                <div className="mt-3 bg-gray-50 p-4 rounded-lg">
+                  <p className="text-xs font-medium text-gray-600 mb-1">Composition UID</p>
+                  <p className="text-xs text-gray-700 font-mono break-all">{selectedCarePlan.composition_uid}</p>
                 </div>
-              )}
-
-              {/* Medication Order Section */}
-              {selectedCarePlan.medication_item && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-indigo-900">Medication Order</h3>
-                  <div className="space-y-2 bg-indigo-50 p-4 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-indigo-900">Medication Item</p>
-                      <p className="text-sm">{selectedCarePlan.medication_item}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      {selectedCarePlan.medication_route && (
-                        <div>
-                          <p className="text-sm font-medium text-indigo-900">Route</p>
-                          <p className="text-sm">{selectedCarePlan.medication_route}</p>
-                        </div>
-                      )}
-                      {selectedCarePlan.clinical_indication_med && (
-                        <div>
-                          <p className="text-sm font-medium text-indigo-900">Clinical Indication</p>
-                          <p className="text-sm">{selectedCarePlan.clinical_indication_med}</p>
-                        </div>
-                      )}
-                    </div>
-                    {selectedCarePlan.medication_directions && (
-                      <div>
-                        <p className="text-sm font-medium text-indigo-900">Directions</p>
-                        <p className="text-sm">{selectedCarePlan.medication_directions}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              </details>
             </div>
           )}
           <DialogFooter>
