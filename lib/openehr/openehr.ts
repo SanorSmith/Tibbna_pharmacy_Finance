@@ -464,40 +464,48 @@ ORDER BY
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results = await queryOpenEHR<any>(query);
 
-    return results.map((row) => {
-      const evaluation = row.full_evaluation;
+    return results
+      .map((row) => {
+        const evaluation = row.full_evaluation;
 
-      // Extract fields using the exact field names from OpenEHR structure
-      const problemDiagnosis =
-        findDiagnosisValue(evaluation, "Problem/Diagnosis name") || "";
-      const clinicalDescription =
-        findDiagnosisValue(evaluation, "Clinical description") || "";
-      const bodySite =
-        findDiagnosisValue(evaluation, "Body site") ||
-        findDiagnosisValue(evaluation, "Body site (qualifier)") ||
-        findDiagnosisValueFuzzy(evaluation, "body site") ||
-        "";
-      const dateOfOnset =
-        findDiagnosisValue(evaluation, "Date/time of onset") || "";
-      const dateOfResolution =
-        findDiagnosisValue(evaluation, "Date/time of resolution") || "";
-      const comment = findDiagnosisValue(evaluation, "Comment") || "";
-      const clinicalStatus =
-        findDiagnosisValue(evaluation, "Variant") || "active";
+        // Extract fields using the exact field names from OpenEHR structure
+        const problemDiagnosis =
+          findDiagnosisValue(evaluation, "Problem/Diagnosis name") || "";
+        const clinicalDescription =
+          findDiagnosisValue(evaluation, "Clinical description") || "";
+        const bodySite =
+          findDiagnosisValue(evaluation, "Body site") ||
+          findDiagnosisValue(evaluation, "Body site (qualifier)") ||
+          findDiagnosisValueFuzzy(evaluation, "body site") ||
+          "";
+        const dateOfOnset =
+          findDiagnosisValue(evaluation, "Date/time of onset") || "";
+        const dateOfResolution =
+          findDiagnosisValue(evaluation, "Date/time of resolution") || "";
+        const comment = findDiagnosisValue(evaluation, "Comment") || "";
+        const clinicalStatus =
+          findDiagnosisValue(evaluation, "Variant") || "active";
 
-      return {
-        composition_uid: row.composition_uid,
-        recorded_time: row.recorded_time,
-        problem_diagnosis: problemDiagnosis,
-        clinical_status: clinicalStatus,
-        clinical_description: clinicalDescription,
-        body_site: bodySite,
-        date_of_onset: dateOfOnset,
-        date_of_resolution: dateOfResolution,
-        severity: "",
-        comment: comment,
-      };
-    });
+        return {
+          composition_uid: row.composition_uid,
+          recorded_time: row.recorded_time,
+          problem_diagnosis: problemDiagnosis,
+          clinical_status: clinicalStatus,
+          clinical_description: clinicalDescription,
+          body_site: bodySite,
+          date_of_onset: dateOfOnset,
+          date_of_resolution: dateOfResolution,
+          severity: "",
+          comment: comment,
+        };
+      })
+      .filter((diagnosis) => {
+        // Filter out care plan compositions (they use a generic placeholder)
+        return (
+          diagnosis.problem_diagnosis !== "Care Plan - See Goal Section" &&
+          !diagnosis.clinical_description?.includes("This is a care plan composition")
+        );
+      });
   } catch (error) {
     console.error("Error fetching diagnoses via AQL:", error);
     return [];
@@ -1038,6 +1046,19 @@ export async function updateOpenEHRComposition(
     console.error("Request data:", JSON.stringify(compositionData, null, 2));
     throw error;
   }
+}
+
+export async function deleteOpenEHRComposition(
+  ehrId: string,
+  compositionUid: string
+): Promise<void> {
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionUid}`;
+  await axios.delete(url, {
+    headers: {
+      "X-API-Key": process.env.EHRBASE_API_KEY!,
+      Authorization: `Basic ${basicAuth}`,
+    },
+  });
 }
 
 export async function deleteOpenEHREHR(ehrId: string): Promise<void> {
