@@ -34,3 +34,6 @@ export * from "./referral";
 
 // Re-export from vaccination.ts
 export * from "./vaccination";
+
+// Re-export from clinical-notes.ts
+export * from "./clinical-notes";
