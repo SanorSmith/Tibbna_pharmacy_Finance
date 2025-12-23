@@ -50,10 +50,7 @@ export async function GET(
       .limit(1);
 
     if (!patient) {
-      return NextResponse.json(
-        { error: "Patient not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
     // Find EHR by National ID or patient UUID
@@ -70,7 +67,10 @@ export async function GET(
     }
 
     const prescriptions = await getOpenEHRPrescriptions(ehrId);
-    console.log(`Fetched ${prescriptions.length} prescriptions for EHR ${ehrId}:`, prescriptions);
+    console.log(
+      `Fetched ${prescriptions.length} prescriptions for EHR ${ehrId}:`,
+      prescriptions
+    );
 
     return NextResponse.json({ prescriptions }, { status: 200 });
   } catch (error) {
@@ -173,10 +173,7 @@ export async function POST(
       .limit(1);
 
     if (!patient) {
-      return NextResponse.json(
-        { error: "Patient not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
     // Find EHR by National ID or patient UUID
@@ -197,30 +194,31 @@ export async function POST(
 
     // Build FLAT composition data for medication_order section of clinical encounter template
     const compositionData: Record<string, unknown> = {
-      "template_clinical_encounter_v1/language|code": "en",
-      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
-      "template_clinical_encounter_v1/territory|code": "US",
-      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
-      "template_clinical_encounter_v1/composer|name":
+      "template_clinical_encounter_v2/language|code": "en",
+      "template_clinical_encounter_v2/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v2/territory|code": "US",
+      "template_clinical_encounter_v2/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v2/composer|name":
         user.name || user.email || "Unknown",
-      "template_clinical_encounter_v1/context/start_time": new Date().toISOString(),
-      "template_clinical_encounter_v1/context/setting|code": "238",
-      "template_clinical_encounter_v1/context/setting|value": "other care",
-      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
-      "template_clinical_encounter_v1/category|code": "433",
-      "template_clinical_encounter_v1/category|value": "event",
-      "template_clinical_encounter_v1/category|terminology": "openehr",
+      "template_clinical_encounter_v2/context/start_time":
+        new Date().toISOString(),
+      "template_clinical_encounter_v2/context/setting|code": "238",
+      "template_clinical_encounter_v2/context/setting|value": "other care",
+      "template_clinical_encounter_v2/context/setting|terminology": "openehr",
+      "template_clinical_encounter_v2/category|code": "433",
+      "template_clinical_encounter_v2/category|value": "event",
+      "template_clinical_encounter_v2/category|terminology": "openehr",
     };
 
     // Core medication order fields
     compositionData[
-      "template_clinical_encounter_v1/medication_order/order:0/medication_item"
+      "template_clinical_encounter_v2/medication_order/order:0/medication_item"
     ] = prescription.medicationItem;
     compositionData[
-      "template_clinical_encounter_v1/medication_order/order:0/route:0"
+      "template_clinical_encounter_v2/medication_order/order:0/route:0"
     ] = prescription.route;
     compositionData[
-      "template_clinical_encounter_v1/medication_order/order:0/timing"
+      "template_clinical_encounter_v2/medication_order/order:0/timing"
     ] = prescription.timingDirections;
 
     // Overall directions (narrative dosage)
@@ -238,14 +236,18 @@ export async function POST(
     }
     if (prescription.asRequired) {
       overallDirectionsParts.push(
-        `PRN${prescription.asRequiredCriterion ? ` ${prescription.asRequiredCriterion}` : ""}`
+        `PRN${
+          prescription.asRequiredCriterion
+            ? ` ${prescription.asRequiredCriterion}`
+            : ""
+        }`
       );
     }
 
     const overallDirections = overallDirectionsParts.join(", ");
 
     compositionData[
-      "template_clinical_encounter_v1/medication_order/order:0/overall_directions_description"
+      "template_clinical_encounter_v2/medication_order/order:0/overall_directions_description"
     ] = overallDirections;
 
     // NOTE: The current clinical encounter template in EHRbase does not
@@ -256,30 +258,30 @@ export async function POST(
 
     if (prescription.additionalInstruction) {
       compositionData[
-        "template_clinical_encounter_v1/medication_order/order:0/additional_instruction:0"
+        "template_clinical_encounter_v2/medication_order/order:0/additional_instruction:0"
       ] = prescription.additionalInstruction;
     }
 
     if (prescription.clinicalIndication) {
       compositionData[
-        "template_clinical_encounter_v1/medication_order/order:0/clinical_indication:0"
+        "template_clinical_encounter_v2/medication_order/order:0/clinical_indication:0"
       ] = prescription.clinicalIndication;
     }
 
     if (prescription.maximumDoseAmount) {
       compositionData[
-        "template_clinical_encounter_v1/medication_order/order:0/medication_safety/maximum_dose:0/maximum_amount|magnitude"
+        "template_clinical_encounter_v2/medication_order/order:0/medication_safety/maximum_dose:0/maximum_amount|magnitude"
       ] = Number(prescription.maximumDoseAmount);
     }
     if (prescription.maximumDoseUnit) {
       compositionData[
-        "template_clinical_encounter_v1/medication_order/order:0/medication_safety/maximum_dose:0/maximum_amount|unit"
+        "template_clinical_encounter_v2/medication_order/order:0/medication_safety/maximum_dose:0/maximum_amount|unit"
       ] = prescription.maximumDoseUnit;
     }
 
     if (prescription.dispenseInstruction) {
       compositionData[
-        "template_clinical_encounter_v1/medication_order/order:0/dispense_directions/dispense_instruction:0"
+        "template_clinical_encounter_v2/medication_order/order:0/dispense_directions/dispense_instruction:0"
       ] = prescription.dispenseInstruction;
     }
 
@@ -310,13 +312,13 @@ export async function POST(
     }
     if (commentParts.length > 0) {
       compositionData[
-        "template_clinical_encounter_v1/medication_order/order:0/comment"
+        "template_clinical_encounter_v2/medication_order/order:0/comment"
       ] = commentParts.join(" | ");
     }
 
     // Narrative field
     compositionData[
-      "template_clinical_encounter_v1/medication_order/narrative"
+      "template_clinical_encounter_v2/medication_order/narrative"
     ] =
       prescription.comment ||
       overallDirections ||
@@ -324,7 +326,7 @@ export async function POST(
 
     const compositionUid = await createOpenEHRComposition(
       ehrId,
-      "template_clinical_encounter_v1",
+      "template_clinical_encounter_v2",
       compositionData
     );
 

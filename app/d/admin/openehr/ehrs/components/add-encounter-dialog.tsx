@@ -57,46 +57,46 @@ export function AddEncounterDialog({
     try {
       // Build the composition in FLAT format
       const composition: ClinicalEncounterComposition = {
-        "template_clinical_encounter_v1/category|terminology": "openehr",
-        "template_clinical_encounter_v1/category|code": "433",
-        "template_clinical_encounter_v1/category|value": "event",
-        "template_clinical_encounter_v1/context/start_time":
+        "template_clinical_encounter_v2/category|terminology": "openehr",
+        "template_clinical_encounter_v2/category|code": "433",
+        "template_clinical_encounter_v2/category|value": "event",
+        "template_clinical_encounter_v2/context/start_time":
           formData.startTime + ":00",
-        "template_clinical_encounter_v1/context/setting|value": "home",
-        "template_clinical_encounter_v1/context/setting|code": "225",
-        "template_clinical_encounter_v1/context/setting|terminology": "openehr",
-        "template_clinical_encounter_v1/context/_end_time":
+        "template_clinical_encounter_v2/context/setting|value": "home",
+        "template_clinical_encounter_v2/context/setting|code": "225",
+        "template_clinical_encounter_v2/context/setting|terminology": "openehr",
+        "template_clinical_encounter_v2/context/_end_time":
           formData.startTime + ":00",
-        "template_clinical_encounter_v1/context/_health_care_facility|name":
+        "template_clinical_encounter_v2/context/_health_care_facility|name":
           formData.facilityName || "Default Facility",
-        "template_clinical_encounter_v1/language|code": "en",
-        "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
-        "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
-        "template_clinical_encounter_v1/territory|code": "SE",
-        "template_clinical_encounter_v1/composer|name":
+        "template_clinical_encounter_v2/language|code": "en",
+        "template_clinical_encounter_v2/language|terminology": "ISO_639-1",
+        "template_clinical_encounter_v2/territory|terminology": "ISO_3166-1",
+        "template_clinical_encounter_v2/territory|code": "SE",
+        "template_clinical_encounter_v2/composer|name":
           formData.composerName || "Unknown",
       };
 
       // Add diagnosis if provided
       if (formData.diagnosisName) {
         Object.assign(composition, {
-          "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name":
+          "template_clinical_encounter_v2/problem_diagnosis/problem_diagnosis_name":
             formData.diagnosisName,
-          "template_clinical_encounter_v1/problem_diagnosis/clinical_description":
+          "template_clinical_encounter_v2/problem_diagnosis/clinical_description":
             formData.diagnosisDescription,
-          "template_clinical_encounter_v1/problem_diagnosis/severity|value":
+          "template_clinical_encounter_v2/problem_diagnosis/severity|value":
             "Mild",
-          "template_clinical_encounter_v1/problem_diagnosis/severity|terminology":
+          "template_clinical_encounter_v2/problem_diagnosis/severity|terminology":
             "local",
-          "template_clinical_encounter_v1/problem_diagnosis/severity|code":
+          "template_clinical_encounter_v2/problem_diagnosis/severity|code":
             "at0047",
-          "template_clinical_encounter_v1/problem_diagnosis/language|code":
+          "template_clinical_encounter_v2/problem_diagnosis/language|code":
             "en",
-          "template_clinical_encounter_v1/problem_diagnosis/language|terminology":
+          "template_clinical_encounter_v2/problem_diagnosis/language|terminology":
             "ISO_639-1",
-          "template_clinical_encounter_v1/problem_diagnosis/encoding|code":
+          "template_clinical_encounter_v2/problem_diagnosis/encoding|code":
             "UTF-8",
-          "template_clinical_encounter_v1/problem_diagnosis/encoding|terminology":
+          "template_clinical_encounter_v2/problem_diagnosis/encoding|terminology":
             "IANA_character-sets",
         });
       }
@@ -109,68 +109,67 @@ export function AddEncounterDialog({
         formData.bodyTemperature ||
         formData.respiratoryRate ||
         formData.spO2
-
       ) {
         const vitalSigns: Partial<ClinicalEncounterComposition> = {
-          "template_clinical_encounter_v1/vital_signs/any_event:0/time":
+          "template_clinical_encounter_v2/vital_signs/any_event:0/time":
             formData.startTime + ":00",
-          "template_clinical_encounter_v1/vital_signs/language|terminology":
+          "template_clinical_encounter_v2/vital_signs/language|terminology":
             "ISO_639-1",
-          "template_clinical_encounter_v1/vital_signs/language|code": "en",
-          "template_clinical_encounter_v1/vital_signs/encoding|code": "UTF-8",
-          "template_clinical_encounter_v1/vital_signs/encoding|terminology":
+          "template_clinical_encounter_v2/vital_signs/language|code": "en",
+          "template_clinical_encounter_v2/vital_signs/encoding|code": "UTF-8",
+          "template_clinical_encounter_v2/vital_signs/encoding|terminology":
             "IANA_character-sets",
         };
 
         if (formData.systolicBP) {
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|magnitude"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/systolic_blood_pressure|magnitude"
           ] = parseFloat(formData.systolicBP);
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/systolic_blood_pressure|unit"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/systolic_blood_pressure|unit"
           ] = "mm[Hg]";
         }
 
         if (formData.diastolicBP) {
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|magnitude"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/diastolic_blood_pressure|magnitude"
           ] = parseFloat(formData.diastolicBP);
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/diastolic_blood_pressure|unit"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/diastolic_blood_pressure|unit"
           ] = "mm[Hg]";
         }
 
         if (formData.heartRate) {
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|magnitude"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/heart_rate|magnitude"
           ] = parseFloat(formData.heartRate);
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/heart_rate|unit"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/heart_rate|unit"
           ] = "/min";
         }
 
         if (formData.bodyTemperature) {
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|magnitude"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/body_temperature|magnitude"
           ] = parseFloat(formData.bodyTemperature);
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/body_temperature|unit"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/body_temperature|unit"
           ] = "°C";
         }
         if (formData.respiratoryRate) {
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|magnitude"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/respiratory_rate|magnitude"
           ] = parseFloat(formData.respiratoryRate);
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/respiratory_rate|unit"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/respiratory_rate|unit"
           ] = "/min";
         }
         if (formData.spO2) {
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/oxygen_saturation_spo2|magnitude"
           ] = parseFloat(formData.spO2);
           vitalSigns[
-            "template_clinical_encounter_v1/vital_signs/any_event:0/oxygen_saturation_spo2|unit"
+            "template_clinical_encounter_v2/vital_signs/any_event:0/oxygen_saturation_spo2|unit"
           ] = "%";
         }
         Object.assign(composition, vitalSigns);

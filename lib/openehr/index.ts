@@ -8,7 +8,7 @@ export {
   getOpenEHREHRBySubjectId,
   getOpenEHRCompositions,
   getOpenEHRComposition,
-} from './openehr';
+} from "./openehr";
 
 // Re-export types
 export type {
@@ -18,7 +18,13 @@ export type {
   OpenEHRCompositionsResponse,
   OpenEHRTemplateResponse,
   OpenEHREHRNewRequest,
-} from './openehr';
+} from "./openehr";
 
 // Re-export from encounter.ts
-export * from './encounter';
+export * from "./encounter";
+
+// Re-export from radiology.ts
+export * from "./radiology";
+
+// Re-export from careplan.ts
+export * from "./careplan";
