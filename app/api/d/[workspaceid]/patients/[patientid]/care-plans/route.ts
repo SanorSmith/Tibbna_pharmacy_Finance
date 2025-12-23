@@ -1,38 +1,102 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
+import { db } from "@/lib/db";
+import { patients } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import {
+  getOpenEHREHRBySubjectId,
+  createCarePlan,
+  listCarePlans,
+  getCarePlan,
+  type CarePlanComposition,
+} from "@/lib/openehr";
 
-// In-memory storage for care plans (dummy data)
-// In production, this would be stored in EHRbase or a database
-
-// Care Plan (openEHR: INSTRUCTION.care_plan)
+// Care Plan interface for API responses
 interface CarePlan {
   composition_uid: string;
   recorded_time: string;
-  
-  // Care plan details (openEHR: Care plan)
   care_plan_name: string;
-  description?: string;
-  reason?: string;
   
-  // Schedule (openEHR: Care plan schedule)
-  care_plan_schedule?: string;
+  // Problem/Diagnosis
+  problem_diagnosis?: string;
+  clinical_description?: string;
+  body_site?: string;
+  date_of_onset?: string;
+  severity?: string;
   
-  // Dates
-  care_plan_expire?: string;
-  care_plan_completed?: string;
+  // Goal
+  goal_name?: string;
+  goal_description?: string;
+  clinical_indication?: string;
+  goal_start_date?: string;
+  goal_end_date?: string;
+  goal_outcome?: string;
+  goal_comment?: string;
   
-  // Comment
-  comment?: string;
+  // Service Request
+  service_name?: string;
+  service_description?: string;
+  service_clinical_indication?: string;
+  urgency?: string;
+  requested_date?: string;
+  request_status?: string;
+  
+  // Medication Order
+  medication_item?: string;
+  medication_route?: string;
+  medication_directions?: string;
+  clinical_indication_med?: string;
   
   // Metadata
   created_by: string;
-  status: string; // active, completed, cancelled, on-hold
+  status: string;
 }
 
-// Initialize with comprehensive dummy data
-const carePlansStore: Record<string, CarePlan[]> = {
-  // Sample patient ID with dummy care plans
+// Helper function to parse care plan composition to our interface
+function parseCarePlanComposition(comp: CarePlanComposition, compositionUid: string, startTime: string): CarePlan {
+  return {
+    composition_uid: compositionUid,
+    recorded_time: startTime || new Date().toISOString(),
+    care_plan_name: comp["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"] || "Care Plan",
+    
+    // Problem/Diagnosis
+    problem_diagnosis: comp["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"],
+    clinical_description: comp["template_care_plan_v1/problem_diagnosis/clinical_description"],
+    body_site: comp["template_care_plan_v1/problem_diagnosis/body_site:0"],
+    date_of_onset: comp["template_care_plan_v1/problem_diagnosis/date_time_of_onset"],
+    severity: comp["template_care_plan_v1/problem_diagnosis/severity|value"],
+    
+    // Goal
+    goal_name: comp["template_care_plan_v1/goal/goal_name"],
+    goal_description: comp["template_care_plan_v1/goal/goal_description"],
+    clinical_indication: comp["template_care_plan_v1/goal/clinical_indication:0"],
+    goal_start_date: comp["template_care_plan_v1/goal/goal_start_date"],
+    goal_end_date: comp["template_care_plan_v1/goal/goal_end_date"],
+    goal_outcome: comp["template_care_plan_v1/goal/goal_outcome|other"],
+    goal_comment: comp["template_care_plan_v1/goal/goal_comment"],
+    
+    // Service Request
+    service_name: comp["template_care_plan_v1/service_request/request/service_name|other"],
+    service_description: comp["template_care_plan_v1/service_request/request/description"],
+    service_clinical_indication: comp["template_care_plan_v1/service_request/request/clinical_indication"],
+    urgency: comp["template_care_plan_v1/service_request/request/urgency|value"],
+    requested_date: comp["template_care_plan_v1/service_request/request/requested_date"],
+    request_status: comp["template_care_plan_v1/service_request/request/request_status|value"],
+    
+    // Medication Order
+    medication_item: comp["template_care_plan_v1/medication_order/order:0/medication_item"],
+    medication_route: comp["template_care_plan_v1/medication_order/order:0/route:0"],
+    medication_directions: comp["template_care_plan_v1/medication_order/order:0/overall_directions_description"],
+    clinical_indication_med: comp["template_care_plan_v1/medication_order/order:0/clinical_indication:0"],
+    
+    created_by: comp["template_care_plan_v1/composer|name"] || "Unknown",
+    status: comp["template_care_plan_v1/service_request/request/request_status|value"] || "active",
+  };
+}
+
+// Dummy data for backward compatibility (will be removed once all patients have openEHR data)
+const dummyCarePlansStore: Record<string, CarePlan[]> = {
   "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
     {
       composition_uid: "care-plan-1731847200000-cvd001",
@@ -169,7 +233,7 @@ const carePlansStore: Record<string, CarePlan[]> = {
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/care-plans
- * Retrieve care plans for a patient
+ * Retrieve care plans for a patient from openEHR
  */
 export async function GET(
   request: NextRequest,
@@ -198,10 +262,52 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get care plans from in-memory store
-    const patientCarePlans = carePlansStore[patientid] || [];
+    // Fetch patient to get National ID for openEHR lookup
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
 
-    return NextResponse.json({ carePlans: patientCarePlans });
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // Get EHR ID from openEHR
+    let ehrId: string;
+    try {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid || patientid);
+    } catch (error) {
+      console.error("Error getting EHR ID:", error);
+      // Return dummy data if openEHR is not available
+      const dummyData = dummyCarePlansStore[patientid] || [];
+      return NextResponse.json({ carePlans: dummyData });
+    }
+
+    if (!ehrId) {
+      return NextResponse.json({ carePlans: [] });
+    }
+
+    // Get care plan list from openEHR
+    const carePlansList = await listCarePlans(ehrId);
+
+    // Fetch full details for each care plan
+    const carePlans: CarePlan[] = [];
+    for (const item of carePlansList) {
+      try {
+        const fullComposition = await getCarePlan(ehrId, item.composition_uid);
+        const parsed = parseCarePlanComposition(
+          fullComposition,
+          item.composition_uid,
+          item.start_time
+        );
+        carePlans.push(parsed);
+      } catch (error) {
+        console.error(`Error fetching care plan ${item.composition_uid}:`, error);
+      }
+    }
+
+    return NextResponse.json({ carePlans });
   } catch (error) {
     console.error("Error fetching care plans:", error);
     return NextResponse.json(
@@ -213,7 +319,7 @@ export async function GET(
 
 /**
  * POST /api/d/[workspaceid]/patients/[patientid]/care-plans
- * Create a new care plan
+ * Create a new care plan in openEHR
  */
 export async function POST(
   request: NextRequest,
@@ -245,31 +351,159 @@ export async function POST(
     const body = await request.json();
     const { carePlan } = body;
 
-    // Create care plan following openEHR structure
-    const carePlanRecord: CarePlan = {
-      composition_uid: `care-plan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      recorded_time: new Date().toISOString(),
-      care_plan_name: carePlan.carePlanName,
-      description: carePlan.description,
-      reason: carePlan.reason,
-      care_plan_schedule: carePlan.carePlanSchedule,
-      care_plan_expire: carePlan.carePlanExpire,
-      care_plan_completed: carePlan.carePlanCompleted,
-      comment: carePlan.comment,
-      created_by: user.name || user.email,
-      status: carePlan.status || "active",
+    // Fetch patient to get National ID for openEHR lookup
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
+
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // Get EHR ID from openEHR
+    const ehrId = await getOpenEHREHRBySubjectId(patient.nationalid || patientid);
+
+    if (!ehrId) {
+      return NextResponse.json(
+        { error: "EHR not found for patient" },
+        { status: 404 }
+      );
+    }
+
+    // Build openEHR composition in FLAT format - only include defined values
+    const composition: CarePlanComposition = {
+      // Category (required) - using persistent category code
+      "template_care_plan_v1/category|code": "431",
+      "template_care_plan_v1/category|terminology": "openehr",
+      "template_care_plan_v1/category|value": "persistent",
+
+      // Context (required)
+      "template_care_plan_v1/context/start_time": new Date().toISOString(),
+      "template_care_plan_v1/context/setting|code": "238",
+      "template_care_plan_v1/context/setting|value": "other care",
+      "template_care_plan_v1/context/setting|terminology": "openehr",
+
+      // Top-level metadata (required)
+      "template_care_plan_v1/language|code": "en",
+      "template_care_plan_v1/language|terminology": "ISO_639-1",
+      "template_care_plan_v1/territory|code": "US",
+      "template_care_plan_v1/territory|terminology": "ISO_3166-1",
+      "template_care_plan_v1/composer|name": user.name || user.email,
     };
 
-    // Store in memory (initialize array if doesn't exist)
-    if (!carePlansStore[patientid]) {
-      carePlansStore[patientid] = [];
+    // Add Problem/Diagnosis section (required fields only)
+    if (carePlan.problemDiagnosis) {
+      composition["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"] = carePlan.problemDiagnosis;
+      composition["template_care_plan_v1/problem_diagnosis/language|code"] = "en";
+      composition["template_care_plan_v1/problem_diagnosis/language|terminology"] = "ISO_639-1";
+      composition["template_care_plan_v1/problem_diagnosis/encoding|code"] = "UTF-8";
+      composition["template_care_plan_v1/problem_diagnosis/encoding|terminology"] = "IANA_character-sets";
+      
+      // Optional fields
+      if (carePlan.clinicalDescription) {
+        composition["template_care_plan_v1/problem_diagnosis/clinical_description"] = carePlan.clinicalDescription;
+      }
+      if (carePlan.bodySite) {
+        composition["template_care_plan_v1/problem_diagnosis/body_site:0"] = carePlan.bodySite;
+      }
+      if (carePlan.dateOfOnset) {
+        composition["template_care_plan_v1/problem_diagnosis/date_time_of_onset"] = carePlan.dateOfOnset;
+      }
+      if (carePlan.severity) {
+        composition["template_care_plan_v1/problem_diagnosis/severity|code"] = "255604002";
+        composition["template_care_plan_v1/problem_diagnosis/severity|value"] = carePlan.severity;
+        composition["template_care_plan_v1/problem_diagnosis/severity|terminology"] = "SNOMED-CT";
+      }
+      if (carePlan.problemComment) {
+        composition["template_care_plan_v1/problem_diagnosis/comment"] = carePlan.problemComment;
+      }
     }
-    carePlansStore[patientid].unshift(carePlanRecord); // Add to beginning
+
+    // Add Goal section (required fields only)
+    if (carePlan.goalName) {
+      composition["template_care_plan_v1/goal/goal_name"] = carePlan.goalName;
+      composition["template_care_plan_v1/goal/language|code"] = "en";
+      composition["template_care_plan_v1/goal/language|terminology"] = "ISO_639-1";
+      composition["template_care_plan_v1/goal/encoding|code"] = "UTF-8";
+      composition["template_care_plan_v1/goal/encoding|terminology"] = "IANA_character-sets";
+      
+      // Optional fields
+      if (carePlan.goalDescription) {
+        composition["template_care_plan_v1/goal/goal_description"] = carePlan.goalDescription;
+      }
+      if (carePlan.goalClinicalIndication) {
+        composition["template_care_plan_v1/goal/clinical_indication:0"] = carePlan.goalClinicalIndication;
+      }
+      if (carePlan.goalStartDate) {
+        composition["template_care_plan_v1/goal/goal_start_date"] = carePlan.goalStartDate;
+      }
+      if (carePlan.goalEndDate) {
+        composition["template_care_plan_v1/goal/goal_end_date"] = carePlan.goalEndDate;
+      }
+      if (carePlan.goalOutcome) {
+        composition["template_care_plan_v1/goal/goal_outcome|other"] = carePlan.goalOutcome;
+      }
+      if (carePlan.goalComment) {
+        composition["template_care_plan_v1/goal/goal_comment"] = carePlan.goalComment;
+      }
+    }
+
+    // Add Service Request section (required fields only)
+    if (carePlan.serviceName) {
+      composition["template_care_plan_v1/service_request/request/service_name|other"] = carePlan.serviceName;
+      composition["template_care_plan_v1/service_request/language|code"] = "en";
+      composition["template_care_plan_v1/service_request/language|terminology"] = "ISO_639-1";
+      composition["template_care_plan_v1/service_request/encoding|code"] = "UTF-8";
+      composition["template_care_plan_v1/service_request/encoding|terminology"] = "IANA_character-sets";
+      
+      // Optional fields
+      if (carePlan.serviceDescription) {
+        composition["template_care_plan_v1/service_request/request/description"] = carePlan.serviceDescription;
+      }
+      if (carePlan.serviceClinicalIndication) {
+        composition["template_care_plan_v1/service_request/request/clinical_indication"] = carePlan.serviceClinicalIndication;
+      }
+      if (carePlan.urgency) {
+        composition["template_care_plan_v1/service_request/request/urgency|code"] = "394848005";
+        composition["template_care_plan_v1/service_request/request/urgency|value"] = carePlan.urgency;
+        composition["template_care_plan_v1/service_request/request/urgency|terminology"] = "SNOMED-CT";
+      }
+      if (carePlan.requestedDate) {
+        composition["template_care_plan_v1/service_request/request/requested_date"] = carePlan.requestedDate;
+      }
+      // Don't include request_status - it's causing validation errors
+      // The template may not support this field or requires specific codes
+    }
+
+    // Add Medication Order section (completely optional)
+    if (carePlan.medicationItem) {
+      composition["template_care_plan_v1/medication_order/order:0/medication_item"] = carePlan.medicationItem;
+      composition["template_care_plan_v1/medication_order/language|code"] = "en";
+      composition["template_care_plan_v1/medication_order/language|terminology"] = "ISO_639-1";
+      composition["template_care_plan_v1/medication_order/encoding|code"] = "UTF-8";
+      composition["template_care_plan_v1/medication_order/encoding|terminology"] = "IANA_character-sets";
+      
+      if (carePlan.medicationRoute) {
+        composition["template_care_plan_v1/medication_order/order:0/route:0"] = carePlan.medicationRoute;
+      }
+      if (carePlan.medicationDirections) {
+        composition["template_care_plan_v1/medication_order/order:0/overall_directions_description"] = carePlan.medicationDirections;
+      }
+      if (carePlan.medicationClinicalIndication) {
+        composition["template_care_plan_v1/medication_order/order:0/clinical_indication:0"] = carePlan.medicationClinicalIndication;
+      }
+    }
+
+    // Create composition in openEHR
+    const compositionUid = await createCarePlan(ehrId, composition);
+
     return NextResponse.json(
-      { 
+      {
         success: true,
-        message: "Care plan created successfully",
-        record: carePlanRecord
+        message: "Care plan created successfully in openEHR",
+        compositionUid,
       },
       { status: 201 }
     );

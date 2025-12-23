@@ -171,6 +171,10 @@ export default function PatientDashboard({
   const [prescriptions, setPrescriptions] = useState<PrescriptionRecord[]>([]);
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
 
+  // Care Plans state (openEHR care plans)
+  const [carePlans, setCarePlans] = useState<DashboardTypes.CarePlanRecord[]>([]);
+  const [loadingCarePlans, setLoadingCarePlans] = useState(false);
+
   // Track which tabs have been loaded to avoid redundant API calls
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(
     new Set(["dashboard"])
@@ -205,6 +209,44 @@ export default function PatientDashboard({
       }
     },
     [workspaceid, patient.patientid, prescriptions.length]
+  );
+
+  // Load care plans from OpenEHR
+  const loadCarePlans = useCallback(
+    async (reset?: boolean) => {
+      try {
+        if (!reset && carePlans.length > 0) {
+          return;
+        }
+
+        setLoadingCarePlans(true);
+        const res = await fetch(
+          `/api/d/${workspaceid}/patients/${patient.patientid}/care-plans`,
+          { cache: "no-store" }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          // Transform openEHR care plans to dashboard format
+          const transformedPlans = (data.carePlans || []).map((cp: any) => ({
+            planid: cp.composition_uid,
+            plan_name: cp.care_plan_name || cp.problem_diagnosis || cp.goal_name || "Care Plan",
+            created_date: cp.recorded_time,
+            description: cp.goal_description || cp.clinical_description,
+            status: cp.status?.toLowerCase() || "active",
+          }));
+          setCarePlans(transformedPlans);
+        } else {
+          setCarePlans([]);
+        }
+      } catch (error) {
+        console.error("Error loading care plans:", error);
+        setCarePlans([]);
+      } finally {
+        setLoadingCarePlans(false);
+      }
+    },
+    [workspaceid, patient.patientid, carePlans.length]
   );
 
   // Handle tab changes and lazy load data
@@ -423,7 +465,8 @@ export default function PatientDashboard({
     loadVitalSigns();
     loadImaging();
     loadDiagnoses();
-  }, [loadAppointments, loadVitalSigns, loadImaging, loadDiagnoses]);
+    loadCarePlans();
+  }, [loadAppointments, loadVitalSigns, loadImaging, loadDiagnoses, loadCarePlans]);
 
   return (
     <div className="space-y-2 pt-0">
@@ -621,12 +664,12 @@ export default function PatientDashboard({
               diagnoses={diagnoses}
               labs={[] as DashboardTypes.LabRecord[]} // Empty array for labs
               imaging={[] as DashboardTypes.ImagingRecord[]} // Empty array for imaging
-              carePlans={[] as DashboardTypes.CarePlanRecord[]} // Empty array for care plans
+              carePlans={carePlans} // Now showing actual care plans from openEHR
               loadingVitalSigns={loadingVitalSigns}
               loadingDiagnoses={loadingDiagnoses}
               loadingLabs={false} // No loading state for lab results
               loadingImaging={loadingImaging}
-              loadingCarePlans={false} // No loading state for care plans
+              loadingCarePlans={loadingCarePlans} // Now tracking care plans loading state
             />
           </TabsContent>
 
