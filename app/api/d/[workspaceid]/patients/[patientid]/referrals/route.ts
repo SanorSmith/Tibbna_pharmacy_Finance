@@ -6,16 +6,15 @@ import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   getOpenEHREHRBySubjectId,
-  getOpenEHRReferrals,
-} from "@/lib/openehr/openehr";
-import {
-  ClinicalEncounterComposition,
-  createClinicalEncounter,
-} from "@/lib/openehr/encounter";
+  createReferral,
+  listReferrals,
+  getReferral,
+  type ReferralComposition,
+} from "@/lib/openehr";
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/referrals
- * Retrieve referral records for a patient from OpenEHR (SERVICE_REQUEST in clinical encounter)
+ * Retrieve referral records for a patient from OpenEHR using template_referral_v1
  */
 export async function GET(
   request: NextRequest,
@@ -68,7 +67,26 @@ export async function GET(
       return NextResponse.json({ referrals: [] }, { status: 200 });
     }
 
-    const referrals = await getOpenEHRReferrals(ehrId);
+    // Get list of referral compositions
+    const referralList = await listReferrals(ehrId);
+
+    // Fetch full details for each referral
+    const referrals = await Promise.all(
+      referralList.map(async (item) => {
+        const composition = await getReferral(ehrId, item.composition_uid);
+        return {
+          composition_uid: item.composition_uid,
+          recorded_time: item.start_time,
+          physician_department: composition["template_referral_v1/referral/physician_department"] || "",
+          receiving_physician: composition["template_referral_v1/referral/receiving_physician"] || "",
+          clinical_indication: composition["template_referral_v1/referral/clinical_indication"] || "",
+          urgency: composition["template_referral_v1/referral/urgency"] || "routine",
+          comment: composition["template_referral_v1/referral/comment"] || "",
+          referred_by: composition["template_referral_v1/composer|name"] || "Unknown",
+          status: composition["template_referral_v1/referral/status"] || "pending",
+        };
+      })
+    );
 
     return NextResponse.json({ referrals }, { status: 200 });
   } catch (error) {
@@ -82,8 +100,7 @@ export async function GET(
 
 /**
  * POST /api/d/[workspaceid]/patients/[patientid]/referrals
- * Create a new referral record in OpenEHR as a SERVICE_REQUEST inside
- * the clinical encounter template (template_clinical_encounter_v2).
+ * Create a new referral record in OpenEHR using template_referral_v1
  */
 export async function POST(
   request: NextRequest,
@@ -172,71 +189,37 @@ export async function POST(
 
     const now = new Date().toISOString();
 
-    const composition: ClinicalEncounterComposition = {
-      // Category
-      "template_clinical_encounter_v2/category|value": "event",
-      "template_clinical_encounter_v2/category|code": "433",
-      "template_clinical_encounter_v2/category|terminology": "openehr",
-
-      // Context - must match template codes (238 = 'other care')
-      "template_clinical_encounter_v2/context/start_time": now,
-      "template_clinical_encounter_v2/context/setting|value": "other care",
-      "template_clinical_encounter_v2/context/setting|code": "238",
-      "template_clinical_encounter_v2/context/setting|terminology": "openehr",
-
+    // Create composition using the dedicated referral template
+    const composition: ReferralComposition = {
       // Language / territory / composer
-      "template_clinical_encounter_v2/language|code": "en",
-      "template_clinical_encounter_v2/language|terminology": "ISO_639-1",
-      "template_clinical_encounter_v2/territory|code": "US",
-      "template_clinical_encounter_v2/territory|terminology": "ISO_3166-1",
-      "template_clinical_encounter_v2/composer|name":
-        user.name || user.email || "Unknown",
+      "template_referral_v1/language|code": "en",
+      "template_referral_v1/language|terminology": "ISO_639-1",
+      "template_referral_v1/territory|code": "US",
+      "template_referral_v1/territory|terminology": "ISO_3166-1",
+      "template_referral_v1/composer|name": user.name || user.email || "Unknown",
 
-      // SERVICE REQUEST (Referral) - use template local coded values
-      "template_clinical_encounter_v2/service_request/request/service_type|terminology":
-        "local",
-      "template_clinical_encounter_v2/service_request/request/service_type|code":
-        "at0005",
-      "template_clinical_encounter_v2/service_request/request/service_type|value":
-        "Referral to specialist",
+      // Context
+      "template_referral_v1/context/start_time": now,
+      "template_referral_v1/context/setting|code": "238",
+      "template_referral_v1/context/setting|value": "other care",
+      "template_referral_v1/context/setting|terminology": "openehr",
 
-      "template_clinical_encounter_v2/service_request/request/clinical_indication":
-        referral.clinicalIndication,
+      // Category
+      "template_referral_v1/category|code": "433",
+      "template_referral_v1/category|value": "event",
+      "template_referral_v1/category|terminology": "openehr",
 
-      "template_clinical_encounter_v2/service_request/request/requested_date":
-        now,
-
-      "template_clinical_encounter_v2/service_request/request/requesting_provider":
-        user.name || user.email || "Unknown Provider",
-
-      "template_clinical_encounter_v2/service_request/request/receiving_provider":
-        referral.physicianDepartment,
-
-      // Store receiving physician name separately in service_name (TEXT)
-      ...(referral.receivingPhysician
-        ? {
-            "template_clinical_encounter_v2/service_request/request/service_name|other":
-              referral.receivingPhysician,
-          }
-        : {}),
-
-      // Add a description marker to distinguish referrals from lab orders
-      "template_clinical_encounter_v2/service_request/request/description":
-        "REFERRAL_REQUEST",
-
-      "template_clinical_encounter_v2/service_request/request/urgency|terminology":
-        "local",
-      "template_clinical_encounter_v2/service_request/request/urgency|code":
-        referral.urgency === "urgent" ? "at0015" : "at0014",
-      "template_clinical_encounter_v2/service_request/request/urgency|value":
-        referral.urgency === "urgent" ? "Urgent" : "Routine",
-
-      "template_clinical_encounter_v2/service_request/narrative":
-        referral.comment ||
-        `Referral to ${referral.physicianDepartment} due to ${referral.clinicalIndication}`,
+      // Referral fields
+      "template_referral_v1/referral/physician_department": referral.physicianDepartment,
+      "template_referral_v1/referral/receiving_physician": referral.receivingPhysician || "",
+      "template_referral_v1/referral/clinical_indication": referral.clinicalIndication,
+      "template_referral_v1/referral/urgency": referral.urgency,
+      "template_referral_v1/referral/comment": referral.comment || "",
+      "template_referral_v1/referral/referred_by": user.name || user.email || "Unknown",
+      "template_referral_v1/referral/status": "pending",
     };
 
-    const compositionUid = await createClinicalEncounter(ehrId, composition);
+    const compositionUid = await createReferral(ehrId, composition);
 
     return NextResponse.json(
       {

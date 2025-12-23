@@ -28,3 +28,6 @@ export * from "./radiology";
 
 // Re-export from careplan.ts
 export * from "./careplan";
+
+// Re-export from referral.ts
+export * from "./referral";
