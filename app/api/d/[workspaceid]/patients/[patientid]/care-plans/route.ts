@@ -18,6 +18,14 @@ interface CarePlan {
   recorded_time: string;
   care_plan_name: string;
   
+  // Care Plan Overview Fields
+  care_plan_description?: string;
+  care_plan_reason?: string;
+  care_plan_schedule?: string;
+  care_plan_expire?: string;
+  care_plan_completed?: string;
+  care_plan_comment?: string;
+  
   // Problem/Diagnosis
   problem_diagnosis?: string;
   clinical_description?: string;
@@ -55,10 +63,47 @@ interface CarePlan {
 
 // Helper function to parse care plan composition to our interface
 function parseCarePlanComposition(comp: CarePlanComposition, compositionUid: string, startTime: string): CarePlan {
+  // Extract care plan overview fields from context and composition
+  const endTime = comp["template_care_plan_v1/context/_end_time"];
+  
+  // Extract completion date from goal outcome (stored as "Completed on MM/DD/YYYY")
+  const goalOutcome = comp["template_care_plan_v1/goal/goal_outcome|other"];
+  let completionDate: string | undefined;
+  if (goalOutcome && goalOutcome.startsWith("Completed on ")) {
+    const dateStr = goalOutcome.replace("Completed on ", "");
+    completionDate = new Date(dateStr).toISOString();
+  }
+  
+  // Determine status based on completion date - only mark as completed if date is in the past
+  let status = "Active";
+  if (completionDate) {
+    const completionDateTime = new Date(completionDate);
+    const now = new Date();
+    if (completionDateTime <= now) {
+      status = "Completed";
+    }
+  }
+  
   return {
     composition_uid: compositionUid,
     recorded_time: startTime || new Date().toISOString(),
-    care_plan_name: comp["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"] || "Care Plan",
+    
+    // Use goal name as care plan name (this is where we store the actual care plan name)
+    // Goal name is set to carePlanName in the composition
+    care_plan_name: comp["template_care_plan_v1/goal/goal_name"] || 
+                    comp["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"] || 
+                    "Care Plan",
+    
+    // Care Plan Overview (extracted from various fields)
+    care_plan_description: comp["template_care_plan_v1/goal/goal_description"] || 
+                          comp["template_care_plan_v1/problem_diagnosis/clinical_description"],
+    care_plan_reason: comp["template_care_plan_v1/goal/clinical_indication:0"] || 
+                     comp["template_care_plan_v1/service_request/request/clinical_indication"],
+    care_plan_schedule: comp["template_care_plan_v1/service_request/request/description"],
+    care_plan_expire: endTime,
+    care_plan_completed: completionDate,
+    care_plan_comment: comp["template_care_plan_v1/goal/goal_comment"] || 
+                      comp["template_care_plan_v1/problem_diagnosis/comment"],
     
     // Problem/Diagnosis
     problem_diagnosis: comp["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"],
@@ -91,7 +136,7 @@ function parseCarePlanComposition(comp: CarePlanComposition, compositionUid: str
     clinical_indication_med: comp["template_care_plan_v1/medication_order/order:0/clinical_indication:0"],
     
     created_by: comp["template_care_plan_v1/composer|name"] || "Unknown",
-    status: comp["template_care_plan_v1/service_request/request/request_status|value"] || "active",
+    status,
   };
 }
 
@@ -102,12 +147,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731847200000-cvd001",
       recorded_time: "2024-11-01T10:00:00.000Z",
       care_plan_name: "Cardiovascular Risk Management",
-      description: "Comprehensive care plan to reduce cardiovascular risk factors including hypertension, hyperlipidemia, and diabetes management. Focus on lifestyle modifications, medication adherence, and regular monitoring.",
-      reason: "Patient has multiple cardiovascular risk factors: Type 2 Diabetes (HbA1c 6.8%), Hypertension (on Lisinopril), Hyperlipidemia (LDL 145 mg/dL), and family history of coronary artery disease.",
+      care_plan_description: "Comprehensive care plan to reduce cardiovascular risk factors including hypertension, hyperlipidemia, and diabetes management. Focus on lifestyle modifications, medication adherence, and regular monitoring.",
+      care_plan_reason: "Patient has multiple cardiovascular risk factors: Type 2 Diabetes (HbA1c 6.8%), Hypertension (on Lisinopril), Hyperlipidemia (LDL 145 mg/dL), and family history of coronary artery disease.",
       care_plan_schedule: "Monthly follow-ups for first 3 months, then quarterly. Blood pressure checks weekly at home. Lab work (lipid panel, HbA1c) every 3 months.",
       care_plan_expire: "2025-11-01T00:00:00.000Z",
       care_plan_completed: "",
-      comment: "Patient motivated and engaged. Good adherence to medications. Needs continued support for dietary changes and exercise program.",
+      care_plan_comment: "Patient motivated and engaged. Good adherence to medications. Needs continued support for dietary changes and exercise program.",
       created_by: "Dr. Sarah Mitchell, MD",
       status: "active"
     },
@@ -115,12 +160,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731760800000-dm001",
       recorded_time: "2024-10-15T14:30:00.000Z",
       care_plan_name: "Diabetes Management Plan",
-      description: "Structured diabetes management plan focusing on glycemic control, prevention of complications, and patient education. Includes medication management, dietary counseling, and regular monitoring of blood glucose levels.",
-      reason: "Type 2 Diabetes Mellitus diagnosed in 2020. Recent HbA1c of 6.8% indicates good control but requires ongoing management to prevent complications.",
+      care_plan_description: "Structured diabetes management plan focusing on glycemic control, prevention of complications, and patient education. Includes medication management, dietary counseling, and regular monitoring of blood glucose levels.",
+      care_plan_reason: "Type 2 Diabetes Mellitus diagnosed in 2020. Recent HbA1c of 6.8% indicates good control but requires ongoing management to prevent complications.",
       care_plan_schedule: "Bi-weekly appointments for first month, then monthly. Daily blood glucose monitoring (fasting and 2-hour post-prandial). HbA1c every 3 months. Annual comprehensive diabetes exam including foot exam, eye exam, and kidney function tests.",
       care_plan_expire: "2025-10-15T00:00:00.000Z",
       care_plan_completed: "",
-      comment: "Patient demonstrates good understanding of diabetes self-management. Continue current Metformin regimen. Reinforce importance of diet and exercise.",
+      care_plan_comment: "Patient demonstrates good understanding of diabetes self-management. Continue current Metformin regimen. Reinforce importance of diet and exercise.",
       created_by: "Dr. James Rodriguez, MD - Endocrinologist",
       status: "active"
     },
@@ -128,12 +173,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731674400000-asthma001",
       recorded_time: "2024-09-20T09:15:00.000Z",
       care_plan_name: "Asthma Action Plan",
-      description: "Personalized asthma action plan to maintain control and prevent exacerbations. Includes trigger identification and avoidance, proper inhaler technique, and emergency response protocol.",
-      reason: "Mild intermittent asthma with exercise and cold air triggers. Last exacerbation was 2 years ago. Patient needs updated action plan for optimal control.",
+      care_plan_description: "Personalized asthma action plan to maintain control and prevent exacerbations. Includes trigger identification and avoidance, proper inhaler technique, and emergency response protocol.",
+      care_plan_reason: "Mild intermittent asthma with exercise and cold air triggers. Last exacerbation was 2 years ago. Patient needs updated action plan for optimal control.",
       care_plan_schedule: "Follow-up every 6 months or as needed for exacerbations. Peak flow monitoring during symptomatic periods. Spirometry annually.",
       care_plan_expire: "2025-09-20T00:00:00.000Z",
       care_plan_completed: "",
-      comment: "Patient well-controlled on PRN albuterol. Educated on proper inhaler technique. Provided written asthma action plan with green/yellow/red zones.",
+      care_plan_comment: "Patient well-controlled on PRN albuterol. Educated on proper inhaler technique. Provided written asthma action plan with green/yellow/red zones.",
       created_by: "Dr. Emily Chen, MD - Pulmonologist",
       status: "active"
     },
@@ -141,12 +186,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731588000000-postop001",
       recorded_time: "2019-08-20T00:00:00.000Z",
       care_plan_name: "Post-Operative Knee Rehabilitation",
-      description: "Comprehensive rehabilitation plan following arthroscopic meniscectomy. Includes physical therapy, pain management, and gradual return to activities.",
-      reason: "Status post arthroscopic meniscectomy for torn medial meniscus. Patient requires structured rehabilitation to regain full range of motion and strength.",
+      care_plan_description: "Comprehensive rehabilitation plan following arthroscopic meniscectomy. Includes physical therapy, pain management, and gradual return to activities.",
+      care_plan_reason: "Status post arthroscopic meniscectomy for torn medial meniscus. Patient requires structured rehabilitation to regain full range of motion and strength.",
       care_plan_schedule: "Physical therapy 3x/week for 6 weeks, then 2x/week for 6 weeks. Progressive weight-bearing as tolerated. Follow-up at 2 weeks, 6 weeks, and 3 months post-op.",
       care_plan_expire: "2020-02-20T00:00:00.000Z",
       care_plan_completed: "2019-11-20T00:00:00.000Z",
-      comment: "Patient completed rehabilitation successfully. Full range of motion achieved. Returned to basketball without restrictions. No residual pain or instability.",
+      care_plan_comment: "Patient completed rehabilitation successfully. Full range of motion achieved. Returned to basketball without restrictions. No residual pain or instability.",
       created_by: "Dr. Michael Thompson, MD - Orthopedic Surgeon",
       status: "completed"
     },
@@ -154,12 +199,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731501600000-weight001",
       recorded_time: "2024-08-10T11:00:00.000Z",
       care_plan_name: "Weight Management Program",
-      description: "Medically supervised weight loss program targeting 10% body weight reduction over 6 months. Includes dietary counseling, exercise prescription, and behavioral modification.",
-      reason: "BMI 32 (obese). Weight loss recommended to improve cardiovascular risk factors and diabetes control. Patient motivated to lose weight.",
+      care_plan_description: "Medically supervised weight loss program targeting 10% body weight reduction over 6 months. Includes dietary counseling, exercise prescription, and behavioral modification.",
+      care_plan_reason: "BMI 32 (obese). Weight loss recommended to improve cardiovascular risk factors and diabetes control. Patient motivated to lose weight.",
       care_plan_schedule: "Weekly weigh-ins and counseling sessions for first month, then bi-weekly. Monthly dietitian consultations. Exercise: 150 minutes moderate activity per week, gradually increasing.",
       care_plan_expire: "2025-02-10T00:00:00.000Z",
       care_plan_completed: "",
-      comment: "Patient has lost 8 lbs in first month. Good adherence to meal plan. Needs encouragement to increase physical activity. Consider group support program.",
+      care_plan_comment: "Patient has lost 8 lbs in first month. Good adherence to meal plan. Needs encouragement to increase physical activity. Consider group support program.",
       created_by: "Dr. Patricia Williams, MD",
       status: "active"
     },
@@ -167,12 +212,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731415200000-mental001",
       recorded_time: "2024-07-15T14:00:00.000Z",
       care_plan_name: "Anxiety Management Plan",
-      description: "Integrated care plan for generalized anxiety disorder including pharmacotherapy, cognitive behavioral therapy, and stress management techniques.",
-      reason: "Patient reports persistent worry, restlessness, and difficulty concentrating for past 6 months. GAD-7 score: 12 (moderate anxiety). Impacting work and relationships.",
+      care_plan_description: "Integrated care plan for generalized anxiety disorder including pharmacotherapy, cognitive behavioral therapy, and stress management techniques.",
+      care_plan_reason: "Patient reports persistent worry, restlessness, and difficulty concentrating for past 6 months. GAD-7 score: 12 (moderate anxiety). Impacting work and relationships.",
       care_plan_schedule: "Weekly CBT sessions with therapist for 12 weeks. Psychiatry follow-up monthly for medication management. Practice relaxation techniques daily. Re-assess with GAD-7 at 6 weeks and 12 weeks.",
       care_plan_expire: "2025-01-15T00:00:00.000Z",
       care_plan_completed: "",
-      comment: "Patient started on Sertraline 50mg daily. Tolerating well. Engaged in therapy. Learning coping strategies. Encourage continued practice of mindfulness exercises.",
+      care_plan_comment: "Patient started on Sertraline 50mg daily. Tolerating well. Engaged in therapy. Learning coping strategies. Encourage continued practice of mindfulness exercises.",
       created_by: "Dr. Amanda Foster, MD - Psychiatrist",
       status: "active"
     },
@@ -180,12 +225,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731328800000-smoking001",
       recorded_time: "2009-01-01T00:00:00.000Z",
       care_plan_name: "Smoking Cessation Program",
-      description: "Comprehensive smoking cessation program including nicotine replacement therapy, behavioral counseling, and relapse prevention strategies.",
-      reason: "Patient smoking 1 pack per day for 10 years (10 pack-year history). Motivated to quit due to health concerns and family pressure.",
+      care_plan_description: "Comprehensive smoking cessation program including nicotine replacement therapy, behavioral counseling, and relapse prevention strategies.",
+      care_plan_reason: "Patient smoking 1 pack per day for 10 years (10 pack-year history). Motivated to quit due to health concerns and family pressure.",
       care_plan_schedule: "Weekly counseling sessions for 8 weeks. Nicotine patch therapy for 12 weeks with gradual taper. Follow-up at 1 month, 3 months, 6 months, and 1 year.",
       care_plan_expire: "2010-01-01T00:00:00.000Z",
       care_plan_completed: "2009-06-01T00:00:00.000Z",
-      comment: "Patient successfully quit smoking! Remained tobacco-free for 15 years. Excellent outcome. Patient credits combination of nicotine replacement and counseling support.",
+      care_plan_comment: "Patient successfully quit smoking! Remained tobacco-free for 15 years. Excellent outcome. Patient credits combination of nicotine replacement and counseling support.",
       created_by: "Dr. Kevin Park, MD",
       status: "completed"
     },
@@ -193,12 +238,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731242400000-pain001",
       recorded_time: "2024-06-01T10:30:00.000Z",
       care_plan_name: "Chronic Low Back Pain Management",
-      description: "Multimodal pain management plan for chronic low back pain including physical therapy, pain medication, and alternative therapies.",
-      reason: "Chronic low back pain for 2 years. MRI shows disc degeneration at L4-L5 without nerve compression. Pain interfering with daily activities and work.",
+      care_plan_description: "Multimodal pain management plan for chronic low back pain including physical therapy, pain medication, and alternative therapies.",
+      care_plan_reason: "Chronic low back pain for 2 years. MRI shows disc degeneration at L4-L5 without nerve compression. Pain interfering with daily activities and work.",
       care_plan_schedule: "Physical therapy 2x/week for 8 weeks focusing on core strengthening and flexibility. Pain management follow-up monthly. Trial of acupuncture weekly for 6 weeks. Re-evaluate at 3 months.",
       care_plan_expire: "2024-12-01T00:00:00.000Z",
       care_plan_completed: "",
-      comment: "Patient on scheduled acetaminophen and PRN ibuprofen. Avoiding opioids. Physical therapy showing good progress. Patient reports 30% improvement in pain and function.",
+      care_plan_comment: "Patient on scheduled acetaminophen and PRN ibuprofen. Avoiding opioids. Physical therapy showing good progress. Patient reports 30% improvement in pain and function.",
       created_by: "Dr. Lisa Thompson, MD - Pain Management",
       status: "active"
     },
@@ -372,7 +417,8 @@ export async function POST(
       );
     }
 
-    // Build openEHR composition in FLAT format - only include defined values
+    // Build openEHR composition in FLAT format
+    // Map the 7 care plan fields to openEHR structure intelligently
     const composition: CarePlanComposition = {
       // Category (required) - using persistent category code
       "template_care_plan_v1/category|code": "431",
@@ -393,107 +439,68 @@ export async function POST(
       "template_care_plan_v1/composer|name": user.name || user.email,
     };
 
-    // Add Problem/Diagnosis section (required fields only)
-    if (carePlan.problemDiagnosis) {
-      composition["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"] = carePlan.problemDiagnosis;
-      composition["template_care_plan_v1/problem_diagnosis/language|code"] = "en";
-      composition["template_care_plan_v1/problem_diagnosis/language|terminology"] = "ISO_639-1";
-      composition["template_care_plan_v1/problem_diagnosis/encoding|code"] = "UTF-8";
-      composition["template_care_plan_v1/problem_diagnosis/encoding|terminology"] = "IANA_character-sets";
-      
-      // Optional fields
-      if (carePlan.clinicalDescription) {
-        composition["template_care_plan_v1/problem_diagnosis/clinical_description"] = carePlan.clinicalDescription;
-      }
-      if (carePlan.bodySite) {
-        composition["template_care_plan_v1/problem_diagnosis/body_site:0"] = carePlan.bodySite;
-      }
-      if (carePlan.dateOfOnset) {
-        composition["template_care_plan_v1/problem_diagnosis/date_time_of_onset"] = carePlan.dateOfOnset;
-      }
-      if (carePlan.severity) {
-        composition["template_care_plan_v1/problem_diagnosis/severity|code"] = "255604002";
-        composition["template_care_plan_v1/problem_diagnosis/severity|value"] = carePlan.severity;
-        composition["template_care_plan_v1/problem_diagnosis/severity|terminology"] = "SNOMED-CT";
-      }
-      if (carePlan.problemComment) {
-        composition["template_care_plan_v1/problem_diagnosis/comment"] = carePlan.problemComment;
-      }
+    // Map care plan expire to context end time
+    if (carePlan.carePlanExpire) {
+      composition["template_care_plan_v1/context/_end_time"] = new Date(carePlan.carePlanExpire).toISOString();
     }
 
-    // Add Goal section (required fields only)
-    if (carePlan.goalName) {
-      composition["template_care_plan_v1/goal/goal_name"] = carePlan.goalName;
-      composition["template_care_plan_v1/goal/language|code"] = "en";
-      composition["template_care_plan_v1/goal/language|terminology"] = "ISO_639-1";
-      composition["template_care_plan_v1/goal/encoding|code"] = "UTF-8";
-      composition["template_care_plan_v1/goal/encoding|terminology"] = "IANA_character-sets";
-      
-      // Optional fields
-      if (carePlan.goalDescription) {
-        composition["template_care_plan_v1/goal/goal_description"] = carePlan.goalDescription;
-      }
-      if (carePlan.goalClinicalIndication) {
-        composition["template_care_plan_v1/goal/clinical_indication:0"] = carePlan.goalClinicalIndication;
-      }
-      if (carePlan.goalStartDate) {
-        composition["template_care_plan_v1/goal/goal_start_date"] = carePlan.goalStartDate;
-      }
-      if (carePlan.goalEndDate) {
-        composition["template_care_plan_v1/goal/goal_end_date"] = carePlan.goalEndDate;
-      }
-      if (carePlan.goalOutcome) {
-        composition["template_care_plan_v1/goal/goal_outcome|other"] = carePlan.goalOutcome;
-      }
-      if (carePlan.goalComment) {
-        composition["template_care_plan_v1/goal/goal_comment"] = carePlan.goalComment;
-      }
+    // Use a generic placeholder for Problem/Diagnosis (required by openEHR template)
+    // This prevents care plans from appearing in diagnosis queries
+    composition["template_care_plan_v1/problem_diagnosis/problem_diagnosis_name"] = "Care Plan - See Goal Section";
+    composition["template_care_plan_v1/problem_diagnosis/language|code"] = "en";
+    composition["template_care_plan_v1/problem_diagnosis/language|terminology"] = "ISO_639-1";
+    composition["template_care_plan_v1/problem_diagnosis/encoding|code"] = "UTF-8";
+    composition["template_care_plan_v1/problem_diagnosis/encoding|terminology"] = "IANA_character-sets";
+    composition["template_care_plan_v1/problem_diagnosis/clinical_description"] = "This is a care plan composition. Actual care plan details are stored in the Goal and Service Request sections.";
+
+    // Store actual Care Plan data in Goal section
+    composition["template_care_plan_v1/goal/goal_name"] = carePlan.carePlanName;
+    composition["template_care_plan_v1/goal/language|code"] = "en";
+    composition["template_care_plan_v1/goal/language|terminology"] = "ISO_639-1";
+    composition["template_care_plan_v1/goal/encoding|code"] = "UTF-8";
+    composition["template_care_plan_v1/goal/encoding|terminology"] = "IANA_character-sets";
+    
+    // Map Description to goal description
+    if (carePlan.carePlanDescription) {
+      composition["template_care_plan_v1/goal/goal_description"] = carePlan.carePlanDescription;
+    }
+    
+    // Map Reason to clinical indication
+    if (carePlan.carePlanReason) {
+      composition["template_care_plan_v1/goal/clinical_indication:0"] = carePlan.carePlanReason;
+    }
+    
+    // Map Expire date to goal end date
+    if (carePlan.carePlanExpire) {
+      composition["template_care_plan_v1/goal/goal_end_date"] = carePlan.carePlanExpire;
+    }
+    
+    // Map Comment to goal comment
+    if (carePlan.carePlanComment) {
+      composition["template_care_plan_v1/goal/goal_comment"] = carePlan.carePlanComment;
+    }
+    
+    // Store completion date in goal section instead of problem diagnosis
+    if (carePlan.carePlanCompleted) {
+      // Use goal outcome to store completion information
+      composition["template_care_plan_v1/goal/goal_outcome|other"] = `Completed on ${new Date(carePlan.carePlanCompleted).toLocaleDateString()}`;
     }
 
-    // Add Service Request section (required fields only)
-    if (carePlan.serviceName) {
-      composition["template_care_plan_v1/service_request/request/service_name|other"] = carePlan.serviceName;
-      composition["template_care_plan_v1/service_request/language|code"] = "en";
-      composition["template_care_plan_v1/service_request/language|terminology"] = "ISO_639-1";
-      composition["template_care_plan_v1/service_request/encoding|code"] = "UTF-8";
-      composition["template_care_plan_v1/service_request/encoding|terminology"] = "IANA_character-sets";
-      
-      // Optional fields
-      if (carePlan.serviceDescription) {
-        composition["template_care_plan_v1/service_request/request/description"] = carePlan.serviceDescription;
-      }
-      if (carePlan.serviceClinicalIndication) {
-        composition["template_care_plan_v1/service_request/request/clinical_indication"] = carePlan.serviceClinicalIndication;
-      }
-      if (carePlan.urgency) {
-        composition["template_care_plan_v1/service_request/request/urgency|code"] = "394848005";
-        composition["template_care_plan_v1/service_request/request/urgency|value"] = carePlan.urgency;
-        composition["template_care_plan_v1/service_request/request/urgency|terminology"] = "SNOMED-CT";
-      }
-      if (carePlan.requestedDate) {
-        composition["template_care_plan_v1/service_request/request/requested_date"] = carePlan.requestedDate;
-      }
-      // Don't include request_status - it's causing validation errors
-      // The template may not support this field or requires specific codes
+    // Map Care Plan Name to Service Request (required by openEHR template)
+    composition["template_care_plan_v1/service_request/request/service_name|other"] = carePlan.carePlanName;
+    composition["template_care_plan_v1/service_request/language|code"] = "en";
+    composition["template_care_plan_v1/service_request/language|terminology"] = "ISO_639-1";
+    composition["template_care_plan_v1/service_request/encoding|code"] = "UTF-8";
+    composition["template_care_plan_v1/service_request/encoding|terminology"] = "IANA_character-sets";
+    
+    // Map Schedule to service description
+    if (carePlan.carePlanSchedule) {
+      composition["template_care_plan_v1/service_request/request/description"] = carePlan.carePlanSchedule;
     }
-
-    // Add Medication Order section (completely optional)
-    if (carePlan.medicationItem) {
-      composition["template_care_plan_v1/medication_order/order:0/medication_item"] = carePlan.medicationItem;
-      composition["template_care_plan_v1/medication_order/language|code"] = "en";
-      composition["template_care_plan_v1/medication_order/language|terminology"] = "ISO_639-1";
-      composition["template_care_plan_v1/medication_order/encoding|code"] = "UTF-8";
-      composition["template_care_plan_v1/medication_order/encoding|terminology"] = "IANA_character-sets";
-      
-      if (carePlan.medicationRoute) {
-        composition["template_care_plan_v1/medication_order/order:0/route:0"] = carePlan.medicationRoute;
-      }
-      if (carePlan.medicationDirections) {
-        composition["template_care_plan_v1/medication_order/order:0/overall_directions_description"] = carePlan.medicationDirections;
-      }
-      if (carePlan.medicationClinicalIndication) {
-        composition["template_care_plan_v1/medication_order/order:0/clinical_indication:0"] = carePlan.medicationClinicalIndication;
-      }
+    
+    // Map Reason to clinical indication
+    if (carePlan.carePlanReason) {
+      composition["template_care_plan_v1/service_request/request/clinical_indication"] = carePlan.carePlanReason;
     }
 
     // Create composition in openEHR
