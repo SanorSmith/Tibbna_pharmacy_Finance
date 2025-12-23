@@ -5,26 +5,25 @@ const basicAuth = Buffer.from(
 ).toString("base64");
 
 export interface ReferralComposition {
-  "template_referral_v1/language|code"?: string;
-  "template_referral_v1/language|terminology"?: string;
-  "template_referral_v1/territory|code"?: string;
-  "template_referral_v1/territory|terminology"?: string;
-  "template_referral_v1/composer|name"?: string;
-  "template_referral_v1/context/start_time"?: string;
-  "template_referral_v1/context/setting|code"?: string;
-  "template_referral_v1/context/setting|value"?: string;
-  "template_referral_v1/context/setting|terminology"?: string;
-  "template_referral_v1/category|code"?: string;
-  "template_referral_v1/category|value"?: string;
-  "template_referral_v1/category|terminology"?: string;
+  "template_clinical_encounter_v1/language|code"?: string;
+  "template_clinical_encounter_v1/language|terminology"?: string;
+  "template_clinical_encounter_v1/territory|code"?: string;
+  "template_clinical_encounter_v1/territory|terminology"?: string;
+  "template_clinical_encounter_v1/composer|name"?: string;
+  "template_clinical_encounter_v1/context/start_time"?: string;
+  "template_clinical_encounter_v1/context/setting|code"?: string;
+  "template_clinical_encounter_v1/context/setting|value"?: string;
+  "template_clinical_encounter_v1/context/setting|terminology"?: string;
+  "template_clinical_encounter_v1/category|code"?: string;
+  "template_clinical_encounter_v1/category|value"?: string;
+  "template_clinical_encounter_v1/category|terminology"?: string;
 
-  "template_referral_v1/referral/physician_department"?: string;
-  "template_referral_v1/referral/receiving_physician"?: string;
-  "template_referral_v1/referral/clinical_indication"?: string;
-  "template_referral_v1/referral/urgency"?: string;
-  "template_referral_v1/referral/comment"?: string;
-  "template_referral_v1/referral/referred_by"?: string;
-  "template_referral_v1/referral/status"?: string;
+  // Use problem_diagnosis fields to store referral data with REFERRAL prefix
+  "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/clinical_description"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/body_site:0"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/variant:0"?: string;
+  "template_clinical_encounter_v1/problem_diagnosis/comment"?: string;
 }
 
 export interface ReferralListItem {
@@ -49,7 +48,7 @@ export async function createReferral(
       },
       params: {
         format: "FLAT",
-        templateId: "template_referral_v1",
+        templateId: "template_clinical_encounter_v1",
       },
     });
 
@@ -67,7 +66,8 @@ export async function createReferral(
 
 export async function listReferrals(ehrId: string): Promise<ReferralListItem[]> {
   const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/query/aql`;
-  const query = `SELECT c/uid/value AS composition_uid, c/name/value AS composition_name, c/context/start_time/value AS start_time FROM EHR e CONTAINS COMPOSITION c WHERE e/ehr_id/value = '${ehrId}' AND c/archetype_details/template_id/value = 'template_referral_v1' ORDER BY c/context/start_time/value DESC`;
+  // Query for clinical encounters that have REFERRAL prefix in problem_diagnosis_name
+  const query = `SELECT c/uid/value AS composition_uid, c/name/value AS composition_name, c/context/start_time/value AS start_time FROM EHR e CONTAINS COMPOSITION c CONTAINS EVALUATION eval[openEHR-EHR-EVALUATION.problem_diagnosis.v1] WHERE e/ehr_id/value = '${ehrId}' AND c/archetype_details/template_id/value = 'template_clinical_encounter_v1' ORDER BY c/context/start_time/value DESC`;
 
   const response = await axios.post(
     url,

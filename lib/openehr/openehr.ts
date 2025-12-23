@@ -510,13 +510,18 @@ ORDER BY
       }
     });
 
-    // Filter out care plans and superseded versions
+    // Filter out care plans, referrals, and superseded versions
     return allDiagnoses.filter((diagnosis) => {
       // Filter out care plan compositions
       if (
         diagnosis.problem_diagnosis === "Care Plan - See Goal Section" ||
         diagnosis.clinical_description?.includes("This is a care plan composition")
       ) {
+        return false;
+      }
+      
+      // Filter out referral compositions (they start with "REFERRAL:")
+      if (diagnosis.problem_diagnosis.startsWith("REFERRAL:")) {
         return false;
       }
       

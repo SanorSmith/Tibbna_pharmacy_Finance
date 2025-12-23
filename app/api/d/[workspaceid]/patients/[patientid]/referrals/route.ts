@@ -74,21 +74,35 @@ export async function GET(
     const referrals = await Promise.all(
       referralList.map(async (item) => {
         const composition = await getReferral(ehrId, item.composition_uid);
+        
+        // Only include compositions that start with "REFERRAL:"
+        const problemDiagnosis = composition["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"] || "";
+        if (!problemDiagnosis.startsWith("REFERRAL:")) {
+          return null;
+        }
+
+        // Parse referral data from the composition fields
+        const clinicalDescription = composition["template_clinical_encounter_v1/problem_diagnosis/clinical_description"] || "";
+        const [department, physician] = clinicalDescription.split(" | ");
+
         return {
           composition_uid: item.composition_uid,
           recorded_time: item.start_time,
-          physician_department: composition["template_referral_v1/referral/physician_department"] || "",
-          receiving_physician: composition["template_referral_v1/referral/receiving_physician"] || "",
-          clinical_indication: composition["template_referral_v1/referral/clinical_indication"] || "",
-          urgency: composition["template_referral_v1/referral/urgency"] || "routine",
-          comment: composition["template_referral_v1/referral/comment"] || "",
-          referred_by: composition["template_referral_v1/composer|name"] || "Unknown",
-          status: composition["template_referral_v1/referral/status"] || "pending",
+          physician_department: department || "",
+          receiving_physician: physician || "",
+          clinical_indication: problemDiagnosis.replace("REFERRAL: ", ""),
+          urgency: composition["template_clinical_encounter_v1/problem_diagnosis/variant:0"] || "routine",
+          comment: composition["template_clinical_encounter_v1/problem_diagnosis/comment"] || "",
+          referred_by: composition["template_clinical_encounter_v1/composer|name"] || "Unknown",
+          status: composition["template_clinical_encounter_v1/problem_diagnosis/body_site:0"] || "pending",
         };
       })
     );
 
-    return NextResponse.json({ referrals }, { status: 200 });
+    // Filter out null entries (non-referral compositions)
+    const filteredReferrals = referrals.filter((r) => r !== null);
+
+    return NextResponse.json({ referrals: filteredReferrals }, { status: 200 });
   } catch (error) {
     console.error("Error fetching referrals:", error);
     return NextResponse.json(
@@ -189,34 +203,32 @@ export async function POST(
 
     const now = new Date().toISOString();
 
-    // Create composition using the dedicated referral template
+    // Create composition using clinical encounter template with REFERRAL prefix
     const composition: ReferralComposition = {
       // Language / territory / composer
-      "template_referral_v1/language|code": "en",
-      "template_referral_v1/language|terminology": "ISO_639-1",
-      "template_referral_v1/territory|code": "US",
-      "template_referral_v1/territory|terminology": "ISO_3166-1",
-      "template_referral_v1/composer|name": user.name || user.email || "Unknown",
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name": user.name || user.email || "Unknown",
 
       // Context
-      "template_referral_v1/context/start_time": now,
-      "template_referral_v1/context/setting|code": "238",
-      "template_referral_v1/context/setting|value": "other care",
-      "template_referral_v1/context/setting|terminology": "openehr",
+      "template_clinical_encounter_v1/context/start_time": now,
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
 
       // Category
-      "template_referral_v1/category|code": "433",
-      "template_referral_v1/category|value": "event",
-      "template_referral_v1/category|terminology": "openehr",
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
 
-      // Referral fields
-      "template_referral_v1/referral/physician_department": referral.physicianDepartment,
-      "template_referral_v1/referral/receiving_physician": referral.receivingPhysician || "",
-      "template_referral_v1/referral/clinical_indication": referral.clinicalIndication,
-      "template_referral_v1/referral/urgency": referral.urgency,
-      "template_referral_v1/referral/comment": referral.comment || "",
-      "template_referral_v1/referral/referred_by": user.name || user.email || "Unknown",
-      "template_referral_v1/referral/status": "pending",
+      // Map referral fields to problem_diagnosis fields with REFERRAL prefix
+      "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name": `REFERRAL: ${referral.clinicalIndication}`,
+      "template_clinical_encounter_v1/problem_diagnosis/clinical_description": `${referral.physicianDepartment} | ${referral.receivingPhysician || ""}`,
+      "template_clinical_encounter_v1/problem_diagnosis/variant:0": referral.urgency,
+      "template_clinical_encounter_v1/problem_diagnosis/body_site:0": "pending",
+      "template_clinical_encounter_v1/problem_diagnosis/comment": referral.comment || "",
     };
 
     const compositionUid = await createReferral(ehrId, composition);
