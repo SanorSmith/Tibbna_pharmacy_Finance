@@ -66,8 +66,8 @@ export async function createClinicalNote(
 
 export async function listClinicalNotes(ehrId: string): Promise<ClinicalNoteListItem[]> {
   const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/query/aql`;
-  // Query for clinical encounters that have CLINICAL_NOTE prefix in problem_diagnosis_name
-  const query = `SELECT c/uid/value AS composition_uid, c/name/value AS composition_name, c/context/start_time/value AS start_time FROM EHR e CONTAINS COMPOSITION c CONTAINS EVALUATION eval[openEHR-EHR-EVALUATION.problem_diagnosis.v1] WHERE e/ehr_id/value = '${ehrId}' AND c/archetype_details/template_id/value = 'template_clinical_encounter_v1' AND eval/data/value LIKE 'CLINICAL_NOTE:%' ORDER BY c/context/start_time/value DESC`;
+  // Query for clinical encounters using template_clinical_encounter_v1
+  const query = `SELECT c/uid/value AS composition_uid, c/name/value AS composition_name, c/context/start_time/value AS start_time FROM EHR e CONTAINS COMPOSITION c CONTAINS EVALUATION eval[openEHR-EHR-EVALUATION.problem_diagnosis.v1] WHERE e/ehr_id/value = '${ehrId}' AND c/archetype_details/template_id/value = 'template_clinical_encounter_v1' ORDER BY c/context/start_time/value DESC`;
 
   const response = await axios.post(
     url,
