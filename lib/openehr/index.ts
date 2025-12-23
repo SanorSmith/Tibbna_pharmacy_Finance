@@ -31,3 +31,6 @@ export * from "./careplan";
 
 // Re-export from referral.ts
 export * from "./referral";
+
+// Re-export from vaccination.ts
+export * from "./vaccination";

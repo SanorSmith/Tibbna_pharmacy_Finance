@@ -510,7 +510,7 @@ ORDER BY
       }
     });
 
-    // Filter out care plans, referrals, and superseded versions
+    // Filter out care plans, referrals, vaccinations, and superseded versions
     return allDiagnoses.filter((diagnosis) => {
       // Filter out care plan compositions
       if (
@@ -522,6 +522,11 @@ ORDER BY
       
       // Filter out referral compositions (they start with "REFERRAL:")
       if (diagnosis.problem_diagnosis.startsWith("REFERRAL:")) {
+        return false;
+      }
+      
+      // Filter out vaccination compositions (they start with "VACCINATION:")
+      if (diagnosis.problem_diagnosis.startsWith("VACCINATION:")) {
         return false;
       }
       
