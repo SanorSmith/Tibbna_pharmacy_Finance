@@ -402,8 +402,11 @@ export async function GET(
     // Get radiology reports from openEHR
     const reportList = await listRadiologyReports(ehrId);
 
-    // Fetch full details for each report
-    const results: ImagingResult[] = await Promise.all(
+    const requests: ImagingRequest[] = [];
+    const results: ImagingResult[] = [];
+
+    // Fetch full details for each report and separate by status
+    await Promise.all(
       reportList.map(async (item) => {
         const composition = await getRadiologyReport(ehrId, item.composition_uid);
         
@@ -413,28 +416,45 @@ export async function GET(
         const findings = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/imaging_findings"] || "";
         const impression = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/overall_impression"] || "";
         const clinicalSummary = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/clinical_summary"] || "";
-        const status = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|value"] || "final";
+        const clinicalIndication = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/clinical_indication"] || "";
+        const statusCode = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|code"] || "";
+        const statusValue = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|value"] || "final";
         const comment = composition["template_radiology_report_v1/imaging_examination_result/any_event:0/comment:0"] || "";
+        const urgency = composition["template_radiology_report_v1/context/status"] || "routine";
 
-        return {
-          composition_uid: item.composition_uid,
-          recorded_time: item.start_time,
-          examination_name: studyName,
-          body_site: bodySite,
-          imaging_findings: findings,
-          impression: impression,
-          additional_details: clinicalSummary,
-          comment: comment,
-          reported_by: composition["template_radiology_report_v1/composer|name"] || "Unknown",
-          report_date: item.start_time,
-          result_status: status.toLowerCase(),
-        };
+        // Separate requests (Registered status) from results (Final/Preliminary/etc)
+        if (statusCode === "at0073") {
+          // This is a request (Registered status)
+          requests.push({
+            composition_uid: item.composition_uid,
+            recorded_time: item.start_time,
+            request_name: studyName,
+            description: clinicalSummary,
+            clinical_indication: clinicalIndication,
+            urgency: urgency,
+            target_body_site: bodySite,
+            comment: comment,
+            requested_by: composition["template_radiology_report_v1/composer|name"] || "Unknown",
+            request_status: "requested",
+          });
+        } else {
+          // This is a result (Final, Preliminary, etc.)
+          results.push({
+            composition_uid: item.composition_uid,
+            recorded_time: item.start_time,
+            examination_name: studyName,
+            body_site: bodySite,
+            imaging_findings: findings,
+            impression: impression,
+            additional_details: clinicalSummary,
+            comment: comment,
+            reported_by: composition["template_radiology_report_v1/composer|name"] || "Unknown",
+            report_date: item.start_time,
+            result_status: statusValue.toLowerCase(),
+          });
+        }
       })
     );
-
-    // For now, requests are empty as we're using radiology reports
-    // In future, we can add separate imaging request tracking
-    const requests: ImagingRequest[] = [];
 
     return NextResponse.json({ 
       requests,
@@ -513,12 +533,16 @@ export async function POST(
 
       const now = new Date().toISOString();
 
-      // Map urgency to status
-      const statusMap: Record<string, string> = {
-        routine: "at0166",
-        urgent: "at0167",
-        emergency: "at0167",
-      };
+      // Valid status codes from template_radiology_report_v1:
+      // at0073 = Registered (request created, no result yet)
+      // at0074 = Partial
+      // at0075 = Preliminary
+      // at0076 = Final
+      // at0077 = Amended
+      // at0078 = Corrected
+      // at0079 = Appended
+      // at0080 = Cancelled
+      // at0090 = Entered in error
 
       // Create radiology report composition for the imaging request
       const composition: RadiologyReportComposition = {
@@ -548,8 +572,8 @@ export async function POST(
         "template_radiology_report_v1/imaging_examination_result/any_event:0/clinical_indication": data.clinicalIndication || "",
         "template_radiology_report_v1/imaging_examination_result/any_event:0/clinical_summary": data.description || "",
         "template_radiology_report_v1/imaging_examination_result/any_event:0/comment:0": data.comment || "",
-        "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|code": statusMap[data.urgency] || "at0166",
-        "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|value": "Requested",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|code": "at0073",
+        "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|value": "Registered",
         "template_radiology_report_v1/imaging_examination_result/any_event:0/overall_result_status:0|terminology": "local",
         "template_radiology_report_v1/imaging_examination_result/any_event:0/status_timestamp": now,
         "template_radiology_report_v1/imaging_examination_result/any_event:0/time": now,
