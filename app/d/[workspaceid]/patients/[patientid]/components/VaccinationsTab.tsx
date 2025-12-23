@@ -9,6 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // Vaccinations interfaces (openEHR compliant)
 export interface VaccinationRecord {
@@ -33,6 +41,8 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
   const [showVaccinationForm, setShowVaccinationForm] = useState(false);
   const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
   const [loadingVaccinations, setLoadingVaccinations] = useState(false);
+  const [selectedVaccination, setSelectedVaccination] = useState<VaccinationRecord | null>(null);
+  const [showVaccinationDetails, setShowVaccinationDetails] = useState(false);
   const [vaccinationForm, setVaccinationForm] = useState({
     vaccineName: "",
     targetedDisease: "",
@@ -117,158 +127,70 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {vaccinationRecords.map((record, index) => (
-                <div
-                  key={index}
-                  className="border rounded-xl p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-indigo-50/30"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
-                        <div className="font-semibold text-lg">
-                          {record.vaccine_name || "Vaccination Record"}
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        {record.recorded_time
-                          ? new Date(record.recorded_time).toLocaleString(
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vaccine Name</TableHead>
+                    <TableHead>Targeted Disease</TableHead>
+                    <TableHead>Last Administered</TableHead>
+                    <TableHead>Next Due</TableHead>
+                    <TableHead>Total Doses</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vaccinationRecords.map((record, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">
+                        {record.vaccine_name || "Vaccination Record"}
+                      </TableCell>
+                      <TableCell>{record.targeted_disease || "-"}</TableCell>
+                      <TableCell>
+                        {record.last_vaccine_date
+                          ? new Date(record.last_vaccine_date).toLocaleDateString(
                               "en-US",
                               {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
                               }
                             )
-                          : "Date not recorded"}
-                      </div>
-                    </div>
-                    <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
-                      ✓ Recorded
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    {record.targeted_disease && (
-                      <div className="bg-white rounded-lg p-3 border border-purple-100">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-purple-500">🦠</span>
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Targeted Disease
-                          </div>
-                        </div>
-                        <div className="text-base font-bold text-purple-600">
-                          {record.targeted_disease}
-                        </div>
-                      </div>
-                    )}
-                    {record.total_administrations && (
-                      <div className="bg-white rounded-lg p-3 border border-blue-100">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-blue-500">💊</span>
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Total Doses
-                          </div>
-                        </div>
-                        <div className="text-base font-bold text-blue-600">
-                          {record.total_administrations}
-                        </div>
-                      </div>
-                    )}
-                    {record.last_vaccine_date && (
-                      <div className="bg-white rounded-lg p-3 border border-green-100">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-green-500">📅</span>
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Last Vaccine
-                          </div>
-                        </div>
-                        <div className="text-base font-bold text-green-600">
-                          {new Date(
-                            record.last_vaccine_date
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    {record.next_vaccine_due && (
-                      <div className="bg-white rounded-lg p-3 border border-orange-100">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-orange-500">⏰</span>
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Next Due
-                          </div>
-                        </div>
-                        <div className="text-base font-bold text-orange-600">
-                          {new Date(
-                            record.next_vaccine_due
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {(record.description ||
-                    record.additional_details ||
-                    record.comment) && (
-                    <div className="space-y-2 text-sm">
-                      {record.description && (
-                        <div>
-                          <div className="text-xs text-muted-foreground font-medium mb-1">
-                            Description
-                          </div>
-                          <div className="text-gray-700">
-                            {record.description}
-                          </div>
-                        </div>
-                      )}
-                      {record.additional_details && (
-                        <div>
-                          <div className="text-xs text-muted-foreground font-medium mb-1">
-                            Additional Details
-                          </div>
-                          <div className="text-gray-700">
-                            {record.additional_details}
-                          </div>
-                        </div>
-                      )}
-                      {record.comment && (
-                        <div>
-                          <div className="text-xs text-muted-foreground font-medium mb-1">
-                            Comment
-                          </div>
-                          <div className="text-gray-700">
-                            {record.comment}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {record.next_vaccine_due ? (
+                          <span className="text-orange-600 font-medium">
+                            {new Date(record.next_vaccine_due).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell>{record.total_administrations || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedVaccination(record);
+                            setShowVaccinationDetails(true);
+                          }}
+                        >
+                          Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
@@ -519,6 +441,154 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vaccination Details Dialog */}
+      <Dialog
+        open={showVaccinationDetails}
+        onOpenChange={setShowVaccinationDetails}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Vaccination Details</DialogTitle>
+            <DialogDescription>
+              Complete vaccination information and history
+            </DialogDescription>
+          </DialogHeader>
+          {selectedVaccination && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Vaccine Name
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedVaccination.vaccine_name || "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Targeted Disease
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedVaccination.targeted_disease || "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Total Doses
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedVaccination.total_administrations || "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Last Administered
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedVaccination.last_vaccine_date
+                      ? new Date(selectedVaccination.last_vaccine_date).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )
+                      : "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Next Due Date
+                  </label>
+                  <div className="mt-1 text-lg font-semibold text-orange-600">
+                    {selectedVaccination.next_vaccine_due
+                      ? new Date(selectedVaccination.next_vaccine_due).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )
+                      : "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Recorded On
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedVaccination.recorded_time
+                      ? new Date(selectedVaccination.recorded_time).toLocaleString(
+                          "en-US",
+                          {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "Not specified"}
+                  </div>
+                </div>
+              </div>
+
+              {(selectedVaccination.description ||
+                selectedVaccination.additional_details ||
+                selectedVaccination.comment) && (
+                <div className="space-y-4 pt-4 border-t">
+                  <h4 className="font-semibold text-lg">Additional Information</h4>
+                  
+                  {selectedVaccination.description && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        Description
+                      </label>
+                      <div className="mt-1 text-gray-700">
+                        {selectedVaccination.description}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedVaccination.additional_details && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        Additional Details
+                      </label>
+                      <div className="mt-1 text-gray-700">
+                        {selectedVaccination.additional_details}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedVaccination.comment && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        Comments
+                      </label>
+                      <div className="mt-1 text-gray-700">
+                        {selectedVaccination.comment}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowVaccinationDetails(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
