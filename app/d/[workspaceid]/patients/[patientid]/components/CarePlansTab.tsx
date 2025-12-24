@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Scissors, Eye, RefreshCw } from "lucide-react";
+import { Plus, Scissors, RefreshCw } from "lucide-react";
 
 // Care Plans interfaces (openEHR compliant)
 export interface CarePlan {
@@ -170,7 +170,7 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold">Care Plans (openEHR)</CardTitle>
+            <CardTitle className="text-xl font-semibold">Care Plans</CardTitle>
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
@@ -250,8 +250,8 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
                             setSelectedCarePlan(plan);
                             setShowDetailModal(true);
                           }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
+                        > 
+                         
                           Details
                         </Button>
                       </TableCell>
@@ -696,14 +696,7 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
                 )}
               </div>
 
-              {/* Technical Info - Collapsible */}
-              <details className="border-t pt-4">
-                <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-900">Technical Information</summary>
-                <div className="mt-3 bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs font-medium text-gray-600 mb-1">Composition UID</p>
-                  <p className="text-xs text-gray-700 font-mono break-all">{selectedCarePlan.composition_uid}</p>
-                </div>
-              </details>
+             
             </div>
           )}
           <DialogFooter>

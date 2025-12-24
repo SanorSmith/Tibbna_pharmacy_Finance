@@ -78,7 +78,7 @@ export default function ImagingTab({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold">Imaging Requests</CardTitle>
+            <CardTitle className="text-xl font-medium">Imaging Requests</CardTitle>
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               size="sm"
@@ -172,7 +172,7 @@ export default function ImagingTab({
       {/* Imaging Results Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-semibold">Imaging Results</CardTitle>
+          <CardTitle className="text-xl font-medium">Imaging Results</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingImaging ? (
@@ -517,7 +517,7 @@ export default function ImagingTab({
                   <label className="text-sm font-medium text-gray-600">
                     Request Name
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedRequest.request_name}
                   </div>
                 </div>
@@ -546,7 +546,7 @@ export default function ImagingTab({
                   <label className="text-sm font-medium text-gray-600">
                     Request Date
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {new Date(selectedRequest.recorded_time).toLocaleString(
                       "en-US",
                       {
@@ -563,7 +563,7 @@ export default function ImagingTab({
                   <label className="text-sm font-medium text-gray-600">
                     Requested By
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedRequest.requested_by}
                   </div>
                 </div>
@@ -571,7 +571,7 @@ export default function ImagingTab({
                   <label className="text-sm font-medium text-gray-600">
                     Urgency
                   </label>
-                  <div className="mt-1 text-lg font-semibold capitalize">
+                  <div className="mt-1 text-md font-medium capitalize">
                     {selectedRequest.urgency}
                   </div>
                 </div>
@@ -580,7 +580,7 @@ export default function ImagingTab({
                     <label className="text-sm font-medium text-gray-600">
                       Target Body Site
                     </label>
-                    <div className="mt-1 text-lg font-semibold">
+                    <div className="mt-1 text-md font-medium">
                       {selectedRequest.target_body_site}
                     </div>
                   </div>
@@ -649,7 +649,7 @@ export default function ImagingTab({
                   <label className="text-sm font-medium text-gray-600">
                     Examination
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedResult.examination_name}
                   </div>
                 </div>
@@ -676,7 +676,7 @@ export default function ImagingTab({
                   <label className="text-sm font-medium text-gray-600">
                     Report Date
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-lg font-medium">
                     {new Date(selectedResult.report_date).toLocaleString(
                       "en-US",
                       {
@@ -693,7 +693,7 @@ export default function ImagingTab({
                   <label className="text-sm font-medium text-gray-600">
                     Reported By
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-lg font-medium">
                     {selectedResult.reported_by || "Unknown"}
                   </div>
                 </div>
@@ -702,7 +702,7 @@ export default function ImagingTab({
                     <label className="text-sm font-medium text-gray-600">
                       Body Site
                     </label>
-                    <div className="mt-1 text-lg font-semibold">
+                    <div className="mt-1 text-lg font-medium">
                       {selectedResult.body_site}
                     </div>
                   </div>
@@ -711,7 +711,7 @@ export default function ImagingTab({
 
               {selectedResult.imaging_findings && (
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold text-lg text-blue-900 mb-2">
+                  <h4 className="font-medium text-lg text-blue-900 mb-2">
                     Imaging Findings
                   </h4>
                   <div className="text-blue-900 whitespace-pre-line">
@@ -722,7 +722,7 @@ export default function ImagingTab({
 
               {selectedResult.impression && (
                 <div className="p-4 bg-purple-50 rounded-lg">
-                  <h4 className="font-semibold text-lg text-purple-900 mb-2">
+                  <h4 className="font-medium text-lg text-purple-900 mb-2">
                     Impression
                   </h4>
                   <div className="text-purple-900 whitespace-pre-line">

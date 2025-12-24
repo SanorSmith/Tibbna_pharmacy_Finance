@@ -66,7 +66,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl font-semibold">Clinical Notes</CardTitle>
+              <CardTitle className="text-xl font-medium">Clinical Notes</CardTitle>
             </div>
             <Button
               size="sm"
@@ -217,7 +217,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
 
             {/* SOAP Format */}
             <div className="border-t pt-4">
-              <div className="text-sm font-semibold mb-3">
+              <div className="text-sm font-medium mb-3">
                 SOAP Format (Optional but Recommended)
               </div>
 
@@ -276,7 +276,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
 
             {/* Additional Details */}
             <div className="border-t pt-4">
-              <div className="text-sm font-semibold mb-3">
+              <div className="text-sm font-medium mb-3">
                 Additional Details
               </div>
 
@@ -477,7 +477,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
                   <label className="text-sm font-medium text-gray-600">
                     Note Title
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedNote.note_title || "Untitled Note"}
                   </div>
                 </div>
@@ -485,7 +485,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
                   <label className="text-sm font-medium text-gray-600">
                     Note Type
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedNote.note_type
                       .replace(/_/g, " ")
                       .replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -495,7 +495,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
                   <label className="text-sm font-medium text-gray-600">
                     Date & Time
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {new Date(selectedNote.recorded_time).toLocaleString(
                       "en-US",
                       {
@@ -512,7 +512,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
                   <label className="text-sm font-medium text-gray-600">
                     Author
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedNote.author} ({selectedNote.author_role})
                   </div>
                 </div>
@@ -538,7 +538,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
 
               {/* Synopsis */}
               <div className="p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-semibold text-lg text-blue-900 mb-2">
+                <h4 className="font-medium text-md text-blue-900 mb-2">
                   Synopsis
                 </h4>
                 <div className="text-blue-900 whitespace-pre-line">
@@ -548,11 +548,11 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
 
               {/* SOAP Format */}
               <div className="space-y-4">
-                <h4 className="font-semibold text-lg">SOAP Documentation</h4>
+                <h4 className="font-medium text-md">SOAP Documentation</h4>
 
                 {selectedNote.subjective && (
                   <div className="p-4 bg-gray-50 rounded-lg">
-                    <h5 className="font-semibold text-gray-700 mb-2">
+                    <h5 className="font-medium text-gray-700 mb-2">
                       Subjective
                     </h5>
                     <div className="text-gray-700 whitespace-pre-line">
@@ -563,7 +563,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
 
                 {selectedNote.objective && (
                   <div className="p-4 bg-gray-50 rounded-lg">
-                    <h5 className="font-semibold text-gray-700 mb-2">
+                    <h5 className="font-medium text-gray-700 mb-2">
                       Objective
                     </h5>
                     <div className="text-gray-700 whitespace-pre-line">
@@ -574,7 +574,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
 
                 {selectedNote.assessment && (
                   <div className="p-4 bg-gray-50 rounded-lg">
-                    <h5 className="font-semibold text-gray-700 mb-2">
+                    <h5 className="font-medium text-gray-700 mb-2">
                       Assessment
                     </h5>
                     <div className="text-gray-700 whitespace-pre-line">
@@ -585,7 +585,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
 
                 {selectedNote.plan && (
                   <div className="p-4 bg-gray-50 rounded-lg">
-                    <h5 className="font-semibold text-gray-700 mb-2">Plan</h5>
+                    <h5 className="font-medium text-gray-700 mb-2">Plan</h5>
                     <div className="text-gray-700 whitespace-pre-line">
                       {selectedNote.plan}
                     </div>
@@ -596,7 +596,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
               {/* Additional Information */}
               {(selectedNote.clinical_context || selectedNote.comment) && (
                 <div className="space-y-4 pt-4 border-t">
-                  <h4 className="font-semibold text-lg">
+                  <h4 className="font-medium text-md">
                     Additional Information
                   </h4>
 

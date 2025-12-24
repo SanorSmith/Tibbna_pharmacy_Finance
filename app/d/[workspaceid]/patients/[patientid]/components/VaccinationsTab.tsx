@@ -451,7 +451,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                   <label className="text-sm font-medium text-gray-600">
                     Vaccine Name
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedVaccination.vaccine_name || "Not specified"}
                   </div>
                 </div>
@@ -459,7 +459,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                   <label className="text-sm font-medium text-gray-600">
                     Targeted Disease
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedVaccination.targeted_disease || "Not specified"}
                   </div>
                 </div>
@@ -467,7 +467,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                   <label className="text-sm font-medium text-gray-600">
                     Total Doses
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedVaccination.total_administrations || "Not specified"}
                   </div>
                 </div>
@@ -475,7 +475,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                   <label className="text-sm font-medium text-gray-600">
                     Last Administered
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedVaccination.last_vaccine_date
                       ? new Date(selectedVaccination.last_vaccine_date).toLocaleDateString(
                           "en-US",
@@ -492,7 +492,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                   <label className="text-sm font-medium text-gray-600">
                     Next Due Date
                   </label>
-                  <div className="mt-1 text-lg font-semibold text-orange-600">
+                  <div className="mt-1 text-md font-medium text-orange-600">
                     {selectedVaccination.next_vaccine_due
                       ? new Date(selectedVaccination.next_vaccine_due).toLocaleDateString(
                           "en-US",
@@ -509,7 +509,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                   <label className="text-sm font-medium text-gray-600">
                     Recorded On
                   </label>
-                  <div className="mt-1 text-lg font-semibold">
+                  <div className="mt-1 text-md font-medium">
                     {selectedVaccination.recorded_time
                       ? new Date(selectedVaccination.recorded_time).toLocaleString(
                           "en-US",
