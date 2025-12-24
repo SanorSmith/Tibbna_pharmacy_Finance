@@ -70,7 +70,7 @@ interface ImagingResult {
 }
 
 // Dummy data for demonstration (will be replaced by openEHR data)
-const imagingRequestStore: Record<string, ImagingRequest[]> = {
+/* const imagingRequestStore: Record<string, ImagingRequest[]> = {
   "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
     {
       composition_uid: "imaging-request-1731847200000-xray001",
@@ -339,7 +339,7 @@ RECOMMENDATION: Clinical correlation. Consider orthopedic consultation for manag
       result_status: "final"
     }
   ]
-};
+}; */
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/imaging

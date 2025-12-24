@@ -3,7 +3,7 @@
  * - Display appointments in a monthly calendar format
  * - Route: /d/[workspaceid]/appointments/calendar
  */
-import { Header } from "@/components/sidebar/header";
+//import { Header } from "@/components/sidebar/header";
 import CalendarView from "./calendar-view";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";

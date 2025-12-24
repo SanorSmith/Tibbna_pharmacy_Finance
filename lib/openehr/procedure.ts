@@ -68,40 +68,40 @@ export interface Procedure {
  * Parse a procedure composition from OpenEHR
  */
 export function parseProcedureComposition(
-  composition: any,
+  composition: Record<string, unknown>,
   compositionUid: string,
   recordedTime: string
 ): Procedure {
-  const content = composition.content || composition;
+  const content = (composition.content || composition) as Record<string, unknown>;
 
   return {
     composition_uid: compositionUid,
     recorded_time: recordedTime,
     procedure_name:
-      content["template_clinical_encounter_v1/service_request/request/service_name|other"] ||
+      (content["template_clinical_encounter_v1/service_request/request/service_name|other"] as string) ||
       "Surgical Procedure",
     procedure_code: undefined,
     body_site: undefined,
     laterality: undefined,
     method: undefined,
-    description: content["template_clinical_encounter_v1/service_request/request/description"],
+    description: content["template_clinical_encounter_v1/service_request/request/description"] as string | undefined,
     scheduled_date_time:
-      content["template_clinical_encounter_v1/service_request/request/requested_date"],
+      content["template_clinical_encounter_v1/service_request/request/requested_date"] as string | undefined,
     duration: undefined,
     urgency: undefined,
-    indication: content["template_clinical_encounter_v1/service_request/request/clinical_indication"],
+    indication: content["template_clinical_encounter_v1/service_request/request/clinical_indication"] as string | undefined,
     outcome: undefined,
     complications: undefined,
     performer_name:
-      content["template_clinical_encounter_v1/service_request/request/requesting_provider"],
+      content["template_clinical_encounter_v1/service_request/request/requesting_provider"] as string | undefined,
     performer_role: "Surgeon",
     anesthesia_type: undefined,
     theater_location: undefined,
     estimated_duration: undefined,
-    preoperative_assessment: content["template_clinical_encounter_v1/service_request/narrative"],
+    preoperative_assessment: content["template_clinical_encounter_v1/service_request/narrative"] as string | undefined,
     current_state: "planned",
     careflow_step: "procedure_scheduled",
-    comment: content["template_clinical_encounter_v1/service_request/narrative"],
+    comment: content["template_clinical_encounter_v1/service_request/narrative"] as string | undefined,
   };
 }
 
@@ -133,7 +133,7 @@ export async function listProcedures(ehrId: string): Promise<
 export async function getProcedure(
   ehrId: string,
   compositionUid: string
-): Promise<any> {
+): Promise<Record<string, unknown>> {
   const response = await fetch(
     `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionUid}?format=FLAT`,
     {
@@ -257,10 +257,10 @@ export async function getOpenEHRProcedures(ehrId: string): Promise<Procedure[]> 
     for (const item of proceduresList) {
       try {
         const fullComposition = await getProcedure(ehrId, item.composition_uid);
-        const content = fullComposition.content || fullComposition;
+        const content = (fullComposition.content || fullComposition) as Record<string, unknown>;
         
         // Only include if it's marked as a procedure request
-        const description = content["template_clinical_encounter_v1/service_request/request/description"];
+        const description = content["template_clinical_encounter_v1/service_request/request/description"] as string | undefined;
         
         if (!isServiceRequestType(description, SERVICE_REQUEST_MARKERS.PROCEDURE)) {
           continue;

@@ -84,8 +84,34 @@ export async function GET(
 
     console.log("[Doctor Referrals] Checking", recentPatients.length, "patients (limit:", limit, "offset:", offset, ")");
 
-    const incomingReferrals: any[] = [];
-    const outgoingReferrals: any[] = [];
+    const incomingReferrals: Array<{
+      composition_uid: string;
+      recorded_time: string;
+      physician_department: string;
+      receiving_physician: string;
+      clinical_indication: string;
+      urgency: string;
+      comment: string;
+      referred_by: string;
+      status: string;
+      patientid: string;
+      patientName: string;
+      patientNationalId: string;
+    }> = [];
+    const outgoingReferrals: Array<{
+      composition_uid: string;
+      recorded_time: string;
+      physician_department: string;
+      receiving_physician: string;
+      clinical_indication: string;
+      urgency: string;
+      comment: string;
+      referred_by: string;
+      status: string;
+      patientid: string;
+      patientName: string;
+      patientNationalId: string;
+    }> = [];
 
     // Process each patient (limited to 10 for speed)
     for (const patient of recentPatients) {
@@ -136,12 +162,12 @@ export async function GET(
             } else if (composer.includes(doctorFullName)) {
               outgoingReferrals.push(referral);
             }
-          } catch (e) {
+          } catch {
             // Skip failed compositions
             continue;
           }
         }
-      } catch (e) {
+      } catch {
         // Skip patients with EHR errors
         continue;
       }

@@ -18,7 +18,7 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { workspaceid: string; patientid: string } }
+  { params }: { params: Promise<{ workspaceid: string; patientid: string }> }
 ) {
   try {
     const user = await getUser();
@@ -26,7 +26,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { patientid } = params;
+    const { patientid } = await params;
 
     // Get patient from database
     const patient = await db.query.patients.findFirst({
@@ -68,7 +68,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { workspaceid: string; patientid: string } }
+  { params }: { params: Promise<{ workspaceid: string; patientid: string }> }
 ) {
   try {
     const user = await getUser();
@@ -76,7 +76,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { patientid } = params;
+    const { patientid } = await params;
     const body = await request.json();
 
     // Get patient from database

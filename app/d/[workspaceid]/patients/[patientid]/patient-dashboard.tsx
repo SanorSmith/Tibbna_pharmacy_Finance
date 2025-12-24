@@ -20,7 +20,7 @@ import { VitalSignsTab } from "./components/VitalSignsTab";
 import { DiagnosticsTab } from "./components/DiagnosticsTab";
 import EnhancedOrdersTab from "./components/EnhancedOrdersTab";
 import { LabsTab } from "./components/LabsTab";
-import { MedsTab, type PrescriptionRecord } from "./components/MedsTab";
+import { MedsTab} from "./components/MedsTab";
 import { CarePlansTab } from "./components/CarePlansTab";
 import { ReferralsTab } from "./components/ReferralsTab";
 import { VaccinationsTab } from "./components/VaccinationsTab";
@@ -46,7 +46,7 @@ type Patient = {
   weight?: number | null;
 };
 
-type Appointment = {
+/* type Appointment = {
   appointmentid: string;
   starttime: string;
   endtime: string;
@@ -54,7 +54,7 @@ type Appointment = {
   location?: string | null;
   unit?: string | null;
   notes?: string | null;
-};
+}; */
 
 export default function PatientDashboard({
   workspaceid,
@@ -83,21 +83,21 @@ export default function PatientDashboard({
   } = usePatientData({ workspaceid, patientid: patient.patientid });
 
   // Transform care plans to dashboard format
-  const carePlans = carePlansData.map((cp: any) => ({
+  const carePlans = carePlansData.map((cp: Record<string, unknown>) => ({
     planid: cp.composition_uid,
     plan_name: cp.care_plan_name || cp.problem_diagnosis || cp.goal_name || "Care Plan",
     created_date: cp.recorded_time,
     description: cp.goal_description || cp.clinical_description,
-    status: cp.status?.toLowerCase() || "active",
+    status: (typeof cp.status === 'string' ? cp.status.toLowerCase() : cp.status) || "active",
   }));
 
-  const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
+  // const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] =
     useState<DashboardTypes.DiagnosisRecord | null>(null);
   const [showDiagnosisDetails, setShowDiagnosisDetails] = useState(false);
 
   // Vital Signs state management
-  interface VitalSignsRecord {
+ /*  interface VitalSignsRecord {
     composition_uid: string;
     recorded_time: string;
     temperature?: number;
@@ -106,10 +106,10 @@ export default function PatientDashboard({
     heart_rate?: number;
     respiratory_rate?: number;
     spo2?: number;
-  }
+  } */
 
   const [showVitalSignsForm, setShowVitalSignsForm] = useState(false);
-  const [loadingMoreVitals, setLoadingMoreVitals] = useState(false);
+  // const [loadingMoreVitals, setLoadingMoreVitals] = useState(false);
   const [vitalSignsForm, setVitalSignsForm] = useState({
     temperature: "",
     systolic: "",
@@ -120,7 +120,7 @@ export default function PatientDashboard({
   });
 
   // Imaging state management (openEHR compliant)
-  interface ImagingRequest {
+ /*  interface ImagingRequest {
     composition_uid: string;
     recorded_time: string;
     request_name: string;
@@ -136,8 +136,8 @@ export default function PatientDashboard({
     requested_by: string;
     request_status: string;
   }
-
-  interface ImagingResult {
+ */
+ /*  interface ImagingResult {
     composition_uid: string;
     recorded_time: string;
     request_uid?: string;
@@ -154,7 +154,7 @@ export default function PatientDashboard({
     report_date: string;
     result_status: string;
   }
-
+ */
   const [showImagingRequestForm, setShowImagingRequestForm] = useState(false);
 
   // Track which tabs have been loaded for conditional rendering
@@ -180,12 +180,12 @@ export default function PatientDashboard({
     : null;
 
   // Placeholder functions for pagination (will be enhanced later if needed)
-  const loadVitalSigns = async (reset = true) => {
+  const loadVitalSigns = async () => {
     // Data is already loaded via usePatientData hook
     console.log("Vital signs already loaded from cache");
   };
 
-  const loadDiagnoses = async (reset = true) => {
+  const loadDiagnoses = async () => {
     // Data is already loaded via usePatientData hook
     console.log("Diagnoses already loaded from cache");
   };
@@ -416,7 +416,7 @@ export default function PatientDashboard({
             <VitalSignsTab
               vitalSignsRecords={vitalSignsRecords}
               loadingVitalSigns={loadingVitalSigns}
-              loadingMoreVitals={loadingMoreVitals}
+              loadingMoreVitals={false}
               showVitalSignsForm={showVitalSignsForm}
               setShowVitalSignsForm={setShowVitalSignsForm}
               loadVitalSigns={loadVitalSigns}
@@ -453,7 +453,7 @@ export default function PatientDashboard({
             <DiagnosticsTab
               diagnoses={diagnoses}
               loadingDiagnoses={loadingDiagnoses}
-              loadingMoreDiagnoses={loadingMoreDiagnoses}
+              loadingMoreDiagnoses={false}
               loadDiagnoses={loadDiagnoses}
               diagnosesHasMore={diagnosesHasMore}
               selectedDiagnosis={selectedDiagnosis}
@@ -553,7 +553,7 @@ export default function PatientDashboard({
                 <VitalSignsTab
                   vitalSignsRecords={vitalSignsRecords}
                   loadingVitalSigns={loadingVitalSigns}
-                  loadingMoreVitals={loadingMoreVitals}
+                  loadingMoreVitals={false}
                   showVitalSignsForm={showVitalSignsForm}
                   setShowVitalSignsForm={setShowVitalSignsForm}
                   loadVitalSigns={loadVitalSigns}

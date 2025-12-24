@@ -117,7 +117,15 @@ export function parseSOAPData(clinicalDescription: string): {
 } {
   const lines = clinicalDescription.split('\n').filter(line => line.trim());
   
-  const result: any = {
+  const result: {
+    synopsis: string;
+    subjective?: string;
+    objective?: string;
+    assessment?: string;
+    plan?: string;
+    clinical_context?: string;
+    comment?: string;
+  } = {
     synopsis: '',
   };
 
@@ -150,10 +158,11 @@ export function parseSOAPData(clinicalDescription: string): {
       result.comment = trimmedLine.substring(9).trim();
     } else if (currentSection && trimmedLine) {
       // Continue adding to current section
-      if (result[currentSection]) {
-        result[currentSection] += '\n' + trimmedLine;
+      const key = currentSection as keyof typeof result;
+      if (result[key]) {
+        result[key] = (result[key] as string) + '\n' + trimmedLine;
       } else {
-        result[currentSection] = trimmedLine;
+        (result[key] as string | undefined) = trimmedLine;
       }
     }
   }

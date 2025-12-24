@@ -34,7 +34,7 @@ function mapOpenEHRStateToStatus(state: string): OperationStatus {
 }
 
 type OperationStatus = "scheduled" | "in_preparation" | "in_progress" | "completed" | "cancelled" | "postponed";
-type OperationType = "emergency" | "elective" | "urgent";
+//type OperationType = "emergency" | "elective" | "urgent";
 
 export async function GET(
   req: NextRequest,

@@ -251,12 +251,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731156000000-prenatal001",
       recorded_time: "2023-03-01T00:00:00.000Z",
       care_plan_name: "Prenatal Care Plan",
-      description: "Standard prenatal care plan for low-risk pregnancy including regular check-ups, screening tests, and patient education.",
-      reason: "First pregnancy, 8 weeks gestation. Patient healthy with no significant medical history. Desires comprehensive prenatal care.",
+      care_plan_description: "Standard prenatal care plan for low-risk pregnancy including regular check-ups, screening tests, and patient education.",
+      care_plan_reason: "First pregnancy, 8 weeks gestation. Patient healthy with no significant medical history. Desires comprehensive prenatal care.",
       care_plan_schedule: "Monthly visits until 28 weeks, bi-weekly until 36 weeks, then weekly until delivery. First trimester screening at 11-13 weeks. Anatomy scan at 20 weeks. Glucose screening at 24-28 weeks. Group B strep screening at 36 weeks.",
       care_plan_expire: "2023-12-01T00:00:00.000Z",
       care_plan_completed: "2023-11-15T00:00:00.000Z",
-      comment: "Uncomplicated pregnancy. Delivered healthy baby girl at 39 weeks. Vaginal delivery without complications. Mother and baby doing well.",
+      care_plan_comment: "Uncomplicated pregnancy. Delivered healthy baby girl at 39 weeks. Vaginal delivery without complications. Mother and baby doing well.",
       created_by: "Dr. Susan Martinez, MD - OB/GYN",
       status: "completed"
     },
@@ -264,12 +264,12 @@ const dummyCarePlansStore: Record<string, CarePlan[]> = {
       composition_uid: "care-plan-1731069600000-ckd001",
       recorded_time: "2024-05-10T13:00:00.000Z",
       care_plan_name: "Chronic Kidney Disease Management",
-      description: "Care plan for early-stage chronic kidney disease focusing on slowing progression, managing complications, and preparing for potential future interventions.",
-      reason: "Stage 3a CKD (eGFR 52 mL/min/1.73m²) secondary to hypertension and diabetes. Requires close monitoring and management to prevent progression.",
+      care_plan_description: "Care plan for early-stage chronic kidney disease focusing on slowing progression, managing complications, and preparing for potential future interventions.",
+      care_plan_reason: "Stage 3a CKD (eGFR 52 mL/min/1.73m²) secondary to hypertension and diabetes. Requires close monitoring and management to prevent progression.",
       care_plan_schedule: "Nephrology follow-up every 3 months. Lab work (CMP, CBC, PTH, vitamin D) every 3 months. Blood pressure monitoring weekly at home. Annual kidney ultrasound. Dietitian consultation quarterly for renal diet education.",
       care_plan_expire: "",
       care_plan_completed: "",
-      comment: "Patient on ACE inhibitor for renoprotection. Strict blood pressure control essential. Educate on low-sodium, low-protein diet. Monitor for anemia and bone disease. Discuss advance care planning.",
+      care_plan_comment: "Patient on ACE inhibitor for renoprotection. Strict blood pressure control essential. Educate on low-sodium, low-protein diet. Monitor for anemia and bone disease. Discuss advance care planning.",
       created_by: "Dr. Robert Anderson, MD - Nephrologist",
       status: "active"
     }
@@ -319,9 +319,12 @@ export async function GET(
     }
 
     // Get EHR ID from openEHR
-    let ehrId: string;
+    let ehrId: string | null;
     try {
       ehrId = await getOpenEHREHRBySubjectId(patient.nationalid || patientid);
+      if (!ehrId) {
+        throw new Error("No EHR ID found");
+      }
     } catch (error) {
       console.error("Error getting EHR ID:", error);
       // Return dummy data if openEHR is not available

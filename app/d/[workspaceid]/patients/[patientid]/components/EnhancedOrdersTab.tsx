@@ -1627,7 +1627,7 @@ export default function EnhancedOrdersTab({
   const [testOrderRecords, setTestOrderRecords] = useState<TestOrderRecord[]>(
     []
   );
-  const [loadingMoreTestOrders, setLoadingMoreTestOrders] = useState(false);
+  // const [loadingMoreTestOrders, setLoadingMoreTestOrders] = useState(false);
   const [testOrdersHasMore, setTestOrdersHasMore] = useState(false);
   const [selectedTestOrder, setSelectedTestOrder] =
     useState<TestOrderRecord | null>(null);
@@ -1823,7 +1823,7 @@ export default function EnhancedOrdersTab({
     } finally {
       setSavingTestOrder(false);
     }
-  }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
+  }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders, sessionData?.user]);
 
   // Handlers
   const onFieldChange = useCallback(
@@ -1870,17 +1870,17 @@ export default function EnhancedOrdersTab({
               {testOrdersHasMore && (
                 <Button
                   onClick={() => loadTestOrders(false)}
-                  disabled={loadingMoreTestOrders}
+                  disabled={loadingTestOrders}
                   variant="outline"
                   size="sm"
                   className="bg-orange-500 hover:bg-orange-600 hover:text-white text-white border-none flex items-center gap-1 text-xs"
                 >
-                  {loadingMoreTestOrders ? (
+                  {loadingTestOrders ? (
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                   ) : (
                     <History className="w-3 h-3" />
                   )}
-                  {loadingMoreTestOrders ? "Loading..." : "History"}
+                  {loadingTestOrders ? "Loading..." : "History"}
                 </Button>
               )}
             </div>

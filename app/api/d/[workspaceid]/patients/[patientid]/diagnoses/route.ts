@@ -11,7 +11,6 @@ import {
   getOpenEHRCompositions,
   getOpenEHRComposition,
   getOpenEHRDiagnoses,
-  deleteOpenEHRComposition,
 } from "@/lib/openehr/openehr";
 
 export async function GET(

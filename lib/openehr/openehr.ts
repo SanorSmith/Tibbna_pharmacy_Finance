@@ -92,9 +92,8 @@ export interface ReferralRecord {
 }
 
 // Helper to find a value by field name in OpenEHR INSTRUCTION structure
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findValueByName(
-  instruction: any,
+  instruction: Record<string, unknown>,
   fieldName: string
 ): string | undefined {
   if (!instruction || typeof instruction !== "object") return undefined;
@@ -126,36 +125,43 @@ function findValueByName(
 
   // Check narrative at instruction level
   if (fieldName === "narrative") {
-    if (instruction.narrative?.value) {
-      return instruction.narrative.value;
+    const narrative = instruction.narrative as { value?: string } | undefined;
+    if (narrative?.value) {
+      return narrative.value;
     }
     // Also check for narrative in the parent composition's service_request
-    if (instruction._parent?.narrative?.value) {
-      return instruction._parent.narrative.value;
+    const parent = instruction._parent as { narrative?: { value?: string } } | undefined;
+    if (parent?.narrative?.value) {
+      return parent.narrative.value;
     }
   }
 
   // Check protocol items for request_id and Order Type marker
+  const protocol = instruction.protocol as { items?: unknown[] } | undefined;
   if (
-    instruction.protocol?.items &&
-    Array.isArray(instruction.protocol.items)
+    protocol?.items &&
+    Array.isArray(protocol.items)
   ) {
-    for (const item of instruction.protocol.items) {
-      if (item.name?.value === fieldName && item.value?.value) {
-        return item.value.value;
+    for (const item of protocol.items) {
+      const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+      if (typedItem.name?.value === fieldName && typedItem.value?.value) {
+        return typedItem.value.value;
       }
     }
   }
 
   // Special case: look for request_id in protocol section with name "Request ID"
-  if (
-    fieldName === "request_id" &&
-    instruction.protocol?.items &&
-    Array.isArray(instruction.protocol.items)
-  ) {
-    for (const item of instruction.protocol.items) {
-      if (item.name?.value === "Request ID" && item.value?.value) {
-        return item.value.value;
+  if (fieldName === "request_id") {
+    const protocol2 = instruction.protocol as { items?: unknown[] } | undefined;
+    if (
+      protocol2?.items &&
+      Array.isArray(protocol2.items)
+    ) {
+      for (const item of protocol2.items) {
+        const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+        if (typedItem.name?.value === "Request ID" && typedItem.value?.value) {
+          return typedItem.value.value;
+        }
       }
     }
   }
@@ -384,17 +390,18 @@ export interface VitalSignsRecord {
 }
 
 // Helper to find a value by field name in OpenEHR EVALUATION structure
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findDiagnosisValue(
-  evaluation: any,
+  evaluation: Record<string, unknown>,
   fieldName: string
 ): string | undefined {
   if (!evaluation || typeof evaluation !== "object") return undefined;
 
-  if (evaluation.data?.items && Array.isArray(evaluation.data.items)) {
-    for (const item of evaluation.data.items) {
-      if (item.name?.value === fieldName && item.value?.value) {
-        return item.value.value;
+  const data = evaluation.data as { items?: unknown[] } | undefined;
+  if (data?.items && Array.isArray(data.items)) {
+    for (const item of data.items) {
+      const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+      if (typedItem.name?.value === fieldName && typedItem.value?.value) {
+        return typedItem.value.value;
       }
     }
   }
@@ -402,20 +409,21 @@ function findDiagnosisValue(
   return undefined;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findDiagnosisValueFuzzy(
-  evaluation: any,
+  evaluation: Record<string, unknown>,
   fieldSubstring: string
 ): string | undefined {
   if (!evaluation || typeof evaluation !== "object") return undefined;
 
   const needle = fieldSubstring.toLowerCase();
 
-  if (evaluation.data?.items && Array.isArray(evaluation.data.items)) {
-    for (const item of evaluation.data.items) {
-      const label = item.name?.value as string | undefined;
-      if (label && label.toLowerCase().includes(needle) && item.value?.value) {
-        return item.value.value;
+  const data = evaluation.data as { items?: unknown[] } | undefined;
+  if (data?.items && Array.isArray(data.items)) {
+    for (const item of data.items) {
+      const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+      const label = typedItem.name?.value;
+      if (label && label.toLowerCase().includes(needle) && typedItem.value?.value) {
+        return typedItem.value.value;
       }
     }
   }
@@ -528,21 +536,22 @@ ORDER BY
 }
 
 // Helper to recursively find a magnitude value for a specific archetype node ID (at-code)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function findMagnitude(node: any, atCode: string): number | undefined {
+function findMagnitude(node: Record<string, unknown>, atCode: string): number | undefined {
   if (!node || typeof node !== "object") return undefined;
   // Check if this node matches the atCode and has a magnitude
+  const value = node.value as { magnitude?: number } | undefined;
   if (
     node.archetype_node_id === atCode &&
-    node.value?.magnitude !== undefined
+    value?.magnitude !== undefined
   ) {
-    return node.value.magnitude;
+    return value.magnitude;
   }
   // Traverse children (arrays or objects)
   for (const key of Object.keys(node)) {
     // Optimization: skip non-structural keys
-    if (key === "value" || typeof node[key] !== "object") continue;
-    const res = findMagnitude(node[key], atCode);
+    const child = node[key];
+    if (key === "value" || typeof child !== "object" || child === null) continue;
+    const res = findMagnitude(child as Record<string, unknown>, atCode);
     if (res !== undefined) return res;
   }
   return undefined;
@@ -671,9 +680,8 @@ export interface PrescriptionRecord {
 }
 
 // Helper to find a value by field name in OpenEHR medication_order INSTRUCTION structure
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findMedicationValue(
-  instruction: any,
+  instruction: Record<string, unknown>,
   fieldName: string
 ): string | undefined {
   if (!instruction || typeof instruction !== "object") return undefined;

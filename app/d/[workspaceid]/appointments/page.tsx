@@ -3,7 +3,7 @@
  * - Display all appointments for a workspace in a table format
  * - Route: /d/[workspaceid]/appointments
  */
-import { Header } from "@/components/sidebar/header";
+//import { Header } from "@/components/sidebar/header";
 import AppointmentsList from "./appointments-list";
 import { Home } from "lucide-react";
 import { getUser } from "@/lib/user";

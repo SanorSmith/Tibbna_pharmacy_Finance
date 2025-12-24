@@ -31,8 +31,8 @@ interface ReferralsTabProps {
 
 export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
   const [showReferralForm, setShowReferralForm] = useState(false);
-  const [departments, setDepartments] = useState<{ departmentid: string; name: string }[]>([]);
-  const [doctors, setDoctors] = useState<{ staffid: string; firstname: string; lastname: string; email: string }[]>([]);
+  // const [departments, setDepartments] = useState<{ departmentid: string; name: string }[]>([]);
+  // const [doctors, setDoctors] = useState<{ staffid: string; firstname: string; lastname: string; email: string }[]>([]);
   const [referralForm, setReferralForm] = useState({
     department: "",
     receivingPhysician: "",
@@ -55,7 +55,7 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
   });
 
   // Load departments and doctors separately (not using React Query for now to avoid complexity)
-  const loadDepartmentsAndDoctors = async () => {
+/*   const loadDepartmentsAndDoctors = async () => {
     try {
       // Load departments
       const deptRes = await fetch(`/api/d/${workspaceid}/departments`);
@@ -76,7 +76,7 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
     } catch (error) {
       console.error("Error loading departments and doctors:", error);
     }
-  };
+  }; */
 
   return (
     <>
@@ -187,9 +187,11 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Department *</label>
-              <select
+              <label className="text-sm font-medium">Physician/Department *</label>
+              <input
+                type="text"
                 className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="Enter department or physician name"
                 value={referralForm.department}
                 onChange={(e) =>
                   setReferralForm({
@@ -198,21 +200,16 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
                   })
                 }
                 aria-label="Department"
-                title="Select the receiving department"
-              >
-                <option value="">Select a department...</option>
-                {departments.map((dept) => (
-                  <option key={dept.departmentid} value={dept.name}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
+                title="Enter the receiving department or physician"
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium">Receiving Physician</label>
-              <select
+              <input
+                type="text"
                 className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="Enter receiving physician name (optional)"
                 value={referralForm.receivingPhysician}
                 onChange={(e) =>
                   setReferralForm({
@@ -221,20 +218,8 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
                   })
                 }
                 aria-label="Receiving physician"
-                title="Select the receiving physician (optional)"
-              >
-                <option value="">Select a doctor...</option>
-                {doctors.map((doctor) => (
-                  <option key={doctor.staffid} value={`${doctor.firstname} ${doctor.lastname}`}>
-                    {doctor.firstname} {doctor.lastname} {doctor.email && `(${doctor.email})`}
-                  </option>
-                ))}
-              </select>
-              {referralForm.receivingPhysician && doctors.find(d => `${d.firstname} ${d.lastname}` === referralForm.receivingPhysician)?.email && (
-                <div className="mt-1 text-xs text-blue-600">
-                  Email: {doctors.find(d => `${d.firstname} ${d.lastname}` === referralForm.receivingPhysician)?.email}
-                </div>
-              )}
+                title="Enter the receiving physician name (optional)"
+              />
             </div>
 
             <div>
