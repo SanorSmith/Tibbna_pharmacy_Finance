@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,8 +40,6 @@ interface VaccinationsTabProps {
 
 export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps) {
   const [showVaccinationForm, setShowVaccinationForm] = useState(false);
-  const [vaccinationRecords, setVaccinationRecords] = useState<VaccinationRecord[]>([]);
-  const [loadingVaccinations, setLoadingVaccinations] = useState(false);
   const [selectedVaccination, setSelectedVaccination] = useState<VaccinationRecord | null>(null);
   const [showVaccinationDetails, setShowVaccinationDetails] = useState(false);
   const [vaccinationForm, setVaccinationForm] = useState({
@@ -54,29 +53,18 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
     comment: "",
   });
 
-  const loadVaccinations = useCallback(async () => {
-    try {
-      setLoadingVaccinations(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patientid}/vaccinations`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setVaccinationRecords(data.vaccinations || []);
+  // Use React Query for caching
+  const { data: vaccinations = [], isLoading: loadingVaccinations, refetch: loadVaccinations } = useQuery({
+    queryKey: ["vaccinations", workspaceid, patientid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/vaccinations`);
+      if (!res.ok) {
+        throw new Error("Failed to load vaccinations");
       }
-    } catch (error) {
-      console.error("Error loading vaccinations:", error);
-    } finally {
-      setLoadingVaccinations(false);
-    }
-  }, [workspaceid, patientid]);
-
-  // Load vaccinations when component mounts
-  useEffect(() => {
-    loadVaccinations();
-  }, [loadVaccinations]);
+      const data = await res.json();
+      return (data.vaccinations || []) as VaccinationRecord[];
+    },
+  });
 
   return (
     <>
@@ -110,7 +98,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                 </p>
               </div>
             </div>
-          ) : vaccinationRecords.length === 0 ? (
+          ) : vaccinations.length === 0 ? (
             <div className="text-center py-12">
               <h3 className="text-lg font-semibold mb-2">
                 No Vaccination Records
@@ -140,7 +128,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {vaccinationRecords.map((record, index) => (
+                  {vaccinations.map((record, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">
                         {record.vaccine_name || "Vaccination Record"}

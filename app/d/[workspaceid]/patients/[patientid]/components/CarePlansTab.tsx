@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,8 +86,6 @@ interface CarePlansTabProps {
 
 export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
   const [showCarePlanForm, setShowCarePlanForm] = useState(false);
-  const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
-  const [loadingCarePlans, setLoadingCarePlans] = useState(false);
   const [selectedCarePlan, setSelectedCarePlan] = useState<CarePlan | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [savingCarePlan, setSavingCarePlan] = useState(false);
@@ -106,31 +105,18 @@ export function CarePlansTab({ workspaceid, patientid }: CarePlansTabProps) {
     operationdetails: "",
   });
 
-  const loadCarePlans = useCallback(async () => {
-    try {
-      setLoadingCarePlans(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patientid}/care-plans`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setCarePlans(data.carePlans || []);
-      } else {
-        console.error("Failed to load care plans:", res.status);
+  // Use React Query for caching
+  const { data: carePlans = [], isLoading: loadingCarePlans, refetch: loadCarePlans } = useQuery({
+    queryKey: ["care-plans", workspaceid, patientid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/care-plans`);
+      if (!res.ok) {
+        throw new Error("Failed to load care plans");
       }
-    } catch (error) {
-      console.error("Error loading care plans:", error);
-    } finally {
-      setLoadingCarePlans(false);
-    }
-  }, [workspaceid, patientid]);
-
-  // Load care plans when component mounts
-  useEffect(() => {
-    loadCarePlans();
-  }, [loadCarePlans]);
+      const data = await res.json();
+      return (data.carePlans || []) as CarePlan[];
+    },
+  });
 
   const handleAddOperation = async () => {
     if (

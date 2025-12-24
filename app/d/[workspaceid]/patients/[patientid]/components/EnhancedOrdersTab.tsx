@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1626,7 +1627,6 @@ export default function EnhancedOrdersTab({
   const [testOrderRecords, setTestOrderRecords] = useState<TestOrderRecord[]>(
     []
   );
-  const [loadingTestOrders, setLoadingTestOrders] = useState(false);
   const [loadingMoreTestOrders, setLoadingMoreTestOrders] = useState(false);
   const [testOrdersHasMore, setTestOrdersHasMore] = useState(false);
   const [selectedTestOrder, setSelectedTestOrder] =
@@ -1665,103 +1665,66 @@ export default function EnhancedOrdersTab({
     );
   }, [formState.target_lab]);
 
-  // Load current user and populate requesting provider
-  useEffect(() => {
-    let mounted = true;
-    const loadUser = async () => {
-      try {
-        const res = await fetch("/api/auth/session");
-        if (!res.ok) return;
-        const data = await res.json();
-        const currentUser = data.user;
-        const provider =
-          currentUser?.name || currentUser?.email || "Unknown Provider";
-        if (mounted) {
-          dispatch({
-            type: "SET_FIELD",
-            field: "requesting_provider",
-            value: provider,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load user info", err);
-      }
-    };
-    loadUser();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Load current user and populate requesting provider using React Query
+  const { data: sessionData } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/session");
+      if (!res.ok) throw new Error("Failed to fetch session");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
-  // Load test orders (using existing API for now)
+  useEffect(() => {
+    if (sessionData?.user) {
+      const provider =
+        sessionData.user.name || sessionData.user.email || "Unknown Provider";
+      dispatch({
+        type: "SET_FIELD",
+        field: "requesting_provider",
+        value: provider,
+      });
+    }
+  }, [sessionData]);
+
+  // Use React Query for caching test orders
+  const { data: testOrdersData, isLoading: loadingTestOrders, refetch } = useQuery({
+    queryKey: ["test-orders", workspaceid, patientid, 4, 0],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders?limit=4&offset=0`
+      );
+      if (!res.ok) {
+        throw new Error("Failed to load test orders");
+      }
+      const data = await res.json();
+      return { testOrders: data.testOrders || [], hasMore: data.hasMore || false };
+    },
+  });
+
+  // Set test order records from React Query data
+  useEffect(() => {
+    if (testOrdersData) {
+      setTestOrderRecords(testOrdersData.testOrders);
+      setTestOrdersHasMore(testOrdersData.hasMore);
+      testOrdersOffsetRef.current = testOrdersData.testOrders.length;
+      hasLoadedTestOrders.current = true;
+    }
+  }, [testOrdersData]);
+
+  // Placeholder for loading more (can be enhanced later)
   const loadTestOrders = useCallback(
     async (reset = true) => {
-      try {
-        if (reset) {
-          setLoadingTestOrders(true);
-          setTestOrderRecords([]);
-          testOrdersOffsetRef.current = 0;
-        } else {
-          setLoadingMoreTestOrders(true);
-        }
-
-        const offset = reset ? 0 : testOrdersOffsetRef.current;
-        const limit = reset ? 4 : 5; // Show first 4 recent, then 5 more when loading more
-        
-        console.log("DEBUG: Loading test orders - reset:", reset, "offset:", offset, "limit:", limit);
-        
-        const res = await fetch(
-          `/api/d/${workspaceid}/patients/${patientid}/test-orders?limit=${limit}&offset=${offset}`,
-          { cache: "no-store" }
-        );
-
-        if (!res.ok) {
-          console.error("Failed to load test orders", res.status);
-          return;
-        }
-        const data = await res.json();
-        console.log("DEBUG: Loaded test orders:", data.testOrders?.length, "orders");
-        console.log("DEBUG: Test orders data:", data.testOrders);
-
-        if (reset) {
-          setTestOrderRecords(data.testOrders || []);
-          testOrdersOffsetRef.current = (data.testOrders || []).length;
-          hasLoadedTestOrders.current = true;
-          sessionStorage.setItem(
-            CACHE_KEY,
-            JSON.stringify({
-              testOrders: data.testOrders || [],
-              hasMore: data.hasMore || false,
-              offset: testOrdersOffsetRef.current,
-            })
-          );
-        } else {
-          setTestOrderRecords((prev) => {
-            const newRecords = [...prev, ...(data.testOrders || [])];
-            testOrdersOffsetRef.current = newRecords.length;
-            return newRecords;
-          });
-        }
-        setTestOrdersHasMore(data.hasMore || false);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingTestOrders(false);
-        setLoadingMoreTestOrders(false);
+      if (reset) {
+        refetch();
+      } else {
+        // Load more functionality can be added here if needed
+        console.log("Load more test orders");
       }
     },
-    [workspaceid, patientid, CACHE_KEY]
-  );
-
-  useEffect(() => {
-    // Force clear cache to ensure only 4 orders load initially
-    sessionStorage.removeItem(CACHE_KEY);
-    
-    // Only load if not already loaded
-    if (!hasLoadedTestOrders.current) {
-      loadTestOrders(true);
-    }
-  }, [CACHE_KEY, loadTestOrders]); // Include dependencies
+    [refetch]
+  )
 
   // Save order
   const saveTestOrder = useCallback(async () => {
@@ -1780,10 +1743,8 @@ export default function EnhancedOrdersTab({
     setSavingTestOrder(true);
 
     try {
-      // Get current user info
-      const userResponse = await fetch("/api/auth/session");
-      const userData = await userResponse.json();
-      const currentUser = userData.user;
+      // Use cached session data instead of fetching again
+      const currentUser = sessionData?.user;
       const requesting =
         currentUser?.name || currentUser?.email || "Unknown Provider";
 

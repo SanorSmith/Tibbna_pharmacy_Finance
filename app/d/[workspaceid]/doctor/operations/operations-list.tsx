@@ -44,6 +44,7 @@ type Operation = {
   outcomes: string | null;
   complications: string | null;
   comment: string | null;
+  source?: "openehr" | "database";
   patient?: {
     firstname: string;
     middlename?: string | null;
@@ -77,6 +78,8 @@ export default function OperationsList({ workspaceid, userid }: Props) {
       }
       return [];
     },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch when clicking around
   });
 
   const formatDateTime = (datetime: string) => {
@@ -238,9 +241,56 @@ export default function OperationsList({ workspaceid, userid }: Props) {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">
-              Loading operations...
-            </p>
+            <div className="space-y-3">
+              {/* Skeleton loader - shows table structure while loading */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium">Patient</th>
+                      <th className="text-left py-3 px-4 font-medium">Date & Time</th>
+                      <th className="text-left py-3 px-4 font-medium">Operation</th>
+                      <th className="text-left py-3 px-4 font-medium">Type</th>
+                      <th className="text-left py-3 px-4 font-medium">Theater</th>
+                      <th className="text-left py-3 px-4 font-medium">Status</th>
+                      <th className="text-left py-3 px-4 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[1, 2, 3].map((i) => (
+                      <tr key={i} className="border-b animate-pulse">
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-20"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-gray-200 rounded w-28"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-gray-200 rounded w-12"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-8 bg-gray-200 rounded w-16"></div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                Loading operations from OpenEHR...
+              </p>
+            </div>
           ) : filteredOperations.length === 0 ? (
             <p className="text-sm text-muted-foreground">No operations found</p>
           ) : (
@@ -290,7 +340,14 @@ export default function OperationsList({ workspaceid, userid }: Props) {
                           <div className="text-muted-foreground">{time}</div>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="font-medium">{op.operationname}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-medium">{op.operationname}</div>
+                            {op.source === "openehr" && (
+                              <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                OpenEHR
+                              </span>
+                            )}
+                          </div>
                           {op.estimatedduration && (
                             <div className="text-xs text-muted-foreground">
                               {op.estimatedduration} min

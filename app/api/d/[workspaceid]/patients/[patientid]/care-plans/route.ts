@@ -333,14 +333,35 @@ export async function GET(
       return NextResponse.json({ carePlans: [] });
     }
 
-    // Get care plan list from openEHR
-    const carePlansList = await listCarePlans(ehrId);
+    // Get care plan list from openEHR with timeout protection
+    let carePlansList;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout fetching care plans list')), 30000)
+      );
+      carePlansList = await Promise.race([
+        listCarePlans(ehrId),
+        timeoutPromise
+      ]);
+    } catch (error) {
+      console.error("Error or timeout fetching care plans list:", error);
+      return NextResponse.json({
+        carePlans: [],
+        message: "EHRBase is slow or unavailable. Please try again later."
+      }, { status: 200 });
+    }
 
-    // Fetch full details for each care plan
+    // Fetch full details for each care plan with timeout protection
     const carePlans: CarePlan[] = [];
     for (const item of carePlansList) {
       try {
-        const fullComposition = await getCarePlan(ehrId, item.composition_uid);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 30000)
+        );
+        const fullComposition = await Promise.race([
+          getCarePlan(ehrId, item.composition_uid),
+          timeoutPromise
+        ]);
         const parsed = parseCarePlanComposition(
           fullComposition,
           item.composition_uid,
@@ -348,7 +369,8 @@ export async function GET(
         );
         carePlans.push(parsed);
       } catch (error) {
-        console.error(`Error fetching care plan ${item.composition_uid}:`, error);
+        console.error(`Error or timeout fetching care plan ${item.composition_uid}:`, error);
+        // Skip this care plan and continue with others
       }
     }
 

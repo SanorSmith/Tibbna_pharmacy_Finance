@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,34 +44,21 @@ interface NotesTabProps {
 
 export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
   const [showNoteForm, setShowNoteForm] = useState(false);
-  const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
-  const [loadingNotes, setLoadingNotes] = useState(false);
   const [selectedNote, setSelectedNote] = useState<ClinicalNote | null>(null);
   const [showNoteDetails, setShowNoteDetails] = useState(false);
 
-  const loadClinicalNotes = useCallback(async () => {
-    try {
-      setLoadingNotes(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patientid}/notes`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setClinicalNotes(data.notes || []);
+  // Use React Query for caching
+  const { data: notes = [], isLoading: loadingNotes, refetch: loadClinicalNotes } = useQuery({
+    queryKey: ["notes", workspaceid, patientid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/notes`);
+      if (!res.ok) {
+        throw new Error("Failed to load notes");
       }
-    } catch (error) {
-      console.error("Error loading clinical notes:", error);
-    } finally {
-      setLoadingNotes(false);
-    }
-  }, [workspaceid, patientid]);
-
-  // Load clinical notes when component mounts
-  useEffect(() => {
-    loadClinicalNotes();
-  }, [loadClinicalNotes]);
+      const data = await res.json();
+      return (data.notes || []) as ClinicalNote[];
+    },
+  });
 
   return (
     <>
@@ -94,7 +82,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
             <div className="text-center py-8 text-muted-foreground">
               Loading clinical notes...
             </div>
-          ) : clinicalNotes.length === 0 ? (
+          ) : notes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No clinical notes recorded. Click &quot;+ New Note&quot; to
               create one.
@@ -114,7 +102,7 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clinicalNotes.map((note) => (
+                  {notes.map((note) => (
                     <TableRow key={note.composition_uid}>
                       <TableCell className="font-medium">
                         {note.note_title || "-"}

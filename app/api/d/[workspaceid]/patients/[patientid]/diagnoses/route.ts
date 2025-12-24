@@ -74,8 +74,25 @@ export async function GET(
       });
     }
 
-    // Use optimized AQL query to fetch diagnoses directly
-    const validDiagnoses = await getOpenEHRDiagnoses(ehrId);
+    // Use optimized AQL query to fetch diagnoses directly with timeout protection
+    let validDiagnoses;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout fetching diagnoses')), 30000)
+      );
+      validDiagnoses = await Promise.race([
+        getOpenEHRDiagnoses(ehrId),
+        timeoutPromise
+      ]);
+    } catch (error) {
+      console.error("Error or timeout fetching diagnoses:", error);
+      return NextResponse.json({
+        diagnoses: [],
+        totalCount: 0,
+        hasMore: false,
+        message: "EHRBase is slow or unavailable. Please try again later."
+      }, { status: 200 });
+    }
 
     // Apply pagination to the filtered results
     const totalFilteredCount = validDiagnoses.length;
@@ -94,7 +111,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching diagnoses:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { diagnoses: [], totalCount: 0, hasMore: false, error: "Internal server error" },
       { status: 500 }
     );
   }

@@ -169,21 +169,21 @@ export async function POST(
       );
     }
 
-    // Create composition data in FLAT format using correct template paths
+    // Create composition data in FLAT format using template_clinical_encounter_v1
     const compositionData: Record<string, unknown> = {
-      "template_clinical_encounter_v2/language|code": "en",
-      "template_clinical_encounter_v2/language|terminology": "ISO_639-1",
-      "template_clinical_encounter_v2/territory|code": "US",
-      "template_clinical_encounter_v2/territory|terminology": "ISO_3166-1",
-      "template_clinical_encounter_v2/composer|name": user.name || "Unknown",
-      "template_clinical_encounter_v2/context/start_time":
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name": user.name || "Unknown",
+      "template_clinical_encounter_v1/context/start_time":
         new Date().toISOString(),
-      "template_clinical_encounter_v2/context/setting|code": "238",
-      "template_clinical_encounter_v2/context/setting|value": "other care",
-      "template_clinical_encounter_v2/context/setting|terminology": "openehr",
-      "template_clinical_encounter_v2/category|code": "433",
-      "template_clinical_encounter_v2/category|value": "event",
-      "template_clinical_encounter_v2/category|terminology": "openehr",
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
     };
 
     // Add test order to composition using exact template paths
@@ -191,30 +191,30 @@ export async function POST(
 
     // Enhanced Service Request Details
     compositionData[
-      "template_clinical_encounter_v2/service_request/request/service_name|other"
+      "template_clinical_encounter_v1/service_request/request/service_name|other"
     ] = service_name;
     compositionData[
-      "template_clinical_encounter_v2/service_request/request/description"
+      "template_clinical_encounter_v1/service_request/request/description"
     ] = description || "";
     compositionData[
-      "template_clinical_encounter_v2/service_request/request/clinical_indication"
+      "template_clinical_encounter_v1/service_request/request/clinical_indication"
     ] = clinical_indication;
     compositionData[
-      "template_clinical_encounter_v2/service_request/request/requested_date"
+      "template_clinical_encounter_v1/service_request/request/requested_date"
     ] = eventTime;
     compositionData[
-      "template_clinical_encounter_v2/service_request/request/requesting_provider"
+      "template_clinical_encounter_v1/service_request/request/requesting_provider"
     ] = requesting_provider || "Dr. Unknown";
     compositionData[
-      "template_clinical_encounter_v2/service_request/request/receiving_provider"
+      "template_clinical_encounter_v1/service_request/request/receiving_provider"
     ] = receiving_provider || "Clinical Laboratory";
 
     // Store test order marker in the request_id - this is already working and supported
     compositionData[
-      "template_clinical_encounter_v2/service_request/request/timing"
+      "template_clinical_encounter_v1/service_request/request/timing"
     ] = eventTime;
     compositionData[
-      "template_clinical_encounter_v2/service_request/request_id"
+      "template_clinical_encounter_v1/service_request/request_id"
     ] = `testreq-${Date.now()}`;
 
     // Enhanced narrative with package/individual test info and target lab
@@ -227,19 +227,19 @@ export async function POST(
       }) ordered due to ${clinical_indication}` +
         (description ? `\n\nTest Details: ${description}` : "");
     compositionData[
-      "template_clinical_encounter_v2/service_request/narrative"
+      "template_clinical_encounter_v1/service_request/narrative"
     ] = enhancedNarrative;
     compositionData[
-      "template_clinical_encounter_v2/service_request/language|code"
+      "template_clinical_encounter_v1/service_request/language|code"
     ] = "en";
     compositionData[
-      "template_clinical_encounter_v2/service_request/language|terminology"
+      "template_clinical_encounter_v1/service_request/language|terminology"
     ] = "ISO_639-1";
     compositionData[
-      "template_clinical_encounter_v2/service_request/encoding|code"
+      "template_clinical_encounter_v1/service_request/encoding|code"
     ] = "UTF-8";
     compositionData[
-      "template_clinical_encounter_v2/service_request/encoding|terminology"
+      "template_clinical_encounter_v1/service_request/encoding|terminology"
     ] = "IANA_character-sets";
 
     console.log(
@@ -247,10 +247,10 @@ export async function POST(
       JSON.stringify(compositionData, null, 2)
     );
 
-    // Create the composition in OpenEHR
+    // Create the composition in OpenEHR using v1 template
     const compositionId = await createOpenEHRComposition(
       ehrId,
-      "template_clinical_encounter_v2",
+      "template_clinical_encounter_v1",
       compositionData
     );
 

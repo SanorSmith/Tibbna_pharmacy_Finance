@@ -210,11 +210,7 @@ export async function getOpenEHRTestOrders(
             "openEHR-EHR-INSTRUCTION.service_request.v1"
           ) {
             const instruction = item;
-            console.log(
-              "Found service request in encounter:",
-              JSON.stringify(instruction, null, 2)
-            );
-
+           
             // Extract fields using the exact field names from OpenEHR structure
             const serviceName =
               findValueByName(instruction, "Service Name") || "";
@@ -228,14 +224,6 @@ export async function getOpenEHRTestOrders(
               findValueByName(instruction, "Receiving Provider") || "";
             const requestId = findValueByName(instruction, "request_id") || "";
 
-            console.log(
-              "DEBUG: Extracted fields - Service:",
-              serviceName,
-              "Request ID:",
-              requestId,
-              "Description:",
-              description
-            );
 
             // Try to get narrative from multiple sources
             let narrative = findValueByName(instruction, "narrative") || "";
@@ -296,12 +284,6 @@ export async function getOpenEHRTestOrders(
             }
 
             // Only include test orders (they use request_id pattern starting with "testreq-")
-            console.log(
-              "Checking request - Service:",
-              serviceName,
-              "Request ID:",
-              requestId
-            );
             const isTestOrder =
               (requestId && requestId.startsWith("testreq-")) ||
               (description && description.startsWith("Test Type:"));
@@ -383,9 +365,6 @@ export async function getOpenEHRTestOrders(
         new Date(a.recorded_time).getTime()
     );
 
-    console.log(
-      `Returning ${testOrders.length} test orders from encounter compositions`
-    );
     return testOrders;
   } catch (error) {
     console.error("Error fetching test orders via AQL:", error);
