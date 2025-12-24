@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // Clinical Notes interfaces (openEHR compliant)
 export interface ClinicalNote {
@@ -35,32 +44,21 @@ interface NotesTabProps {
 
 export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
   const [showNoteForm, setShowNoteForm] = useState(false);
-  const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
-  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<ClinicalNote | null>(null);
+  const [showNoteDetails, setShowNoteDetails] = useState(false);
 
-  const loadClinicalNotes = useCallback(async () => {
-    try {
-      setLoadingNotes(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patientid}/notes`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setClinicalNotes(data.notes || []);
+  // Use React Query for caching
+  const { data: notes = [], isLoading: loadingNotes, refetch: loadClinicalNotes } = useQuery({
+    queryKey: ["notes", workspaceid, patientid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/notes`);
+      if (!res.ok) {
+        throw new Error("Failed to load notes");
       }
-    } catch (error) {
-      console.error("Error loading clinical notes:", error);
-    } finally {
-      setLoadingNotes(false);
-    }
-  }, [workspaceid, patientid]);
-
-  // Load clinical notes when component mounts
-  useEffect(() => {
-    loadClinicalNotes();
-  }, [loadClinicalNotes]);
+      const data = await res.json();
+      return (data.notes || []) as ClinicalNote[];
+    },
+  });
 
   return (
     <>
@@ -84,129 +82,79 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
             <div className="text-center py-8 text-muted-foreground">
               Loading clinical notes...
             </div>
-          ) : clinicalNotes.length === 0 ? (
+          ) : notes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No clinical notes recorded. Click &quot;+ New Note&quot; to
               create one.
             </div>
           ) : (
-            <div className="space-y-4">
-              {clinicalNotes.map((note) => (
-                <div
-                  key={note.composition_uid}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  {/* Note Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="font-semibold text-lg">
-                        {note.note_title ||
-                          note.note_type
-                            .replace(/_/g, " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {new Date(note.recorded_time).toLocaleString()} •{" "}
-                        {note.author} ({note.author_role})
-                      </div>
-                    </div>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        note.status === "final"
-                          ? "bg-green-100 text-green-800"
-                          : note.status === "draft"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {note.status.toUpperCase()}
-                    </span>
-                  </div>
-
-                  {/* Synopsis */}
-                  <div className="mb-3 p-3 bg-blue-50 rounded-md">
-                    <div className="text-xs font-medium text-blue-900 mb-1">
-                      SYNOPSIS
-                    </div>
-                    <div className="text-sm text-blue-900">
-                      {note.synopsis}
-                    </div>
-                  </div>
-
-                  {/* SOAP Format */}
-                  {(note.subjective ||
-                    note.objective ||
-                    note.assessment ||
-                    note.plan) && (
-                    <div className="space-y-3">
-                      {note.subjective && (
-                        <div>
-                          <div className="text-xs font-semibold text-gray-700 mb-1">
-                            SUBJECTIVE
-                          </div>
-                          <div className="text-sm whitespace-pre-line">
-                            {note.subjective}
-                          </div>
-                        </div>
-                      )}
-                      {note.objective && (
-                        <div>
-                          <div className="text-xs font-semibold text-gray-700 mb-1">
-                            OBJECTIVE
-                          </div>
-                          <div className="text-sm whitespace-pre-line">
-                            {note.objective}
-                          </div>
-                        </div>
-                      )}
-                      {note.assessment && (
-                        <div>
-                          <div className="text-xs font-semibold text-gray-700 mb-1">
-                            ASSESSMENT
-                          </div>
-                          <div className="text-sm whitespace-pre-line">
-                            {note.assessment}
-                          </div>
-                        </div>
-                      )}
-                      {note.plan && (
-                        <div>
-                          <div className="text-xs font-semibold text-gray-700 mb-1">
-                            PLAN
-                          </div>
-                          <div className="text-sm whitespace-pre-line">
-                            {note.plan}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Additional Details */}
-                  {(note.clinical_context || note.comment) && (
-                    <div className="mt-3 pt-3 border-t space-y-2">
-                      {note.clinical_context && (
-                        <div className="text-xs">
-                          <span className="font-medium text-muted-foreground">
-                            Context:
-                          </span>
-                          <span className="ml-2">
-                            {note.clinical_context}
-                          </span>
-                        </div>
-                      )}
-                      {note.comment && (
-                        <div className="text-xs">
-                          <span className="font-medium text-muted-foreground">
-                            Comment:
-                          </span>
-                          <span className="ml-2">{note.comment}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Note Title</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Synopsis</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Author</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {notes.map((note) => (
+                    <TableRow key={note.composition_uid}>
+                      <TableCell className="font-medium">
+                        {note.note_title || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {note.note_type
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {note.synopsis}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(note.recorded_time).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )}
+                      </TableCell>
+                      <TableCell>{note.author}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            note.status === "final"
+                              ? "bg-green-100 text-green-800"
+                              : note.status === "draft"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {note.status.toUpperCase()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedNote(note);
+                            setShowNoteDetails(true);
+                          }}
+                        >
+                          Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
@@ -333,6 +281,24 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
               </div>
 
               <div className="mb-3">
+                <label className="text-sm font-medium">Status *</label>
+                <select
+                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                  id="noteStatus"
+                  defaultValue="final"
+                  aria-label="Note status"
+                  title="Select the status of this clinical note"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="final">Final</option>
+                  <option value="amended">Amended</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Draft: Work in progress | Final: Completed and signed | Amended: Modified after finalization
+                </p>
+              </div>
+
+              <div className="mb-3">
                 <label className="text-sm font-medium">Clinical Context</label>
                 <textarea
                   className="w-full mt-1.5 px-3 py-2 border rounded-md"
@@ -425,7 +391,11 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
                                 "noteComment"
                               ) as HTMLTextAreaElement
                             )?.value,
-                            status: "final",
+                            status: (
+                              document.getElementById(
+                                "noteStatus"
+                              ) as HTMLSelectElement
+                            )?.value || "final",
                           },
                         }),
                       }
@@ -487,6 +457,183 @@ export function NotesTab({ workspaceid, patientid }: NotesTabProps) {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clinical Note Details Dialog */}
+      <Dialog open={showNoteDetails} onOpenChange={setShowNoteDetails}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Clinical Note Details</DialogTitle>
+            <DialogDescription>
+              Complete clinical note with SOAP format
+            </DialogDescription>
+          </DialogHeader>
+          {selectedNote && (
+            <div className="space-y-6">
+              {/* Note Header Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Note Title
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedNote.note_title || "Untitled Note"}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Note Type
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedNote.note_type
+                      .replace(/_/g, " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Date & Time
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {new Date(selectedNote.recorded_time).toLocaleString(
+                      "en-US",
+                      {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Author
+                  </label>
+                  <div className="mt-1 text-lg font-semibold">
+                    {selectedNote.author} ({selectedNote.author_role})
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Status
+                  </label>
+                  <div className="mt-1">
+                    <span
+                      className={`px-3 py-1 rounded text-sm font-medium ${
+                        selectedNote.status === "final"
+                          ? "bg-green-100 text-green-800"
+                          : selectedNote.status === "draft"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {selectedNote.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Synopsis */}
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-semibold text-lg text-blue-900 mb-2">
+                  Synopsis
+                </h4>
+                <div className="text-blue-900 whitespace-pre-line">
+                  {selectedNote.synopsis}
+                </div>
+              </div>
+
+              {/* SOAP Format */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-lg">SOAP Documentation</h4>
+
+                {selectedNote.subjective && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h5 className="font-semibold text-gray-700 mb-2">
+                      Subjective
+                    </h5>
+                    <div className="text-gray-700 whitespace-pre-line">
+                      {selectedNote.subjective}
+                    </div>
+                  </div>
+                )}
+
+                {selectedNote.objective && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h5 className="font-semibold text-gray-700 mb-2">
+                      Objective
+                    </h5>
+                    <div className="text-gray-700 whitespace-pre-line">
+                      {selectedNote.objective}
+                    </div>
+                  </div>
+                )}
+
+                {selectedNote.assessment && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h5 className="font-semibold text-gray-700 mb-2">
+                      Assessment
+                    </h5>
+                    <div className="text-gray-700 whitespace-pre-line">
+                      {selectedNote.assessment}
+                    </div>
+                  </div>
+                )}
+
+                {selectedNote.plan && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h5 className="font-semibold text-gray-700 mb-2">Plan</h5>
+                    <div className="text-gray-700 whitespace-pre-line">
+                      {selectedNote.plan}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Additional Information */}
+              {(selectedNote.clinical_context || selectedNote.comment) && (
+                <div className="space-y-4 pt-4 border-t">
+                  <h4 className="font-semibold text-lg">
+                    Additional Information
+                  </h4>
+
+                  {selectedNote.clinical_context && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        Clinical Context
+                      </label>
+                      <div className="mt-1 text-gray-700">
+                        {selectedNote.clinical_context}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedNote.comment && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        Comments
+                      </label>
+                      <div className="mt-1 text-gray-700">
+                        {selectedNote.comment}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowNoteDetails(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

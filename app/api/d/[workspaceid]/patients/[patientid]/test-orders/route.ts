@@ -5,10 +5,10 @@ import { db } from "@/lib/db";
 import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { UserWorkspace } from "@/lib/db/tables/workspace";
-import { 
-  getOpenEHREHRBySubjectId, 
+import {
+  getOpenEHREHRBySubjectId,
   createOpenEHRComposition,
-  getOpenEHRTestOrders
+  getOpenEHRTestOrders,
 } from "@/lib/openehr/openehr";
 
 export async function GET(
@@ -64,7 +64,10 @@ export async function GET(
     }
 
     if (!ehrId) {
-      return NextResponse.json({ error: "No EHR found for this patient" }, { status: 404 });
+      return NextResponse.json(
+        { error: "No EHR found for this patient" },
+        { status: 404 }
+      );
     }
 
     // Use optimized AQL query to fetch test orders directly
@@ -124,16 +127,19 @@ export async function POST(
       is_package,
       target_lab,
     } = body.testOrder;
-    
+
     console.log("DEBUG: Received testOrder data:", body.testOrder);
     console.log("DEBUG: urgency value:", urgency);
     console.log("DEBUG: requesting_provider value:", requesting_provider);
 
     // Validate required fields
     if (!service_name || !clinical_indication) {
-      return NextResponse.json({ 
-        error: "Service name and clinical indication are required" 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Service name and clinical indication are required",
+        },
+        { status: 400 }
+      );
     }
 
     // Fetch patient to get National ID
@@ -157,17 +163,21 @@ export async function POST(
     }
 
     if (!ehrId) {
-      return NextResponse.json({ error: "No EHR found for this patient" }, { status: 404 });
+      return NextResponse.json(
+        { error: "No EHR found for this patient" },
+        { status: 404 }
+      );
     }
 
-    // Create composition data in FLAT format using correct template paths
+    // Create composition data in FLAT format using template_clinical_encounter_v1
     const compositionData: Record<string, unknown> = {
       "template_clinical_encounter_v1/language|code": "en",
       "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
       "template_clinical_encounter_v1/territory|code": "US",
       "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
       "template_clinical_encounter_v1/composer|name": user.name || "Unknown",
-      "template_clinical_encounter_v1/context/start_time": new Date().toISOString(),
+      "template_clinical_encounter_v1/context/start_time":
+        new Date().toISOString(),
       "template_clinical_encounter_v1/context/setting|code": "238",
       "template_clinical_encounter_v1/context/setting|value": "other care",
       "template_clinical_encounter_v1/context/setting|terminology": "openehr",
@@ -180,30 +190,64 @@ export async function POST(
     const eventTime = new Date().toISOString();
 
     // Enhanced Service Request Details
-    compositionData["template_clinical_encounter_v1/service_request/request/service_name|other"] = service_name;
-    compositionData["template_clinical_encounter_v1/service_request/request/description"] = description || "";
-    compositionData["template_clinical_encounter_v1/service_request/request/clinical_indication"] = clinical_indication;
-    compositionData["template_clinical_encounter_v1/service_request/request/requested_date"] = eventTime;
-    compositionData["template_clinical_encounter_v1/service_request/request/requesting_provider"] = requesting_provider || "Dr. Unknown";
-    compositionData["template_clinical_encounter_v1/service_request/request/receiving_provider"] = receiving_provider || "Clinical Laboratory";
-    
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request/service_name|other"
+    ] = service_name;
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request/description"
+    ] = description || "";
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request/clinical_indication"
+    ] = clinical_indication;
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request/requested_date"
+    ] = eventTime;
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request/requesting_provider"
+    ] = requesting_provider || "Dr. Unknown";
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request/receiving_provider"
+    ] = receiving_provider || "Clinical Laboratory";
+
     // Store test order marker in the request_id - this is already working and supported
-    compositionData["template_clinical_encounter_v1/service_request/request/timing"] = eventTime;
-    compositionData["template_clinical_encounter_v1/service_request/request_id"] = `testreq-${Date.now()}`;
-    
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request/timing"
+    ] = eventTime;
+    compositionData[
+      "template_clinical_encounter_v1/service_request/request_id"
+    ] = `testreq-${Date.now()}`;
+
     // Enhanced narrative with package/individual test info and target lab
-    const enhancedNarrative = narrative || 
-      `${is_package ? 'Package' : 'Individual'} test order: ${service_name} to ${target_lab || receiving_provider} (${urgency || 'routine'}) ordered due to ${clinical_indication}` +
-      (description ? `\n\nTest Details: ${description}` : "");
-    compositionData["template_clinical_encounter_v1/service_request/narrative"] = enhancedNarrative;
-    compositionData["template_clinical_encounter_v1/service_request/language|code"] = "en";
-    compositionData["template_clinical_encounter_v1/service_request/language|terminology"] = "ISO_639-1";
-    compositionData["template_clinical_encounter_v1/service_request/encoding|code"] = "UTF-8";
-    compositionData["template_clinical_encounter_v1/service_request/encoding|terminology"] = "IANA_character-sets";
+    const enhancedNarrative =
+      narrative ||
+      `${
+        is_package ? "Package" : "Individual"
+      } test order: ${service_name} to ${target_lab || receiving_provider} (${
+        urgency || "routine"
+      }) ordered due to ${clinical_indication}` +
+        (description ? `\n\nTest Details: ${description}` : "");
+    compositionData[
+      "template_clinical_encounter_v1/service_request/narrative"
+    ] = enhancedNarrative;
+    compositionData[
+      "template_clinical_encounter_v1/service_request/language|code"
+    ] = "en";
+    compositionData[
+      "template_clinical_encounter_v1/service_request/language|terminology"
+    ] = "ISO_639-1";
+    compositionData[
+      "template_clinical_encounter_v1/service_request/encoding|code"
+    ] = "UTF-8";
+    compositionData[
+      "template_clinical_encounter_v1/service_request/encoding|terminology"
+    ] = "IANA_character-sets";
 
-    console.log("Creating test order composition with data:", JSON.stringify(compositionData, null, 2));
+    console.log(
+      "Creating test order composition with data:",
+      JSON.stringify(compositionData, null, 2)
+    );
 
-    // Create the composition in OpenEHR
+    // Create the composition in OpenEHR using v1 template
     const compositionId = await createOpenEHRComposition(
       ehrId,
       "template_clinical_encounter_v1",

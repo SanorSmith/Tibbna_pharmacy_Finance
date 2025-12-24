@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,8 +67,6 @@ interface LabsTabProps {
 }
 
 export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
-  const [labResultRecords, setLabResultRecords] = useState<LabTestResult[]>([]);
-  const [loadingLabResults, setLoadingLabResults] = useState(false);
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
   
@@ -86,31 +85,18 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
     narrative: "",
   });
 
-  const loadLabResults = useCallback(async () => {
-    try {
-      setLoadingLabResults(true);
-      const res = await fetch(
-        `/api/d/${workspaceid}/patients/${patientid}/lab-results`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setLabResultRecords(data.labResults || []);
-      } else {
-        console.error("Failed to load lab results");
+  // Use React Query for caching - will cache for 60 seconds
+  const { data: labResultRecords = [], isLoading: loadingLabResults, refetch: loadLabResults } = useQuery({
+    queryKey: ["lab-results", workspaceid, patientid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/lab-results`);
+      if (!res.ok) {
+        throw new Error("Failed to load lab results");
       }
-    } catch (error) {
-      console.error("Error loading lab results:", error);
-    } finally {
-      setLoadingLabResults(false);
-    }
-  }, [workspaceid, patientid]);
-
-  // Load lab results when component mounts
-  useEffect(() => {
-    loadLabResults();
-  }, [loadLabResults]);
+      const data = await res.json();
+      return (data.labResults || []) as LabTestResult[];
+    },
+  });
 
   const saveLabOrder = async () => {
     if (!labOrderForm.service_name || !labOrderForm.clinical_indication) {

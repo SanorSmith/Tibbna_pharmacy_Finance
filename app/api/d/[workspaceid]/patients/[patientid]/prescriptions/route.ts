@@ -50,10 +50,7 @@ export async function GET(
       .limit(1);
 
     if (!patient) {
-      return NextResponse.json(
-        { error: "Patient not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
     // Find EHR by National ID or patient UUID
@@ -70,7 +67,7 @@ export async function GET(
     }
 
     const prescriptions = await getOpenEHRPrescriptions(ehrId);
-    console.log(`Fetched ${prescriptions.length} prescriptions for EHR ${ehrId}:`, prescriptions);
+  
 
     return NextResponse.json({ prescriptions }, { status: 200 });
   } catch (error) {
@@ -173,10 +170,7 @@ export async function POST(
       .limit(1);
 
     if (!patient) {
-      return NextResponse.json(
-        { error: "Patient not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
     // Find EHR by National ID or patient UUID
@@ -195,7 +189,7 @@ export async function POST(
       );
     }
 
-    // Build FLAT composition data for medication_order section of clinical encounter template
+    // Build FLAT composition data for medication_order section using v1 template
     const compositionData: Record<string, unknown> = {
       "template_clinical_encounter_v1/language|code": "en",
       "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
@@ -203,7 +197,8 @@ export async function POST(
       "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
       "template_clinical_encounter_v1/composer|name":
         user.name || user.email || "Unknown",
-      "template_clinical_encounter_v1/context/start_time": new Date().toISOString(),
+      "template_clinical_encounter_v1/context/start_time":
+        new Date().toISOString(),
       "template_clinical_encounter_v1/context/setting|code": "238",
       "template_clinical_encounter_v1/context/setting|value": "other care",
       "template_clinical_encounter_v1/context/setting|terminology": "openehr",
@@ -238,7 +233,11 @@ export async function POST(
     }
     if (prescription.asRequired) {
       overallDirectionsParts.push(
-        `PRN${prescription.asRequiredCriterion ? ` ${prescription.asRequiredCriterion}` : ""}`
+        `PRN${
+          prescription.asRequiredCriterion
+            ? ` ${prescription.asRequiredCriterion}`
+            : ""
+        }`
       );
     }
 

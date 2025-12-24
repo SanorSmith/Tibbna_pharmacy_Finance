@@ -1,91 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
-
-// In-memory storage for vaccinations (dummy data)
-// In production, this would be stored in EHRbase or a database
-interface VaccinationRecord {
-  composition_uid: string;
-  recorded_time: string;
-  vaccine_name: string;
-  targeted_disease: string;
-  description?: string;
-  total_administrations?: number;
-  last_vaccine_date?: string;
-  next_vaccine_due?: string;
-  additional_details?: string;
-  comment?: string;
-}
-
-// Initialize with dummy data for demonstration
-const vaccinationStore: Record<string, VaccinationRecord[]> = {
-  // Sample patient ID with dummy vaccinations
-  "eaf012cb-359a-4ed4-8679-124cbdf7465a": [
-    {
-      composition_uid: "vaccination-1731847200000-001",
-      recorded_time: "2024-03-15T10:00:00.000Z",
-      vaccine_name: "Influenza Vaccine (Quadrivalent)",
-      targeted_disease: "Influenza",
-      description: "Seasonal flu vaccine for 2023-2024 season",
-      total_administrations: 1,
-      last_vaccine_date: "2024-03-15",
-      next_vaccine_due: "2025-03-15",
-      additional_details: "Administered in left deltoid muscle. No adverse reactions reported.",
-      comment: "Patient tolerated vaccine well. Advised to monitor for any reactions."
-    },
-    {
-      composition_uid: "vaccination-1715097600000-002",
-      recorded_time: "2023-05-07T14:30:00.000Z",
-      vaccine_name: "Tetanus-Diphtheria (Td) Booster",
-      targeted_disease: "Tetanus and Diphtheria",
-      description: "Routine Td booster vaccination",
-      total_administrations: 1,
-      last_vaccine_date: "2023-05-07",
-      next_vaccine_due: "2033-05-07",
-      additional_details: "Administered in right deltoid. Patient reported mild soreness at injection site.",
-      comment: "Next booster due in 10 years. Patient counseled on wound care."
-    },
-    {
-      composition_uid: "vaccination-1698451200000-003",
-      recorded_time: "2022-10-28T09:15:00.000Z",
-      vaccine_name: "COVID-19 Vaccine (Bivalent Booster)",
-      targeted_disease: "COVID-19",
-      description: "Updated bivalent COVID-19 booster dose",
-      total_administrations: 5,
-      last_vaccine_date: "2022-10-28",
-      next_vaccine_due: "2023-10-28",
-      additional_details: "Fifth dose (bivalent booster). Administered in left arm. No immediate adverse reactions.",
-      comment: "Patient completed primary series and boosters. Annual boosters recommended."
-    },
-    {
-      composition_uid: "vaccination-1672531200000-004",
-      recorded_time: "2021-01-01T11:00:00.000Z",
-      vaccine_name: "Pneumococcal Polysaccharide Vaccine (PPSV23)",
-      targeted_disease: "Pneumococcal Disease",
-      description: "Pneumococcal vaccination for adults",
-      total_administrations: 1,
-      last_vaccine_date: "2021-01-01",
-      next_vaccine_due: "2026-01-01",
-      additional_details: "Administered subcutaneously in left arm. Patient has history of asthma.",
-      comment: "Recommended for patients with chronic respiratory conditions. Next dose in 5 years."
-    },
-    {
-      composition_uid: "vaccination-1609459200000-005",
-      recorded_time: "2020-01-01T10:30:00.000Z",
-      vaccine_name: "Hepatitis B Vaccine",
-      targeted_disease: "Hepatitis B",
-      description: "Hepatitis B vaccination series - Dose 3 of 3",
-      total_administrations: 3,
-      last_vaccine_date: "2020-01-01",
-      additional_details: "Completed 3-dose series. Administered in right deltoid. Series started in 2019.",
-      comment: "Series complete. Post-vaccination serology recommended to confirm immunity."
-    }
-  ]
-};
+import { db } from "@/lib/db";
+import { patients } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import {
+  getOpenEHREHRBySubjectId,
+  createVaccination,
+  listVaccinations,
+  getVaccination,
+  type VaccinationComposition,
+} from "@/lib/openehr";
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/vaccinations
- * Retrieve vaccination summary records for a patient (from dummy data)
+ * Retrieve vaccination records for a patient from OpenEHR using template_clinical_encounter_v1
  */
 export async function GET(
   request: NextRequest,
@@ -114,9 +43,73 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const records = vaccinationStore[patientid] || [];
+    // Fetch patient to get National ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
 
-    return NextResponse.json({ vaccinations: records });
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // Find EHR by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
+    }
+
+    if (!ehrId) {
+      return NextResponse.json({ vaccinations: [] }, { status: 200 });
+    }
+
+    // Get list of vaccination compositions
+    const vaccinationList = await listVaccinations(ehrId);
+
+    // Fetch full details for each vaccination
+    const vaccinations = await Promise.all(
+      vaccinationList.map(async (item) => {
+        const composition = await getVaccination(ehrId, item.composition_uid);
+        
+        // Only include compositions that start with "VACCINATION:"
+        const problemDiagnosis = composition["template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name"] || "";
+        if (!problemDiagnosis.startsWith("VACCINATION:")) {
+          return null;
+        }
+
+        // Parse vaccination data from the composition fields
+        const clinicalDescription = composition["template_clinical_encounter_v1/problem_diagnosis/clinical_description"] || "";
+        const [vaccineName, targetedDisease] = clinicalDescription.split(" | ");
+
+        // Parse comment field to extract next due date and additional details
+        const comment = composition["template_clinical_encounter_v1/problem_diagnosis/comment"] || "";
+        const commentParts = comment.split(" | ");
+        const nextVaccineDue = commentParts[0]?.trim() || "";
+        const additionalDetails = commentParts[1]?.trim() || "";
+        const commentText = commentParts[2]?.trim() || "";
+
+        return {
+          composition_uid: item.composition_uid,
+          recorded_time: item.start_time,
+          vaccine_name: vaccineName || "",
+          targeted_disease: targetedDisease || "",
+          total_administrations: parseInt(composition["template_clinical_encounter_v1/problem_diagnosis/variant:0"] || "1"),
+          last_vaccine_date: composition["template_clinical_encounter_v1/problem_diagnosis/body_site:0"] || "",
+          next_vaccine_due: nextVaccineDue,
+          additional_details: additionalDetails,
+          comment: commentText,
+        };
+      })
+    );
+
+    // Filter out null entries (non-vaccination compositions)
+    const filteredVaccinations = vaccinations.filter((v) => v !== null);
+
+    return NextResponse.json({ vaccinations: filteredVaccinations }, { status: 200 });
   } catch (error) {
     console.error("Error fetching vaccinations:", error);
     return NextResponse.json(
@@ -128,17 +121,7 @@ export async function GET(
 
 /**
  * POST /api/d/[workspaceid]/patients/[patientid]/vaccinations
- * Create a new vaccination summary record (dummy data storage)
- *
- * Follows openEHR Vaccination summary concepts:
- * - vaccine_name
- * - targeted_disease
- * - description
- * - total_administrations
- * - last_vaccine_date
- * - next_vaccine_due
- * - additional_details
- * - comment
+ * Create a new vaccination record in OpenEHR using template_clinical_encounter_v1
  */
 export async function POST(
   request: NextRequest,
@@ -162,49 +145,117 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Only doctors and nurses can record vaccinations
-    if (membership.role !== "doctor" && membership.role !== "nurse") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Only doctors can create vaccinations
+    if (membership.role !== "doctor") {
+      return NextResponse.json(
+        { error: "Forbidden - Only doctors can create vaccinations" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
-    const { vaccination } = body;
-
-    const record = {
-      composition_uid: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      recorded_time: new Date().toISOString(),
-      vaccine_name: vaccination.vaccineName,
-      targeted_disease: vaccination.targetedDisease,
-      description: vaccination.description,
-      total_administrations: vaccination.totalAdministrations
-        ? parseInt(vaccination.totalAdministrations, 10)
-        : undefined,
-      last_vaccine_date: vaccination.lastVaccineDate || undefined,
-      next_vaccine_due: vaccination.nextVaccineDue || undefined,
-      additional_details: vaccination.additionalDetails,
-      comment: vaccination.comment,
+    const { vaccination } = body as {
+      vaccination: {
+        vaccineName: string;
+        targetedDisease: string;
+        description?: string;
+        totalAdministrations?: string;
+        lastVaccineDate?: string;
+        nextVaccineDue?: string;
+        additionalDetails?: string;
+        comment?: string;
+      };
     };
 
-    if (!vaccinationStore[patientid]) {
-      vaccinationStore[patientid] = [];
+    if (!vaccination) {
+      return NextResponse.json(
+        { error: "Vaccination payload is required" },
+        { status: 400 }
+      );
     }
 
-    vaccinationStore[patientid].unshift(record);
+    if (!vaccination.vaccineName || !vaccination.targetedDisease) {
+      return NextResponse.json(
+        {
+          error: "Vaccine Name and Targeted Disease are required for a vaccination",
+        },
+        { status: 400 }
+      );
+    }
 
-    console.log("✅ Vaccination recorded (dummy data):", record);
+    // Fetch patient to get National ID
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
+
+    if (!patient) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
+
+    // Find EHR by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
+    }
+
+    if (!ehrId) {
+      return NextResponse.json(
+        { error: "No EHR found for this patient" },
+        { status: 404 }
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    // Create composition using clinical encounter template with VACCINATION prefix
+    const composition: VaccinationComposition = {
+      // Language / territory / composer
+      "template_clinical_encounter_v1/language|code": "en",
+      "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+      "template_clinical_encounter_v1/territory|code": "US",
+      "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+      "template_clinical_encounter_v1/composer|name": user.name || user.email || "Unknown",
+
+      // Context
+      "template_clinical_encounter_v1/context/start_time": now,
+      "template_clinical_encounter_v1/context/setting|code": "238",
+      "template_clinical_encounter_v1/context/setting|value": "other care",
+      "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+
+      // Category
+      "template_clinical_encounter_v1/category|code": "433",
+      "template_clinical_encounter_v1/category|value": "event",
+      "template_clinical_encounter_v1/category|terminology": "openehr",
+
+      // Map vaccination fields to problem_diagnosis fields with VACCINATION prefix
+      "template_clinical_encounter_v1/problem_diagnosis/problem_diagnosis_name": `VACCINATION: ${vaccination.vaccineName}`,
+      "template_clinical_encounter_v1/problem_diagnosis/clinical_description": `${vaccination.vaccineName} | ${vaccination.targetedDisease}`,
+      "template_clinical_encounter_v1/problem_diagnosis/variant:0": vaccination.totalAdministrations || "1",
+      "template_clinical_encounter_v1/problem_diagnosis/body_site:0": vaccination.lastVaccineDate || now,
+      "template_clinical_encounter_v1/problem_diagnosis/comment": `${vaccination.nextVaccineDue || ""} | ${vaccination.additionalDetails || ""} | ${vaccination.comment || ""}`,
+    };
+
+    const compositionUid = await createVaccination(ehrId, composition);
 
     return NextResponse.json(
       {
         success: true,
-        message: "Vaccination recorded successfully",
-        record,
+        message: "Vaccination created successfully in OpenEHR",
+        composition_uid: compositionUid,
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error creating vaccination:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      {
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
       { status: 500 }
     );
   }
