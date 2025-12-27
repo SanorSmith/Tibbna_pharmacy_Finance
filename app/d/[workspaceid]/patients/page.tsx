@@ -20,7 +20,7 @@ export default async function PatientsPage({ params }: PageProps) {
   const { workspaceid } = await params;
   const user = await getUser();
   let isAdmin = false;
-  let userRole: "doctor" | "nurse" | "receptionist" | "administrator" =
+  let userRole: "doctor" | "nurse" | "lab_technician" | "pharmacist" | "receptionist" | "administrator" =
     "receptionist";
 
   if (user) {

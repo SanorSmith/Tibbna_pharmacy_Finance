@@ -36,7 +36,7 @@ npm run test            # Run playwright tests
 
 - **Workspaces** are the primary organizational unit
 - Types: `"hospital"` | `"laboratory"` | `"pharmacy"`
-- Users belong to workspaces with roles: `"doctor"` | `"nurse"` | `"receptionist"` | `"administrator"`
+- Users belong to workspaces with roles: `"doctor"` | `"nurse"` | `"lab_technician"` | `"pharmacist"` | `"receptionist"` | `"administrator"`
 - Workspace settings stored in `jsonb` field with typed interface
 
 ### Client/Server Separation - CRITICAL
