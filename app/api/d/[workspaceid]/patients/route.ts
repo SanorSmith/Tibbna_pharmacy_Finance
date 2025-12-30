@@ -122,26 +122,55 @@ export async function POST(
     // Create EHR in EHRbase using the patient's National ID as subject id
     // Fall back to patient UUID if National ID is not provided
     let ehrId: string | null = null;
+    let ehrCreationError: string | null = null;
+    
+    // Set a timeout for EHR creation to avoid long waits
+    const EHR_CREATION_TIMEOUT = 10000; // 10 seconds
+    
     try {
       // Use National ID if available, otherwise use patient UUID
       const subjectId = body.nationalid || newPatientId;
-      ehrId = await createOpenEHREHR(subjectId);
+      console.log(`[patients][POST] Creating EHR for subject ID: ${subjectId}`);
+      
+      // Create EHR with timeout
+      const ehrPromise = createOpenEHREHR(subjectId);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('EHR creation timeout')), EHR_CREATION_TIMEOUT)
+      );
+      
+      ehrId = await Promise.race([ehrPromise, timeoutPromise]);
+      console.log(`[patients][POST] Successfully created EHR: ${ehrId}`);
     } catch (ehrErr: unknown) {
       // If 409 conflict, EHR already exists - try to fetch it
-      const axiosError = ehrErr as { response?: { status?: number }; status?: number };
+      const axiosError = ehrErr as { response?: { status?: number; data?: unknown }; status?: number; message?: string };
+      const errorMessage = axiosError?.message || String(ehrErr);
+      
       if (axiosError?.response?.status === 409 || axiosError?.status === 409) {
-        console.log("[patients][POST] EHR already exists, fetching existing EHR ID");
+        console.log("[patients][POST] EHR already exists (409 conflict), fetching existing EHR ID");
         try {
           const subjectId = body.nationalid || newPatientId;
           ehrId = await getOpenEHREHRBySubjectId(subjectId);
           if (ehrId) {
             console.log("[patients][POST] Found existing EHR:", ehrId);
+          } else {
+            ehrCreationError = "EHR exists but could not be retrieved";
+            console.error("[patients][POST] EHR exists but could not be retrieved");
           }
         } catch (fetchErr) {
+          ehrCreationError = `Failed to fetch existing EHR: ${fetchErr}`;
           console.error("[patients][POST] Failed to fetch existing EHR:", fetchErr);
         }
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('522') || errorMessage.includes('504')) {
+        // Timeout or server error - patient will be created without EHR ID
+        ehrCreationError = "OpenEHR server timeout - patient created without EHR ID";
+        console.warn("[patients][POST] EHR creation timed out or server unavailable. Patient will be created without EHR ID. EHR ID can be added later.");
       } else {
-        console.error("[patients][POST] EHR create failed:", ehrErr);
+        ehrCreationError = errorMessage;
+        console.error("[patients][POST] EHR creation failed:", {
+          status: axiosError?.response?.status,
+          message: axiosError?.message,
+          error: ehrErr
+        });
       }
     }
 

@@ -230,6 +230,8 @@ export async function getOpenEHRTestOrders(
               findValueByName(instruction, "Receiving Provider") || "";
             const requestId = findValueByName(instruction, "request_id") || "";
 
+            console.log(`Processing service request: ${serviceName}, requestId: ${requestId}, description: ${description}`);
+
 
             // Try to get narrative from multiple sources
             let narrative = findValueByName(instruction, "narrative") || "";
@@ -289,21 +291,30 @@ export async function getOpenEHRTestOrders(
               continue;
             }
 
-            // Only include test orders (they use request_id pattern starting with "testreq-")
-            const isTestOrder =
-              (requestId && requestId.startsWith("testreq-")) ||
-              (description && description.startsWith("Test Type:"));
-
-            if (!isTestOrder) {
-              console.log(
-                "Skipping non-test-order request:",
-                serviceName,
-                "requestId:",
-                requestId
-              );
+            // Skip referral requests (they have REFERRAL marker)
+            if (
+              description === "REFERRAL_REQUEST" ||
+              narrative.toLowerCase().includes("referral")
+            ) {
+              console.log("Skipping referral request:", serviceName);
               continue;
             }
-            console.log("Including test order:", serviceName);
+
+            // Skip procedure/operation requests (they have PROCEDURE_REQUEST marker)
+            if (
+              description === "PROCEDURE_REQUEST" ||
+              requestId.toLowerCase().includes("procedure") ||
+              serviceName.toLowerCase().includes("surgery") ||
+              narrative.toLowerCase().includes("procedure") ||
+              narrative.toLowerCase().includes("operation")
+            ) {
+              console.log("Skipping procedure request:", serviceName);
+              continue;
+            }
+
+            // Include all remaining service requests as potential test orders
+            // This includes orders with "testreq-" prefix and other lab test orders
+            console.log("Including test order:", serviceName, "requestId:", requestId);
 
             // Extract urgency from description or narrative
             let urgency = "routine";
