@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, User, Calendar, MessageSquare, Trash2, Eye } from "lucide-react";
+import { Clock, Calendar, Trash2, Eye } from "lucide-react";
 
 interface WorkListItem {
   id: string;
@@ -18,12 +18,24 @@ interface WorkListItem {
   dateTime: string;
   comment: string;
   status: 'pending' | 'in-progress' | 'completed';
-  originalOrder?: any;
+  originalOrder?: {
+    request_id?: string;
+    patient_id?: string;
+    patient_name?: string;
+    service_name?: string;
+    requesting_provider?: string;
+    urgency?: string;
+    recorded_time?: string;
+    patient_age?: string;
+    patient_gender?: string;
+    clinical_indication?: string;
+    narrative?: string;
+  };
 }
 
 export default function WorkListTab({ workspaceid }: { workspaceid: string }) {
   const [workListItems, setWorkListItems] = useState<WorkListItem[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<WorkListItem['originalOrder'] | null>(null);
   const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
 
   // Load worklist items from localStorage on component mount
@@ -197,7 +209,7 @@ export default function WorkListTab({ workspaceid }: { workspaceid: string }) {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Order Date</div>
-                  <div className="text-base font-semibold">{new Date(selectedOrder.recorded_time).toLocaleDateString()}</div>
+                  <div className="text-base font-semibold">{selectedOrder.recorded_time ? new Date(selectedOrder.recorded_time).toLocaleDateString() : 'N/A'}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Age/Gender</div>

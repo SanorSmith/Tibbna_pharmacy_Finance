@@ -122,8 +122,7 @@ export async function POST(
     // Create EHR in EHRbase using the patient's National ID as subject id
     // Fall back to patient UUID if National ID is not provided
     let ehrId: string | null = null;
-    let ehrCreationError: string | null = null;
-    
+        
     // Set a timeout for EHR creation to avoid long waits
     const EHR_CREATION_TIMEOUT = 10000; // 10 seconds
     
@@ -153,19 +152,15 @@ export async function POST(
           if (ehrId) {
             console.log("[patients][POST] Found existing EHR:", ehrId);
           } else {
-            ehrCreationError = "EHR exists but could not be retrieved";
-            console.error("[patients][POST] EHR exists but could not be retrieved");
+            console.error("[patients][POST] EHR exists but could not be retrieved:", ehrErr);
           }
         } catch (fetchErr) {
-          ehrCreationError = `Failed to fetch existing EHR: ${fetchErr}`;
           console.error("[patients][POST] Failed to fetch existing EHR:", fetchErr);
         }
       } else if (errorMessage.includes('timeout') || errorMessage.includes('522') || errorMessage.includes('504')) {
         // Timeout or server error - patient will be created without EHR ID
-        ehrCreationError = "OpenEHR server timeout - patient created without EHR ID";
         console.warn("[patients][POST] EHR creation timed out or server unavailable. Patient will be created without EHR ID. EHR ID can be added later.");
       } else {
-        ehrCreationError = errorMessage;
         console.error("[patients][POST] EHR creation failed:", {
           status: axiosError?.response?.status,
           message: axiosError?.message,

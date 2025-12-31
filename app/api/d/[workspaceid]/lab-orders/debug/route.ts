@@ -1,11 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { queryOpenEHR } from "@/lib/openehr/openehr";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceid: string }> }
-) {
+export async function GET() {
   try {
     const user = await getUser();
     if (!user) {

@@ -6,7 +6,7 @@
 "use client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Download, Eye, CheckCircle2, Clock, AlertCircle, Loader2, Plus } from "lucide-react";
+import { Search, Download, CheckCircle2, Clock, AlertCircle, Loader2, Plus } from "lucide-react";
 
 interface LabOrder {
   composition_uid: string;
@@ -66,16 +66,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
   // Get unique test groups
   const testGroups = [...new Set(Object.values(testTypes).map(test => test.group))];
-
-  // Fetch workspace info for department name
-  const { data: workspaceData } = useQuery({
-    queryKey: ['workspace', workspaceid],
-    queryFn: async () => {
-      const response = await fetch(`/api/d/${workspaceid}/workspace-info`);
-      if (!response.ok) return null;
-      return response.json();
-    },
-  });
 
   // Fetch lab orders from API
   const { data, isLoading, error } = useQuery({
@@ -165,21 +155,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       
       // Show success message (you could add a toast notification here)
       alert('Order added to worklist successfully!');
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary" className="flex items-center gap-1"><Clock className="h-3 w-3" /> Pending</Badge>;
-      case 'in-progress':
-        return <Badge variant="default" className="flex items-center gap-1 bg-blue-500"><AlertCircle className="h-3 w-3" /> In Progress</Badge>;
-      case 'completed':
-        return <Badge variant="default" className="flex items-center gap-1 bg-green-500"><CheckCircle2 className="h-3 w-3" /> Completed</Badge>;
-      case 'cancelled':
-        return <Badge variant="destructive">Cancelled</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
     }
   };
 
