@@ -13,6 +13,8 @@ export type WorkspaceType = "hospital" | "laboratory" | "pharmacy";
 export type WorkspaceUserRole =
   | "doctor"
   | "nurse"
+  | "lab_technician"
+  | "pharmacist"
   | "receptionist"
   | "administrator";
 

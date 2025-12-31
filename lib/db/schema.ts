@@ -8,3 +8,7 @@ export * from "./tables/lab";
 export * from "./tables/pharmacy";
 export * from "./tables/operation";
 export * from "./tables/todo";
+export * from "./tables/sample";
+export * from "./tables/test-result";
+export * from "./tables/validation-state";
+export * from "./tables/audit-log";

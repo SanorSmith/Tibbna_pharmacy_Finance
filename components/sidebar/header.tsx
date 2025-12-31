@@ -12,7 +12,11 @@ export function Header({
       <div className="flex items-center flex-1 min-w-0">
         {/* <SidebarTrigger className="-ml-1" /> */}
         <h1 className="text-xl text-white font-bold whitespace-nowrap mr-8">
-          {userRole === "admin" || userRole === "administrator" ? "Tibbna-Admin" : "Tibbna-EHR"}
+          {userRole === "admin" || userRole === "administrator" 
+            ? "Tibbna-Admin" 
+            : userRole === "lab_technician" 
+            ? "Tibbna-LIMS" 
+            : "Tibbna-EHR"}
         </h1>
         {middleSlot && (
           <div className="flex-1 max-w-xl ml-16">
