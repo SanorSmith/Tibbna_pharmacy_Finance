@@ -10,7 +10,6 @@
  * - Previous results comparison
  * - Read-only mode for released results
  */
-"use client";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -73,10 +72,23 @@ interface SampleData {
   hasPreviousResults: boolean;
 }
 
-export default function SampleValidationPage({
+export default async function SampleValidationPage({
   params,
 }: {
-  params: { workspaceid: string; sampleid: string };
+  params: Promise<{ workspaceid: string; sampleid: string }>;
+}) {
+  const { workspaceid, sampleid } = await params;
+  
+  return <SampleValidationContent workspaceid={workspaceid} sampleid={sampleid} />;
+}
+
+"use client";
+function SampleValidationContent({
+  workspaceid,
+  sampleid,
+}: {
+  workspaceid: string;
+  sampleid: string;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -94,9 +106,9 @@ export default function SampleValidationPage({
 
   // Fetch sample data
   const { data, isLoading, error } = useQuery<SampleData>({
-    queryKey: ["sample-validation", params.sampleid],
+    queryKey: ["sample-validation", sampleid],
     queryFn: async () => {
-      const response = await fetch(`/api/lims/samples/${params.sampleid}`);
+      const response = await fetch(`/api/lims/samples/${sampleid}`);
       if (!response.ok) throw new Error("Failed to fetch sample");
       return response.json();
     },
@@ -108,14 +120,14 @@ export default function SampleValidationPage({
   // Validate mutation
   const validateMutation = useMutation({
     mutationFn: async (validateAll: boolean) => {
-      const response = await fetch(`/api/lims/samples/${params.sampleid}/validate`, {
+      const response = await fetch(`/api/lims/samples/${sampleid}/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resultids: Array.from(selectedResults),
           comments,
           validateAll,
-          workspaceid: params.workspaceid,
+          workspaceid,
         }),
       });
       if (!response.ok) {
@@ -125,7 +137,7 @@ export default function SampleValidationPage({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sample-validation", params.sampleid] });
+      queryClient.invalidateQueries({ queryKey: ["sample-validation", sampleid] });
       queryClient.invalidateQueries({ queryKey: ["validation-worklist"] });
       setShowValidateDialog(false);
       setSelectedResults(new Set());
@@ -136,10 +148,10 @@ export default function SampleValidationPage({
   // Release mutation
   const releaseMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/lims/samples/${params.sampleid}/release`, {
+      const response = await fetch(`/api/lims/samples/${sampleid}/release`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceid: params.workspaceid }),
+        body: JSON.stringify({ workspaceid }),
       });
       if (!response.ok) {
         const error = await response.json();
@@ -148,7 +160,7 @@ export default function SampleValidationPage({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sample-validation", params.sampleid] });
+      queryClient.invalidateQueries({ queryKey: ["sample-validation", sampleid] });
       queryClient.invalidateQueries({ queryKey: ["validation-worklist"] });
       setShowReleaseDialog(false);
     },
@@ -157,12 +169,12 @@ export default function SampleValidationPage({
   // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/lims/samples/${params.sampleid}/reject`, {
+      const response = await fetch(`/api/lims/samples/${sampleid}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reason: rejectionReason,
-          workspaceid: params.workspaceid,
+          workspaceid,
         }),
       });
       if (!response.ok) {
@@ -172,7 +184,7 @@ export default function SampleValidationPage({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sample-validation", params.sampleid] });
+      queryClient.invalidateQueries({ queryKey: ["sample-validation", sampleid] });
       queryClient.invalidateQueries({ queryKey: ["validation-worklist"] });
       setShowRejectDialog(false);
       setRejectionReason("");
@@ -182,13 +194,13 @@ export default function SampleValidationPage({
   // Rerun mutation
   const rerunMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/lims/samples/${params.sampleid}/rerun`, {
+      const response = await fetch(`/api/lims/samples/${sampleid}/rerun`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resultids: Array.from(rerunResults),
           reason: rerunReason,
-          workspaceid: params.workspaceid,
+          workspaceid,
         }),
       });
       if (!response.ok) {
@@ -198,7 +210,7 @@ export default function SampleValidationPage({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sample-validation", params.sampleid] });
+      queryClient.invalidateQueries({ queryKey: ["sample-validation", sampleid] });
       queryClient.invalidateQueries({ queryKey: ["validation-worklist"] });
       setShowRerunDialog(false);
       setRerunResults(new Set());
@@ -355,7 +367,7 @@ export default function SampleValidationPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href={`/d/${params.workspaceid}/lab-tech`}>
+          <Link href={`/d/${workspaceid}/lab-tech`}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Worklist
