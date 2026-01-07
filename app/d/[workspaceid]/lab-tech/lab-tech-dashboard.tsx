@@ -24,10 +24,10 @@ import {
   ScanBarcode
 } from "lucide-react";
 import OrdersTab from "./components/OrdersTab";
-import AccessioningTab from "./components/AccessioningTab";
+import RegisterSample from "./components/RegisterSample";
 import WorklistsTab from "./components/WorklistsTab";
 import ValidationTab from "./components/ValidationTab";
-import SampleStoreTab from "./components/SampleStoreTab";
+import SampleManagementTab from "./components/SampleManagementTab";
 import LabManagementTab from "./components/LabManagementTab";
 import TestAnalysisTab from "./components/TestAnalysisTab";
 import InsuranceTab from "./components/InsuranceTab";
@@ -91,7 +91,7 @@ export default function LabTechDashboard({
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
             <ScanBarcode className="h-4 w-4" />
-            Accessioning
+            Register Sample
           </TabsTrigger>
 
           <TabsTrigger
@@ -115,7 +115,7 @@ export default function LabTechDashboard({
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
             <TestTube2 className="h-4 w-4" />
-            Sample store
+            Sample Management
           </TabsTrigger>
 
           <TabsTrigger
@@ -181,7 +181,7 @@ export default function LabTechDashboard({
 
         <TabsContent value="accessioning" className="mt-4">
           {loadedTabs.has("accessioning") && (
-            <AccessioningTab workspaceid={workspaceid} />
+            <RegisterSample workspaceid={workspaceid} />
           )}
         </TabsContent>
 
@@ -199,7 +199,7 @@ export default function LabTechDashboard({
 
         <TabsContent value="samplestore" className="mt-4">
           {loadedTabs.has("samplestore") && (
-            <SampleStoreTab workspaceid={workspaceid} />
+            <SampleManagementTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
