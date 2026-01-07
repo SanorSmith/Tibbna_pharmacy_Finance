@@ -12,3 +12,6 @@ export * from "./tables/sample";
 export * from "./tables/test-result";
 export * from "./tables/validation-state";
 export * from "./tables/audit-log";
+export * from "./tables/accession-sample";
+export * from "./tables/lims-order";
+export * from "./tables/worklist";
