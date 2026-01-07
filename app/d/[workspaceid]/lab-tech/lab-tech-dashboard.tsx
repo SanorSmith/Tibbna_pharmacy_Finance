@@ -20,10 +20,12 @@ import {
   Bell,
   Users,
   ListTodo,
-  Home
+  Home,
+  ScanBarcode
 } from "lucide-react";
 import OrdersTab from "./components/OrdersTab";
-import WorkListTab from "./components/WorkListTab";
+import AccessioningTab from "./components/AccessioningTab";
+import WorklistsTab from "./components/WorklistsTab";
 import ValidationTab from "./components/ValidationTab";
 import SampleStoreTab from "./components/SampleStoreTab";
 import LabManagementTab from "./components/LabManagementTab";
@@ -82,6 +84,14 @@ export default function LabTechDashboard({
           >
             <ClipboardList className="h-4 w-4" />
             Orders
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="accessioning"
+            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
+          >
+            <ScanBarcode className="h-4 w-4" />
+            Accessioning
           </TabsTrigger>
 
           <TabsTrigger
@@ -169,9 +179,15 @@ export default function LabTechDashboard({
           <OrdersTab workspaceid={workspaceid} />
         </TabsContent>
 
+        <TabsContent value="accessioning" className="mt-4">
+          {loadedTabs.has("accessioning") && (
+            <AccessioningTab workspaceid={workspaceid} />
+          )}
+        </TabsContent>
+
         <TabsContent value="worklist" className="mt-4">
           {loadedTabs.has("worklist") && (
-            <WorkListTab workspaceid={workspaceid} />
+            <WorklistsTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
