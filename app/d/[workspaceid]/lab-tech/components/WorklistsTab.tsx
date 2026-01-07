@@ -48,6 +48,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
   const [selectedWorklist, setSelectedWorklist] = useState<Worklist | null>(null);
   const [showWorklistDetail, setShowWorklistDetail] = useState(false);
   const [showCreateWorklistDialog, setShowCreateWorklistDialog] = useState(false);
+  const [showEditWorklistDialog, setShowEditWorklistDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [assignToName, setAssignToName] = useState('');
   const [alertDialog, setAlertDialog] = useState<{ show: boolean; title: string; message: string }>({ show: false, title: '', message: '' });
@@ -55,6 +56,12 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
   const [worklistFormData, setWorklistFormData] = useState({
     worklistname: '',
     laboratory: '',
+    description: '',
+    priority: 'routine',
+  });
+  const [editWorklistFormData, setEditWorklistFormData] = useState({
+    worklistname: '',
+    department: '',
     description: '',
     priority: 'routine',
   });
@@ -292,6 +299,31 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
     },
   });
 
+  // Edit worklist mutation
+  const editWorklistMutation = useMutation({
+    mutationFn: async (data: typeof editWorklistFormData & { worklistid: string }) => {
+      const response = await fetch('/api/lims/worklists', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update worklist');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worklists', workspaceid] });
+      setShowEditWorklistDialog(false);
+      setEditWorklistFormData({ worklistname: '', department: '', description: '', priority: 'routine' });
+      setAlertDialog({ show: true, title: 'Success', message: 'Worklist updated successfully!' });
+    },
+    onError: (error: Error) => {
+      setAlertDialog({ show: true, title: 'Error', message: `Failed to update worklist: ${error.message}` });
+    },
+  });
+
   // Fetch worklist items when a worklist is selected
   const { data: worklistItems, isLoading: itemsLoading } = useQuery<WorklistItem[]>({
     queryKey: ['worklist-items', selectedWorklist?.worklistid],
@@ -330,6 +362,17 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
         {priority.toUpperCase()}
       </Badge>
     );
+  };
+
+  const handleEditWorklist = (worklist: Worklist) => {
+    setEditWorklistFormData({
+      worklistname: worklist.worklistname,
+      department: worklist.department || '',
+      description: worklist.description || '',
+      priority: worklist.priority,
+    });
+    setSelectedWorklist(worklist);
+    setShowEditWorklistDialog(true);
   };
 
   return (
@@ -436,16 +479,25 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                         {new Date(worklist.createdat).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          className="bg-[#4E95D9] hover:bg-[#3d7ab8] text-white"
-                          onClick={() => {
-                            setSelectedWorklist(worklist);
-                            setShowWorklistDetail(true);
-                          }}
-                        >
-                          View Details
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditWorklist(worklist)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-[#4E95D9] hover:bg-[#3d7ab8] text-white"
+                            onClick={() => {
+                              setSelectedWorklist(worklist);
+                              setShowWorklistDetail(true);
+                            }}
+                          >
+                            View Details
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -703,6 +755,105 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                 <>
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Create Worklist
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Worklist Dialog */}
+      <Dialog open={showEditWorklistDialog} onOpenChange={setShowEditWorklistDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Worklist</DialogTitle>
+            <DialogDescription>
+              Update worklist details for {selectedWorklist?.worklistname}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-worklistname">Worklist Name *</Label>
+              <Input
+                id="edit-worklistname"
+                value={editWorklistFormData.worklistname}
+                onChange={(e) => setEditWorklistFormData(prev => ({ ...prev, worklistname: e.target.value }))}
+                placeholder="Enter worklist name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-department">Department</Label>
+              <Input
+                id="edit-department"
+                value={editWorklistFormData.department}
+                onChange={(e) => setEditWorklistFormData(prev => ({ ...prev, department: e.target.value }))}
+                placeholder="e.g., Hematology, Biochemistry, Microbiology"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editWorklistFormData.description}
+                onChange={(e) => setEditWorklistFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Optional description of the worklist"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-priority">Priority *</Label>
+              <Select
+                value={editWorklistFormData.priority}
+                onValueChange={(value) => setEditWorklistFormData(prev => ({ ...prev, priority: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="routine">Routine</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="stat">STAT</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditWorklistDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!editWorklistFormData.worklistname) {
+                  setAlertDialog({ show: true, title: 'Validation Error', message: 'Please fill in required field: Worklist Name' });
+                  return;
+                }
+                if (selectedWorklist) {
+                  editWorklistMutation.mutate({
+                    ...editWorklistFormData,
+                    worklistid: selectedWorklist.worklistid,
+                  });
+                }
+              }}
+              disabled={editWorklistMutation.isPending}
+              className="bg-[#4E95D9] hover:bg-[#3d7ab8] text-white"
+            >
+              {editWorklistMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Update Worklist
                 </>
               )}
             </Button>
