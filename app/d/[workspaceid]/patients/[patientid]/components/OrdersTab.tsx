@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useReducer, useMemo } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, History } from "lucide-react";
+import LabOrderFormModal from "@/components/shared/LabOrderFormModal";
 
 // ---------- Types ----------
 export interface TestOrderRecord {
@@ -31,94 +32,25 @@ export interface TestOrderRecord {
   narrative?: string;
 }
 
-type TestOrderForm = {
-  service_name: string;
-  service_type_code: string; // snomed code
-  service_type_value: string; // human readable
-  clinical_indication: string;
-  urgency: "routine" | "urgent" | "stat" | "asap";
-  requesting_provider: string;
-  receiving_provider: string;
-  narrative: string;
-};
-
 interface OrdersTabProps {
   workspaceid: string;
   patientid: string;
 }
 
-// ---------- Test Types ----------
-const TEST_TYPES: Record<string, { code: string; value: string; name: string }> = {
-  "104177005": { code: "104177005", value: "Complete blood count (procedure)", name: "Complete Blood Count (CBC)" },
-  "257051000": { code: "257051000", value: "Comprehensive metabolic panel", name: "Comprehensive Metabolic Panel" },
-  "116276005": { code: "116276005", value: "Blood glucose measurement", name: "Blood Glucose Test" },
-  "271749007": { code: "271749007", value: "Serum cholesterol measurement", name: "Serum Cholesterol Test" },
-  "271658002": { code: "271658002", value: "Serum triglyceride measurement", name: "Serum Triglycerides Test" },
-  "309902002": { code: "309902002", value: "Urinalysis", name: "Urinalysis" },
-  "245670007": { code: "245670007", value: "Radiographic imaging", name: "X-Ray" },
-  "169093000": { code: "169093000", value: "Magnetic resonance imaging", name: "MRI" },
-};
-
-const DEFAULT_FORM: TestOrderForm = {
-  service_name: "",
-  service_type_code: "104177005",
-  service_type_value: TEST_TYPES["104177005"].value,
-  clinical_indication: "",
-  urgency: "routine",
-  requesting_provider: "",
-  receiving_provider: "Clinical Laboratory",
-  narrative: "",
-};
-
-// ---------- Reducer ----------
-type Action =
-  | { type: "SET_FIELD"; field: keyof TestOrderForm; value: string | number | undefined }
-  | { type: "SET_TEST_TYPE"; code: string }
-  | { type: "RESET"; keepRequester?: string };
-
-function formReducer(state: TestOrderForm, action: Action): TestOrderForm {
-  switch (action.type) {
-    case "SET_FIELD":
-      return { ...state, [action.field]: action.value };
-    case "SET_TEST_TYPE": {
-      const t = TEST_TYPES[action.code];
-      if (!t) return state;
-      return {
-        ...state,
-        service_name: t.name,
-        service_type_code: t.code,
-        service_type_value: t.value,
-      };
-    }
-    case "RESET":
-      return {
-        ...DEFAULT_FORM,
-        requesting_provider: action.keepRequester ?? "",
-      };
-    default:
-      return state;
-  }
-}
-
 // ---------- Component ----------
 export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
-  const [showTestOrderForm, setShowTestOrderForm] = React.useState(false);
-  const [testOrderRecords, setTestOrderRecords] = React.useState<TestOrderRecord[]>([]);
-  const [loadingTestOrders, setLoadingTestOrders] = React.useState(false);
-  const [loadingMoreTestOrders, setLoadingMoreTestOrders] = React.useState(false);
-  const [testOrdersHasMore, setTestOrdersHasMore] = React.useState(false);
-  const [selectedTestOrder, setSelectedTestOrder] = React.useState<TestOrderRecord | null>(null);
-  const [showTestOrderDetails, setShowTestOrderDetails] = React.useState(false);
+  const [showTestOrderForm, setShowTestOrderForm] = useState(false);
+  const [testOrderRecords, setTestOrderRecords] = useState<TestOrderRecord[]>([]);
+  const [loadingTestOrders, setLoadingTestOrders] = useState(false);
+  const [loadingMoreTestOrders, setLoadingMoreTestOrders] = useState(false);
+  const [testOrdersHasMore, setTestOrdersHasMore] = useState(false);
+  const [selectedTestOrder, setSelectedTestOrder] = useState<TestOrderRecord | null>(null);
+  const [showTestOrderDetails, setShowTestOrderDetails] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
   const CACHE_KEY = `test_orders_v2_${patientid}`;
-
-  // form reducer
-  const [formState, dispatch] = useReducer(formReducer, DEFAULT_FORM);
-
-  // memoized test types list used in selects
-  const testTypesOptions = useMemo(() => Object.entries(TEST_TYPES), []);
 
   // load cached test orders on mount (sessionStorage)
   useEffect(() => {
@@ -138,26 +70,6 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
     }
   }, [CACHE_KEY]);
 
-  // Load current user and populate requesting provider
-  useEffect(() => {
-    let mounted = true;
-    const loadUser = async () => {
-      try {
-        const res = await fetch("/api/auth/session");
-        if (!res.ok) return;
-        const data = await res.json();
-        const currentUser = data.user;
-        const provider = currentUser?.name || currentUser?.email || "Unknown Provider";
-        if (mounted) {
-          dispatch({ type: "SET_FIELD", field: "requesting_provider", value: provider });
-        }
-      } catch (err) {
-        console.error("Failed to load user info", err);
-      }
-    };
-    loadUser();
-    return () => { mounted = false; };
-  }, []);
 
   // Load test orders
   const loadTestOrders = useCallback(async (reset = true) => {
@@ -209,31 +121,18 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
     if (!hasLoadedTestOrders.current) loadTestOrders(true);
   }, [loadTestOrders]);
 
-  // Save order
-  const saveTestOrder = useCallback(async () => {
-    if (!formState.service_name || !formState.clinical_indication) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
+  // Save order using shared modal
+  const handleSubmitOrder = useCallback(async (formData: any) => {
+    setIsSubmitting(true);
     try {
-      // ensure latest user info and override requesting_provider with actual user
+      // Get current user
       const userResponse = await fetch("/api/auth/session");
       const userData = await userResponse.json();
       const currentUser = userData.user;
       const requesting = currentUser?.name || currentUser?.email || "Unknown Provider";
 
-      console.log("=== NEW CODE V2 ===");
-      console.log("DEBUG: currentUser:", currentUser);
-      console.log("DEBUG: requesting_provider being sent:", requesting);
-      console.log("DEBUG: urgency being sent:", formState.urgency);
-      console.log("DEBUG: formState.requesting_provider (BEFORE override):", formState.requesting_provider);
-
-      // Always use the current user's name, ignore what's in the form
-      const orderData = { ...formState, requesting_provider: requesting };
-
-      console.log("DEBUG: Final orderData being sent:", orderData);
-      console.log("=== END DEBUG ===");
+      // Always use the current user's name
+      const orderData = { ...formData, requesting_provider: requesting };
 
       const response = await fetch(`/api/d/${workspaceid}/patients/${patientid}/test-orders`, {
         method: "POST",
@@ -250,27 +149,19 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
       console.log("Saved test order", result);
 
       setShowTestOrderForm(false);
-      dispatch({ type: "RESET", keepRequester: requesting });
 
       // reload list and clear cache
       hasLoadedTestOrders.current = false;
       sessionStorage.removeItem(CACHE_KEY);
-      // small delay to allow backend to persist
       setTimeout(() => loadTestOrders(true), 500);
     } catch (err) {
       console.error(err);
       alert(err instanceof Error ? err.message : "Failed to save test order");
+      throw err;
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
-
-  // Handlers
-  const onFieldChange = useCallback((field: keyof TestOrderForm, value: string | number | undefined) => {
-    dispatch({ type: "SET_FIELD", field, value });
-  }, []);
-
-  const onTestTypeChange = useCallback((code: string) => {
-    dispatch({ type: "SET_TEST_TYPE", code });
-  }, []);
+  }, [workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
   return (
     <>
@@ -357,69 +248,13 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
         </CardContent>
       </Card>
 
-      {/* Form Dialog */}
-      <Dialog open={showTestOrderForm} onOpenChange={setShowTestOrderForm}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Order Laboratory Test</DialogTitle>
-            <DialogDescription>Create a new laboratory test request based on openEHR service request template</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Service Name */}
-            <div>
-              <label htmlFor="service_name" className="text-sm font-medium">Test Name *</label>
-              <input id="service_name" type="text" className="w-full mt-1 px-3 py-2 border rounded-md" placeholder="e.g., Complete Blood Count (CBC)" value={formState.service_name} onChange={(e) => onFieldChange("service_name", e.target.value)} aria-label="Test name" title="Enter the name of the laboratory test" />
-            </div>
-
-            {/* Service Type */}
-            <div>
-              <label htmlFor="service_type" className="text-sm font-medium">Test Type (SNOMED-CT)</label>
-              <select id="service_type" className="w-full mt-1 px-3 py-2 border rounded-md" value={formState.service_type_code} onChange={(e) => onTestTypeChange(e.target.value)} aria-label="Test type" title="Select the type of laboratory test">
-                <option value="">Select test type (optional)</option>
-                {testTypesOptions.map(([code, meta]) => (
-                  <option key={code} value={code}>{meta.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground mt-1">Selecting a test type will auto-fill the test name and SNOMED-CT codes</p>
-            </div>
-
-            {/* Clinical Indication */}
-            <div>
-              <label htmlFor="clinical_indication" className="text-sm font-medium">Clinical Indication *</label>
-              <textarea id="clinical_indication" className="w-full mt-1 px-3 py-2 border rounded-md" rows={3} placeholder="e.g., Patient presents with fatigue and fever; rule out infection or anemia." value={formState.clinical_indication} onChange={(e) => onFieldChange("clinical_indication", e.target.value)} aria-label="Clinical indication" title="Describe the clinical reason for ordering this test" />
-            </div>
-
-            {/* Urgency */}
-            <div>
-              <label htmlFor="urgency" className="text-sm font-medium">Urgency</label>
-              <select id="urgency" className="w-full mt-1 px-3 py-2 border rounded-md" value={formState.urgency} onChange={(e) => onFieldChange("urgency", e.target.value)} aria-label="Urgency" title="Select the urgency of the test request">
-                <option value="routine">Routine</option>
-                <option value="urgent">Urgent</option>
-                <option value="stat">STAT</option>
-                <option value="asap">ASAP</option>
-              </select>
-            </div>
-
-            {/* Receiving Laboratory */}
-            <div>
-              <label htmlFor="receiving_provider" className="text-sm font-medium">Receiving Laboratory/Department</label>
-              <input id="receiving_provider" type="text" className="w-full mt-1 px-3 py-2 border rounded-md" placeholder="Clinical Laboratory" value={formState.receiving_provider} onChange={(e) => onFieldChange("receiving_provider", e.target.value)} aria-label="Receiving provider" title="Laboratory or department that will perform the test" />
-            </div>
-
-            {/* Narrative */}
-            <div>
-              <label htmlFor="narrative" className="text-sm font-medium">Narrative Summary</label>
-              <textarea id="narrative" className="w-full mt-1 px-3 py-2 border rounded-md" rows={2} placeholder="Brief summary of the test order" value={formState.narrative} onChange={(e) => onFieldChange("narrative", e.target.value)} aria-label="Narrative summary" title="Brief narrative summary of the test order" />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowTestOrderForm(false)}>Cancel</Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={saveTestOrder}>Order Test</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Form Dialog - Using Shared Component */}
+      <LabOrderFormModal
+        open={showTestOrderForm}
+        onOpenChange={setShowTestOrderForm}
+        onSubmit={handleSubmitOrder}
+        isSubmitting={isSubmitting}
+      />
 
       {/* Details Dialog */}
       <Dialog open={showTestOrderDetails} onOpenChange={setShowTestOrderDetails}>
