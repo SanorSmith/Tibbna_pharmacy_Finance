@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { patients } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, or, ilike, and } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { createOpenEHREHR, getOpenEHREHRBySubjectId } from "@/lib/openehr/openehr";
@@ -25,12 +25,32 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    // Fetch all patients scoped to this workspace, ordered by creation time
+    // Get search parameter from URL
+    const { searchParams } = new URL(req.url);
+    const searchTerm = searchParams.get("search");
+
+    // Build query conditions
+    const conditions = [eq(patients.workspaceid, workspaceid)];
+    
+    // Add search filter if provided
+    if (searchTerm && searchTerm.trim().length > 0) {
+      const searchPattern = `%${searchTerm.trim()}%`;
+      conditions.push(
+        or(
+          ilike(patients.firstname, searchPattern),
+          ilike(patients.lastname, searchPattern),
+          ilike(patients.nationalid, searchPattern)
+        )!
+      );
+    }
+
+    // Fetch patients with filters
     const rows = await db
       .select()
       .from(patients)
-      .where(eq(patients.workspaceid, workspaceid))
+      .where(and(...conditions))
       .orderBy(asc(patients.createdat));
+    
     return NextResponse.json({ patients: rows });
   } catch (e) {
     // Surface the error server-side and return a generic message to clients
