@@ -1,7 +1,7 @@
 /**
  * Client Component: LabTechDashboard
  * - Lab technician dashboard with tabs for different sections
- * - Orders, Work-list, Validation, Sample store, Lab Management, Test Analysis, etc.
+ * - Orders, Work-list, Validation, Sample Management, Test Analysis, etc.
  */
 "use client";
 import { useState } from "react";
@@ -18,15 +18,13 @@ import {
   Users,
   ListTodo,
   Home,
-  ScanBarcode,
-  Package
+  ScanBarcode
 } from "lucide-react";
 import OrdersTab from "./components/OrdersTab";
 import RegisterSample from "./components/RegisterSample";
 import WorklistsTab from "./components/WorklistsTab";
 import ValidationTab from "./components/ValidationTab";
 import SampleManagementTab from "./components/SampleManagementTab";
-import LabManagementTab from "./components/LabManagementTab";
 import TestAnalysisTab from "./components/TestAnalysisTab";
 import NotificationTab from "./components/NotificationTab";
 import ContactsTab from "./components/ContactsTab";
@@ -115,14 +113,6 @@ export default function LabTechDashboard({
           </TabsTrigger>
 
           <TabsTrigger
-            value="labmanagement"
-            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
-          >
-            <Package className="h-4 w-4" />
-            Lab Inventory
-          </TabsTrigger>
-
-          <TabsTrigger
             value="testanalysis"
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
@@ -180,12 +170,6 @@ export default function LabTechDashboard({
         <TabsContent value="samplestore" className="mt-4">
           {loadedTabs.has("samplestore") && (
             <SampleManagementTab workspaceid={workspaceid} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="labmanagement" className="mt-4">
-          {loadedTabs.has("labmanagement") && (
-            <LabManagementTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
