@@ -16,8 +16,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus } from "lucide-react";
 import BarcodePrint from "./BarcodePrint";
+
+// Storage Location interface
+interface StorageLocation {
+  locationid: string;
+  name: string;
+  code: string;
+  description: string | null;
+  type: string;
+  category: string;
+  building: string | null;
+  room: string | null;
+  equipment: string | null;
+  section: string | null;
+  position: string | null;
+  capacity: number | null;
+  currentcount: number | null;
+  availableslots: number | null;
+  temperaturemin: number | null;
+  temperaturemax: number | null;
+  humiditymin: number | null;
+  humiditymax: number | null;
+  restrictedaccess: boolean;
+  accessrequirements: string | null;
+  status: string;
+  isavailable: boolean;
+  sortorder: number;
+  parentlocationid: string | null;
+  createdby: string;
+  createdat: string;
+  updatedby: string | null;
+  updatedat: string | null;
+  workspaceid: string;
+}
 
 // Sample type options (duplicated from server utils to avoid importing server code in client)
 const _SAMPLE_TYPES = [
@@ -86,6 +120,20 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const [showWorklistDialog, setShowWorklistDialog] = useState(false);
   const [showCreateWorklistDialog, setShowCreateWorklistDialog] = useState(false);
   const [showBarcodePrintDialog, setShowBarcodePrintDialog] = useState(false);
+  
+  // Alert dialog states
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    type: 'success' | 'error' | 'warning';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'success',
+  });
+  
   const [worklistFormData, setWorklistFormData] = useState({
     worklistname: '',
     laboratory: '',
@@ -138,6 +186,17 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     },
   });
 
+  // Fetch storage locations
+  const { data: storageLocations, isLoading: locationsLoading } = useQuery<StorageLocation[]>({
+    queryKey: ['storage-locations', workspaceid],
+    queryFn: async () => {
+      const response = await fetch(`/api/lims/storage-locations?workspaceid=${workspaceid}`);
+      if (!response.ok) throw new Error('Failed to fetch storage locations');
+      const data = await response.json();
+      return data.locations;
+    },
+  });
+
   // Create worklist mutation
   const createWorklistMutation = useMutation({
     mutationFn: async (data: typeof worklistFormData) => {
@@ -177,7 +236,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worklists', workspaceid] });
       setShowWorklistDialog(false);
-      alert('Sample added to worklist successfully!');
+      showAlert('Success', 'Sample added to worklist successfully!', 'success');
     },
   });
 
@@ -245,6 +304,16 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
       resetForm();
     },
   });
+
+  // Helper function to show alerts
+  const showAlert = (title: string, description: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    setAlertDialog({
+      isOpen: true,
+      title,
+      description,
+      type,
+    });
+  };
 
   const resetForm = () => {
     setFormData({
@@ -621,15 +690,23 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   <SelectValue placeholder="Select storage location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="refrigerator_2_8c">Refrigerator (2-8°C)</SelectItem>
-                  <SelectItem value="freezer_minus_20c">Freezer (-20°C)</SelectItem>
-                  <SelectItem value="freezer_minus_80c">Deep Freezer (-80°C)</SelectItem>
-                  <SelectItem value="room_temp">Room Temperature</SelectItem>
-                  <SelectItem value="incubator_37c">Incubator (37°C)</SelectItem>
-                  <SelectItem value="rack_a1">Rack A1</SelectItem>
-                  <SelectItem value="rack_a2">Rack A2</SelectItem>
-                  <SelectItem value="rack_b1">Rack B1</SelectItem>
-                  <SelectItem value="rack_b2">Rack B2</SelectItem>
+                  {locationsLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading storage locations...
+                    </SelectItem>
+                  ) : storageLocations && storageLocations.length > 0 ? (
+                    storageLocations
+                      .filter(location => location.status === 'active' && location.isavailable)
+                      .map((location) => (
+                        <SelectItem key={location.locationid} value={location.code}>
+                          {location.name} ({location.code})
+                        </SelectItem>
+                      ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No storage locations available
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -651,7 +728,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
             <Button 
               onClick={() => {
                 if (!storageLocation || !selectedSample) {
-                  alert('Please select a storage location');
+                  showAlert('Validation Error', 'Please select a storage location', 'warning');
                   return;
                 }
                 
@@ -662,12 +739,12 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   reason: `Sample moved to storage location: ${storageLocation}`,
                 }, {
                   onSuccess: () => {
-                    alert(`Sample ${selectedSample.samplenumber} moved to: ${storageLocation}\nStatus updated to: IN_STORAGE`);
+                    showAlert('Success', `Sample ${selectedSample.samplenumber} moved to: ${storageLocation}\nStatus updated to: IN_STORAGE`, 'success');
                     setShowStorageDialog(false);
                     setStorageLocation('');
                   },
                   onError: (error: Error) => {
-                    alert(`Failed to move sample: ${error.message}`);
+                    showAlert('Error', `Failed to move sample: ${error.message}`, 'error');
                   },
                 });
               }}
@@ -821,7 +898,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
             <Button
               onClick={() => {
                 if (!worklistFormData.worklistname || !worklistFormData.laboratory) {
-                  alert('Please fill in required fields');
+                  showAlert('Validation Error', 'Please fill in required fields', 'warning');
                   return;
                 }
                 createWorklistMutation.mutate(worklistFormData);
@@ -871,6 +948,25 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Alert Dialog */}
+      <AlertDialog open={alertDialog.isOpen} onOpenChange={(open) => setAlertDialog(prev => ({ ...prev, isOpen: open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className={alertDialog.type === 'error' ? 'text-red-600' : alertDialog.type === 'warning' ? 'text-yellow-600' : 'text-green-600'}>
+              {alertDialog.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertDialog.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAlertDialog(prev => ({ ...prev, isOpen: false }))}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
