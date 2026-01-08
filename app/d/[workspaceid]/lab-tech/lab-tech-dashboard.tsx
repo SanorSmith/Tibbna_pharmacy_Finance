@@ -13,15 +13,13 @@ import {
   ListChecks, 
   CheckCircle2, 
   TestTube2, 
-  Settings, 
   FlaskConical,
-  Shield,
-  CreditCard,
   Bell,
   Users,
   ListTodo,
   Home,
-  ScanBarcode
+  ScanBarcode,
+  Package
 } from "lucide-react";
 import OrdersTab from "./components/OrdersTab";
 import RegisterSample from "./components/RegisterSample";
@@ -30,8 +28,6 @@ import ValidationTab from "./components/ValidationTab";
 import SampleManagementTab from "./components/SampleManagementTab";
 import LabManagementTab from "./components/LabManagementTab";
 import TestAnalysisTab from "./components/TestAnalysisTab";
-import InsuranceTab from "./components/InsuranceTab";
-import BillingTab from "./components/BillingTab";
 import NotificationTab from "./components/NotificationTab";
 import ContactsTab from "./components/ContactsTab";
 import ToDoTab from "./components/ToDoTab";
@@ -122,8 +118,8 @@ export default function LabTechDashboard({
             value="labmanagement"
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
-            <Settings className="h-4 w-4" />
-            Lab Management
+            <Package className="h-4 w-4" />
+            Lab Inventory
           </TabsTrigger>
 
           <TabsTrigger
@@ -132,22 +128,6 @@ export default function LabTechDashboard({
           >
             <FlaskConical className="h-4 w-4" />
             Test Analysis
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="insurance"
-            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
-          >
-            <Shield className="h-4 w-4" />
-            Insurance
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="billing"
-            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
-          >
-            <CreditCard className="h-4 w-4" />
-            Billing
           </TabsTrigger>
 
           <TabsTrigger
@@ -212,18 +192,6 @@ export default function LabTechDashboard({
         <TabsContent value="testanalysis" className="mt-4">
           {loadedTabs.has("testanalysis") && (
             <TestAnalysisTab workspaceid={workspaceid} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="insurance" className="mt-4">
-          {loadedTabs.has("insurance") && (
-            <InsuranceTab workspaceid={workspaceid} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="billing" className="mt-4">
-          {loadedTabs.has("billing") && (
-            <BillingTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 

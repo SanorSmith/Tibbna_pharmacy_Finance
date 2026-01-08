@@ -10,7 +10,7 @@ import {
   limsOrders,
   patients,
 } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 // GET - Fetch worklist items with order, patient, and sample details
 export async function GET(
@@ -203,7 +203,7 @@ export async function PATCH(
 // DELETE - Remove item from worklist
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ worklistid: string }> }
+  { params: _params }: { params: Promise<{ worklistid: string }> }
 ) {
   try {
     const user = await getUser();
@@ -211,7 +211,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await params;
+    await _params;
 
     const { searchParams } = new URL(request.url);
     const worklistitemid = searchParams.get("worklistitemid");

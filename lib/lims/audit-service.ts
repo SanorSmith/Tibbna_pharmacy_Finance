@@ -70,7 +70,7 @@ export class AuditService {
    * Get audit summary for a date range
    * Used for compliance reporting
    */
-  static async getAuditSummary(params: {
+  static async getAuditSummary(_params: {
     workspaceid: string;
     startDate: Date;
     endDate: Date;

@@ -5,7 +5,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function BillingTab({ workspaceid }: { workspaceid: string }) {
+export default function BillingTab({ workspaceid: _workspaceid }: { workspaceid: string }) {
   return (
     <Card>
       <CardHeader>

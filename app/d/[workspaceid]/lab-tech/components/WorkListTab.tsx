@@ -33,7 +33,7 @@ interface WorkListItem {
   };
 }
 
-export default function WorkListTab({ workspaceid }: { workspaceid: string }) {
+export default function WorkListTab({ workspaceid: _workspaceid }: { workspaceid: string }) {
   const [workListItems, setWorkListItems] = useState<WorkListItem[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<WorkListItem['originalOrder'] | null>(null);
   const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);

@@ -13,7 +13,7 @@
  * - FHIR ServiceRequest compatibility
  */
 
-import { pgTable, text, timestamp, uuid, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, index, boolean, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./user";
 
@@ -90,6 +90,13 @@ export const limsOrders = pgTable(
     
     // FHIR integration
     fhirservicerequestid: text("fhirservicerequestid"), // FHIR ServiceRequest ID
+    
+    // Sample collection requirements
+    sampletype: text("sample_type"),
+    containertype: text("container_type"),
+    volume: text("volume"),
+    volumeunit: text("volume_unit").default("mL"),
+    samplerecommendations: jsonb("sample_recommendations"),
     
     // Workspace for multi-tenancy
     workspaceid: text("workspaceid").notNull(),

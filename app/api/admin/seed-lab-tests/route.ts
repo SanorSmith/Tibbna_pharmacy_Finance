@@ -6,8 +6,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { labTestCatalog } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import { getUser } from "@/lib/user";
+import { eq } from "drizzle-orm";
 
 const WORKSPACE_ID = "fa9fb036-a7eb-49af-890c-54406dad139d";
 

@@ -137,6 +137,12 @@ export async function POST(request: NextRequest) {
         ehrid: orderData.ehrId || null,
         fhirservicerequestid: orderData.fhirServiceRequestId || null,
         workspaceid: orderData.workspaceId!,
+        // Sample collection requirements
+        sampletype: body.sampleType || null,
+        containertype: body.containerType || null,
+        volume: body.volume?.toString() || null,
+        volumeunit: body.volumeUnit || "mL",
+        samplerecommendations: body.sampleRecommendations || null,
       };
 
       const [order] = await tx.insert(limsOrders).values(orderRecord).returning();

@@ -26,6 +26,9 @@ import {
   AlertCircle,
   Trash2,
   Search,
+  Settings,
+  Shield,
+  CreditCard,
 } from "lucide-react";
 import {
   Table,
@@ -473,6 +476,51 @@ export default function DashboardContent({
                 <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <Pill className="h-4 w-4 mr-2" />
                   Go to Pharmacies
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-base">Lab Management</CardTitle>
+              <CardDescription>Laboratory inventory and equipment</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={`/d/${workspaceid}/lab-management`}>
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Inventory
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-base">Insurance</CardTitle>
+              <CardDescription>Insurance verification and claims</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={`/d/${workspaceid}/insurance`}>
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Manage Insurance
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-base">Billing</CardTitle>
+              <CardDescription>Billing and payment processing</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={`/d/${workspaceid}/billing`}>
+                <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Manage Billing
                 </Button>
               </Link>
             </CardContent>
