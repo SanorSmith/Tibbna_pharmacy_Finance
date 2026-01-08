@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { testResults, validationStates, ValidationStateType, VALIDATION_STATES, NewValidationState } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { AuditService } from "./audit-service";
 import { AUDIT_ACTIONS } from "@/lib/db/tables/audit-log";
 

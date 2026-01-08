@@ -5,9 +5,7 @@ import {
   worklists,
   worklistItems,
   WORKLIST_STATUS,
-  WORKLIST_ITEM_STATUS,
   NewWorklist,
-  NewWorklistItem,
 } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 
@@ -134,7 +132,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH - Update worklist status
+// PATCH - Update worklist (status, assignment, or details)
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getUser();
@@ -143,7 +141,16 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { worklistid, status, assignedto, assignedtoname } = body;
+    const { 
+      worklistid, 
+      status, 
+      assignedto, 
+      assignedtoname,
+      worklistname,
+      department,
+      description,
+      priority
+    } = body;
 
     if (!worklistid) {
       return NextResponse.json({ error: "Worklist ID required" }, { status: 400 });
@@ -152,6 +159,23 @@ export async function PATCH(request: NextRequest) {
     const updateData: any = {
       updatedat: new Date(),
     };
+
+    // Support editing worklist details
+    if (worklistname !== undefined) {
+      updateData.worklistname = worklistname;
+    }
+
+    if (department !== undefined) {
+      updateData.department = department;
+    }
+
+    if (description !== undefined) {
+      updateData.description = description;
+    }
+
+    if (priority !== undefined) {
+      updateData.priority = priority;
+    }
 
     if (status) {
       updateData.status = status;

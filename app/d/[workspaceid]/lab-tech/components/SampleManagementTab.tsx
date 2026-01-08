@@ -1,5 +1,5 @@
 /**
- * Sample Store Tab Component
+ * Sample Management Tab Component
  * - Sample storage and tracking
  * - Display all samples with IN_STORAGE status
  */
@@ -9,7 +9,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Loader2, Package, Thermometer, Archive } from "lucide-react";
@@ -31,7 +30,7 @@ interface StoredSample {
   volumeunit: string | null;
 }
 
-export default function SampleStoreTab({ workspaceid }: { workspaceid: string }) {
+export default function SampleManagementTab({ workspaceid }: { workspaceid: string }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState<string>('all');
 
@@ -113,7 +112,7 @@ export default function SampleStoreTab({ workspaceid }: { workspaceid: string })
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Sample Store</h2>
+          <h2 className="text-2xl font-bold">Sample Management</h2>
           <p className="text-sm text-muted-foreground">
             Manage and track samples in storage
           </p>

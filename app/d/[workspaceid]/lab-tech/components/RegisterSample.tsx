@@ -1,3 +1,8 @@
+/**
+ * Register Sample Tab Component
+ * - Sample registration and accessioning
+ * - Register new samples with barcode generation
+ */
 "use client";
 
 import { useState } from "react";
@@ -11,11 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertCircle, CheckCircle2, Loader2, ScanBarcode, QrCode, Plus } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus } from "lucide-react";
 import BarcodePrint from "./BarcodePrint";
 
 // Sample type options (duplicated from server utils to avoid importing server code in client)
-const SAMPLE_TYPES = [
+const _SAMPLE_TYPES = [
   { value: 'blood', label: 'Blood' },
   { value: 'serum', label: 'Serum' },
   { value: 'plasma', label: 'Plasma' },
@@ -30,7 +35,7 @@ const SAMPLE_TYPES = [
 ] as const;
 
 // Container type options
-const CONTAINER_TYPES = [
+const _CONTAINER_TYPES = [
   { value: 'vacutainer_edta', label: 'Vacutainer (EDTA)' },
   { value: 'vacutainer_serum', label: 'Vacutainer (Serum)' },
   { value: 'vacutainer_heparin', label: 'Vacutainer (Heparin)' },
@@ -44,7 +49,7 @@ const CONTAINER_TYPES = [
 ] as const;
 
 // Volume unit options
-const VOLUME_UNITS = [
+const _VOLUME_UNITS = [
   { value: 'mL', label: 'mL (milliliters)' },
   { value: 'L', label: 'L (liters)' },
   { value: 'µL', label: 'µL (microliters)' },
@@ -70,9 +75,9 @@ interface AccessionedSample {
   orderid: string;
 }
 
-export default function AccessioningTab({ workspaceid }: AccessioningTabProps) {
+export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const queryClient = useQueryClient();
-  const [showAccessionForm, setShowAccessionForm] = useState(false);
+  const [_showAccessionForm, setShowAccessionForm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showSampleDetail, setShowSampleDetail] = useState(false);
   const [selectedSample, setSelectedSample] = useState<AccessionedSample | null>(null);
@@ -260,7 +265,7 @@ export default function AccessioningTab({ workspaceid }: AccessioningTabProps) {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const _handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     accessionMutation.mutate(formData);
   };
@@ -294,15 +299,11 @@ export default function AccessioningTab({ workspaceid }: AccessioningTabProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Sample Accessioning</h2>
+          <h2 className="text-2xl font-bold">Register Sample</h2>
           <p className="text-sm text-muted-foreground">
             Register and track physical samples received in the laboratory
           </p>
         </div>
-        <Button onClick={() => setShowAccessionForm(true)} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Accession Sample
-        </Button>
       </div>
 
       {/* Statistics Cards */}
@@ -418,251 +419,6 @@ export default function AccessioningTab({ workspaceid }: AccessioningTabProps) {
           )}
         </CardContent>
       </Card>
-
-      {/* Accession Form Dialog */}
-      <Dialog open={showAccessionForm} onOpenChange={setShowAccessionForm}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Accession New Sample</DialogTitle>
-            <DialogDescription>
-              Register a physical sample received in the laboratory
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Sample Information */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-sm">Sample Information</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sampleType">Sample Type *</Label>
-                  <Select
-                    value={formData.sampleType}
-                    onValueChange={(value) => setFormData({ ...formData, sampleType: value })}
-                    required
-                  >
-                    <SelectTrigger id="sampleType">
-                      <SelectValue placeholder="Select sample type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SAMPLE_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="containerType">Container Type *</Label>
-                  <Select
-                    value={formData.containerType}
-                    onValueChange={(value) => setFormData({ ...formData, containerType: value })}
-                    required
-                  >
-                    <SelectTrigger id="containerType">
-                      <SelectValue placeholder="Select container" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CONTAINER_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="volume">Volume</Label>
-                  <Input
-                    id="volume"
-                    type="number"
-                    step="0.01"
-                    placeholder="Enter volume"
-                    value={formData.volume}
-                    onChange={(e) => setFormData({ ...formData, volume: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="volumeUnit">Volume Unit</Label>
-                  <Select
-                    value={formData.volumeUnit}
-                    onValueChange={(value) => setFormData({ ...formData, volumeUnit: value })}
-                  >
-                    <SelectTrigger id="volumeUnit">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VOLUME_UNITS.map((unit) => (
-                        <SelectItem key={unit.value} value={unit.value}>
-                          {unit.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Collection Information */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-sm">Collection Information</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="collectionDate">Collection Date *</Label>
-                  <Input
-                    id="collectionDate"
-                    type="date"
-                    value={formData.collectionDate}
-                    onChange={(e) => setFormData({ ...formData, collectionDate: e.target.value })}
-                    required
-                    max={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="collectionTime">Collection Time</Label>
-                  <Input
-                    id="collectionTime"
-                    type="time"
-                    value={formData.collectionTime}
-                    onChange={(e) => setFormData({ ...formData, collectionTime: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="collectorName">Collector Name</Label>
-                  <Input
-                    id="collectorName"
-                    placeholder="Name of person who collected"
-                    value={formData.collectorName}
-                    onChange={(e) => setFormData({ ...formData, collectorName: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="collectorId">Collector ID</Label>
-                  <Input
-                    id="collectorId"
-                    placeholder="Collector identifier"
-                    value={formData.collectorId}
-                    onChange={(e) => setFormData({ ...formData, collectorId: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Order and Patient Information */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-sm">Order & Patient Information</h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="orderId">Order ID *</Label>
-                <Input
-                  id="orderId"
-                  placeholder="Enter order ID"
-                  value={formData.orderId}
-                  onChange={(e) => setFormData({ ...formData, orderId: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="patientId">Patient ID</Label>
-                  <Input
-                    id="patientId"
-                    placeholder="Enter patient ID"
-                    value={formData.patientId}
-                    onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="ehrId">EHR ID</Label>
-                  <Input
-                    id="ehrId"
-                    placeholder="openEHR EHR ID"
-                    value={formData.ehrId}
-                    onChange={(e) => setFormData({ ...formData, ehrId: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="currentLocation">Current Location</Label>
-                <Input
-                  id="currentLocation"
-                  placeholder="Physical location in lab"
-                  value={formData.currentLocation}
-                  onChange={(e) => setFormData({ ...formData, currentLocation: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Additional notes or observations"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowAccessionForm(false);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={accessionMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {accessionMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Accessioning...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Accession Sample
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-
-            {accessionMutation.isError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                <div className="text-sm text-red-800">
-                  <p className="font-semibold">Accessioning failed</p>
-                  <p>{accessionMutation.error instanceof Error ? accessionMutation.error.message : "Unknown error"}</p>
-                </div>
-              </div>
-            )}
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>

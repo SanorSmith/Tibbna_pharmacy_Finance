@@ -23,6 +23,7 @@ import { Package, TestTube, Building2 } from "lucide-react";
 
 // Import test catalog from a separate file
 import { TEST_PACKAGES, INDIVIDUAL_TESTS, LABORATORIES } from "@/lib/test-catalog";
+import { getSampleRecommendations, getContainerOptions, getVolumeUnits } from "@/lib/lims/test-recommendations";
 
 interface EnhancedLabOrderFormProps {
   open: boolean;
@@ -40,6 +41,10 @@ interface TestOrderForm {
   urgency: "routine" | "urgent" | "stat";
   requesting_provider: string;
   narrative: string;
+  sampleType: string;
+  containerType: string;
+  volume: string;
+  volumeUnit: string;
 }
 
 const DEFAULT_FORM: TestOrderForm = {
@@ -50,6 +55,10 @@ const DEFAULT_FORM: TestOrderForm = {
   urgency: "routine",
   requesting_provider: "",
   narrative: "",
+  sampleType: "",
+  containerType: "",
+  volume: "",
+  volumeUnit: "mL",
 };
 
 type FormAction =
@@ -97,6 +106,28 @@ export default function EnhancedLabOrderForm({
   const [formState, dispatch] = useReducer(formReducer, DEFAULT_FORM);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Calculate sample recommendations based on selected tests
+  const sampleRecommendations = useMemo(() => {
+    const allTestCodes = [
+      ...formState.selectedTests,
+      // Get tests from selected package
+      ...(formState.selectedPackage 
+        ? TEST_PACKAGES[formState.selectedPackage]?.tests || []
+        : [])
+    ];
+    return getSampleRecommendations(allTestCodes);
+  }, [formState.selectedTests, formState.selectedPackage]);
+
+  // Auto-update sample recommendations when tests change
+  useEffect(() => {
+    if (sampleRecommendations.primarySampleType && !formState.sampleType) {
+      dispatch({ type: "SET_FIELD", field: "sampleType", value: sampleRecommendations.primarySampleType });
+      dispatch({ type: "SET_FIELD", field: "containerType", value: sampleRecommendations.primaryContainer });
+      dispatch({ type: "SET_FIELD", field: "volume", value: sampleRecommendations.totalVolume.toString() });
+      dispatch({ type: "SET_FIELD", field: "volumeUnit", value: sampleRecommendations.volumeUnit });
+    }
+  }, [sampleRecommendations, formState.sampleType]);
 
   // Get lab category mapping
   const getLabCategory = (labId: string): string => {
@@ -154,6 +185,12 @@ export default function EnhancedLabOrderForm({
         test_category: selectedPackage?.category || "",
         is_package: true,
         selected_tests: formState.selectedTests,
+        // Sample collection information
+        sampleType: formState.sampleType,
+        containerType: formState.containerType,
+        volume: formState.volume,
+        volumeUnit: formState.volumeUnit,
+        sampleRecommendations: sampleRecommendations,
       };
 
       await onSubmit(submissionData);
@@ -379,6 +416,146 @@ export default function EnhancedLabOrderForm({
                 />
               </div>
             </>
+          )}
+
+          {/* Sample Collection Recommendations */}
+          {currentStep >= 3 && formState.selectedTests.length > 0 && (
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="h-5 w-5" />
+                <Label className="text-base font-semibold">
+                  Sample Collection Requirements
+                </Label>
+                {sampleRecommendations.fastingRequired && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                    ⚠️ Fasting Required
+                  </span>
+                )}
+              </div>
+
+              {/* Sample Recommendations Summary */}
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <h4 className="font-medium text-sm text-blue-800 mb-2">Recommended Collection:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><strong>Sample Type:</strong> {sampleRecommendations.primarySampleType}</div>
+                  <div><strong>Container:</strong> {sampleRecommendations.primaryContainer}</div>
+                  <div><strong>Volume:</strong> {sampleRecommendations.totalVolume} {sampleRecommendations.volumeUnit}</div>
+                  <div><strong>Tests:</strong> {formState.selectedTests.length} selected</div>
+                </div>
+                {sampleRecommendations.specialInstructions.length > 0 && (
+                  <div className="mt-2">
+                    <strong className="text-sm">Special Instructions:</strong>
+                    <ul className="text-sm text-blue-700 mt-1 space-y-1">
+                      {sampleRecommendations.specialInstructions.map((instruction, index) => (
+                        <li key={index}>• {instruction}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Sample Collection Form */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sampleType">Sample Type</Label>
+                  <Select
+                    value={formState.sampleType}
+                    onValueChange={(value) =>
+                      dispatch({ type: "SET_FIELD", field: "sampleType", value })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select sample type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="blood">Blood</SelectItem>
+                      <SelectItem value="serum">Serum</SelectItem>
+                      <SelectItem value="plasma">Plasma</SelectItem>
+                      <SelectItem value="urine">Urine</SelectItem>
+                      <SelectItem value="csf">CSF</SelectItem>
+                      <SelectItem value="tissue">Tissue</SelectItem>
+                      <SelectItem value="swab">Swab</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="containerType">Container Type</Label>
+                  <Select
+                    value={formState.containerType}
+                    onValueChange={(value) =>
+                      dispatch({ type: "SET_FIELD", field: "containerType", value })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select container" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getContainerOptions(formState.sampleType).map((container) => (
+                        <SelectItem key={container} value={container}>
+                          {container}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="volume">Volume</Label>
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type="number"
+                      id="volume"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter volume"
+                      value={formState.volume}
+                      onChange={(e) =>
+                        dispatch({ type: "SET_FIELD", field: "volume", value: e.target.value })
+                      }
+                    />
+                    <Select
+                      value={formState.volumeUnit}
+                      onValueChange={(value) =>
+                        dispatch({ type: "SET_FIELD", field: "volumeUnit", value })
+                      }
+                    >
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getVolumeUnits().map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Test-specific Requirements */}
+              {sampleRecommendations.recommendations.length > 1 && (
+                <div className="mt-4">
+                  <h4 className="font-medium text-sm mb-2">Individual Test Requirements:</h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                    {sampleRecommendations.recommendations.map((rec, index) => (
+                      <div key={index} className="text-xs bg-gray-50 p-2 rounded">
+                        <div className="font-medium">{rec.testName}</div>
+                        <div className="text-gray-600">
+                          {rec.sampleType} • {rec.containerType} • {rec.volume} {rec.volumeUnit}
+                          {rec.fastingRequired && " • Fasting Required"}
+                        </div>
+                        {rec.specialInstructions && (
+                          <div className="text-blue-600 mt-1">{rec.specialInstructions}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

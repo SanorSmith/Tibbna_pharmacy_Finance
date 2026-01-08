@@ -1,23 +1,41 @@
 /**
- * Lab Management Tab Component
+ * Lab Management Page
  * - Laboratory inventory management
  * - Manage lab equipment, supplies, reagents, and consumables
  */
-"use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, Beaker, Wrench, Plus } from "lucide-react";
+import { Package, Beaker, Wrench, Plus, Home } from "lucide-react";
+import Link from "next/link";
 
-export default function LabManagementTab({ workspaceid: _workspaceid }: { workspaceid: string }) {
+interface PageProps {
+  params: Promise<{ workspaceid: string }>;
+}
+
+export default async function LabManagementPage({ params }: PageProps) {
+  const { workspaceid } = await params;
+
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Lab Inventory Management</h2>
-          <p className="text-sm text-muted-foreground">
-            Manage laboratory equipment, supplies, reagents, and consumables
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href={`/d/${workspaceid}/doctor`}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Back to Doctor Dashboard"
+                  className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
+                >
+                  <Home className="h-4 w-4" />
+                </Button>
+              </Link>
+          <div>
+            <h1 className="text-2xl font-bold">Lab Inventory Management</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage laboratory equipment, supplies, reagents, and consumables
+            </p>
+          </div>
         </div>
         <Button className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />

@@ -7,17 +7,17 @@
  * - openEHR integration
  */
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getSampleRecommendations } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { limsOrders, ORDER_STATUS } from "@/lib/db/tables/lims-order";
+import { limsOrders } from "@/lib/db/tables/lims-order";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, Download, CheckCircle2, Clock, AlertCircle, Loader2, Plus, XCircle, FlaskConical } from "lucide-react";
@@ -101,15 +101,19 @@ interface LimsOrder {
   ehrid?: string;
   openEhr?: any;
   
+  // Sample collection requirements
+  sampleType?: string;
+  containerType?: string;
+  volume?: string | number;
+  volumeUnit?: string;
+  sampleRecommendations?: any;
+  
   // Aliases for compatibility
   orderId?: string;
   createdAt?: string;
 }
 
-interface TestCatalogItem {
-  testid: string;
-  testcode: string;
-  testname: string;
+interface Test {
   testcategory: string;
   testdescription: string | null;
   specimentype: string;
@@ -137,6 +141,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [showOrderDetail, setShowOrderDetail] = useState(false);
   const [showSampleCollection, setShowSampleCollection] = useState(false);
   const [sampleCollectionData, setSampleCollectionData] = useState({
+    sampleNumber: '', // Manual entry or auto-generated
     sampleType: '',
     containerType: '',
     volume: '',
@@ -183,7 +188,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const patients = patientsData?.patients || [];
 
   // Fetch user session
-  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useQuery({
+  const { data: sessionData } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
       const res = await fetch("/api/auth/session");
@@ -797,7 +802,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Order Detail Modal */}
       <Dialog open={showOrderDetail} onOpenChange={setShowOrderDetail}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[1000px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="h-6 w-6 text-blue-600" />
@@ -808,7 +813,24 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
             </DialogDescription>
           </DialogHeader>
           
-          {selectedOrder && (
+          {selectedOrder && (() => {
+            // Calculate sample recommendations if not stored in order
+            let computedRecommendations = null;
+            if (!selectedOrder.sampleType && selectedOrder.tests && selectedOrder.tests.length > 0) {
+              const testCodes = selectedOrder.tests.map((t: any) => t.testCode || t.testcode || t.code);
+              console.log('Computing recommendations for test codes:', testCodes);
+              computedRecommendations = getSampleRecommendations(testCodes);
+              console.log('Computed recommendations:', computedRecommendations);
+            }
+            
+            // Use stored data or computed recommendations
+            const displaySampleType = selectedOrder.sampleType || computedRecommendations?.primarySampleType;
+            const displayContainerType = selectedOrder.containerType || computedRecommendations?.primaryContainer;
+            const displayVolume = selectedOrder.volume || computedRecommendations?.totalVolume;
+            const displayVolumeUnit = selectedOrder.volumeUnit || computedRecommendations?.volumeUnit || 'mL';
+            const displayRecommendations = selectedOrder.sampleRecommendations || computedRecommendations;
+
+            return (
             <div className="space-y-4 py-4">
               {/* Order ID and Status */}
               <div className="grid grid-cols-2 gap-4">
@@ -848,37 +870,99 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               {/* Test Information */}
               <div className="border rounded-lg p-4">
                 <h3 className="font-semibold text-sm mb-3">Requested Tests</h3>
-                <div className="space-y-2">
-                  {selectedOrder.source === 'openEHR' ? (
-                    <div className="flex items-center gap-2 bg-gray-50 p-3 rounded">
-                      <FlaskConical className="h-5 w-5 text-blue-600" />
-                      <div className="flex-1">
-                        <div className="font-medium">{selectedOrder.service_name}</div>
-                        {selectedOrder.clinical_indication && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            Indication: {selectedOrder.clinical_indication}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    selectedOrder.tests?.map((test: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 bg-gray-50 p-3 rounded">
-                        <FlaskConical className="h-5 w-5 text-blue-600" />
-                        <div className="flex-1">
-                          <div className="font-medium">{test.testName}</div>
-                          <div className="text-xs text-gray-600">Code: {test.testCode}</div>
+                {selectedOrder.source === 'openEHR' ? (
+                  <div className="flex items-center gap-2 bg-gray-50 p-3 rounded">
+                    <FlaskConical className="h-5 w-5 text-blue-600" />
+                    <div className="flex-1">
+                      <div className="font-medium">{selectedOrder.service_name}</div>
+                      {selectedOrder.clinical_indication && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          Indication: {selectedOrder.clinical_indication}
                         </div>
-                        {test.fastingRequired && (
-                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                            Fasting Required
-                          </span>
-                        )}
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    {selectedOrder.tests?.map((test: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-2 bg-gray-50 p-3 rounded">
+                        <FlaskConical className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate" title={test.testName}>{test.testName}</div>
+                          <div className="text-xs text-gray-600 truncate" title={test.testCode}>Code: {test.testCode}</div>
+                          {test.fastingRequired && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 mt-1">
+                              Fasting
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    ))
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sample Collection Requirements */}
+              {(displaySampleType || displayRecommendations) && (
+                <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                  <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-green-900">
+                    <FlaskConical className="h-4 w-4" />
+                    Sample Collection Requirements
+                    {!selectedOrder.sampleType && computedRecommendations && (
+                      <span className="text-xs font-normal text-green-600">(Auto-calculated)</span>
+                    )}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {displaySampleType && (
+                      <div>
+                        <div className="text-sm font-medium text-green-800">Sample Type</div>
+                        <div className="text-sm mt-1 font-medium text-green-700">
+                          {displaySampleType}
+                        </div>
+                      </div>
+                    )}
+                    {displayContainerType && (
+                      <div>
+                        <div className="text-sm font-medium text-green-800">Container Type</div>
+                        <div className="text-sm mt-1 text-green-700">
+                          {displayContainerType}
+                        </div>
+                      </div>
+                    )}
+                    {displayVolume && (
+                      <div>
+                        <div className="text-sm font-medium text-green-800">Volume</div>
+                        <div className="text-sm mt-1 text-green-700">
+                          {displayVolume} {displayVolumeUnit}
+                        </div>
+                      </div>
+                    )}
+                    {displayRecommendations?.fastingRequired && (
+                      <div>
+                        <div className="text-sm font-medium text-green-800">Fasting</div>
+                        <div className="mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                            ⚠️ Required
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {displayRecommendations?.specialInstructions?.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-green-300">
+                      <div className="text-sm font-medium text-green-800 mb-2">Special Instructions:</div>
+                      <ul className="text-sm text-green-700 space-y-1">
+                        {displayRecommendations.specialInstructions.map((instruction: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span className="text-green-600">•</span>
+                            <span>{instruction}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
-              </div>
+              )}
 
               {/* Order Details */}
               <div className="border rounded-lg p-4">
@@ -950,7 +1034,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           <DialogFooter className="gap-2">
             <Button 
@@ -966,12 +1051,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               onClick={() => {
                 setShowOrderDetail(false);
                 setShowSampleCollection(true);
-                // Pre-fill sample type based on tests
-                if (selectedOrder?.tests && selectedOrder.tests.length > 0) {
-                  const firstTest = selectedOrder.tests[0];
+                // Pre-fill sample collection form with order's sample requirements
+                if (selectedOrder) {
                   setSampleCollectionData(prev => ({
                     ...prev,
-                    sampleType: firstTest.material || 'Blood',
+                    sampleType: selectedOrder.sampleType || (selectedOrder.tests?.[0]?.material) || 'Blood',
+                    containerType: selectedOrder.containerType || '',
+                    volume: selectedOrder.volume?.toString() || '',
+                    volumeUnit: selectedOrder.volumeUnit || 'mL',
                   }));
                 }
               }}
@@ -985,7 +1072,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Sample Collection Modal */}
       <Dialog open={showSampleCollection} onOpenChange={setShowSampleCollection}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="h-6 w-6 text-green-600" />
@@ -996,7 +1083,22 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedOrder && (
+          {selectedOrder && (() => {
+            // Calculate sample recommendations if not stored in order
+            let computedRecommendations = null;
+            if (!selectedOrder.sampleType && selectedOrder.tests && selectedOrder.tests.length > 0) {
+              const testCodes = selectedOrder.tests.map((t: any) => t.testCode || t.testcode || t.code);
+              computedRecommendations = getSampleRecommendations(testCodes);
+            }
+            
+            // Use stored data or computed recommendations
+            const displaySampleType = selectedOrder.sampleType || computedRecommendations?.primarySampleType;
+            const displayContainerType = selectedOrder.containerType || computedRecommendations?.primaryContainer;
+            const displayVolume = selectedOrder.volume || computedRecommendations?.totalVolume;
+            const displayVolumeUnit = selectedOrder.volumeUnit || computedRecommendations?.volumeUnit || 'mL';
+            const displayRecommendations = selectedOrder.sampleRecommendations || computedRecommendations;
+
+            return (
             <div className="space-y-4 py-4">
               {/* Order Info Summary */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -1010,16 +1112,78 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 </div>
               </div>
 
+              {/* Sample Collection Requirements from Order */}
+              {(displaySampleType || displayRecommendations) && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-sm font-medium text-green-900 mb-2 flex items-center gap-2">
+                    <FlaskConical className="h-4 w-4" />
+                    Recommended Sample Collection
+                    {!selectedOrder.sampleType && computedRecommendations && (
+                      <span className="text-xs font-normal text-green-600">(Auto-calculated)</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
+                    {displaySampleType && (
+                      <div><strong>Sample Type:</strong> {displaySampleType}</div>
+                    )}
+                    {displayContainerType && (
+                      <div><strong>Container:</strong> {displayContainerType}</div>
+                    )}
+                    {displayVolume && (
+                      <div><strong>Volume:</strong> {displayVolume} {displayVolumeUnit}</div>
+                    )}
+                    {displayRecommendations?.fastingRequired && (
+                      <div className="col-span-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                          ⚠️ Fasting Required
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {displayRecommendations?.specialInstructions?.length > 0 && (
+                    <div className="mt-2">
+                      <strong className="text-sm text-green-900">Special Instructions:</strong>
+                      <ul className="text-sm text-green-700 mt-1 space-y-1">
+                        {displayRecommendations.specialInstructions.map((instruction: string, index: number) => (
+                          <li key={index}>• {instruction}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Sample Collection Form */}
               <div className="space-y-4">
+                {/* Sample Number - Manual Entry */}
+                <div>
+                  <Label htmlFor="sampleNumber" className="flex items-center gap-2">
+                    Sample Number *
+                    <span className="text-xs font-normal text-gray-500">(Enter manually or auto-generated)</span>
+                  </Label>
+                  <Input
+                    id="sampleNumber"
+                    type="text"
+                    placeholder="e.g., S-2026-001234 or leave blank for auto-generation"
+                    value={sampleCollectionData.sampleNumber || ''}
+                    onChange={(e) => setSampleCollectionData(prev => ({ ...prev, sampleNumber: e.target.value }))}
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter a custom sample number or leave blank to auto-generate (format: S-YYYY-NNNNNN)
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="sampleType">Sample Type *</Label>
                     <select
                       id="sampleType"
+                      aria-label="Sample Type"
                       className="w-full mt-1 px-3 py-2 border rounded-md"
                       value={sampleCollectionData.sampleType}
                       onChange={(e) => setSampleCollectionData(prev => ({ ...prev, sampleType: e.target.value }))}
+                      title="Select the type of sample being collected"
                     >
                       <option value="">Select type</option>
                       <option value="Blood">Blood</option>
@@ -1039,9 +1203,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     <Label htmlFor="containerType">Container Type *</Label>
                     <select
                       id="containerType"
+                      aria-label="Container Type"
                       className="w-full mt-1 px-3 py-2 border rounded-md"
                       value={sampleCollectionData.containerType}
                       onChange={(e) => setSampleCollectionData(prev => ({ ...prev, containerType: e.target.value }))}
+                      title="Select the container type for sample collection"
                     >
                       <option value="">Select container</option>
                       <option value="Vacutainer">Vacutainer (Blood)</option>
@@ -1074,6 +1240,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     <Label htmlFor="volumeUnit">Volume Unit</Label>
                     <select
                       id="volumeUnit"
+                      aria-label="Volume Unit"
                       className="w-full mt-1 px-3 py-2 border rounded-md"
                       value={sampleCollectionData.volumeUnit}
                       onChange={(e) => setSampleCollectionData(prev => ({ ...prev, volumeUnit: e.target.value }))}
@@ -1124,7 +1291,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               </div>
 
               {/* Fasting Warning if applicable */}
-              {selectedOrder.tests?.some((t: any) => t.fastingRequired) && (
+              {displayRecommendations?.fastingRequired && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <div className="flex items-start gap-2">
                     <span className="text-amber-600 font-semibold text-sm">⚠️ Fasting Required</span>
@@ -1135,7 +1302,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           <DialogFooter className="gap-2">
             <Button 
@@ -1154,6 +1322,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 if (!selectedOrder) return;
 
                 const sampleData = {
+                  sampleNumber: sampleCollectionData.sampleNumber || undefined, // Manual or auto-generated
                   sampleType: sampleCollectionData.sampleType,
                   containerType: sampleCollectionData.containerType,
                   volume: sampleCollectionData.volume ? parseFloat(sampleCollectionData.volume) : 0,
