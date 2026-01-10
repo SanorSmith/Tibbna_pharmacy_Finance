@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(accessionSamples.currentstatus, status));
     }
 
-    // Join with patients table to get patient names
+    // Join with patients table to get patient names and demographics
     // Note: Cast patientid from text to uuid for the join
     const samples = await db
       .select({
@@ -238,6 +238,8 @@ export async function GET(request: NextRequest) {
         updatedat: accessionSamples.updatedat,
         // Patient information
         patientName: sql<string>`CONCAT(${patients.firstname}, ' ', ${patients.lastname})`.as('patientName'),
+        patientage: sql<number>`EXTRACT(YEAR FROM AGE(${patients.dateofbirth}))`.as('patientage'),
+        patientsex: patients.gender,
       })
       .from(accessionSamples)
       .leftJoin(patients, sql`${accessionSamples.patientid}::uuid = ${patients.patientid}`)

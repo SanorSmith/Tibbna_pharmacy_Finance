@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(storageLocations.status, status));
     }
 
-    let locations = await db
+    const locations = await db
       .select()
       .from(storageLocations)
       .where(conditions.length > 1 ? and(...conditions) : conditions[0])
