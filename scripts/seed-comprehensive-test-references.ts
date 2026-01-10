@@ -212,12 +212,12 @@ async function seedComprehensiveTestReferences() {
           isactive: "Y",
         });
         inserted++;
-      } catch (error: any) {
-        if (error.code === "23505") {
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === "23505") {
           // Duplicate key error
           skipped++;
         } else {
-          console.error(`Error inserting ${ref.testcode} (${ref.agegroup}/${ref.sex}):`, error.message);
+          console.error(`Error inserting ${ref.testcode} (${ref.agegroup}/${ref.sex}):`, error instanceof Error ? error.message : String(error));
         }
       }
     }
