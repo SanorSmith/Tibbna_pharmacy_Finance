@@ -1,7 +1,7 @@
 import { pgTable, text, timestamp, uuid, jsonb, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./user";
-import { samples } from "./sample";
+import { accessionSamples } from "./accession-sample";
 
 /**
  * Immutable audit log for all validation actions
@@ -13,7 +13,7 @@ export const auditLogs = pgTable(
     auditid: uuid("auditid").primaryKey().defaultRandom(),
     sampleid: uuid("sampleid")
       .notNull()
-      .references(() => samples.sampleid, { onDelete: "cascade" }),
+      .references(() => accessionSamples.sampleid, { onDelete: "cascade" }),
     userid: uuid("userid")
       .notNull()
       .references(() => users.userid),
@@ -36,9 +36,9 @@ export const auditLogs = pgTable(
 );
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
-  sampleid: one(samples, {
+  sampleid: one(accessionSamples, {
     fields: [auditLogs.sampleid],
-    references: [samples.sampleid],
+    references: [accessionSamples.sampleid],
   }),
   userid: one(users, {
     fields: [auditLogs.userid],

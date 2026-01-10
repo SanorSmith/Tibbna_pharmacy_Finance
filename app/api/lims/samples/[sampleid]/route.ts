@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { samples, testResults, validationStates } from "@/lib/db/schema";
+import { accessionSamples, testResults, validationStates, patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -20,24 +20,37 @@ export async function GET(
 
     const { sampleid } = await params;
 
-    // Fetch sample with all related data
-    const sample = await db.query.samples.findFirst({
-      where: eq(samples.sampleid, sampleid),
-      with: {
-        patientid: {
-          columns: {
-            patientid: true,
-            firstname: true,
-            lastname: true,
-            dateofbirth: true,
-            gender: true,
-          },
-        },
-      },
-    });
+    // Fetch sample from accession_samples table
+    const sample = await db
+      .select()
+      .from(accessionSamples)
+      .where(eq(accessionSamples.sampleid, sampleid))
+      .limit(1);
 
-    if (!sample) {
+    if (!sample || sample.length === 0) {
       return NextResponse.json({ error: "Sample not found" }, { status: 404 });
+    }
+
+    const sampleData = sample[0];
+
+    // Fetch patient data if patientid exists
+    let patientData = null;
+    if (sampleData.patientid) {
+      const patient = await db
+        .select({
+          patientid: patients.patientid,
+          firstname: patients.firstname,
+          lastname: patients.lastname,
+          dateofbirth: patients.dateofbirth,
+          gender: patients.gender,
+        })
+        .from(patients)
+        .where(eq(patients.patientid, sampleData.patientid))
+        .limit(1);
+      
+      if (patient && patient.length > 0) {
+        patientData = patient[0];
+      }
     }
 
     // Fetch test results
@@ -69,7 +82,10 @@ export async function GET(
     const hasPreviousResults = results.some((r) => r.previousvalue !== null);
 
     return NextResponse.json({
-      sample,
+      sample: {
+        ...sampleData,
+        patient: patientData,
+      },
       results,
       validationState,
       hasPreviousResults,

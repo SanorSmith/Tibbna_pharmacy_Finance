@@ -10,7 +10,7 @@
  * - Click-through to detailed validation screen
  */
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,19 +19,20 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Filter, Loader2, XCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Filter, Loader2, XCircle, ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 interface ValidationWorklistItem {
   sample: {
     sampleid: string;
+    samplenumber: string;
     patientid: string;
     orderid: string;
     sampletype: string;
     collectiondate: string;
     analyzer: string | null;
-    testgroup: string;
-    priority: string;
+    testgroup: string | null;
+    priority: string | null;
   };
   validationState: {
     currentstate: string;
@@ -41,6 +42,16 @@ interface ValidationWorklistItem {
   hasAbnormal: boolean;
   criticalCount: number;
   abnormalCount: number;
+  results?: Array<{
+    resultid: string;
+    testcode: string;
+    testname: string;
+    resultvalue: string;
+    unit: string;
+    flag: string;
+    isabormal: boolean;
+    iscritical: boolean;
+  }>;
 }
 
 export default function ValidationTab({ workspaceid }: { workspaceid: string }) {
@@ -51,6 +62,7 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [abnormalOnly, setAbnormalOnly] = useState(false);
   const [criticalOnly, setCriticalOnly] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Build query params
   const buildQueryParams = () => {
@@ -69,13 +81,37 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["validation-worklist", workspaceid, startDate, endDate, selectedAnalyzer, selectedTestGroup, selectedStatus, abnormalOnly, criticalOnly],
     queryFn: async () => {
-      const response = await fetch(`/api/lims/worklist?${buildQueryParams()}`);
+      console.log("Fetching validation worklist with params:", buildQueryParams());
+      const response = await fetch(`/api/lims/worklist?${buildQueryParams()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       if (!response.ok) throw new Error("Failed to fetch worklist");
-      return response.json();
+      const data = await response.json();
+      console.log("Validation worklist data:", data);
+      console.log("Number of samples in worklist:", data.samples?.length || 0);
+      return data;
     },
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const samples: ValidationWorklistItem[] = data?.samples || [];
+
+  const toggleRow = (sampleid: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sampleid)) {
+        newSet.delete(sampleid);
+      } else {
+        newSet.add(sampleid);
+      }
+      return newSet;
+    });
+  };
 
   const getStatusBadge = (state: string | null) => {
     if (!state) {
@@ -97,23 +133,23 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
         );
       case "TECH_VALIDATED":
         return (
-          <Badge variant="default" className="flex items-center gap-1 bg-blue-500">
+          <Badge variant="default" className="flex items-center gap-1 bg-blue-600">
             <CheckCircle2 className="h-3 w-3" />
             Tech Validated
           </Badge>
         );
       case "CLINICALLY_VALIDATED":
         return (
-          <Badge variant="default" className="flex items-center gap-1 bg-green-500">
+          <Badge variant="default" className="flex items-center gap-1 bg-green-600">
             <CheckCircle2 className="h-3 w-3" />
             Validated
           </Badge>
         );
-      case "RERUN_REQUESTED":
+      case "RELEASED":
         return (
-          <Badge variant="default" className="flex items-center gap-1 bg-orange-500">
-            <AlertCircle className="h-3 w-3" />
-            Rerun Requested
+          <Badge variant="default" className="flex items-center gap-1 bg-emerald-600">
+            <CheckCircle2 className="h-3 w-3" />
+            Released
           </Badge>
         );
       case "REJECTED":
@@ -123,11 +159,11 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
             Rejected
           </Badge>
         );
-      case "RELEASED":
+      case "RERUN_REQUESTED":
         return (
-          <Badge variant="default" className="flex items-center gap-1 bg-emerald-600">
-            <CheckCircle2 className="h-3 w-3" />
-            Released
+          <Badge variant="destructive" className="flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Rerun Requested
           </Badge>
         );
       default:
@@ -276,6 +312,14 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
             >
               Clear Filters
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="ml-2"
+            >
+              Refresh
+            </Button>
           </div>
         </div>
 
@@ -332,44 +376,59 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 hover:bg-gray-50">
-                  <TableHead className="font-semibold">Sample ID</TableHead>
-                  <TableHead className="font-semibold">Order ID</TableHead>
+                  <TableHead className="font-semibold">Sample Number</TableHead>
                   <TableHead className="font-semibold">Collection Date</TableHead>
                   <TableHead className="font-semibold">Test Group</TableHead>
+                  <TableHead className="font-semibold">Results</TableHead>
                   <TableHead className="font-semibold">Analyzer</TableHead>
                   <TableHead className="font-semibold">Priority</TableHead>
                   <TableHead className="font-semibold">Flags</TableHead>
                   <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {samples.map((item) => (
+                  <React.Fragment key={item.sample.sampleid}>
                   <TableRow
-                    key={item.sample.sampleid}
                     className={`hover:bg-gray-50 ${
                       item.hasCritical ? "bg-red-50" : ""
                     }`}
                   >
                     <TableCell className="font-medium text-blue-600">
-                      {item.sample.sampleid.substring(0, 8)}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {item.sample.orderid}
+                      {item.sample.samplenumber || item.sample.sampleid.substring(0, 8)}
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {new Date(item.sample.collectiondate).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {item.sample.testgroup}
+                        {item.sample.testgroup || 'N/A'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {item.results && item.results.length > 0 ? (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => toggleRow(item.sample.sampleid)}
+                          className="p-0 h-auto font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          {expandedRows.has(item.sample.sampleid) ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          {item.results.length} test{item.results.length > 1 ? 's' : ''}
+                        </Button>
+                      ) : (
+                        <span className="text-sm text-gray-400">No results</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {item.sample.analyzer || "N/A"}
                     </TableCell>
                     <TableCell>
-                      {getPriorityBadge(item.sample.priority)}
+                      {item.sample.priority ? getPriorityBadge(item.sample.priority) : <span className="text-gray-400">N/A</span>}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -389,14 +448,161 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
                     <TableCell>
                       {getStatusBadge(item.validationState?.currentstate || null)}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Link href={`/d/${workspaceid}/lab-tech/validation/${item.sample.sampleid}`}>
-                        <Button variant="default" size="sm">
-                          Validate
-                        </Button>
-                      </Link>
-                    </TableCell>
                   </TableRow>
+                  {/* Expanded row showing test results */}
+                  {expandedRows.has(item.sample.sampleid) && item.results && item.results.length > 0 && (
+                    <TableRow className="bg-gray-50">
+                      <TableCell colSpan={10} className="p-0">
+                        <div className="p-4">
+                          <h4 className="font-semibold text-sm mb-3">Test Results ({item.results.length})</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left py-2 px-3 font-medium">Test Name</th>
+                                  <th className="text-left py-2 px-3 font-medium">Result</th>
+                                  <th className="text-left py-2 px-3 font-medium">Unit</th>
+                                  <th className="text-left py-2 px-3 font-medium">Reference Range</th>
+                                  <th className="text-left py-2 px-3 font-medium">Flag</th>
+                                  <th className="text-left py-2 px-3 font-medium">Status</th>
+                                  <th className="text-center py-2 px-3 font-medium">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {item.results.map((result: any) => (
+                                  <tr key={result.resultid} className="border-b last:border-0">
+                                    <td className="py-2 px-3 font-medium">{result.testname}</td>
+                                    <td className="py-2 px-3">{result.resultvalue}</td>
+                                    <td className="py-2 px-3 text-gray-600">{result.unit || '-'}</td>
+                                    <td className="py-2 px-3 text-gray-600">
+                                      {result.referencemin && result.referencemax 
+                                        ? `${result.referencemin} - ${result.referencemax}`
+                                        : result.referencerange || '-'}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      {result.iscritical ? (
+                                        <Badge variant="destructive" className="text-xs">Critical</Badge>
+                                      ) : result.isabormal ? (
+                                        <Badge variant="default" className="text-xs bg-orange-500">Abnormal</Badge>
+                                      ) : result.flag === 'normal' ? (
+                                        <Badge variant="default" className="text-xs bg-green-600">Normal</Badge>
+                                      ) : (
+                                        <span className="text-gray-400">-</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <Badge variant="outline" className="text-xs capitalize">
+                                        {result.status || 'entered'}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <div className="flex gap-1 justify-center">
+                                        <Button 
+                                          variant="default" 
+                                          size="sm"
+                                          onClick={async () => {
+                                            try {
+                                              console.log('Releasing test result:', result.resultid);
+                                              const response = await fetch(`/api/d/${workspaceid}/test-results/${result.resultid}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                  status: 'released',
+                                                }),
+                                              });
+                                              const data = await response.json();
+                                              console.log('Release response:', data);
+                                              if (response.ok) {
+                                                await refetch();
+                                                console.log('Data refetched successfully');
+                                              } else {
+                                                console.error('Failed to release:', data);
+                                                alert('Failed to release result: ' + (data.error || 'Unknown error'));
+                                              }
+                                            } catch (error) {
+                                              console.error('Release error:', error);
+                                              alert('Failed to release result');
+                                            }
+                                          }}
+                                          className="bg-green-600 hover:bg-green-700 text-xs px-2 py-1 h-auto"
+                                        >
+                                          Release
+                                        </Button>
+                                        <Button 
+                                          variant="destructive" 
+                                          size="sm"
+                                          onClick={async () => {
+                                            if (!confirm('Are you sure you want to reject this test result?')) return;
+                                            try {
+                                              console.log('Rejecting test result:', result.resultid);
+                                              const response = await fetch(`/api/d/${workspaceid}/test-results/${result.resultid}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                  status: 'rejected',
+                                                }),
+                                              });
+                                              const data = await response.json();
+                                              console.log('Reject response:', data);
+                                              if (response.ok) {
+                                                await refetch();
+                                                console.log('Data refetched successfully');
+                                              } else {
+                                                console.error('Failed to reject:', data);
+                                                alert('Failed to reject result: ' + (data.error || 'Unknown error'));
+                                              }
+                                            } catch (error) {
+                                              console.error('Reject error:', error);
+                                              alert('Failed to reject result');
+                                            }
+                                          }}
+                                          className="text-xs px-2 py-1 h-auto"
+                                        >
+                                          Reject
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={async () => {
+                                            try {
+                                              console.log('Requesting rerun for test result:', result.resultid);
+                                              const response = await fetch(`/api/d/${workspaceid}/test-results/${result.resultid}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                  status: 'rerun_requested',
+                                                }),
+                                              });
+                                              const data = await response.json();
+                                              console.log('Rerun response:', data);
+                                              if (response.ok) {
+                                                await refetch();
+                                                console.log('Data refetched successfully');
+                                              } else {
+                                                console.error('Failed to request rerun:', data);
+                                                alert('Failed to request rerun: ' + (data.error || 'Unknown error'));
+                                              }
+                                            } catch (error) {
+                                              console.error('Rerun error:', error);
+                                              alert('Failed to request rerun');
+                                            }
+                                          }}
+                                          className="text-xs px-2 py-1 h-auto"
+                                        >
+                                          Rerun
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
