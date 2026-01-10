@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { samples, validationStates, testResults } from "@/lib/db/schema";
+import { accessionSamples, validationStates, testResults, limsOrders } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
 /**
@@ -34,31 +34,27 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query conditions
-    const conditions = [eq(samples.workspaceid, workspaceid)];
+    const conditions = [eq(accessionSamples.workspaceid, workspaceid)];
 
     if (startDate) {
-      conditions.push(gte(samples.collectiondate, new Date(startDate)));
+      conditions.push(gte(accessionSamples.collectiondate, new Date(startDate)));
     }
     if (endDate) {
-      conditions.push(lte(samples.collectiondate, new Date(endDate)));
-    }
-    if (analyzer) {
-      conditions.push(eq(samples.analyzer, analyzer));
-    }
-    if (testGroup) {
-      conditions.push(eq(samples.testgroup, testGroup));
+      conditions.push(lte(accessionSamples.collectiondate, new Date(endDate)));
     }
 
-    // Fetch samples with validation states and test results
+    // Fetch samples with validation states, orders, and test results
     const samplesData = await db
       .select({
-        sample: samples,
+        sample: accessionSamples,
         validationState: validationStates,
+        order: limsOrders,
       })
-      .from(samples)
-      .leftJoin(validationStates, eq(samples.sampleid, validationStates.sampleid))
+      .from(accessionSamples)
+      .leftJoin(validationStates, eq(accessionSamples.sampleid, validationStates.sampleid))
+      .leftJoin(limsOrders, sql`${accessionSamples.orderid}::uuid = ${limsOrders.orderid}`)
       .where(and(...conditions))
-      .orderBy(desc(samples.collectiondate));
+      .orderBy(desc(accessionSamples.collectiondate));
 
     // Filter by validation status if specified
     let filteredSamples = samplesData;
@@ -79,7 +75,13 @@ export async function GET(request: NextRequest) {
         const hasAbnormal = results.some((r) => r.flag !== "normal");
 
         return {
-          ...item,
+          sample: {
+            ...item.sample,
+            priority: item.order?.priority || null,
+            testgroup: null, // TODO: Get from order or test catalog
+            analyzer: null, // TODO: Get from order or instrument assignment
+          },
+          validationState: item.validationState,
           results,
           hasCritical,
           hasAbnormal,

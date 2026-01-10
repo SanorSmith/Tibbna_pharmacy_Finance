@@ -32,6 +32,8 @@ interface StoredSample {
   orderid: string;
   volume: string | null;
   volumeunit: string | null;
+  patientage?: number;
+  patientsex?: string;
 }
 
 interface StorageLocation {
@@ -244,9 +246,7 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
   const filteredSamples = samples?.filter(sample => {
     const matchesSearch = searchTerm === '' || 
       sample.samplenumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sample.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sample.orderid.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sample.barcode.toLowerCase().includes(searchTerm.toLowerCase());
+      sample.patientName?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesLocation = locationFilter === 'all' || 
       sample.currentlocation?.toLowerCase().includes(locationFilter.toLowerCase());
@@ -691,7 +691,7 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search by sample number, patient name, order ID, or barcode..."
+                placeholder="Search by sample number or patient name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -722,13 +722,14 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
                   <TableRow>
                     <TableHead>Sample Number</TableHead>
                     <TableHead>Patient Name</TableHead>
+                    <TableHead>Age</TableHead>
+                    <TableHead>Sex</TableHead>
                     <TableHead>Sample Type</TableHead>
                     <TableHead>Container</TableHead>
                     <TableHead>Volume</TableHead>
                     <TableHead>Storage Location</TableHead>
                     <TableHead>Collection Date</TableHead>
                     <TableHead>Stored Since</TableHead>
-                    <TableHead>Barcode</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -736,6 +737,8 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
                     <TableRow key={sample.sampleid} className="hover:bg-gray-50">
                       <TableCell className="font-medium font-mono">{sample.samplenumber}</TableCell>
                       <TableCell className="font-medium">{sample.patientName || sample.patientid || "-"}</TableCell>
+                      <TableCell className="text-sm">{sample.patientage ? `${sample.patientage} yrs` : '-'}</TableCell>
+                      <TableCell className="text-sm capitalize">{sample.patientsex || '-'}</TableCell>
                       <TableCell className="capitalize">{sample.sampletype}</TableCell>
                       <TableCell className="text-sm">{sample.containertype}</TableCell>
                       <TableCell className="text-sm">
@@ -753,7 +756,6 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
                       <TableCell className="text-sm">
                         {new Date(sample.accessionedat).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{sample.barcode}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

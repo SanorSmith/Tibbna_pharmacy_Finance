@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, uuid, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { samples } from "./sample";
+import { accessionSamples } from "./accession-sample";
 import { users } from "./user";
 
 /**
@@ -17,7 +17,7 @@ export const validationStates = pgTable(
     stateid: uuid("stateid").primaryKey().defaultRandom(),
     sampleid: uuid("sampleid")
       .notNull()
-      .references(() => samples.sampleid, { onDelete: "cascade" })
+      .references(() => accessionSamples.sampleid, { onDelete: "cascade" })
       .unique(),
     currentstate: text("currentstate").notNull().default("ANALYZED"),
     previousstate: text("previousstate"),
@@ -43,9 +43,9 @@ export const validationStates = pgTable(
 );
 
 export const validationStatesRelations = relations(validationStates, ({ one }) => ({
-  sampleid: one(samples, {
+  sampleid: one(accessionSamples, {
     fields: [validationStates.sampleid],
-    references: [samples.sampleid],
+    references: [accessionSamples.sampleid],
   }),
   validatedby: one(users, {
     fields: [validationStates.validatedby],

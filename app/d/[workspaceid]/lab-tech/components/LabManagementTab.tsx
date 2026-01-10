@@ -1,14 +1,18 @@
 /**
  * Lab Management Tab Component
- * - Laboratory inventory management
- * - Manage lab equipment, supplies, reagents, and consumables
+ * 
+ * Provides comprehensive laboratory inventory management interface
+ * Integrates equipment, materials, and suppliers management components
  */
 "use client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Package, Beaker, Wrench, Plus } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Package, Beaker, Wrench, Building } from "lucide-react";
+import EquipmentManagement from "@/components/admin/EquipmentManagement";
+import MaterialsManagement from "@/components/admin/MaterialsManagement";
+import SuppliersManagement from "@/components/admin/SuppliersManagement";
+import LaboratoryTypeManagement from "@/components/admin/LaboratoryTypeManagement";
 
-export default function LabManagementTab({ workspaceid: _workspaceid }: { workspaceid: string }) {
+export default function LabManagementTab({ workspaceid }: { workspaceid: string }) {
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -16,76 +20,48 @@ export default function LabManagementTab({ workspaceid: _workspaceid }: { worksp
         <div>
           <h2 className="text-2xl font-bold">Lab Inventory Management</h2>
           <p className="text-sm text-muted-foreground">
-            Manage laboratory equipment, supplies, reagents, and consumables
+            Manage laboratory equipment, materials, suppliers, and types
           </p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Item
-        </Button>
       </div>
 
-      {/* Inventory Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-blue-600" />
-              Equipment
-            </CardTitle>
-            <CardDescription>Lab equipment and instruments</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground mt-1">Items in inventory</p>
-          </CardContent>
-        </Card>
+      {/* Management Tabs */}
+      <Tabs defaultValue="equipment" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="equipment" className="flex items-center gap-2">
+            <Wrench className="h-4 w-4" />
+            Equipment
+          </TabsTrigger>
+          <TabsTrigger value="materials" className="flex items-center gap-2">
+            <Beaker className="h-4 w-4" />
+            Materials
+          </TabsTrigger>
+          <TabsTrigger value="suppliers" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Suppliers
+          </TabsTrigger>
+          <TabsTrigger value="laboratory-types" className="flex items-center gap-2">
+            <Building className="h-4 w-4" />
+            Lab Types
+          </TabsTrigger>
+        </TabsList>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Beaker className="h-5 w-5 text-green-600" />
-              Reagents
-            </CardTitle>
-            <CardDescription>Chemical reagents and solutions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground mt-1">Items in stock</p>
-          </CardContent>
-        </Card>
+        <TabsContent value="equipment" className="space-y-4">
+          <EquipmentManagement workspaceid={workspaceid} />
+        </TabsContent>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-5 w-5 text-amber-600" />
-              Consumables
-            </CardTitle>
-            <CardDescription>Tubes, tips, gloves, and supplies</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground mt-1">Items available</p>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="materials" className="space-y-4">
+          <MaterialsManagement workspaceid={workspaceid} />
+        </TabsContent>
 
-      {/* Inventory List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory Items</CardTitle>
-          <CardDescription>
-            View and manage all laboratory inventory items
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-12 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No inventory items yet</p>
-            <p className="text-sm mt-2">Click &quot;Add Item&quot; to start managing your lab inventory</p>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="suppliers" className="space-y-4">
+          <SuppliersManagement workspaceid={workspaceid} />
+        </TabsContent>
+
+        <TabsContent value="laboratory-types" className="space-y-4">
+          <LaboratoryTypeManagement workspaceid={workspaceid} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

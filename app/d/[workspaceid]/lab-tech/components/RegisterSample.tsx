@@ -107,6 +107,8 @@ interface AccessionedSample {
   patientid: string | null;
   patientName: string | null;
   orderid: string;
+  patientage?: number;
+  patientsex?: string;
 }
 
 export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
@@ -440,11 +442,11 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                     <TableHead>Sample Type</TableHead>
                     <TableHead>Container</TableHead>
                     <TableHead>Collection Date</TableHead>
-                    <TableHead>Order ID</TableHead>
                     <TableHead>Patient Name</TableHead>
+                    <TableHead>Age</TableHead>
+                    <TableHead>Sex</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Accessioned</TableHead>
-                    <TableHead>Barcode</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -463,16 +465,12 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                       <TableCell className="text-sm">
                         {new Date(sample.collectiondate).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="text-sm">{sample.orderid}</TableCell>
                       <TableCell className="text-sm font-medium">{sample.patientName || sample.patientid || "-"}</TableCell>
+                      <TableCell className="text-sm">{sample.patientage ? `${sample.patientage} yrs` : '-'}</TableCell>
+                      <TableCell className="text-sm capitalize">{sample.patientsex || '-'}</TableCell>
                       <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
                       <TableCell className="text-sm">
                         {new Date(sample.accessionedat).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <ScanBarcode className="h-4 w-4" />
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
