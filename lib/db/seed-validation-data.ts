@@ -6,10 +6,16 @@
  */
 
 import { db } from "./index";
-import { samples, testResults, validationStates } from "./schema";
+import { accessionSamples, testResults, validationStates } from "./schema";
+
+// NOTE: This seed file is deprecated and references the old 'samples' table
+// It has been replaced by the accession_samples workflow
+// Keeping for reference only - DO NOT USE
 
 async function seedValidationData() {
   console.log("🌱 Seeding LIMS validation data...");
+  console.warn("⚠️ This seed function is deprecated. Use accession_samples workflow instead.");
+  return;
 
   try {
     // Get first patient from the database to use as test patient
