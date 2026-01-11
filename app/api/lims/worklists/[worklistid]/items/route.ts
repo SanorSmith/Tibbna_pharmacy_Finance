@@ -93,10 +93,10 @@ export async function POST(
       notes,
     } = body;
 
-    // Validation
-    if (!orderid) {
+    // Validation - require either orderid or sampleid
+    if (!orderid && !sampleid) {
       return NextResponse.json(
-        { error: "Order ID required" },
+        { error: "Either Order ID or Sample ID is required" },
         { status: 400 }
       );
     }

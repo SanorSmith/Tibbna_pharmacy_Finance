@@ -106,7 +106,8 @@ interface AccessionedSample {
   accessionedat: string;
   patientid: string | null;
   patientName: string | null;
-  orderid: string;
+  orderid: string | null;
+  openehrrequestid?: string | null;
   patientage?: number;
   patientsex?: string;
 }
@@ -226,7 +227,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
   // Add to worklist mutation
   const addToWorklistMutation = useMutation({
-    mutationFn: async ({ worklistid, orderid, sampleid }: { worklistid: string; orderid: string; sampleid: string }) => {
+    mutationFn: async ({ worklistid, orderid, sampleid }: { worklistid: string; orderid: string | null; sampleid: string }) => {
       const response = await fetch(`/api/lims/worklists/${worklistid}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -787,7 +788,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                         if (selectedSample) {
                           addToWorklistMutation.mutate({
                             worklistid: worklist.worklistid,
-                            orderid: selectedSample.orderid,
+                            orderid: selectedSample.orderid || selectedSample.openehrrequestid || null,
                             sampleid: selectedSample.sampleid,
                           });
                         }

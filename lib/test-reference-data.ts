@@ -551,6 +551,13 @@ export const TEST_REFERENCE_DATA: Record<string, TestReferenceData> = {
     referencerange: "Normal flora",
     category: "Microbiology"
   },
+  "Stool Tests": {
+    testcode: "Stool Tests",
+    testname: "Stool Tests",
+    unit: "Descriptive",
+    referencerange: "Normal stool characteristics",
+    category: "Microbiology"
+  },
   "PARA-ST": {
     testcode: "PARA-ST",
     testname: "Stool Parasites",

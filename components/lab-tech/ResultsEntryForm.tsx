@@ -7,6 +7,7 @@
 
 "use client";
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,8 @@ interface TestResult {
   referencemin?: number;
   referencemax?: number;
   referencerange?: string;
+  paniclow?: number;
+  panichigh?: number;
   flag?: string;
   isabormal?: boolean;
   iscritical?: boolean;
@@ -85,6 +88,7 @@ export default function ResultsEntryForm({
   sampleid,
   onResultSaved 
 }: ResultsEntryFormProps) {
+  const queryClient = useQueryClient();
   const [worklists, setWorklists] = useState<Array<{ worklistid: string; worklistname: string; status: string; priority: string; laboratory: string }>>([]);
   const [selectedWorklistId, setSelectedWorklistId] = useState<string | null>(worklistid || null);
   const [samples, setSamples] = useState<Sample[]>([]);
@@ -146,21 +150,25 @@ export default function ResultsEntryForm({
         const sample = data.sample;
         
         // Extract patient demographics
+        let demographics = { agegroup: 'ALL', sex: 'ANY', age: undefined };
         if (sample.patientage !== undefined || sample.patientsex) {
           const age = sample.patientage;
-          const sex = sample.patientsex?.toUpperCase() === 'MALE' ? 'M' : 
-                      sample.patientsex?.toUpperCase() === 'FEMALE' ? 'F' : 'ANY';
+          // Handle various gender formats: "male"/"female", "MALE"/"FEMALE", "M"/"F"
+          const genderUpper = sample.patientsex?.toUpperCase() || '';
+          const sex = genderUpper === 'MALE' || genderUpper === 'M' ? 'M' : 
+                      genderUpper === 'FEMALE' || genderUpper === 'F' ? 'F' : 'ANY';
           const agegroup = calculateAgeGroup(age);
           
-          setPatientDemographics({ age, sex, agegroup });
-          console.log(`Patient demographics: Age ${age} (${agegroup}), Sex: ${sex}`);
+          demographics = { age, sex, agegroup };
+          setPatientDemographics(demographics);
+          console.log(`Patient demographics: Age ${age} (${agegroup}), Sex: ${sex}, Gender: ${sample.patientsex}`);
         } else {
-          setPatientDemographics({ agegroup: 'ALL', sex: 'ANY' });
+          setPatientDemographics(demographics);
         }
         
         setSamples([sample]);
         setSelectedSample(sample);
-        initializeResults(sample);
+        initializeResults(sample, demographics);
       }
     } catch (error) {
       console.error("Error fetching sample:", error);
@@ -188,7 +196,11 @@ export default function ResultsEntryForm({
     
     tests.forEach(test => {
       const testUpper = test.toUpperCase();
-      if (testUpper === "CBC" || testUpper === "COMPLETE BLOOD COUNT") {
+      // Check for CBC in various formats
+      if (testUpper === "CBC" || 
+          testUpper === "COMPLETE BLOOD COUNT" || 
+          testUpper.includes("COMPLETE BLOOD COUNT") ||
+          testUpper.includes("CBC")) {
         // Expand CBC into its components
         expanded.push(...CBC_COMPONENTS);
       } else {
@@ -199,18 +211,33 @@ export default function ResultsEntryForm({
     return expanded;
   };
 
-  const initializeResults = async (sample: Sample) => {
+  const initializeResults = async (sample: Sample, demographics?: { age?: number; sex?: string; agegroup?: string }) => {
     setLoading(true);
     try {
+      // Use provided demographics or fall back to state
+      const demoToUse = demographics || patientDemographics || { agegroup: 'ALL', sex: 'ANY' };
+      console.log("Initializing results with demographics:", demoToUse);
+      
+      // Parse tests if it's a JSON string
+      let tests = sample.tests;
+      if (typeof tests === 'string') {
+        try {
+          tests = JSON.parse(tests);
+        } catch (e) {
+          console.error("Failed to parse tests JSON:", e);
+          tests = [];
+        }
+      }
+      
       // Initialize result entries for each test
-      if (sample.tests && sample.tests.length > 0) {
-        console.log("Original tests:", sample.tests);
+      if (tests && Array.isArray(tests) && tests.length > 0) {
+        console.log("Original tests:", tests);
         
         // Expand panel tests (like CBC) into individual components
-        const expandedTests = expandPanelTests(sample.tests);
+        const expandedTests = expandPanelTests(tests);
         console.log("Expanded tests:", expandedTests);
         
-        // Enrich each test with reference data
+        // Enrich each test with reference data using the demographics
         const enrichedTests = await Promise.all(
           expandedTests.map(async (test) => {
             const baseTest = {
@@ -223,8 +250,8 @@ export default function ResultsEntryForm({
               techniciannotes: "",
             };
             
-            // Enrich with reference data
-            return await enrichTestWithReferenceData(baseTest);
+            // Enrich with reference data using provided demographics
+            return await enrichTestWithReferenceData(baseTest, demoToUse);
           })
         );
         
@@ -297,7 +324,7 @@ export default function ResultsEntryForm({
   // Cache for reference data to avoid repeated API calls
   const referenceDataCache = new Map<string, any>();
 
-  const enrichTestWithReferenceData = async (test: any) => {
+  const enrichTestWithReferenceData = async (test: any, demographics?: { age?: number; sex?: string; agegroup?: string }) => {
     try {
       const testcode = test.testcode || "";
       if (!testcode) {
@@ -305,9 +332,10 @@ export default function ResultsEntryForm({
         return test;
       }
 
-      // Determine age group and sex for query
-      const agegroup = patientDemographics?.agegroup || "ALL";
-      const sex = patientDemographics?.sex || "ANY";
+      // Use provided demographics or fall back to state
+      const demoToUse = demographics || patientDemographics || { agegroup: 'ALL', sex: 'ANY' };
+      const agegroup = demoToUse.agegroup || "ALL";
+      const sex = demoToUse.sex || "ANY";
 
       // Check cache first
       const cacheKey = `${testcode}-${agegroup}-${sex}`;
@@ -346,6 +374,7 @@ export default function ResultsEntryForm({
       
       for (const attempt of attempts) {
         try {
+          console.log(`Trying ${testcode} with ${attempt.label}...`);
           const response = await fetch(
             `/api/d/${workspaceid}/test-reference?testcode=${testcode}&agegroup=${attempt.agegroup}&sex=${attempt.sex}`
           );
@@ -354,10 +383,12 @@ export default function ResultsEntryForm({
             const data = await response.json();
             if (data.referenceData) {
               refData = data.referenceData;
-              console.log(`Reference data found for ${testcode} with ${attempt.label}:`, refData);
+              console.log(`✓ Reference data found for ${testcode} with ${attempt.label}:`, refData);
               // Cache the result
               referenceDataCache.set(cacheKey, refData);
               break;
+            } else {
+              console.log(`✗ No data for ${testcode} with ${attempt.label}`);
             }
           }
         } catch (err) {
@@ -411,6 +442,9 @@ export default function ResultsEntryForm({
   const handleSampleSelect = async (sample: Sample) => {
     setLoading(true);
     
+    // Initialize demographics at function level so it's accessible in error handlers
+    let demographics = { agegroup: 'ALL', sex: 'ANY', age: undefined };
+    
     try {
       // Fetch the sample details to get the orderid and patient demographics
       const sampleResponse = await fetch(`/api/d/${workspaceid}/accession-samples/${sample.sampleid}`);
@@ -424,14 +458,17 @@ export default function ResultsEntryForm({
         // Extract patient demographics
         if (sampleWithOrder.patientage !== undefined || sampleWithOrder.patientsex) {
           const age = sampleWithOrder.patientage;
-          const sex = sampleWithOrder.patientsex?.toUpperCase() === 'MALE' ? 'M' : 
-                      sampleWithOrder.patientsex?.toUpperCase() === 'FEMALE' ? 'F' : 'ANY';
+          // Handle various gender formats: "male"/"female", "MALE"/"FEMALE", "M"/"F"
+          const genderUpper = sampleWithOrder.patientsex?.toUpperCase() || '';
+          const sex = genderUpper === 'MALE' || genderUpper === 'M' ? 'M' : 
+                      genderUpper === 'FEMALE' || genderUpper === 'F' ? 'F' : 'ANY';
           const agegroup = calculateAgeGroup(age);
           
-          setPatientDemographics({ age, sex, agegroup });
+          demographics = { age, sex, agegroup };
+          setPatientDemographics(demographics);
           console.log(`Patient demographics: Age ${age} (${agegroup}), Sex: ${sex}, Name: ${sampleWithOrder.patientname}`);
         } else {
-          setPatientDemographics({ agegroup: 'ALL', sex: 'ANY' });
+          setPatientDemographics(demographics);
         }
         
         // If the sample has an orderid, fetch the order to get tests
@@ -472,24 +509,28 @@ export default function ResultsEntryForm({
               setResults(enrichedTests);
             } else {
               // No tests in order, initialize with one empty row
-              initializeResults(sampleWithOrder);
+              initializeResults(sampleWithOrder, demographics);
             }
           } else {
             // Failed to fetch order, initialize with empty row
-            initializeResults(sampleWithOrder);
+            initializeResults(sampleWithOrder, demographics);
           }
+        } else if (sampleWithOrder.openehrrequestid || sampleWithOrder.tests) {
+          // OpenEHR order or sample with tests - use sample.tests directly
+          console.log("OpenEHR order or sample with tests, using sample.tests:", sampleWithOrder.tests);
+          initializeResults(sampleWithOrder, demographics);
         } else {
-          // No orderid, initialize with empty row
-          initializeResults(sampleWithOrder);
+          // No orderid or tests, initialize with empty row
+          initializeResults(sampleWithOrder, demographics);
         }
       } else {
         // Failed to fetch sample, initialize with empty row
-        initializeResults(sample);
+        initializeResults(sample, demographics);
       }
     } catch (error) {
       console.error("Error fetching sample tests:", error);
       // On error, initialize with empty row
-      initializeResults(sample);
+      initializeResults(sample, demographics);
     } finally {
       setLoading(false);
     }
@@ -500,27 +541,47 @@ export default function ResultsEntryForm({
     newResults[index] = { ...newResults[index], [field]: value };
 
     // Auto-calculate flags if numeric value and reference range provided
-    if (field === "resultnumeric" && typeof value === "number") {
+    if (field === "resultvalue" || field === "resultnumeric") {
       const result = newResults[index];
-      if (result.referencemin !== undefined && result.referencemax !== undefined) {
+      const numericValue = field === "resultnumeric" ? value as number : parseFloat(value as string);
+      
+      if (!isNaN(numericValue) && result.referencemin !== undefined && result.referencemax !== undefined) {
         const min = result.referencemin;
         const max = result.referencemax;
+        const panicLow = result.paniclow;
+        const panicHigh = result.panichigh;
         
-        if (value < min) {
-          newResults[index].flag = value < min * 0.5 ? "LL" : "L";
+        // Check panic/critical values first
+        if (panicLow !== undefined && numericValue <= panicLow) {
+          newResults[index].flag = "LL";
           newResults[index].isabormal = true;
-          newResults[index].iscritical = value < min * 0.5;
-          newResults[index].interpretation = value < min * 0.5 ? "Critically Low" : "Low";
-        } else if (value > max) {
-          newResults[index].flag = value > max * 1.5 ? "HH" : "H";
+          newResults[index].iscritical = true;
+          newResults[index].interpretation = "Critically Low";
+        } else if (panicHigh !== undefined && numericValue >= panicHigh) {
+          newResults[index].flag = "HH";
           newResults[index].isabormal = true;
-          newResults[index].iscritical = value > max * 1.5;
-          newResults[index].interpretation = value > max * 1.5 ? "Critically High" : "High";
+          newResults[index].iscritical = true;
+          newResults[index].interpretation = "Critically High";
+        } else if (numericValue < min) {
+          newResults[index].flag = "L";
+          newResults[index].isabormal = true;
+          newResults[index].iscritical = false;
+          newResults[index].interpretation = "Low";
+        } else if (numericValue > max) {
+          newResults[index].flag = "H";
+          newResults[index].isabormal = true;
+          newResults[index].iscritical = false;
+          newResults[index].interpretation = "High";
         } else {
           newResults[index].flag = "normal";
           newResults[index].isabormal = false;
           newResults[index].iscritical = false;
           newResults[index].interpretation = "Normal";
+        }
+        
+        // Update resultnumeric if we're changing resultvalue
+        if (field === "resultvalue") {
+          newResults[index].resultnumeric = numericValue;
         }
       }
     }
@@ -643,6 +704,12 @@ export default function ResultsEntryForm({
       
       // Check and update worklist status if all samples are complete
       await checkAndUpdateWorklistStatus();
+      
+      // Invalidate React Query caches to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ['worklists', workspaceid] });
+      queryClient.invalidateQueries({ queryKey: ['worklist-items'] });
+      queryClient.invalidateQueries({ queryKey: ['samples'] });
+      queryClient.invalidateQueries({ queryKey: ['validation-samples'] });
       
       setAlertMessage("Results saved successfully!");
       setAlertType("success");

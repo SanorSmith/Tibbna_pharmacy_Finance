@@ -46,7 +46,7 @@ export const worklistItems = pgTable(
     worklistid: uuid("worklistid")
       .notNull()
       .references(() => worklists.worklistid, { onDelete: "cascade" }),
-    orderid: text("orderid").notNull(), // Reference to lims_orders
+    orderid: text("orderid"), // Reference to lims_orders (nullable for OpenEHR samples)
     sampleid: text("sampleid"), // Reference to accession_samples
     testcode: text("testcode"), // Specific test code if worklist is test-specific
     testname: text("testname"),

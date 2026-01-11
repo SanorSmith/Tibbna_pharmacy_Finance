@@ -16,9 +16,10 @@
  * - Clinical record data stored in openEHR compositions
  */
 
-import { pgTable, text, timestamp, numeric, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, numeric, uuid, index, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./user";
+import { limsOrders } from "./lims-order";
 
 export const accessionSamples = pgTable(
   "accession_samples",
@@ -41,7 +42,8 @@ export const accessionSamples = pgTable(
     collectorname: text("collectorname"),
     
     // Links to other entities
-    orderid: text("orderid").notNull(), // Reference to lab order
+    orderid: uuid("orderid").references(() => limsOrders.orderid), // Reference to local LIMS order (nullable for OpenEHR orders)
+    openehrrequestid: text("openehrrequestid"), // OpenEHR request ID for orders from openEHR (e.g., testreq-xxx)
     patientid: text("patientid"), // Reference to patient
     ehrid: text("ehrid"), // openEHR EHR ID
     subjectidentifier: text("subjectidentifier"), // Alternative subject identifier
@@ -52,6 +54,9 @@ export const accessionSamples = pgTable(
     
     // openEHR integration
     openehrcompositionuid: text("openehrcompositionuid"), // openEHR composition UID
+    
+    // Ordered tests (stored as JSON array for OpenEHR orders)
+    tests: jsonb("tests"), // e.g., ["CBC", "HGB", "WBC"]
     
     // Current status
     currentstatus: text("currentstatus").notNull().default("RECEIVED"), // RECEIVED, IN_STORAGE, IN_PROCESS, etc.
@@ -84,6 +89,10 @@ export const accessionSamples = pgTable(
 
 // Relations
 export const accessionSamplesRelations = relations(accessionSamples, ({ one, many }) => ({
+  order: one(limsOrders, {
+    fields: [accessionSamples.orderid],
+    references: [limsOrders.orderid],
+  }),
   accessionedByUser: one(users, {
     fields: [accessionSamples.accessionedby],
     references: [users.userid],
