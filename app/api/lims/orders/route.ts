@@ -265,13 +265,17 @@ export async function GET(request: NextRequest) {
           .innerJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
           .where(eq(limsOrderTests.orderid, order.orderid));
 
-        // Get patient name
+        // Get patient name, age, and sex
         let patientName = order.subjectidentifier;
+        let patientAge = undefined;
+        let patientSex = undefined;
         try {
           const patient = await db
             .select({
               firstname: patients.firstname,
               lastname: patients.lastname,
+              dateofbirth: patients.dateofbirth,
+              gender: patients.gender,
             })
             .from(patients)
             .where(eq(patients.patientid, order.subjectidentifier))
@@ -279,15 +283,32 @@ export async function GET(request: NextRequest) {
           
           if (patient.length > 0) {
             patientName = `${patient[0].firstname} ${patient[0].lastname}`;
+            
+            // Calculate age from date of birth
+            if (patient[0].dateofbirth) {
+              const today = new Date();
+              const birthDate = new Date(patient[0].dateofbirth);
+              let age = today.getFullYear() - birthDate.getFullYear();
+              const monthDiff = today.getMonth() - birthDate.getMonth();
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+              }
+              patientAge = age;
+            }
+            
+            // Get gender/sex
+            patientSex = patient[0].gender;
           }
         } catch (error) {
-          console.error("Error fetching patient name:", error);
+          console.error("Error fetching patient details:", error);
         }
 
         return {
           ...order,
           tests: orderTests,
           patientName,
+          patientage: patientAge,
+          patientsex: patientSex,
         };
       })
     );
