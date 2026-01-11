@@ -83,6 +83,8 @@ interface SampleData {
   ehrId?: string;
   subjectIdentifier?: string;
   workspaceId?: string;
+  sampleNumber?: string;
+  tests?: string[];
 }
 
 interface OrderFormData {
@@ -133,6 +135,8 @@ interface LimsOrder {
   openehrrequestid?: string;
   patientId?: string;
   patientName?: string;
+  patientage?: number;
+  patientsex?: string;
   service_name?: string;
   clinical_indication?: string;
   clinicalnotes?: string;

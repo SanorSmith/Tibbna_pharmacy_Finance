@@ -170,7 +170,7 @@ async function seedValidationData() {
       receivedDate.setMinutes(receivedDate.getMinutes() + 30); // 30 min after collection
 
       const [sample] = await db
-        .insert(samples)
+        .insert(accessionSamples)
         .values({
           patientid: scenario.patient.patientid,
           workspaceid,
@@ -212,13 +212,13 @@ async function seedValidationData() {
 
         if (resultValue < numericMin) {
           flag = "low";
-          if (test.criticalLow && resultValue < test.criticalLow) {
+          if (test.criticalLow !== undefined && resultValue < test.criticalLow) {
             isCritical = true;
             flag = "critical_low";
           }
         } else if (resultValue > numericMax) {
           flag = "high";
-          if (test.criticalHigh && resultValue > test.criticalHigh) {
+          if (test.criticalHigh !== undefined && resultValue > test.criticalHigh) {
             isCritical = true;
             flag = "critical_high";
           }
@@ -226,6 +226,7 @@ async function seedValidationData() {
 
         // Create test result
         await db.insert(testResults).values({
+          workspaceid,
           sampleid: sample.sampleid,
           testcode: test.testcode,
           testname: test.testname,

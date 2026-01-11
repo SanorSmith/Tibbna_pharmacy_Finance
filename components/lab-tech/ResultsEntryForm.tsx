@@ -127,7 +127,7 @@ export default function ResultsEntryForm({
         const data = await response.json();
         // Filter out completed worklists - only show pending/in-progress worklists
         const activeWorklists = (data.worklists || []).filter(
-          (worklist: Worklist) => worklist.status !== 'COMPLETED'
+          (worklist: { worklistid: string; worklistname: string; status: string; priority: string; laboratory: string }) => worklist.status !== 'COMPLETED'
         );
         setWorklists(activeWorklists);
       }
@@ -810,7 +810,7 @@ export default function ResultsEntryForm({
                   <div className="flex flex-col items-start">
                     <span className="font-semibold">{worklist.worklistname}</span>
                     <span className="text-xs text-muted-foreground">
-                      {worklist.department || worklist.worklisttype} - {worklist.status}
+                      {worklist.laboratory} - {worklist.status}
                     </span>
                   </div>
                 </Button>
@@ -1042,7 +1042,13 @@ export default function ResultsEntryForm({
                               newResults[index].resultnumeric = numValue;
                               
                               // Auto-flag using reference and panic values
-                              const flags = autoFlagResult(numValue, newResults[index]);
+                              const refData = {
+                                min: parseFloat(newResults[index].referencemin || '0') as number,
+                                max: parseFloat(newResults[index].referencemax || '999999') as number,
+                                criticalLow: newResults[index].paniclow ? parseFloat(newResults[index].paniclow) as number : undefined,
+                                criticalHigh: newResults[index].panichigh ? parseFloat(newResults[index].panichigh) as number : undefined,
+                              };
+                              const flags = autoFlagResult(numValue, refData);
                               newResults[index] = { ...newResults[index], ...flags };
                             } else {
                               newResults[index].resultnumeric = undefined;
