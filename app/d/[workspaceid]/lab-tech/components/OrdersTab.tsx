@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, Download, CheckCircle2, Clock, AlertCircle, Loader2, Plus, XCircle, FlaskConical } from "lucide-react";
@@ -90,6 +91,7 @@ interface LimsOrder {
   source?: string;
   composition_uid?: string;
   request_id?: string;
+  openehrrequestid?: string;
   patientId?: string;
   patientName?: string;
   service_name?: string;
@@ -138,6 +140,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [createdOrder, setCreatedOrder] = useState<LimsOrder | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<LimsOrder | null>(null);
+  const [openEHROrderStatus, setOpenEHROrderStatus] = useState<string>('REQUESTED');
+  const [openEHROrderStatuses, setOpenEHROrderStatuses] = useState<Map<string, string>>(new Map());
   const [showOrderDetail, setShowOrderDetail] = useState(false);
   const [showSampleCollection, setShowSampleCollection] = useState(false);
   const [sampleCollectionData, setSampleCollectionData] = useState({
@@ -154,6 +158,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [alertDialog, setAlertDialog] = useState<{ show: boolean; title: string; message: string; type?: 'success' | 'error' | 'warning' }>({ show: false, title: '', message: '' });
 
   // Update collector name when session loads
   useEffect(() => {
@@ -234,11 +239,21 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       setShowSampleCollection(false);
       setShowOrderDetail(false);
       // Show success message
-      alert(`Sample collected successfully!\n\nSample Number: ${data.sample.sampleNumber}\nBarcode: ${data.sample.barcode}\n\nOrder status updated to IN PROGRESS`);
+      setAlertDialog({
+        show: true,
+        title: 'Sample Collected Successfully',
+        message: `Sample Number: ${data.sample.sampleNumber}\nBarcode: ${data.sample.barcode}\n\nOrder status updated to IN PROGRESS`,
+        type: 'success'
+      });
     },
     onError: (error: Error) => {
       console.error('Sample creation error:', error);
-      alert(`Failed to collect sample: ${error.message}`);
+      setAlertDialog({
+        show: true,
+        title: 'Failed to Collect Sample',
+        message: error.message,
+        type: 'error'
+      });
     },
   });
 
@@ -290,15 +305,50 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     },
   });
 
+  // Fetch OpenEHR order status when order is selected
+  useEffect(() => {
+    const requestId = selectedOrder?.request_id || selectedOrder?.openehrrequestid;
+    if (selectedOrder?.source === 'openEHR' && requestId) {
+      const fetchOpenEHRStatus = async () => {
+        try {
+          console.log(`Fetching OpenEHR order status for request_id: ${requestId}`);
+          const response = await fetch(`/api/d/${workspaceid}/openehr-orders/${requestId}/status`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`OpenEHR order status received:`, data);
+            setOpenEHROrderStatus(data.status);
+          } else {
+            console.error(`Failed to fetch OpenEHR order status: ${response.status}`);
+          }
+        } catch (error) {
+          console.error('Failed to fetch OpenEHR order status:', error);
+        }
+      };
+      fetchOpenEHRStatus();
+    } else {
+      setOpenEHROrderStatus('REQUESTED');
+    }
+  }, [selectedOrder, workspaceid]);
+
   const handleSubmitOrder = async (formData: OrderFormData) => {
     if (!currentPatientId) {
-      alert("Please enter a patient ID first");
+      setAlertDialog({
+        show: true,
+        title: 'Validation Error',
+        message: 'Please enter a patient ID first',
+        type: 'warning'
+      });
       return;
     }
     
     // Check if session is loaded
     if (!sessionData?.user) {
-      alert("Session not loaded. Please wait a moment and try again.");
+      setAlertDialog({
+        show: true,
+        title: 'Session Error',
+        message: 'Session not loaded. Please wait a moment and try again.',
+        type: 'warning'
+      });
       return;
     }
     
@@ -390,6 +440,35 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   };
 
   const orders: LimsOrder[] = data?.orders || [];
+
+  // Fetch computed statuses for all OpenEHR orders when orders list changes
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      const fetchAllOpenEHRStatuses = async () => {
+        const statusMap = new Map<string, string>();
+        const openEHROrders = orders.filter((o: LimsOrder) => o.source === 'openEHR');
+        
+        for (const order of openEHROrders) {
+          const requestId = order.request_id || order.openehrrequestid;
+          if (requestId) {
+            try {
+              const response = await fetch(`/api/d/${workspaceid}/openehr-orders/${requestId}/status`);
+              if (response.ok) {
+                const data = await response.json();
+                statusMap.set(requestId, data.status);
+              }
+            } catch (error) {
+              console.error(`Failed to fetch status for ${requestId}:`, error);
+            }
+          }
+        }
+        
+        setOpenEHROrderStatuses(statusMap);
+      };
+      
+      fetchAllOpenEHRStatuses();
+    }
+  }, [orders, workspaceid]);
 
   const filteredOrders = orders.filter((order: LimsOrder) => {
     // Handle both local and openEHR orders
@@ -545,7 +624,12 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       setIsModalOpen(false);
                       setTimeout(() => setShowOrderForm(true), 100);
                     } else {
-                      alert('Please select a patient from the search results');
+                      setAlertDialog({
+                        show: true,
+                        title: 'Validation Error',
+                        message: 'Please select a patient from the search results',
+                        type: 'warning'
+                      });
                     }
                   }}
                   disabled={!selectedPatient}
@@ -681,7 +765,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       const patientInfo = order.patientName || order.subjectidentifier;
                       const testInfo = isOpenEHR ? order.service_name : (order.tests?.map((t: any) => t.testName).join(', ') || 'N/A');
                       const priority = isOpenEHR ? order.urgency?.toUpperCase() : order.priority;
-                      const status = isOpenEHR ? 'REQUESTED' : order.status;
+                      const requestId = order.request_id || order.openehrrequestid;
+                      const status = isOpenEHR ? (openEHROrderStatuses.get(requestId || '') || 'REQUESTED') : order.status;
                       const provider = isOpenEHR ? order.requesting_provider : order.orderingprovidername;
                       const orderDate = isOpenEHR ? order.recorded_time : order.createdat;
                       
@@ -843,7 +928,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <div className="text-sm font-medium text-gray-900 mb-1">Status</div>
                   <div className="mt-1">
-                    {getStatusBadge(selectedOrder.source === 'openEHR' ? 'REQUESTED' : selectedOrder.status)}
+                    {getStatusBadge(selectedOrder.source === 'openEHR' ? openEHROrderStatus : selectedOrder.status)}
                   </div>
                 </div>
               </div>
@@ -1335,6 +1420,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   subjectIdentifier: selectedOrder.subjectidentifier || undefined,
                   workspaceId: workspaceid,
                   currentLocation: sampleCollectionData.currentLocation,
+                  tests: selectedOrder.tests?.map((t: any) => t.testCode || t.testcode || t.testName || t) || 
+                         (selectedOrder.service_name ? [selectedOrder.service_name] : []) ||
+                         [],
                 };
 
                 console.log('Creating sample with data:', sampleData);
@@ -1353,6 +1441,29 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Alert Dialog for notifications */}
+      <AlertDialog open={alertDialog.show} onOpenChange={(open) => setAlertDialog({ ...alertDialog, show: open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className={
+              alertDialog.type === 'error' ? 'text-red-600' : 
+              alertDialog.type === 'warning' ? 'text-yellow-600' : 
+              'text-green-600'
+            }>
+              {alertDialog.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line">
+              {alertDialog.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAlertDialog({ show: false, title: '', message: '' })}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

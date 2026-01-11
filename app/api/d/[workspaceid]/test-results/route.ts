@@ -275,33 +275,56 @@ export async function POST(
           }
 
           // Check if all samples in the order are complete and update order status
-          const { limsOrders } = await import("@/lib/db/schema");
-          const allOrderSamples = await db
-            .select()
-            .from(accessionSamples)
-            .where(eq(accessionSamples.orderid, sample.orderid));
+          if (sample.orderid) {
+            // Handle LIMS orders
+            const { limsOrders } = await import("@/lib/db/schema");
+            const allOrderSamples = await db
+              .select()
+              .from(accessionSamples)
+              .where(eq(accessionSamples.orderid, sample.orderid));
 
-          const allOrderSamplesComplete = await Promise.all(
-            allOrderSamples.map(async (orderSample) => {
-              const sampleState = await db
-                .select()
-                .from(validationStates)
-                .where(eq(validationStates.sampleid, orderSample.sampleid))
-                .limit(1);
-              return sampleState.length > 0 && sampleState[0].currentstate === 'ANALYZED';
-            })
-          );
-
-          if (allOrderSamplesComplete.every(complete => complete)) {
-            // All samples in order are complete, update order status
-            await db
-              .update(limsOrders)
-              .set({
-                status: 'COMPLETED',
-                updatedat: new Date(),
+            const allOrderSamplesComplete = await Promise.all(
+              allOrderSamples.map(async (orderSample) => {
+                const sampleState = await db
+                  .select()
+                  .from(validationStates)
+                  .where(eq(validationStates.sampleid, orderSample.sampleid))
+                  .limit(1);
+                return sampleState.length > 0 && sampleState[0].currentstate === 'ANALYZED';
               })
-              .where(sql`${limsOrders.orderid}::text = ${sample.orderid}`);
-            console.log(`✅ Order ${sample.orderid} marked as COMPLETED - all samples analyzed`);
+            );
+
+            if (allOrderSamplesComplete.every(complete => complete)) {
+              // All samples in order are complete, update order status
+              await db
+                .update(limsOrders)
+                .set({
+                  status: 'COMPLETED',
+                  updatedat: new Date(),
+                })
+                .where(sql`${limsOrders.orderid}::text = ${sample.orderid}`);
+              console.log(`✅ LIMS Order ${sample.orderid} marked as COMPLETED - all samples analyzed`);
+            }
+          } else if (sample.openehrrequestid) {
+            // Handle OpenEHR orders
+            console.log(`📋 Sample ${validatedData.sampleid} is from OpenEHR request ${sample.openehrrequestid}`);
+            
+            // Import OpenEHR status utility
+            const { getOpenEHROrderStatus, updateOpenEHROrderStatusInComposition } = await import("@/lib/openehr-order-status");
+            
+            // Get computed status for this OpenEHR order
+            const orderStatus = await getOpenEHROrderStatus(sample.openehrrequestid);
+            console.log(`📊 OpenEHR order ${sample.openehrrequestid} status: ${orderStatus}`);
+
+            if (orderStatus === 'COMPLETED') {
+              console.log(`✅ All samples for OpenEHR request ${sample.openehrrequestid} are ANALYZED - order COMPLETED`);
+              // Update OpenEHR composition status
+              await updateOpenEHROrderStatusInComposition(sample.openehrrequestid, 'COMPLETED');
+            } else if (orderStatus === 'IN_PROGRESS') {
+              console.log(`⏳ OpenEHR request ${sample.openehrrequestid} is IN_PROGRESS`);
+            }
+          } else {
+            console.log(`⚠️ Sample ${validatedData.sampleid} has no orderid or openehrrequestid - cannot update order status`);
           }
 
           // Check if sample is part of a worklist and update worklist status if all samples complete

@@ -53,6 +53,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
   const [assignToName, setAssignToName] = useState('');
   const [alertDialog, setAlertDialog] = useState<{ show: boolean; title: string; message: string }>({ show: false, title: '', message: '' });
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: WorklistItem | null }>({ show: false, item: null });
+  const [deleteWorklistConfirm, setDeleteWorklistConfirm] = useState<{ show: boolean; worklist: Worklist | null }>({ show: false, worklist: null });
   const [worklistFormData, setWorklistFormData] = useState({
     worklistname: '',
     laboratory: '',
@@ -95,6 +96,29 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
     },
     onError: (error: Error) => {
       setAlertDialog({ show: true, title: 'Error', message: `Failed to delete item: ${error.message}` });
+    },
+  });
+
+  // Delete worklist mutation
+  const deleteWorklistMutation = useMutation({
+    mutationFn: async (worklistid: string) => {
+      const response = await fetch(`/api/lims/worklists?worklistid=${worklistid}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete worklist');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worklists', workspaceid] });
+      setShowWorklistDetail(false);
+      setSelectedWorklist(null);
+      setAlertDialog({ show: true, title: 'Success', message: 'Worklist deleted successfully' });
+    },
+    onError: (error: Error) => {
+      setAlertDialog({ show: true, title: 'Error', message: `Failed to delete worklist: ${error.message}` });
     },
   });
 
@@ -645,17 +669,28 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex justify-between">
             <Button
-              onClick={handlePrintWorklist}
-              className="bg-[#4E95D9] hover:bg-[#3d7ab8] text-white"
+              variant="destructive"
+              onClick={() => {
+                setDeleteWorklistConfirm({ show: true, worklist: selectedWorklist });
+              }}
             >
-              <Printer className="h-4 w-4 mr-2" />
-              Print Worklist
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Worklist
             </Button>
-            <Button variant="outline" onClick={() => setShowWorklistDetail(false)}>
-              Close
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handlePrintWorklist}
+                className="bg-[#4E95D9] hover:bg-[#3d7ab8] text-white"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print Worklist
+              </Button>
+              <Button variant="outline" onClick={() => setShowWorklistDetail(false)}>
+                Close
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -922,7 +957,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Sample Confirmation Dialog */}
       <AlertDialog open={deleteConfirm.show} onOpenChange={(open) => setDeleteConfirm({ show: open, item: null })}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -951,6 +986,46 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
               }}
             >
               Delete
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Worklist Confirmation Dialog */}
+      <AlertDialog open={deleteWorklistConfirm.show} onOpenChange={(open) => setDeleteWorklistConfirm({ show: open, worklist: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Worklist</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteWorklistConfirm.worklist?.worklistname}</strong>? 
+              This will remove the worklist and all its items. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteWorklistConfirm({ show: false, worklist: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (deleteWorklistConfirm.worklist) {
+                  deleteWorklistMutation.mutate(deleteWorklistConfirm.worklist.worklistid);
+                  setDeleteWorklistConfirm({ show: false, worklist: null });
+                }
+              }}
+              disabled={deleteWorklistMutation.isPending}
+            >
+              {deleteWorklistMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Worklist'
+              )}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

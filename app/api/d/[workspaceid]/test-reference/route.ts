@@ -9,7 +9,7 @@ import { getUser } from "@/lib/user";
 import { TEST_REFERENCE_DATA, getTestReferenceData, getTestReferenceDataByName } from "@/lib/test-reference-data";
 import { db } from "@/lib/db";
 import { testReferenceRanges } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 // GET /api/d/[workspaceid]/test-reference - Get test reference data
 export async function GET(
@@ -35,14 +35,14 @@ export async function GET(
     if (!useFallback) {
       try {
         if (testcode) {
-          // Get specific test from database with age/sex filters
+          // Get specific test from database with age/sex filters (case-insensitive)
           const dbResults = await db
             .select()
             .from(testReferenceRanges)
             .where(
               and(
                 eq(testReferenceRanges.workspaceid, workspaceid),
-                eq(testReferenceRanges.testcode, testcode.toUpperCase()),
+                sql`UPPER(${testReferenceRanges.testcode}) = UPPER(${testcode})`,
                 eq(testReferenceRanges.agegroup, agegroup),
                 eq(testReferenceRanges.sex, sex),
                 eq(testReferenceRanges.isactive, "Y")
@@ -69,7 +69,8 @@ export async function GET(
             };
             return NextResponse.json({ referenceData, source: "database" });
           }
-          // No match found for specific test code, return empty
+          // No match found in database, return null to allow frontend fallback logic
+          console.log(`No database match for ${testcode} with ${agegroup}/${sex}`);
           return NextResponse.json({ referenceData: null, source: "database" });
         }
 

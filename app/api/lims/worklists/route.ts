@@ -210,3 +210,41 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+// DELETE - Delete worklist
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const worklistid = searchParams.get("worklistid");
+
+    if (!worklistid) {
+      return NextResponse.json({ error: "Worklist ID required" }, { status: 400 });
+    }
+
+    // Delete worklist items first (foreign key constraint)
+    await db
+      .delete(worklistItems)
+      .where(eq(worklistItems.worklistid, worklistid));
+
+    // Delete the worklist
+    await db
+      .delete(worklists)
+      .where(eq(worklists.worklistid, worklistid));
+
+    return NextResponse.json({
+      success: true,
+      message: "Worklist deleted successfully",
+    });
+  } catch (error) {
+    console.error("Worklist deletion error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete worklist", details: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
+}

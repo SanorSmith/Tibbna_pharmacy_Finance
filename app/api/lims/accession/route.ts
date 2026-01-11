@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       subjectIdentifier,
       workspaceId,
       currentLocation,
+      tests,
     } = body;
 
     // Validate input data
@@ -91,6 +92,10 @@ export async function POST(request: NextRequest) {
       workspaceId
     );
 
+    // Determine if orderId is a UUID (local LIMS order) or text (OpenEHR order)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuidOrder = orderId && uuidRegex.test(orderId);
+    
     // Create sample record in transaction
     const result = await db.transaction(async (tx) => {
       // Insert sample
@@ -104,10 +109,12 @@ export async function POST(request: NextRequest) {
         collectiondate: new Date(collectionDate),
         collectorid: collectorId || null,
         collectorname: collectorName || null,
-        orderid: orderId,
+        orderid: isUuidOrder ? orderId : null, // Only set if UUID (local LIMS order)
+        openehrrequestid: !isUuidOrder ? orderId : null, // Set if text-based (OpenEHR order)
         patientid: patientId || null,
         ehrid: ehrId || null,
         subjectidentifier: subjectIdentifier || null,
+        tests: tests ? JSON.stringify(tests) : null, // Store ordered tests as JSON
         barcode,
         qrcode,
         currentstatus: SAMPLE_STATUS.RECEIVED,
@@ -145,14 +152,17 @@ export async function POST(request: NextRequest) {
         }),
       });
 
-      // Update order status to IN_PROGRESS when sample is collected
-      await tx
-        .update(limsOrders)
-        .set({ 
-          status: ORDER_STATUS.IN_PROGRESS,
-          updatedat: new Date(),
-        })
-        .where(eq(limsOrders.orderid, orderId));
+      // Update order status to IN_PROGRESS when sample is collected (only for local LIMS orders)
+      if (isUuidOrder) {
+        await tx
+          .update(limsOrders)
+          .set({ 
+            status: ORDER_STATUS.IN_PROGRESS,
+            updatedat: new Date(),
+          })
+          .where(eq(limsOrders.orderid, orderId));
+      }
+      // Note: OpenEHR order status updates would be handled via openEHR API
 
       return sample;
     });
