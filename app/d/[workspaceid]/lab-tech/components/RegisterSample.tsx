@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search } from "lucide-react";
 import BarcodePrint from "./BarcodePrint";
 
 // Storage Location interface
@@ -149,6 +149,12 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     qrcode: string;
   } | null>(null);
 
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateRangeStart, setDateRangeStart] = useState("");
+  const [dateRangeEnd, setDateRangeEnd] = useState("");
+
   // Form state
   const [formData, setFormData] = useState({
     sampleType: "",
@@ -177,6 +183,44 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
       return data.samples;
     },
   });
+
+  // Filter samples based on search, status, and date
+  const filteredSamples = samples?.filter((sample: AccessionedSample) => {
+    // Search filter - matches sample number, patient name, patient ID, sample type, container
+    const matchesSearch = 
+      sample.samplenumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (sample.patientName && sample.patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (sample.patientid && sample.patientid.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      sample.sampletype.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (sample.containertype && sample.containertype.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Status filter
+    const matchesStatus = statusFilter === "all" || sample.currentstatus === statusFilter;
+
+    // Date range filter - matches collection date within range
+    let matchesDate = true;
+    if (dateRangeStart || dateRangeEnd) {
+      const sampleDate = new Date(sample.collectiondate);
+      
+      if (dateRangeStart) {
+        const startDate = new Date(dateRangeStart);
+        startDate.setHours(0, 0, 0, 0); // Start of day
+        if (sampleDate < startDate) {
+          matchesDate = false;
+        }
+      }
+      
+      if (dateRangeEnd && matchesDate) {
+        const endDate = new Date(dateRangeEnd);
+        endDate.setHours(23, 59, 59, 999); // End of day
+        if (sampleDate > endDate) {
+          matchesDate = false;
+        }
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesDate;
+  }) || [];
 
   // Fetch existing worklists
   const { data: worklists } = useQuery({
@@ -371,62 +415,93 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Register Sample</h2>
+          <h2 className="text-2xl font-bold">Collected Samples</h2>
           <p className="text-sm text-muted-foreground">
             Register and track physical samples received in the laboratory
           </p>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Samples</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{samples?.length || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Received Today</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {samples?.filter(s => {
-                const today = new Date().toDateString();
-                return new Date(s.accessionedat).toDateString() === today;
-              }).length || 0}
+      
+      {/* Filters and Search */}
+      <Card className="border-gray-200">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search Input */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by Sample Number, Patient Name, Patient ID, Sample Type..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">In Storage</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {samples?.filter(s => s.currentstatus === "IN_STORAGE").length || 0}
+
+            {/* Status Filter */}
+            <div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="ACCESSIONED">Accessioned</SelectItem>
+                  <SelectItem value="IN_STORAGE">In Storage</SelectItem>
+                  <SelectItem value="IN_PROCESS">In Process</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">In Process</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {samples?.filter(s => s.currentstatus === "IN_PROCESS").length || 0}
+
+            {/* Date Range Start */}
+            <div>
+              <Input
+                type="date"
+                placeholder="Start date"
+                value={dateRangeStart}
+                onChange={(e) => setDateRangeStart(e.target.value)}
+                className="w-full"
+              />
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            {/* Date Range End */}
+            <div>
+              <Input
+                type="date"
+                placeholder="End date"
+                value={dateRangeEnd}
+                onChange={(e) => setDateRangeEnd(e.target.value)}
+                className="w-full"
+                min={dateRangeStart}
+              />
+            </div>
+
+            <div className="flex items-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setDateRangeStart("");
+                  setDateRangeEnd("");
+                }}
+                className="w-full"
+                size="sm"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Samples List */}
       <Card>
         <CardHeader>
-          <CardTitle>Accessioned Samples</CardTitle>
+          <CardTitle>Accessioned Samples ({filteredSamples.length})</CardTitle>
           <CardDescription>Recently registered samples in the laboratory</CardDescription>
         </CardHeader>
         <CardContent>
@@ -434,7 +509,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
-          ) : samples && samples.length > 0 ? (
+          ) : filteredSamples.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -451,7 +526,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {samples.map((sample) => (
+                  {filteredSamples.map((sample) => (
                     <TableRow 
                       key={sample.sampleid}
                       className="cursor-pointer hover:bg-gray-50"
@@ -477,6 +552,12 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          ) : samples && samples.length > 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No samples found matching your filters</p>
+              <p className="text-sm">Try adjusting your search or filter criteria</p>
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

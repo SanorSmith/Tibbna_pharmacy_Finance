@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Loader2, ClipboardList, User, MapPin, Package, Plus, CheckCircle2, Trash2, Printer } from "lucide-react";
+import { Loader2, ClipboardList, User, MapPin, Package, Plus, CheckCircle2, Trash2, Printer, Search } from "lucide-react";
 
 interface WorklistItem {
   worklistitemid: string;
@@ -67,6 +67,12 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
     priority: 'routine',
   });
 
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateRangeStart, setDateRangeStart] = useState("");
+  const [dateRangeEnd, setDateRangeEnd] = useState("");
+
   // Fetch worklists
   const { data: worklists, isLoading: worklistsLoading } = useQuery<Worklist[]>({
     queryKey: ['worklists', workspaceid],
@@ -77,6 +83,44 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
       return data.worklists;
     },
   });
+
+  // Filter worklists based on search, status, and date
+  const filteredWorklists = worklists?.filter((worklist: Worklist) => {
+    // Search filter - matches worklist name, department, created by, assigned to, description
+    const matchesSearch = 
+      worklist.worklistname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (worklist.department && worklist.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (worklist.createdbyname && worklist.createdbyname.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (worklist.assignedtoname && worklist.assignedtoname.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (worklist.description && worklist.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Status filter
+    const matchesStatus = statusFilter === "all" || worklist.status === statusFilter;
+
+    // Date range filter - matches creation date within range
+    let matchesDate = true;
+    if (dateRangeStart || dateRangeEnd) {
+      const worklistDate = new Date(worklist.createdat);
+      
+      if (dateRangeStart) {
+        const startDate = new Date(dateRangeStart);
+        startDate.setHours(0, 0, 0, 0); // Start of day
+        if (worklistDate < startDate) {
+          matchesDate = false;
+        }
+      }
+      
+      if (dateRangeEnd && matchesDate) {
+        const endDate = new Date(dateRangeEnd);
+        endDate.setHours(23, 59, 59, 999); // End of day
+        if (worklistDate > endDate) {
+          matchesDate = false;
+        }
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesDate;
+  }) || [];
 
   // Delete worklist item mutation
   const deleteWorklistItemMutation = useMutation({
@@ -418,52 +462,86 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
         </Button>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Worklists</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{worklists?.length || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {worklists?.filter(w => w.status === 'pending').length || 0}
+      
+      {/* Filters and Search */}
+      <Card className="border-gray-200">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search Input */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by Worklist Name, Department, Created By, Assigned To..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {worklists?.filter(w => w.status === 'in_progress').length || 0}
+
+            {/* Status Filter */}
+            <div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {worklists?.filter(w => w.status === 'completed').length || 0}
+
+            {/* Date Range Start */}
+            <div>
+              <Input
+                type="date"
+                placeholder="Start date"
+                value={dateRangeStart}
+                onChange={(e) => setDateRangeStart(e.target.value)}
+                className="w-full"
+              />
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            {/* Date Range End */}
+            <div>
+              <Input
+                type="date"
+                placeholder="End date"
+                value={dateRangeEnd}
+                onChange={(e) => setDateRangeEnd(e.target.value)}
+                className="w-full"
+                min={dateRangeStart}
+              />
+            </div>
+
+            <div className="flex items-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setDateRangeStart("");
+                  setDateRangeEnd("");
+                }}
+                className="w-full"
+                size="sm"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Worklists Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Active Worklists</CardTitle>
+          <CardTitle>Active Worklists ({filteredWorklists.length})</CardTitle>
           <CardDescription>Click on a worklist to view details and samples</CardDescription>
         </CardHeader>
         <CardContent>
@@ -471,7 +549,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
-          ) : worklists && worklists.length > 0 ? (
+          ) : filteredWorklists.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -488,7 +566,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {worklists.map((worklist) => (
+                  {filteredWorklists.map((worklist) => (
                     <TableRow key={worklist.worklistid} className="hover:bg-gray-50">
                       <TableCell className="font-medium">{worklist.worklistname}</TableCell>
                       <TableCell>
@@ -527,6 +605,12 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          ) : worklists && worklists.length > 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No worklists found matching your filters</p>
+              <p className="text-sm">Try adjusting your search or filter criteria</p>
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
