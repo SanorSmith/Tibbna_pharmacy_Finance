@@ -187,6 +187,24 @@ export async function markAllNotificationsAsRead(userid: string, workspaceid: st
 }
 
 /**
+ * Delete a specific notification for a user
+ */
+export async function deleteNotification(notificationid: string, userid: string) {
+  try {
+    await db
+      .delete(notifications)
+      .where(and(
+        eq(notifications.notificationid, notificationid as any),
+        eq(notifications.userid, userid as any)
+      ));
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete notification:", error);
+    return { success: false, error };
+  }
+}
+
+/**
  * Get unread notification count for a user
  */
 export async function getUnreadNotificationCount(userid: string, workspaceid: string) {

@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
-import { getUserNotifications, markAllNotificationsAsRead } from "@/lib/notifications";
+import { getUserNotifications, markAllNotificationsAsRead, deleteNotification } from "@/lib/notifications";
 
 export async function GET(request: NextRequest) {
   try {
@@ -88,5 +88,32 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error("Error updating notifications:", error);
     return NextResponse.json({ error: "Failed to update notifications" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const notificationid = searchParams.get("notificationid");
+
+    if (!notificationid) {
+      return NextResponse.json({ error: "Notification ID required" }, { status: 400 });
+    }
+
+    const result = await deleteNotification(notificationid, user.userid);
+    
+    if (!result.success) {
+      return NextResponse.json({ error: "Failed to delete notification" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: "Notification deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    return NextResponse.json({ error: "Failed to delete notification" }, { status: 500 });
   }
 }

@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCircle, AlertCircle, Info, Clock, Check, X } from "lucide-react";
+import { Bell, CheckCircle, AlertCircle, Info, Clock, Check, X, Trash2 } from "lucide-react";
 
 interface Notification {
   notificationid: string;
@@ -47,6 +47,20 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
         body: JSON.stringify({ workspaceid, markAll: true }),
       });
       if (!response.ok) throw new Error("Failed to mark notifications as read");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications", workspaceid] });
+    },
+  });
+
+  // Delete notification mutation
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (notificationid: string) => {
+      const response = await fetch(`/api/lims/notifications?notificationid=${notificationid}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete notification");
       return response.json();
     },
     onSuccess: () => {
@@ -209,6 +223,17 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
                         )}
                       </div>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteNotificationMutation.mutate(notification.notificationid)}
+                      disabled={deleteNotificationMutation.isPending}
+                      className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
