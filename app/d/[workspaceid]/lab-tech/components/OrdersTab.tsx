@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getDialogClasses } from "@/lib/ui-constants";
 import {
   Search,
   Download,
@@ -697,7 +698,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 New Order
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className={getDialogClasses("MEDIUM")}>
               <DialogHeader>
                 <DialogTitle>Select Patient</DialogTitle>
                 <DialogDescription>
@@ -940,18 +941,18 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="font-semibold">Order ID</TableHead>
-                    <TableHead className="font-semibold">Patient</TableHead>
-                    <TableHead className="font-semibold">
+                    <TableHead className="font-semibold w-32">Order ID</TableHead>
+                    <TableHead className="font-semibold w-40">Patient</TableHead>
+                    <TableHead className="font-semibold w-48">
                       Test/Service
                     </TableHead>
-                    <TableHead className="font-semibold">Priority</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">Provider</TableHead>
-                    <TableHead className="font-semibold">Order Date</TableHead>
+                    <TableHead className="font-semibold w-24">Priority</TableHead>
+                    <TableHead className="font-semibold w-28">Status</TableHead>
+                    <TableHead className="font-semibold w-36">Provider</TableHead>
+                    <TableHead className="font-semibold w-32">Order Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1068,7 +1069,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Success Modal */}
       <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className={getDialogClasses("SMALL")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
@@ -1156,16 +1157,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Order Detail Modal */}
       <Dialog open={showOrderDetail} onOpenChange={setShowOrderDetail}>
-        <DialogContent
-          className="
-    w-[95vw]
-    sm:w-[90vw]
-    lg:w-[90vw]
-    max-w-[90vw]
-    max-h-[90vh]
-    overflow-y-auto
-  "
-        >
+        <DialogContent className={getDialogClasses("STANDARD")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="h-6 w-6 text-blue-600" />
@@ -1695,7 +1687,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
         open={showSampleCollection}
         onOpenChange={setShowSampleCollection}
       >
-        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className={getDialogClasses("MEDIUM")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="h-6 w-6 text-green-600" />

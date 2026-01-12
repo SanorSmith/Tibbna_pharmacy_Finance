@@ -390,20 +390,20 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
         {/* Worklist Table */}
         {!isLoading && !error && samples.length > 0 && (
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="bg-gray-50 hover:bg-gray-50">
-                  <TableHead className="font-semibold">Sample Number</TableHead>
-                  <TableHead className="font-semibold">Patient Name</TableHead>
-                  <TableHead className="font-semibold">Age</TableHead>
-                  <TableHead className="font-semibold">Sex</TableHead>
-                  <TableHead className="font-semibold">Collection Date</TableHead>
-                  <TableHead className="font-semibold">Test Group</TableHead>
-                  <TableHead className="font-semibold">Priority</TableHead>
-                  <TableHead className="font-semibold">Results</TableHead>
-                  <TableHead className="font-semibold">Analyzer</TableHead>
-                  <TableHead className="font-semibold">Flags</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold w-32">Sample Number</TableHead>
+                  <TableHead className="font-semibold w-40">Patient Name</TableHead>
+                  <TableHead className="font-semibold w-16">Age</TableHead>
+                  <TableHead className="font-semibold w-16">Sex</TableHead>
+                  <TableHead className="font-semibold w-32">Collection Date</TableHead>
+                  <TableHead className="font-semibold w-32">Test Group</TableHead>
+                  <TableHead className="font-semibold w-24">Priority</TableHead>
+                  <TableHead className="font-semibold w-28">Results</TableHead>
+                  <TableHead className="font-semibold w-28">Analyzer</TableHead>
+                  <TableHead className="font-semibold w-24">Flags</TableHead>
+                  <TableHead className="font-semibold w-28">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
