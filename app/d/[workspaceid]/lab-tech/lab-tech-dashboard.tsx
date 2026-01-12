@@ -45,10 +45,10 @@ export default function LabTechDashboard({
   const { data: unreadCountData } = useQuery({
     queryKey: ["unread-notification-count", workspaceid],
     queryFn: async () => {
-      const response = await fetch(`/api/lims/notifications?workspaceid=${workspaceid}&limit=1&unreadOnly=true`);
+      const response = await fetch(`/api/lims/notifications?workspaceid=${workspaceid}&unreadOnly=true&countOnly=true`);
       if (!response.ok) return { count: 0 };
       const data = await response.json();
-      return { count: data.total || 0 };
+      return { count: data.count || 0 };
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });

@@ -23,11 +23,23 @@ export async function GET(request: NextRequest) {
     const workspaceid = searchParams.get("workspaceid");
     const limit = parseInt(searchParams.get("limit") || "50");
     const unreadOnly = searchParams.get("unreadOnly") === "true";
+    const countOnly = searchParams.get("countOnly") === "true";
 
-    console.log("🔍 Notification request params:", { userid: user.userid, workspaceid, limit, unreadOnly });
+    console.log("🔍 Notification request params:", { userid: user.userid, workspaceid, limit, unreadOnly, countOnly });
 
     if (!workspaceid) {
       return NextResponse.json({ error: "Workspace ID required" }, { status: 400 });
+    }
+
+    // If countOnly is true, just return the count
+    if (countOnly) {
+      const result = await getUserNotifications(user.userid, workspaceid, 1000, unreadOnly);
+      if (!result.success) {
+        return NextResponse.json({ error: "Failed to fetch notification count" }, { status: 500 });
+      }
+      return NextResponse.json({
+        count: result.notifications.length,
+      });
     }
 
     const result = await getUserNotifications(user.userid, workspaceid, limit, unreadOnly);
