@@ -169,8 +169,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Create notification for sample registration
+    console.log("🔔 Creating notification for sample registration...");
     try {
-      await createWorkspaceNotification({
+      const notificationResult = await createWorkspaceNotification({
         workspaceid: workspaceId,
         type: "SAMPLE_REGISTERED",
         title: "New Sample Registered",
@@ -180,12 +181,13 @@ export async function POST(request: NextRequest) {
         metadata: {
           sampleNumber: result.samplenumber,
           sampleType: result.sampletype,
-          collectionDate: result.collectiondate,
+          CollectionDate: result.collectiondate,
         },
         priority: "medium",
       });
+      console.log("✅ Notification created successfully:", notificationResult);
     } catch (notificationError) {
-      console.error("Failed to create sample registration notification:", notificationError);
+      console.error("❌ Failed to create sample registration notification:", notificationError);
       // Don't fail the request if notification fails
     }
 

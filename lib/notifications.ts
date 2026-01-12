@@ -34,14 +34,24 @@ export async function createWorkspaceNotification({
   priority = "medium"
 }: CreateNotificationParams) {
   try {
+    console.log("📝 Creating workspace notification:", { workspaceid, type, title });
+    
     // Get all users in the workspace
     const workspaceUsers = await db
       .select({ userid: users.userid })
       .from(users)
       .where(eq(users.workspaceid, workspaceid));
 
+    console.log(`👥 Found ${workspaceUsers.length} users in workspace`);
+
+    if (workspaceUsers.length === 0) {
+      console.warn("⚠️ No users found in workspace, no notifications created");
+      return { success: true, count: 0 };
+    }
+
     // Create notification for each user
     const notificationPromises = workspaceUsers.map(async (user) => {
+      console.log(`🔔 Creating notification for user: ${user.userid}`);
       return await db.insert(notifications).values({
         workspaceid,
         userid: user.userid,
@@ -57,9 +67,10 @@ export async function createWorkspaceNotification({
     });
 
     await Promise.all(notificationPromises);
+    console.log(`✅ Successfully created ${workspaceUsers.length} notifications`);
     return { success: true, count: workspaceUsers.length };
   } catch (error) {
-    console.error("Failed to create workspace notification:", error);
+    console.error("❌ Failed to create workspace notification:", error);
     return { success: false, error };
   }
 }
@@ -108,6 +119,8 @@ export async function getUserNotifications(
   unreadOnly: boolean = false
 ) {
   try {
+    console.log("🔎 Getting user notifications:", { userid, workspaceid, limit, unreadOnly });
+    
     const conditions = [
       eq(notifications.userid, userid),
       eq(notifications.workspaceid, workspaceid),
@@ -117,6 +130,8 @@ export async function getUserNotifications(
       conditions.push(eq(notifications.read, false));
     }
 
+    console.log("📊 Query conditions:", conditions);
+
     const userNotifications = await db
       .select()
       .from(notifications)
@@ -124,9 +139,10 @@ export async function getUserNotifications(
       .orderBy(desc(notifications.createdat))
       .limit(limit);
 
+    console.log(`📬 Found ${userNotifications.length} notifications for user`);
     return { success: true, notifications: userNotifications };
   } catch (error) {
-    console.error("Failed to get user notifications:", error);
+    console.error("❌ Failed to get user notifications:", error);
     return { success: false, error, notifications: [] };
   }
 }

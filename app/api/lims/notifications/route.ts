@@ -12,8 +12,10 @@ import { getUserNotifications, markAllNotificationsAsRead } from "@/lib/notifica
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("📋 Fetching notifications...");
     const user = await getUser();
     if (!user) {
+      console.log("❌ User not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -21,6 +23,8 @@ export async function GET(request: NextRequest) {
     const workspaceid = searchParams.get("workspaceid");
     const limit = parseInt(searchParams.get("limit") || "50");
     const unreadOnly = searchParams.get("unreadOnly") === "true";
+
+    console.log("🔍 Notification request params:", { userid: user.userid, workspaceid, limit, unreadOnly });
 
     if (!workspaceid) {
       return NextResponse.json({ error: "Workspace ID required" }, { status: 400 });
