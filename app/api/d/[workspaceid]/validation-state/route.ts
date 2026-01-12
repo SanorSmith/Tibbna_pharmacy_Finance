@@ -88,7 +88,6 @@ export async function POST(
           priority: state === 'RELEASED' ? "high" : "medium",
         });
       } catch (notificationError) {
-        console.error("Failed to create validation notification:", notificationError);
         // Don't fail the request if notification fails
       }
     }
@@ -99,7 +98,6 @@ export async function POST(
       message: `Sample ${state.toLowerCase().replace('_', ' ')} successfully`,
     });
   } catch (error) {
-    console.error("Validation state update error:", error);
     return NextResponse.json(
       { error: "Failed to update validation state", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }

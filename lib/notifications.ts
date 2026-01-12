@@ -34,7 +34,6 @@ export async function createWorkspaceNotification({
   priority = "medium"
 }: CreateNotificationParams) {
   try {
-    console.log("📝 Creating workspace notification:", { workspaceid, type, title });
     
     // Get all users in the workspace
     const workspaceUsers = await db
@@ -42,16 +41,13 @@ export async function createWorkspaceNotification({
       .from(workspaceusers)
       .where(eq(workspaceusers.workspaceid, workspaceid as any));
 
-    console.log(`👥 Found ${workspaceUsers.length} users in workspace`);
 
     if (workspaceUsers.length === 0) {
-      console.warn("⚠️ No users found in workspace, no notifications created");
       return { success: true, count: 0 };
     }
 
     // Create notification for each user
     const notificationPromises = workspaceUsers.map(async (user) => {
-      console.log(`🔔 Creating notification for user: ${user.userid}`);
       return await db.insert(notifications).values({
         workspaceid,
         userid: user.userid,
@@ -67,10 +63,8 @@ export async function createWorkspaceNotification({
     });
 
     await Promise.all(notificationPromises);
-    console.log(`✅ Successfully created ${workspaceUsers.length} notifications`);
     return { success: true, count: workspaceUsers.length };
   } catch (error) {
-    console.error("❌ Failed to create workspace notification:", error);
     return { success: false, error };
   }
 }
@@ -104,7 +98,6 @@ export async function createUserNotification({
     });
     return { success: true };
   } catch (error) {
-    console.error("Failed to create user notification:", error);
     return { success: false, error };
   }
 }
@@ -119,7 +112,6 @@ export async function getUserNotifications(
   unreadOnly: boolean = false
 ) {
   try {
-    console.log("🔎 Getting user notifications:", { userid, workspaceid, limit, unreadOnly });
     
     const conditions = [
       eq(notifications.userid, userid as any),
@@ -130,7 +122,6 @@ export async function getUserNotifications(
       conditions.push(eq(notifications.read, false));
     }
 
-    console.log("📊 Query conditions:", conditions);
 
     const userNotifications = await db
       .select()
@@ -139,10 +130,8 @@ export async function getUserNotifications(
       .orderBy(desc(notifications.createdat))
       .limit(limit);
 
-    console.log(`📬 Found ${userNotifications.length} notifications for user`);
     return { success: true, notifications: userNotifications };
   } catch (error) {
-    console.error("❌ Failed to get user notifications:", error);
     return { success: false, error, notifications: [] };
   }
 }
@@ -161,7 +150,6 @@ export async function markNotificationAsRead(notificationid: string, userid: str
       ));
     return { success: true };
   } catch (error) {
-    console.error("Failed to mark notification as read:", error);
     return { success: false, error };
   }
 }
@@ -181,7 +169,6 @@ export async function markAllNotificationsAsRead(userid: string, workspaceid: st
       ));
     return { success: true };
   } catch (error) {
-    console.error("Failed to mark all notifications as read:", error);
     return { success: false, error };
   }
 }
@@ -199,7 +186,6 @@ export async function deleteNotification(notificationid: string, userid: string)
       ));
     return { success: true };
   } catch (error) {
-    console.error("Failed to delete notification:", error);
     return { success: false, error };
   }
 }
@@ -220,7 +206,6 @@ export async function getUnreadNotificationCount(userid: string, workspaceid: st
     
     return { success: true, count: result.length };
   } catch (error) {
-    console.error("Failed to get unread notification count:", error);
     return { success: false, error, count: 0 };
   }
 }

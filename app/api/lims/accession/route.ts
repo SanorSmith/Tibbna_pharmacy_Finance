@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("Accession request body:", body);
     
     const {
       sampleType,
@@ -74,7 +73,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (validationErrors.length > 0) {
-      console.log("Validation errors:", validationErrors);
       return NextResponse.json(
         { error: "Validation failed", errors: validationErrors },
         { status: 400 }
@@ -169,7 +167,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Create notification for sample registration
-    console.log("🔔 Creating notification for sample registration...");
     try {
       const notificationResult = await createWorkspaceNotification({
         workspaceid: workspaceId,
@@ -185,9 +182,7 @@ export async function POST(request: NextRequest) {
         },
         priority: "medium",
       });
-      console.log("✅ Notification created successfully:", notificationResult);
     } catch (notificationError) {
-      console.error("❌ Failed to create sample registration notification:", notificationError);
       // Don't fail the request if notification fails
     }
 
@@ -208,7 +203,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Sample accessioning error:", error);
     return NextResponse.json(
       { error: "Failed to accession sample", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -282,18 +276,6 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    console.log(`Fetched ${samples.length} samples for workspace ${workspaceId}`);
-    if (samples.length > 0) {
-      console.log("Sample data example:", {
-        sampleid: samples[0].sampleid,
-        patientName: samples[0].patientName,
-        patientage: samples[0].patientage,
-        patientsex: samples[0].patientsex,
-        subjectidentifier: samples[0].subjectidentifier,
-        patientid: samples[0].patientid
-      });
-    }
-
     return NextResponse.json({
       samples,
       pagination: {
@@ -303,7 +285,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching samples:", error);
     return NextResponse.json(
       { error: "Failed to fetch samples" },
       { status: 500 }

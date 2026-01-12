@@ -55,7 +55,6 @@ export async function GET(
 
     return NextResponse.json({ result: { ...result[0], history } });
   } catch (error) {
-    console.error("Error fetching test result:", error);
     return NextResponse.json({ error: "Failed to fetch test result" }, { status: 500 });
   }
 }
@@ -88,7 +87,6 @@ export async function PUT(
 
     return NextResponse.json({ result: updatedResult[0] });
   } catch (error) {
-    console.error("Error updating test result:", error);
     return NextResponse.json({ error: "Failed to update test result" }, { status: 500 });
   }
 }
@@ -168,9 +166,7 @@ export async function PATCH(
           },
           priority: status === 'released' ? "high" : "medium",
         });
-        console.log(`✅ Notification created for test result ${status}:`, resultid);
       } catch (notificationError) {
-        console.error("❌ Failed to create test validation notification:", notificationError);
         // Don't fail the request if notification fails
       }
     }
@@ -181,7 +177,6 @@ export async function PATCH(
       message: `Test result ${status} successfully`
     });
   } catch (error) {
-    console.error("Error updating test result status:", error);
     return NextResponse.json({ error: "Failed to update test result status" }, { status: 500 });
   }
 }

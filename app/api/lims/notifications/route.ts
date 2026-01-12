@@ -12,10 +12,8 @@ import { getUserNotifications, markAllNotificationsAsRead, deleteNotification } 
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📋 Fetching notifications...");
     const user = await getUser();
     if (!user) {
-      console.log("❌ User not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -25,7 +23,6 @@ export async function GET(request: NextRequest) {
     const unreadOnly = searchParams.get("unreadOnly") === "true";
     const countOnly = searchParams.get("countOnly") === "true";
 
-    console.log("🔍 Notification request params:", { userid: user.userid, workspaceid, limit, unreadOnly, countOnly });
 
     if (!workspaceid) {
       return NextResponse.json({ error: "Workspace ID required" }, { status: 400 });
@@ -53,7 +50,6 @@ export async function GET(request: NextRequest) {
       total: result.notifications.length,
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
     return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 });
   }
 }
@@ -86,7 +82,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Either notificationid or markAll required" }, { status: 400 });
     }
   } catch (error) {
-    console.error("Error updating notifications:", error);
     return NextResponse.json({ error: "Failed to update notifications" }, { status: 500 });
   }
 }
@@ -113,7 +108,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Notification deleted successfully" });
   } catch (error) {
-    console.error("Error deleting notification:", error);
     return NextResponse.json({ error: "Failed to delete notification" }, { status: 500 });
   }
 }
