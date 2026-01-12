@@ -1,7 +1,7 @@
 /**
  * Client Component: LabTechDashboard
  * - Lab technician dashboard with tabs for different sections
- * - Orders, Work-list, Validation, Sample Management, Test Analysis, etc.
+ * - Orders, Work-list, Validation, Sample Management, etc.
  */
 "use client";
 import { useState } from "react";
@@ -13,7 +13,6 @@ import {
   ListChecks, 
   CheckCircle2, 
   TestTube2, 
-  FlaskConical,
   Bell,
   Users,
   ListTodo,
@@ -26,7 +25,6 @@ import RegisterSample from "./components/RegisterSample";
 import WorklistsTab from "./components/WorklistsTab";
 import ValidationTab from "./components/ValidationTab";
 import SampleManagementTab from "./components/SampleManagementTab";
-import TestAnalysisTab from "./components/TestAnalysisTab";
 import NotificationTab from "./components/NotificationTab";
 import ContactsTab from "./components/ContactsTab";
 import ToDoTab from "./components/ToDoTab";
@@ -123,14 +121,6 @@ export default function LabTechDashboard({
           </TabsTrigger>
 
           <TabsTrigger
-            value="testanalysis"
-            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
-          >
-            <FlaskConical className="h-4 w-4" />
-            Test Analysis
-          </TabsTrigger>
-
-          <TabsTrigger
             value="notification"
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
@@ -186,12 +176,6 @@ export default function LabTechDashboard({
         <TabsContent value="samplestore" className="mt-4">
           {loadedTabs.has("samplestore") && (
             <SampleManagementTab workspaceid={workspaceid} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="testanalysis" className="mt-4">
-          {loadedTabs.has("testanalysis") && (
-            <TestAnalysisTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
