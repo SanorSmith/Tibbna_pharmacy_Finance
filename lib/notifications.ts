@@ -5,8 +5,8 @@
  */
 
 import { db } from "@/lib/db";
-import { notifications, users, workspaces } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { notifications, users, workspaces, workspaceusers } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { NOTIFICATION_TYPES, NotificationTypeType } from "@/lib/db/tables/notifications";
 
 interface CreateNotificationParams {
@@ -38,9 +38,9 @@ export async function createWorkspaceNotification({
     
     // Get all users in the workspace
     const workspaceUsers = await db
-      .select({ userid: users.userid })
-      .from(users)
-      .where(sql`${users.workspaceid} = ${workspaceid}::uuid`);
+      .select({ userid: workspaceusers.userid })
+      .from(workspaceusers)
+      .where(eq(workspaceusers.workspaceid, workspaceid as any));
 
     console.log(`👥 Found ${workspaceUsers.length} users in workspace`);
 
@@ -122,8 +122,8 @@ export async function getUserNotifications(
     console.log("🔎 Getting user notifications:", { userid, workspaceid, limit, unreadOnly });
     
     const conditions = [
-      sql`${notifications.userid} = ${userid}::uuid`,
-      sql`${notifications.workspaceid} = ${workspaceid}::uuid`,
+      eq(notifications.userid, userid as any),
+      eq(notifications.workspaceid, workspaceid as any),
     ];
 
     if (unreadOnly) {
@@ -175,8 +175,8 @@ export async function markAllNotificationsAsRead(userid: string, workspaceid: st
       .update(notifications)
       .set({ read: true, updatedat: new Date() })
       .where(and(
-        sql`${notifications.userid} = ${userid}::uuid`,
-        sql`${notifications.workspaceid} = ${workspaceid}::uuid`,
+        eq(notifications.userid, userid as any),
+        eq(notifications.workspaceid, workspaceid as any),
         eq(notifications.read, false)
       ));
     return { success: true };
