@@ -6,10 +6,10 @@ import { eq } from "drizzle-orm";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { workspaceid: string } }
+  { params }: { params: Promise<{ workspaceid: string }> }
 ) {
   try {
-    const { workspaceid } = params;
+    const { workspaceid } = await params;
     const body = await request.json();
     const { sampleid, state } = body;
 

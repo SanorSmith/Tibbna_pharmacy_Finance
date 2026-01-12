@@ -5,9 +5,9 @@
  */
 
 import { db } from "@/lib/db";
-import { notifications, users, workspaces, workspaceusers } from "@/lib/db/schema";
+import { notifications, workspaceusers } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { NOTIFICATION_TYPES, NotificationTypeType } from "@/lib/db/tables/notifications";
+import { NotificationTypeType } from "@/lib/db/tables/notifications";
 
 interface CreateNotificationParams {
   workspaceid: string;
@@ -16,7 +16,7 @@ interface CreateNotificationParams {
   message: string;
   relatedentityid?: string;
   relatedentitytype?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   priority?: "low" | "medium" | "high";
 }
 
@@ -39,7 +39,7 @@ export async function createWorkspaceNotification({
     const workspaceUsers = await db
       .select({ userid: workspaceusers.userid })
       .from(workspaceusers)
-      .where(eq(workspaceusers.workspaceid, workspaceid as any));
+      .where(eq(workspaceusers.workspaceid, workspaceid));
 
 
     if (workspaceUsers.length === 0) {
@@ -114,8 +114,8 @@ export async function getUserNotifications(
   try {
     
     const conditions = [
-      eq(notifications.userid, userid as any),
-      eq(notifications.workspaceid, workspaceid as any),
+      eq(notifications.userid, userid ),
+      eq(notifications.workspaceid, workspaceid ),
     ];
 
     if (unreadOnly) {
@@ -163,8 +163,8 @@ export async function markAllNotificationsAsRead(userid: string, workspaceid: st
       .update(notifications)
       .set({ read: true, updatedat: new Date() })
       .where(and(
-        eq(notifications.userid, userid as any),
-        eq(notifications.workspaceid, workspaceid as any),
+        eq(notifications.userid, userid ),
+        eq(notifications.workspaceid, workspaceid ),
         eq(notifications.read, false)
       ));
     return { success: true };
@@ -181,8 +181,8 @@ export async function deleteNotification(notificationid: string, userid: string)
     await db
       .delete(notifications)
       .where(and(
-        eq(notifications.notificationid, notificationid as any),
-        eq(notifications.userid, userid as any)
+        eq(notifications.notificationid, notificationid),
+        eq(notifications.userid, userid )
       ));
     return { success: true };
   } catch (error) {
