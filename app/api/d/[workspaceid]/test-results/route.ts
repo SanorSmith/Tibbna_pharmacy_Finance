@@ -10,6 +10,7 @@ import { eq, and, desc, or, ilike, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
+import { createWorkspaceNotification } from "@/lib/notifications";
 import { z } from "zod";
 
 // Validation schema for test result creation
@@ -400,6 +401,29 @@ export async function POST(
       }
     } else {
       console.warn(`Sample ${validatedData.sampleid} does not exist in samples table. Skipping validation state update.`);
+    }
+
+    // Create notification for test result entry
+    try {
+      await createWorkspaceNotification({
+        workspaceid,
+        type: "RESULT_ENTERED",
+        title: "Test Result Entered",
+        message: `Result for ${validatedData.testname} (${validatedData.testcode}) has been entered${newResult[0].iscritical ? " - CRITICAL VALUE" : ""}.`,
+        relatedentityid: newResult[0].resultid,
+        relatedentitytype: "test_result",
+        metadata: {
+          testCode: validatedData.testcode,
+          testName: validatedData.testname,
+          resultValue: validatedData.resultvalue,
+          isCritical: newResult[0].iscritical,
+          sampleId: validatedData.sampleid,
+        },
+        priority: newResult[0].iscritical ? "high" : "medium",
+      });
+    } catch (notificationError) {
+      console.error("Failed to create test result notification:", notificationError);
+      // Don't fail the request if notification fails
     }
 
     return NextResponse.json({ result: newResult[0] }, { status: 201 });

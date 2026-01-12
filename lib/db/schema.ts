@@ -21,4 +21,5 @@ export * from "./tables/materials";
 export * from "./tables/suppliers";
 export * from "./tables/laboratory-types";
 export * from "./tables/shop-orders";
+export * from "./tables/notifications";
 export * from "./schema/test-reference-ranges";

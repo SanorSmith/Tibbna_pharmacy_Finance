@@ -25,6 +25,7 @@ import {
   ORDER_STATUS,
   patients,
 } from "@/lib/db/schema";
+import { createWorkspaceNotification } from "@/lib/notifications";
 import { 
   generateSampleNumber, 
   generateBarcode, 
@@ -166,6 +167,27 @@ export async function POST(request: NextRequest) {
 
       return sample;
     });
+
+    // Create notification for sample registration
+    try {
+      await createWorkspaceNotification({
+        workspaceid: workspaceId,
+        type: "SAMPLE_REGISTERED",
+        title: "New Sample Registered",
+        message: `Sample ${result.samplenumber} (${result.sampletype}) has been registered and is ready for processing.`,
+        relatedentityid: result.sampleid,
+        relatedentitytype: "sample",
+        metadata: {
+          sampleNumber: result.samplenumber,
+          sampleType: result.sampletype,
+          collectionDate: result.collectiondate,
+        },
+        priority: "medium",
+      });
+    } catch (notificationError) {
+      console.error("Failed to create sample registration notification:", notificationError);
+      // Don't fail the request if notification fails
+    }
 
     // TODO: Create openEHR composition
     // This would be done asynchronously or as part of the transaction
