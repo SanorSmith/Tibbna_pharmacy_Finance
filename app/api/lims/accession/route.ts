@@ -246,10 +246,10 @@ export async function GET(request: NextRequest) {
         workspaceid: accessionSamples.workspaceid,
         createdat: accessionSamples.createdat,
         updatedat: accessionSamples.updatedat,
-        // Patient information
-        patientName: sql<string>`CONCAT(${patients.firstname}, ' ', ${patients.lastname})`.as('patientName'),
-        patientage: sql<number>`EXTRACT(YEAR FROM AGE(${patients.dateofbirth}))`.as('patientage'),
-        patientsex: patients.gender,
+        // Patient information - handle null values
+        patientName: sql<string>`COALESCE(CONCAT(${patients.firstname}, ' ', ${patients.lastname}), ${accessionSamples.subjectidentifier})`.as('patientName'),
+        patientage: sql<number>`COALESCE(EXTRACT(YEAR FROM AGE(${patients.dateofbirth})), null)`.as('patientage'),
+        patientsex: sql<string>`COALESCE(${patients.gender}, null)`.as('patientsex'),
       })
       .from(accessionSamples)
       .leftJoin(patients, sql`${accessionSamples.patientid}::uuid = ${patients.patientid}`)
@@ -257,6 +257,18 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(accessionSamples.accessionedat))
       .limit(limit)
       .offset(offset);
+
+    console.log(`Fetched ${samples.length} samples for workspace ${workspaceId}`);
+    if (samples.length > 0) {
+      console.log("Sample data example:", {
+        sampleid: samples[0].sampleid,
+        patientName: samples[0].patientName,
+        patientage: samples[0].patientage,
+        patientsex: samples[0].patientsex,
+        subjectidentifier: samples[0].subjectidentifier,
+        patientid: samples[0].patientid
+      });
+    }
 
     return NextResponse.json({
       samples,

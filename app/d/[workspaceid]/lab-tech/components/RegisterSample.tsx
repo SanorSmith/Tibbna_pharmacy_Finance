@@ -541,9 +541,15 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                       <TableCell className="text-sm">
                         {new Date(sample.collectiondate).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="text-sm font-medium">{sample.patientName || sample.patientid || "-"}</TableCell>
-                      <TableCell className="text-sm">{sample.patientage ? `${sample.patientage} yrs` : '-'}</TableCell>
-                      <TableCell className="text-sm capitalize">{sample.patientsex || '-'}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {sample.patientName || sample.subjectidentifier || sample.patientid || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {sample.patientage ? `${sample.patientage} yrs` : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm capitalize">
+                        {sample.patientsex || '-'}
+                      </TableCell>
                       <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
                       <TableCell className="text-sm">
                         {new Date(sample.accessionedat).toLocaleString()}
