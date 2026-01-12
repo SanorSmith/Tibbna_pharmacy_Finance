@@ -9,6 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
+import { createWorkspaceNotification } from "@/lib/notifications";
 import { z } from "zod";
 
 const testResultUpdateSchema = z.object({
@@ -146,6 +147,33 @@ export async function PATCH(
       comment: `Status changed to ${status}`,
       workspaceid: workspaceid,
     });
+
+    // Create notification for test validation/release
+    if (['released', 'validated'].includes(status.toLowerCase())) {
+      try {
+        await createWorkspaceNotification({
+          workspaceid,
+          type: "TEST_VALIDATED",
+          title: `Test Result ${status.toUpperCase()}`,
+          message: `Test result for ${updatedResult[0].testname} (${updatedResult[0].testcode}) has been ${status.toLowerCase()}.`,
+          relatedentityid: resultid,
+          relatedentitytype: "test_result",
+          metadata: {
+            testCode: updatedResult[0].testcode,
+            testName: updatedResult[0].testname,
+            resultValue: updatedResult[0].resultvalue,
+            sampleId: updatedResult[0].sampleid,
+            validationStatus: status,
+            validatedBy: user.userid,
+          },
+          priority: status === 'released' ? "high" : "medium",
+        });
+        console.log(`✅ Notification created for test result ${status}:`, resultid);
+      } catch (notificationError) {
+        console.error("❌ Failed to create test validation notification:", notificationError);
+        // Don't fail the request if notification fails
+      }
+    }
 
     return NextResponse.json({ 
       success: true,
