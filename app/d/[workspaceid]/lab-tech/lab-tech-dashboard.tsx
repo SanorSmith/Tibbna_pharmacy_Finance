@@ -1,19 +1,20 @@
 /**
  * Client Component: LabTechDashboard
  * - Lab technician dashboard with tabs for different sections
- * - Orders, Work-list, Validation, Sample Management, Test Analysis, etc.
+ * - Orders, Work-list, Validation, Sample Management, etc.
  */
 "use client";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { 
   ClipboardList, 
   ListChecks, 
   CheckCircle2, 
   TestTube2, 
-  FlaskConical,
   Bell,
   Users,
   ListTodo,
@@ -26,7 +27,6 @@ import RegisterSample from "./components/RegisterSample";
 import WorklistsTab from "./components/WorklistsTab";
 import ValidationTab from "./components/ValidationTab";
 import SampleManagementTab from "./components/SampleManagementTab";
-import TestAnalysisTab from "./components/TestAnalysisTab";
 import NotificationTab from "./components/NotificationTab";
 import ContactsTab from "./components/ContactsTab";
 import ToDoTab from "./components/ToDoTab";
@@ -40,6 +40,20 @@ export default function LabTechDashboard({
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(
     new Set(["orders"])
   );
+
+  // Fetch unread notification count
+  const { data: unreadCountData } = useQuery({
+    queryKey: ["unread-notification-count", workspaceid],
+    queryFn: async () => {
+      const response = await fetch(`/api/lims/notifications?workspaceid=${workspaceid}&unreadOnly=true&countOnly=true`);
+      if (!response.ok) return { count: 0 };
+      const data = await response.json();
+      return { count: data.count || 0 };
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const unreadCount = unreadCountData?.count || 0;
 
   const handleTabChange = (tabValue: string) => {
     setLoadedTabs((prev) => new Set(prev).add(tabValue));
@@ -123,19 +137,18 @@ export default function LabTechDashboard({
           </TabsTrigger>
 
           <TabsTrigger
-            value="testanalysis"
-            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
-          >
-            <FlaskConical className="h-4 w-4" />
-            Test Analysis
-          </TabsTrigger>
-
-          <TabsTrigger
             value="notification"
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
-            <Bell className="h-4 w-4" />
-            Notification
+            <div className="flex items-center gap-1">
+              <Bell className="h-4 w-4" />
+              <span>Notification</span>
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="text-xs min-w-[20px] h-5 px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Badge>
+              )}
+            </div>
           </TabsTrigger>
 
           <TabsTrigger
@@ -186,12 +199,6 @@ export default function LabTechDashboard({
         <TabsContent value="samplestore" className="mt-4">
           {loadedTabs.has("samplestore") && (
             <SampleManagementTab workspaceid={workspaceid} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="testanalysis" className="mt-4">
-          {loadedTabs.has("testanalysis") && (
-            <TestAnalysisTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 

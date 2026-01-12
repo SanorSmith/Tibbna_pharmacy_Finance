@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { validationStates } from "@/lib/db/schema";
+import { createWorkspaceNotification } from "@/lib/notifications";
 import { eq } from "drizzle-orm";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { workspaceid: string } }
+  { params }: { params: Promise<{ workspaceid: string }> }
 ) {
   try {
-    const { workspaceid } = params;
+    const { workspaceid } = await params;
     const body = await request.json();
     const { sampleid, state } = body;
 
@@ -69,13 +70,34 @@ export async function POST(
         .returning();
     }
 
+    // Create notification for test validation (only for validation states)
+    if (['TECH_VALIDATED', 'CLINICALLY_VALIDATED', 'RELEASED'].includes(state)) {
+      try {
+        await createWorkspaceNotification({
+          workspaceid,
+          type: "TEST_VALIDATED",
+          title: `Test ${state.replace('_', ' ').toUpperCase()}`,
+          message: `Sample ${sampleid} has been ${state.replace('_', ' ').toLowerCase()}.`,
+          relatedentityid: sampleid,
+          relatedentitytype: "sample",
+          metadata: {
+            sampleId: sampleid,
+            validationState: state,
+            validatedDate: state === 'RELEASED' || state === 'CLINICALLY_VALIDATED' ? new Date() : null,
+          },
+          priority: state === 'RELEASED' ? "high" : "medium",
+        });
+      } catch (notificationError) {
+        // Don't fail the request if notification fails
+      }
+    }
+
     return NextResponse.json({
       success: true,
       validationState: result[0],
       message: `Sample ${state.toLowerCase().replace('_', ' ')} successfully`,
     });
   } catch (error) {
-    console.error("Validation state update error:", error);
     return NextResponse.json(
       { error: "Failed to update validation state", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }

@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search } from "lucide-react";
 import BarcodePrint from "./BarcodePrint";
+import { getDialogClasses } from "@/lib/ui-constants";
 
 // Storage Location interface
 interface StorageLocation {
@@ -541,9 +542,15 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                       <TableCell className="text-sm">
                         {new Date(sample.collectiondate).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="text-sm font-medium">{sample.patientName || sample.patientid || "-"}</TableCell>
-                      <TableCell className="text-sm">{sample.patientage ? `${sample.patientage} yrs` : '-'}</TableCell>
-                      <TableCell className="text-sm capitalize">{sample.patientsex || '-'}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {sample.patientName || sample.subjectidentifier || sample.patientid || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {sample.patientage ? `${sample.patientage} yrs` : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm capitalize">
+                        {sample.patientsex || '-'}
+                      </TableCell>
                       <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
                       <TableCell className="text-sm">
                         {new Date(sample.accessionedat).toLocaleString()}
@@ -571,7 +578,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent>
+        <DialogContent className={getDialogClasses("SMALL")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-600">
               <CheckCircle2 className="h-5 w-5" />
@@ -603,16 +610,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={printBarcode} variant="outline" className="flex-1">
-                  <ScanBarcode className="h-4 w-4 mr-2" />
-                  Print Barcode
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  <QrCode className="h-4 w-4 mr-2" />
-                  Print QR Code
-                </Button>
-              </div>
             </div>
           )}
 
@@ -624,7 +621,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Sample Detail Dialog */}
       <Dialog open={showSampleDetail} onOpenChange={setShowSampleDetail}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={getDialogClasses("STANDARD")}>
           <DialogHeader>
             <DialogTitle>Sample Details</DialogTitle>
             <DialogDescription>
@@ -726,35 +723,21 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                     <Plus className="h-4 w-4 mr-2" />
                     Add to Worklist
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => {
-                      setShowSampleDetail(false);
-                      setShowBarcodePrintDialog(true);
-                    }}
-                  >
-                    <ScanBarcode className="h-4 w-4 mr-2" />
-                    Print Barcode
-                  </Button>
-                  <Button variant="outline" className="w-full">
-                    <QrCode className="h-4 w-4 mr-2" />
-                    Print QR Code
-                  </Button>
+                 
                 </div>
               </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button onClick={() => setShowSampleDetail(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setShowSampleDetail(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Storage Location Dialog */}
       <Dialog open={showStorageDialog} onOpenChange={setShowStorageDialog}>
-        <DialogContent>
+        <DialogContent className={getDialogClasses("MEDIUM")}>
           <DialogHeader>
             <DialogTitle>Move Sample to Storage</DialogTitle>
             <DialogDescription>
@@ -848,7 +831,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Add to Worklist Dialog */}
       <Dialog open={showWorklistDialog} onOpenChange={setShowWorklistDialog}>
-        <DialogContent>
+        <DialogContent className={getDialogClasses("MEDIUM")}>
           <DialogHeader>
             <DialogTitle>Add Sample to Worklist</DialogTitle>
             <DialogDescription>
@@ -919,7 +902,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Create Worklist Dialog */}
       <Dialog open={showCreateWorklistDialog} onOpenChange={setShowCreateWorklistDialog}>
-        <DialogContent>
+        <DialogContent className={getDialogClasses("MEDIUM")}>
           <DialogHeader>
             <DialogTitle>Create New Worklist</DialogTitle>
             <DialogDescription>
@@ -1003,7 +986,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Barcode Print Dialog */}
       <Dialog open={showBarcodePrintDialog} onOpenChange={setShowBarcodePrintDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className={getDialogClasses("SMALL")}>
           <DialogHeader>
             <DialogTitle>Print Barcode Label</DialogTitle>
             <DialogDescription>

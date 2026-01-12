@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { accessionSamples, validationStates, testResults, limsOrders } from "@/lib/db/schema";
+import { accessionSamples, validationStates, testResults, limsOrders, patients, limsOrderTests, labTestCatalog } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
 /**
@@ -43,16 +43,21 @@ export async function GET(request: NextRequest) {
       conditions.push(lte(accessionSamples.collectiondate, new Date(endDate)));
     }
 
-    // Fetch samples with validation states, orders, and test results
+    // Fetch samples with validation states, orders, and patient data
     const samplesData = await db
       .select({
         sample: accessionSamples,
         validationState: validationStates,
         order: limsOrders,
+        // Patient information
+        patientName: sql<string>`COALESCE(CONCAT(${patients.firstname}, ' ', ${patients.lastname}), ${accessionSamples.subjectidentifier})`.as('patientName'),
+        patientage: sql<number>`COALESCE(EXTRACT(YEAR FROM AGE(${patients.dateofbirth})), null)`.as('patientage'),
+        patientsex: sql<string>`COALESCE(${patients.gender}, null)`.as('patientsex'),
       })
       .from(accessionSamples)
       .leftJoin(validationStates, eq(accessionSamples.sampleid, validationStates.sampleid))
       .leftJoin(limsOrders, sql`${accessionSamples.orderid}::uuid = ${limsOrders.orderid}`)
+      .leftJoin(patients, sql`${accessionSamples.patientid}::uuid = ${patients.patientid}`)
       .where(and(...conditions))
       .orderBy(desc(accessionSamples.collectiondate));
 
@@ -74,12 +79,92 @@ export async function GET(request: NextRequest) {
         const hasCritical = results.some((r) => r.iscritical);
         const hasAbnormal = results.some((r) => r.flag !== "normal");
 
+        // Get analyzer from first test result
+        const analyzer = results.length > 0 ? results[0].instrumentid || 'Manual' : 'Manual';
+        
+        // Get test group from first test result's test category
+        let testgroup = 'General Laboratory';
+        if (results.length > 0) {
+          const testCode = results[0].testcode;
+          
+          // Try to get test category from test catalog using test code
+          const firstTest = await db
+            .select({ testcategory: labTestCatalog.testcategory })
+            .from(labTestCatalog)
+            .where(eq(labTestCatalog.testcode, testCode))
+            .limit(1);
+          
+          if (firstTest.length > 0 && firstTest[0].testcategory) {
+            testgroup = firstTest[0].testcategory;
+          } else {
+            // Comprehensive fallback logic for all test patterns
+            const upperTestCode = testCode.toUpperCase();
+            
+            // Hematology tests
+            if (['HCT', 'RBC', 'MCH', 'HGB', 'WBC', 'PLT', 'MCV', 'MCHC', 'RDW', 'MPV', 'PDW', 'PCT'].includes(upperTestCode)) {
+              testgroup = 'Hematology';
+            }
+            // Biochemistry tests
+            else if (['BUN', 'CRE', 'NA', 'K', 'CL', 'CO2', 'GLU', 'CA', 'PHOS', 'MG', 'ALB', 'TP', 'AST', 'ALT', 'ALP', 'GGT', 'BIL', 'CHOL', 'TRIG', 'HDL', 'LDL', 'URIC'].includes(upperTestCode)) {
+              testgroup = 'Biochemistry';
+            }
+            // Endocrinology tests
+            else if (['TSH', 'T3', 'T4', 'FT3', 'FT4', 'INSULIN', 'C-PEPTIDE', 'HBA1C'].includes(upperTestCode)) {
+              testgroup = 'Endocrinology';
+            }
+            // Urinalysis tests
+            else if (upperTestCode.includes('URINE') || ['UA', 'UPRO', 'UCR', 'UMCR', 'UALB', 'UACR'].includes(upperTestCode)) {
+              testgroup = 'Urinalysis';
+            }
+            // Microbiology tests
+            else if (upperTestCode.includes('STOOL') || upperTestCode.includes('CULTURE') || upperTestCode.includes('SMEAR') || upperTestCode.includes('GRAM')) {
+              testgroup = 'Microbiology';
+            }
+            // Serology/Immunology tests
+            else if (upperTestCode.includes('HIV') || upperTestCode.includes('HBV') || upperTestCode.includes('HCV') || upperTestCode.includes('VDRL') || upperTestCode.includes('RPR')) {
+              testgroup = 'Serology';
+            }
+            // Hormone tests
+            else if (upperTestCode.includes('HORMONE') || upperTestCode.includes('LH') || upperTestCode.includes('FSH') || upperTestCode.includes('PROLACTIN') || upperTestCode.includes('ESTRADIOL')) {
+              testgroup = 'Hormone';
+            }
+            // Coagulation tests
+            else if (['PT', 'INR', 'APTT', 'FIBRINOGEN', 'D-DIMER'].includes(upperTestCode)) {
+              testgroup = 'Coagulation';
+            }
+            // Cardiac markers
+            else if (['CK', 'CKMB', 'TROPONIN', 'BNP', 'NT-PROBNP'].includes(upperTestCode)) {
+              testgroup = 'Cardiac Markers';
+            }
+            // Tumor markers
+            else if (upperTestCode.includes('AFP') || upperTestCode.includes('CEA') || upperTestCode.includes('CA19') || upperTestCode.includes('CA125') || upperTestCode.includes('PSA')) {
+              testgroup = 'Tumor Markers';
+            }
+            // Blood gas
+            else if (upperTestCode.includes('BLOOD GAS') || upperTestCode.includes('ABG') || ['PH', 'PO2', 'PCO2', 'HCO3'].includes(upperTestCode)) {
+              testgroup = 'Blood Gas';
+            }
+            // Toxicology
+            else if (upperTestCode.includes('TOXIC') || upperTestCode.includes('DRUG') || upperTestCode.includes('ALCOHOL')) {
+              testgroup = 'Toxicology';
+            }
+            // All other tests
+            else {
+              testgroup = 'General Laboratory';
+            }
+          }
+        }
+        
         return {
           sample: {
             ...item.sample,
-            priority: item.order?.priority || null,
-            testgroup: null, // TODO: Get from order or test catalog
-            analyzer: null, // TODO: Get from order or instrument assignment
+            priority: item.order?.priority || 'ROUTINE',
+            testgroup: testgroup,
+            analyzer: analyzer,
+            // Add patient demographics
+            patientName: item.patientName,
+            patientage: item.patientage,
+            patientsex: item.patientsex,
           },
           validationState: item.validationState,
           results,

@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getDialogClasses } from "@/lib/ui-constants";
 import {
   Search,
   Download,
@@ -60,6 +61,7 @@ import {
   Plus,
   XCircle,
   FlaskConical,
+  RefreshCw,
 } from "lucide-react";
 import EnhancedLabOrderForm from "@/components/shared/EnhancedLabOrderForm";
 import { useSession } from "next-auth/react";
@@ -263,15 +265,43 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   });
 
   // Fetch all orders (both local and openEHR)
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["lims-orders", workspaceid],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/lims/orders?workspaceid=${workspaceid}`
-      );
-      if (!response.ok) throw new Error("Failed to fetch orders");
-      return response.json();
+      try {
+        const response = await fetch(
+          `/api/lims/orders?workspaceid=${workspaceid}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            // Add timeout to prevent hanging
+            signal: AbortSignal.timeout(10000),
+          }
+        );
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Orders API error ${response.status}:`, errorText);
+          throw new Error(`Failed to fetch orders (${response.status})`);
+        }
+        
+        return response.json();
+      } catch (error) {
+        console.error('Orders fetch error:', error);
+        throw error;
+      }
     },
+    retry: (failureCount, error) => {
+      // Retry up to 3 times for network errors, but not for 4xx errors
+      if (failureCount < 3 && error instanceof Error && !error.message.includes('401') && !error.message.includes('403')) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
   // Mutation for creating accession samples
@@ -540,22 +570,55 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
           (o: LimsOrder) => o.source === "openEHR"
         );
 
-        for (const order of openEHROrders) {
+        // Fetch statuses in parallel with error handling
+        const statusPromises = openEHROrders.map(async (order) => {
           const requestId = order.request_id || order.openehrrequestid;
-          if (requestId) {
-            try {
-              const response = await fetch(
-                `/api/d/${workspaceid}/openehr-orders/${requestId}/status`
-              );
-              if (response.ok) {
-                const data = await response.json();
-                statusMap.set(requestId, data.status);
+          if (!requestId) return null;
+
+          try {
+            const response = await fetch(
+              `/api/d/${workspaceid}/openehr-orders/${requestId}/status`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                // Add timeout to prevent hanging requests
+                signal: AbortSignal.timeout(5000),
               }
-            } catch (error) {
-              console.error(`Failed to fetch status for ${requestId}:`, error);
+            );
+            
+            if (response.ok) {
+              const data = await response.json();
+              return { requestId, status: data.status };
+            } else {
+              console.warn(`Status API returned ${response.status} for ${requestId}`);
+              return null;
             }
+          } catch (error) {
+            // Silently handle errors to prevent console spam
+            if (error instanceof Error && error.name === 'AbortError') {
+              console.warn(`Timeout fetching status for ${requestId}`);
+            } else {
+              // Quiet error logging - only in development
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`Status fetch failed for ${requestId}:`, error);
+              }
+            }
+            return null;
           }
-        }
+        });
+
+        // Wait for all status fetches to complete
+        const results = await Promise.allSettled(statusPromises);
+        
+        // Process successful results
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value) {
+            const { requestId, status } = result.value;
+            statusMap.set(requestId, status);
+          }
+        });
 
         setOpenEHROrderStatuses(statusMap);
       };
@@ -635,7 +698,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 New Order
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className={getDialogClasses("MEDIUM")}>
               <DialogHeader>
                 <DialogTitle>Select Patient</DialogTitle>
                 <DialogDescription>
@@ -863,24 +926,33 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-12">
               <AlertCircle className="h-8 w-8 text-destructive mb-2" />
-              <p className="text-sm text-destructive">
+              <p className="text-sm text-destructive mb-3">
                 Error loading orders. Please try again.
               </p>
+              <Button 
+                onClick={() => refetch()} 
+                variant="outline" 
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="font-semibold">Order ID</TableHead>
-                    <TableHead className="font-semibold">Patient</TableHead>
-                    <TableHead className="font-semibold">
+                    <TableHead className="font-semibold w-32">Order ID</TableHead>
+                    <TableHead className="font-semibold w-40">Patient</TableHead>
+                    <TableHead className="font-semibold w-48">
                       Test/Service
                     </TableHead>
-                    <TableHead className="font-semibold">Priority</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">Provider</TableHead>
-                    <TableHead className="font-semibold">Order Date</TableHead>
+                    <TableHead className="font-semibold w-24">Priority</TableHead>
+                    <TableHead className="font-semibold w-28">Status</TableHead>
+                    <TableHead className="font-semibold w-36">Provider</TableHead>
+                    <TableHead className="font-semibold w-32">Order Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -997,7 +1069,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Success Modal */}
       <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className={getDialogClasses("SMALL")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
@@ -1085,16 +1157,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Order Detail Modal */}
       <Dialog open={showOrderDetail} onOpenChange={setShowOrderDetail}>
-        <DialogContent
-          className="
-    w-[95vw]
-    sm:w-[90vw]
-    lg:w-[90vw]
-    max-w-[90vw]
-    max-h-[90vh]
-    overflow-y-auto
-  "
-        >
+        <DialogContent className={getDialogClasses("STANDARD")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="h-6 w-6 text-blue-600" />
@@ -1624,7 +1687,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
         open={showSampleCollection}
         onOpenChange={setShowSampleCollection}
       >
-        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className={getDialogClasses("MEDIUM")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="h-6 w-6 text-green-600" />

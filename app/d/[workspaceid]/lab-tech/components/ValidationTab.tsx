@@ -33,6 +33,10 @@ interface ValidationWorklistItem {
     analyzer: string | null;
     testgroup: string | null;
     priority: string | null;
+    // Patient demographics
+    patientName?: string;
+    patientage?: number;
+    patientsex?: string;
   };
   validationState: {
     currentstate: string;
@@ -179,8 +183,21 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
           {priority.toUpperCase()}
         </Badge>
       );
+    } else if (priority === "asap") {
+      return (
+        <Badge variant="default" className="flex items-center gap-1 bg-orange-500">
+          <Clock className="h-3 w-3" />
+          {priority.toUpperCase()}
+        </Badge>
+      );
+    } else {
+      // Handle ROUTINE and other priorities
+      return (
+        <Badge variant="outline" className="text-xs">
+          {priority.toUpperCase()}
+        </Badge>
+      );
     }
-    return null;
   };
 
   return (
@@ -373,17 +390,20 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
         {/* Worklist Table */}
         {!isLoading && !error && samples.length > 0 && (
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="bg-gray-50 hover:bg-gray-50">
-                  <TableHead className="font-semibold">Sample Number</TableHead>
-                  <TableHead className="font-semibold">Collection Date</TableHead>
-                  <TableHead className="font-semibold">Test Group</TableHead>
-                  <TableHead className="font-semibold">Results</TableHead>
-                  <TableHead className="font-semibold">Analyzer</TableHead>
-                  <TableHead className="font-semibold">Priority</TableHead>
-                  <TableHead className="font-semibold">Flags</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold w-32">Sample Number</TableHead>
+                  <TableHead className="font-semibold w-40">Patient Name</TableHead>
+                  <TableHead className="font-semibold w-16">Age</TableHead>
+                  <TableHead className="font-semibold w-16">Sex</TableHead>
+                  <TableHead className="font-semibold w-32">Collection Date</TableHead>
+                  <TableHead className="font-semibold w-32">Test Group</TableHead>
+                  <TableHead className="font-semibold w-24">Priority</TableHead>
+                  <TableHead className="font-semibold w-28">Results</TableHead>
+                  <TableHead className="font-semibold w-28">Analyzer</TableHead>
+                  <TableHead className="font-semibold w-24">Flags</TableHead>
+                  <TableHead className="font-semibold w-28">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -397,6 +417,15 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
                     <TableCell className="font-medium text-blue-600">
                       {item.sample.samplenumber || item.sample.sampleid.substring(0, 8)}
                     </TableCell>
+                    <TableCell className="text-sm font-medium">
+                      {item.sample.patientName || item.sample.patientid || "-"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.sample.patientage ? `${item.sample.patientage} yrs` : '-'}
+                    </TableCell>
+                    <TableCell className="text-sm capitalize">
+                      {item.sample.patientsex || '-'}
+                    </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {new Date(item.sample.collectiondate).toLocaleDateString()}
                     </TableCell>
@@ -404,6 +433,9 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
                       <Badge variant="outline" className="text-xs">
                         {item.sample.testgroup || 'N/A'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {getPriorityBadge(item.sample.priority || 'ROUTINE')}
                     </TableCell>
                     <TableCell>
                       {item.results && item.results.length > 0 ? (
@@ -426,9 +458,6 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {item.sample.analyzer || "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {item.sample.priority ? getPriorityBadge(item.sample.priority) : <span className="text-gray-400">N/A</span>}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">

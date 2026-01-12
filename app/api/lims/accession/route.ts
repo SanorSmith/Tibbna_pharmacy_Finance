@@ -25,6 +25,7 @@ import {
   ORDER_STATUS,
   patients,
 } from "@/lib/db/schema";
+import { createWorkspaceNotification } from "@/lib/notifications";
 import { 
   generateSampleNumber, 
   generateBarcode, 
@@ -41,7 +42,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("Accession request body:", body);
     
     const {
       sampleType,
@@ -73,7 +73,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (validationErrors.length > 0) {
-      console.log("Validation errors:", validationErrors);
       return NextResponse.json(
         { error: "Validation failed", errors: validationErrors },
         { status: 400 }
@@ -167,6 +166,26 @@ export async function POST(request: NextRequest) {
       return sample;
     });
 
+    // Create notification for sample registration
+    try {
+      const notificationResult = await createWorkspaceNotification({
+        workspaceid: workspaceId,
+        type: "SAMPLE_REGISTERED",
+        title: "New Sample Registered",
+        message: `Sample ${result.samplenumber} (${result.sampletype}) has been registered and is ready for processing.`,
+        relatedentityid: result.sampleid,
+        relatedentitytype: "sample",
+        metadata: {
+          sampleNumber: result.samplenumber,
+          sampleType: result.sampletype,
+          CollectionDate: result.collectiondate,
+        },
+        priority: "medium",
+      });
+    } catch (notificationError) {
+      // Don't fail the request if notification fails
+    }
+
     // TODO: Create openEHR composition
     // This would be done asynchronously or as part of the transaction
     // For now, we'll leave openehrcompositionuid as null
@@ -184,7 +203,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Sample accessioning error:", error);
     return NextResponse.json(
       { error: "Failed to accession sample", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -246,10 +264,10 @@ export async function GET(request: NextRequest) {
         workspaceid: accessionSamples.workspaceid,
         createdat: accessionSamples.createdat,
         updatedat: accessionSamples.updatedat,
-        // Patient information
-        patientName: sql<string>`CONCAT(${patients.firstname}, ' ', ${patients.lastname})`.as('patientName'),
-        patientage: sql<number>`EXTRACT(YEAR FROM AGE(${patients.dateofbirth}))`.as('patientage'),
-        patientsex: patients.gender,
+        // Patient information - handle null values
+        patientName: sql<string>`COALESCE(CONCAT(${patients.firstname}, ' ', ${patients.lastname}), ${accessionSamples.subjectidentifier})`.as('patientName'),
+        patientage: sql<number>`COALESCE(EXTRACT(YEAR FROM AGE(${patients.dateofbirth})), null)`.as('patientage'),
+        patientsex: sql<string>`COALESCE(${patients.gender}, null)`.as('patientsex'),
       })
       .from(accessionSamples)
       .leftJoin(patients, sql`${accessionSamples.patientid}::uuid = ${patients.patientid}`)
@@ -267,7 +285,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching samples:", error);
     return NextResponse.json(
       { error: "Failed to fetch samples" },
       { status: 500 }
