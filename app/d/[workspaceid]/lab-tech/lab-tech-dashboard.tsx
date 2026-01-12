@@ -5,8 +5,10 @@
  */
 "use client";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { 
   ClipboardList, 
@@ -38,6 +40,20 @@ export default function LabTechDashboard({
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(
     new Set(["orders"])
   );
+
+  // Fetch unread notification count
+  const { data: unreadCountData } = useQuery({
+    queryKey: ["unread-notification-count", workspaceid],
+    queryFn: async () => {
+      const response = await fetch(`/api/lims/notifications?workspaceid=${workspaceid}&limit=1&unreadOnly=true`);
+      if (!response.ok) return { count: 0 };
+      const data = await response.json();
+      return { count: data.total || 0 };
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const unreadCount = unreadCountData?.count || 0;
 
   const handleTabChange = (tabValue: string) => {
     setLoadedTabs((prev) => new Set(prev).add(tabValue));
@@ -124,8 +140,15 @@ export default function LabTechDashboard({
             value="notification"
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
-            <Bell className="h-4 w-4" />
-            Notification
+            <div className="flex items-center gap-1">
+              <Bell className="h-4 w-4" />
+              <span>Notification</span>
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="text-xs min-w-[20px] h-5 px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Badge>
+              )}
+            </div>
           </TabsTrigger>
 
           <TabsTrigger
