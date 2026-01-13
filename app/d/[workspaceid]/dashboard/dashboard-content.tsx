@@ -29,6 +29,7 @@ import {
   Settings,
   Shield,
   CreditCard,
+  CheckSquare,
 } from "lucide-react";
 import {
   Table,
@@ -72,6 +73,19 @@ type Patient = {
   phone?: string | null;
 };
 
+type Todo = {
+  todoid: string;
+  workspaceid: string;
+  userid: string;
+  title: string;
+  description?: string | null;
+  completed: boolean;
+  priority: string;
+  duedate?: string | null;
+  createdat: string;
+  updatedat: string;
+};
+
 export default function DashboardContent({
   workspaceid,
 }: {
@@ -80,6 +94,7 @@ export default function DashboardContent({
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [patientsList, setPatientsList] = useState<Patient[]>([]);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -148,6 +163,7 @@ export default function DashboardContent({
           departmentsRes,
           labsRes,
           pharmaciesRes,
+          todosRes,
         ] = await Promise.all([
           fetch(`/api/d/${workspaceid}/patients`),
           fetch(`/api/d/${workspaceid}/staff`),
@@ -155,9 +171,10 @@ export default function DashboardContent({
           fetch(`/api/d/${workspaceid}/departments`),
           fetch(`/api/d/${workspaceid}/labs`),
           fetch(`/api/d/${workspaceid}/pharmacies`),
+          fetch(`/api/d/${workspaceid}/todos`),
         ]);
 
-        const [patients, staff, appointments, departments, labs, pharmacies] =
+        const [patients, staff, appointments, departments, labs, pharmacies, todosData] =
           await Promise.all([
             patientsRes.json(),
             staffRes.json(),
@@ -165,6 +182,7 @@ export default function DashboardContent({
             departmentsRes.json(),
             labsRes.json(),
             pharmaciesRes.json(),
+            todosRes.json(),
           ]);
 
         // Calculate today's appointments
@@ -198,6 +216,10 @@ export default function DashboardContent({
         const pList = patients.patients || [];
         setPatientsList(pList);
         setFilteredPatients(pList);
+        
+        // Set todos
+        const todosList = todosData.todos || [];
+        setTodos(todosList);
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       } finally {
@@ -523,6 +545,27 @@ export default function DashboardContent({
                   Manage Billing
                 </Button>
               </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-base">Todos</CardTitle>
+              <CardDescription>Manage tasks and to-do items</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>{todos.filter(t => !t.completed).length} active</span>
+                  <span>{todos.filter(t => t.completed).length} completed</span>
+                </div>
+                <Link href={`/d/${workspaceid}/todos`}>
+                  <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                    Manage Todos
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </div>
