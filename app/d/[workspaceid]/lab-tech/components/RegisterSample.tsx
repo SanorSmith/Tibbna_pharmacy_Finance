@@ -107,6 +107,7 @@ interface AccessionedSample {
   accessionedat: string;
   patientid: string | null;
   patientName: string | null;
+  subjectidentifier?: string | null;
   orderid: string | null;
   openehrrequestid?: string | null;
   patientage?: number;

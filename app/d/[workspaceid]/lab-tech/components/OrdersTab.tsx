@@ -66,6 +66,15 @@ import {
 import EnhancedLabOrderForm from "@/components/shared/EnhancedLabOrderForm";
 import { useSession } from "next-auth/react";
 
+type PatientCreatePayload = {
+  firstname: string;
+  lastname: string;
+  nationalid?: string;
+  dateofbirth?: string;
+  gender?: string;
+  phone?: string;
+};
+
 interface ValidationError {
   field: string;
   message: string;
@@ -209,12 +218,68 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [showRegisterPatientDialog, setShowRegisterPatientDialog] = useState(false);
+  const [registerPatientForm, setRegisterPatientForm] = useState<PatientCreatePayload>({
+    firstname: "",
+    lastname: "",
+    nationalid: "",
+    dateofbirth: "",
+    gender: "",
+    phone: "",
+  });
   const [alertDialog, setAlertDialog] = useState<{
     show: boolean;
     title: string;
     message: string;
     type?: "success" | "error" | "warning";
   }>({ show: false, title: "", message: "" });
+
+  const createPatientMutation = useMutation({
+    mutationFn: async (payload: PatientCreatePayload) => {
+      const res = await fetch(`/api/d/${workspaceid}/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to register patient");
+      }
+      return data as { patient: Patient };
+    },
+    onSuccess: async (data) => {
+      const patient = data.patient;
+      setSelectedPatient(patient);
+      setCurrentPatientId(patient.patientid);
+      setShowRegisterPatientDialog(false);
+      setRegisterPatientForm({
+        firstname: "",
+        lastname: "",
+        nationalid: "",
+        dateofbirth: "",
+        gender: "",
+        phone: "",
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["patients", workspaceid, debouncedSearchTerm],
+      });
+      setAlertDialog({
+        show: true,
+        title: "Patient Registered",
+        message: "Patient created successfully and selected for this order.",
+        type: "success",
+      });
+    },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : "Failed to register patient";
+      setAlertDialog({
+        show: true,
+        title: "Registration Failed",
+        message: msg,
+        type: "error",
+      });
+    },
+  });
 
   // Update collector name when session loads
   useEffect(() => {
@@ -744,8 +809,25 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 {patientSearchTerm.length > 0 && (
                   <div className="border rounded-md max-h-[300px] overflow-y-auto bg-white shadow-sm">
                     {patients.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        No patients found
+                      <div className="p-4 text-center text-sm text-muted-foreground space-y-3">
+                        <div>No patients found</div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                          onClick={() => {
+                            setRegisterPatientForm((prev) => ({
+                              ...prev,
+                              firstname: prev.firstname || "",
+                              lastname: prev.lastname || "",
+                              nationalid: prev.nationalid || (patientSearchTerm.trim() || ""),
+                            }));
+                            setShowRegisterPatientDialog(true);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Register new patient
+                        </Button>
                       </div>
                     ) : (
                       <div>
@@ -795,6 +877,148 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     </div>
                   </div>
                 )}
+
+                <Dialog
+                  open={showRegisterPatientDialog}
+                  onOpenChange={(open) => {
+                    setShowRegisterPatientDialog(open);
+                    if (!open) {
+                      setRegisterPatientForm({
+                        firstname: "",
+                        lastname: "",
+                        nationalid: "",
+                        dateofbirth: "",
+                        gender: "",
+                        phone: "",
+                      });
+                    }
+                  }}
+                >
+                  <DialogContent className={getDialogClasses("MEDIUM")}>
+                    <DialogHeader>
+                      <DialogTitle>Register Patient</DialogTitle>
+                      <DialogDescription>
+                        Create a new patient in the EHR and database, then continue with the lab order.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-firstname">First name *</Label>
+                          <Input
+                            id="reg-firstname"
+                            value={registerPatientForm.firstname}
+                            onChange={(e) =>
+                              setRegisterPatientForm((prev) => ({ ...prev, firstname: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-lastname">Last name *</Label>
+                          <Input
+                            id="reg-lastname"
+                            value={registerPatientForm.lastname}
+                            onChange={(e) =>
+                              setRegisterPatientForm((prev) => ({ ...prev, lastname: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-nationalid">National ID (optional)</Label>
+                          <Input
+                            id="reg-nationalid"
+                            value={registerPatientForm.nationalid || ""}
+                            onChange={(e) =>
+                              setRegisterPatientForm((prev) => ({ ...prev, nationalid: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-dob">Date of birth (optional)</Label>
+                          <Input
+                            id="reg-dob"
+                            type="date"
+                            value={registerPatientForm.dateofbirth || ""}
+                            onChange={(e) =>
+                              setRegisterPatientForm((prev) => ({ ...prev, dateofbirth: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-gender">Gender (optional)</Label>
+                          <Select
+                            value={registerPatientForm.gender || ""}
+                            onValueChange={(value) =>
+                              setRegisterPatientForm((prev) => ({ ...prev, gender: value }))
+                            }
+                          >
+                            <SelectTrigger id="reg-gender">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-phone">Phone (optional)</Label>
+                          <Input
+                            id="reg-phone"
+                            value={registerPatientForm.phone || ""}
+                            onChange={(e) =>
+                              setRegisterPatientForm((prev) => ({ ...prev, phone: e.target.value }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowRegisterPatientDialog(false)}
+                        disabled={createPatientMutation.isPending}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => {
+                          if (!registerPatientForm.firstname.trim() || !registerPatientForm.lastname.trim()) {
+                            setAlertDialog({
+                              show: true,
+                              title: "Validation Error",
+                              message: "First name and last name are required.",
+                              type: "warning",
+                            });
+                            return;
+                          }
+                          createPatientMutation.mutate({
+                            firstname: registerPatientForm.firstname.trim(),
+                            lastname: registerPatientForm.lastname.trim(),
+                            nationalid: registerPatientForm.nationalid?.trim() || undefined,
+                            dateofbirth: registerPatientForm.dateofbirth || undefined,
+                            gender: registerPatientForm.gender || undefined,
+                            phone: registerPatientForm.phone?.trim() || undefined,
+                          });
+                        }}
+                        disabled={createPatientMutation.isPending}
+                      >
+                        {createPatientMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Registering...
+                          </>
+                        ) : (
+                          "Register"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
               <DialogFooter>
                 <Button
@@ -1445,12 +1669,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           <div>
                             <Label
                               htmlFor="sampleTypeDetail"
-                              className="text-xs"
+                              className="text-xs font-medium"
                             >
                               Sample Type *
                             </Label>
                             <select
                               id="sampleTypeDetail"
+                              aria-label="Sample Type"
+                              title="Sample Type"
                               className="w-full h-8 text-xs px-2 py-1 border rounded-md"
                               value={sampleCollectionData.sampleType}
                               onChange={(e) =>
@@ -1474,12 +1700,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           <div>
                             <Label
                               htmlFor="containerTypeDetail"
-                              className="text-xs"
+                              className="text-xs font-medium"
                             >
                               Container *
                             </Label>
                             <select
                               id="containerTypeDetail"
+                              aria-label="Container"
+                              title="Container"
                               className="w-full h-8 text-xs px-2 py-1 border rounded-md"
                               value={sampleCollectionData.containerType}
                               onChange={(e) =>
@@ -1526,12 +1754,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           <div>
                             <Label
                               htmlFor="volumeUnitDetail"
-                              className="text-xs"
+                              className="text-xs font-medium"
                             >
                               Unit
                             </Label>
                             <select
                               id="volumeUnitDetail"
+                              aria-label="Volume Unit"
+                              title="Volume Unit"
                               className="w-full h-8 text-xs px-2 py-1 border rounded-md"
                               value={sampleCollectionData.volumeUnit}
                               onChange={(e) =>

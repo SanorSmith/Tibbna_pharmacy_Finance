@@ -71,43 +71,29 @@ export async function GET(
     const type = searchParams.get("type");
     const isactive = searchParams.get("isactive");
 
-    let query = db
-      .select()
-      .from(suppliers)
-      .where(eq(suppliers.workspaceid, workspaceid));
+    const whereConditions = [eq(suppliers.workspaceid, workspaceid)];
 
-    // Apply filters
     if (search) {
-      query = query.where(
-        and(
-          eq(suppliers.workspaceid, workspaceid),
-          ilike(suppliers.name, `%${search}%`)
-        )
-      );
+      whereConditions.push(ilike(suppliers.name, `%${search}%`));
     }
 
     if (category) {
-      query = query.where(
-        and(eq(suppliers.workspaceid, workspaceid), eq(suppliers.category, category))
-      );
+      whereConditions.push(eq(suppliers.category, category));
     }
 
     if (type) {
-      query = query.where(
-        and(eq(suppliers.workspaceid, workspaceid), eq(suppliers.type, type))
-      );
+      whereConditions.push(eq(suppliers.type, type));
     }
 
     if (isactive !== null && isactive !== undefined) {
-      query = query.where(
-        and(
-          eq(suppliers.workspaceid, workspaceid),
-          eq(suppliers.isactive, isactive === "true")
-        )
-      );
+      whereConditions.push(eq(suppliers.isactive, isactive === "true"));
     }
 
-    const suppliersList = await query.orderBy(desc(suppliers.ispreferred), desc(suppliers.name));
+    const suppliersList = await db
+      .select()
+      .from(suppliers)
+      .where(and(...whereConditions))
+      .orderBy(desc(suppliers.ispreferred), desc(suppliers.name));
 
     return NextResponse.json({ suppliers: suppliersList });
   } catch (error) {
@@ -154,19 +140,30 @@ export async function POST(
       );
     }
 
-    const newSupplier = await db.insert(suppliers).values({
-      ...validatedData,
-      createdby: user.id,
-      createdat: new Date().toISOString(),
-      workspaceid,
-    }).returning();
+    const newSupplier = await db
+      .insert(suppliers)
+      .values({
+        ...validatedData,
+        rating:
+          validatedData.rating !== undefined && validatedData.rating !== null
+            ? validatedData.rating.toString()
+            : undefined,
+        creditlimit:
+          validatedData.creditlimit !== undefined && validatedData.creditlimit !== null
+            ? validatedData.creditlimit.toString()
+            : undefined,
+        createdby: user.userid,
+        createdat: new Date().toISOString(),
+        workspaceid,
+      })
+      .returning();
 
     return NextResponse.json({ supplier: newSupplier[0] }, { status: 201 });
   } catch (error) {
     console.error("Error creating supplier:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation failed", details: error.errors },
+        { error: "Validation failed", details: error.issues },
         { status: 400 }
       );
     }

@@ -146,19 +146,26 @@ export async function POST(
       }, 0);
     }
 
+    const toDateOrUndefined = (value?: string) => {
+      if (!value) return undefined;
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      return new Date(trimmed);
+    };
+
     // Create the order
     const newOrder = await db.insert(shopOrders).values({
       ordernumber,
       deliveryaddress: validatedData.deliveryaddress,
-      deliverytime: validatedData.deliverytime || undefined,
+      deliverytime: toDateOrUndefined(validatedData.deliverytime || undefined),
       clientname: validatedData.clientname,
       clientemail: validatedData.clientemail,
       clientphone: validatedData.clientphone,
       orderedby: user.userid,
       status: validatedData.status,
       priority: validatedData.priority,
-      orderdate: validatedData.orderdate || undefined,
-      totalcost: totalCost,
+      orderdate: toDateOrUndefined(validatedData.orderdate || undefined),
+      totalcost: totalCost !== undefined && totalCost !== null ? totalCost.toString() : undefined,
       currency: validatedData.currency,
       notes: validatedData.notes,
       internalNotes: validatedData.internalNotes,
@@ -179,8 +186,8 @@ export async function POST(
           materialid: item.materialid,
           equipmentid: item.equipmentid,
           supplierid: item.supplierid,
-          unitprice: item.unitprice?.toString(),
-          totalPrice: item.totalprice?.toString(),
+          unitprice: item.unitprice !== undefined && item.unitprice !== null ? item.unitprice.toString() : undefined,
+          totalPrice: item.totalprice !== undefined && item.totalprice !== null ? item.totalprice.toString() : undefined,
           notes: item.notes,
           specifications: item.specifications,
           sortorder: item.sortorder || index,
