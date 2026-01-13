@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { equipment } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
@@ -96,6 +96,13 @@ export async function PUT(
     const body = await request.json();
     const validatedData = equipmentUpdateSchema.parse(body);
 
+    const toDateOrUndefined = (value?: string) => {
+      if (!value) return undefined;
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      return new Date(trimmed);
+    };
+
     // Check if equipment exists
     const existingEquipment = await db
       .select()
@@ -121,7 +128,7 @@ export async function PUT(
           and(
             eq(equipment.workspaceid, workspaceid),
             eq(equipment.equipmentidcode, validatedData.equipmentidcode),
-            eq(equipment.equipmentid, equipmentid) // Exclude current record
+            ne(equipment.equipmentid, equipmentid) // Exclude current record
           )
         )
         .limit(1);
@@ -142,7 +149,7 @@ export async function PUT(
           and(
             eq(equipment.workspaceid, workspaceid),
             eq(equipment.serialnumber, validatedData.serialnumber),
-            eq(equipment.equipmentid, equipmentid) // Exclude current record
+            ne(equipment.equipmentid, equipmentid) // Exclude current record
           )
         )
         .limit(1);
@@ -159,7 +166,28 @@ export async function PUT(
       .update(equipment)
       .set({
         ...validatedData,
-        updatedby: user.id,
+        vendoremail:
+          validatedData.vendoremail && validatedData.vendoremail.trim()
+            ? validatedData.vendoremail
+            : undefined,
+        manualurl:
+          validatedData.manualurl && validatedData.manualurl.trim()
+            ? validatedData.manualurl
+            : undefined,
+        lastservicedate: toDateOrUndefined(validatedData.lastservicedate || undefined),
+        nextservicedate: toDateOrUndefined(validatedData.nextservicedate || undefined),
+        warrantyexpiry: toDateOrUndefined(validatedData.warrantyexpiry || undefined),
+        calibrationdate: toDateOrUndefined(validatedData.calibrationdate || undefined),
+        nextcalibrationdate: toDateOrUndefined(validatedData.nextcalibrationdate || undefined),
+        purchaseprice:
+          validatedData.purchaseprice !== undefined && validatedData.purchaseprice !== null
+            ? validatedData.purchaseprice.toString()
+            : undefined,
+        currentvalue:
+          validatedData.currentvalue !== undefined && validatedData.currentvalue !== null
+            ? validatedData.currentvalue.toString()
+            : undefined,
+        updatedby: user.userid,
         updatedat: new Date().toISOString(),
       })
       .where(
@@ -175,7 +203,7 @@ export async function PUT(
     console.error("Error updating equipment:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation failed", details: error.errors },
+        { error: "Validation failed", details: error.issues },
         { status: 400 }
       );
     }

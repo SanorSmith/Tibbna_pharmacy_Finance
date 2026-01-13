@@ -42,37 +42,25 @@ export async function GET(
     const category = searchParams.get("category");
     const isactive = searchParams.get("isactive");
 
-    let query = db
-      .select()
-      .from(laboratoryTypes)
-      .where(eq(laboratoryTypes.workspaceid, workspaceid));
+    const whereConditions = [eq(laboratoryTypes.workspaceid, workspaceid)];
 
-    // Apply filters
     if (search) {
-      query = query.where(
-        and(
-          eq(laboratoryTypes.workspaceid, workspaceid),
-          ilike(laboratoryTypes.name, `%${search}%`)
-        )
-      );
+      whereConditions.push(ilike(laboratoryTypes.name, `%${search}%`));
     }
 
     if (category) {
-      query = query.where(
-        and(eq(laboratoryTypes.workspaceid, workspaceid), eq(laboratoryTypes.category, category))
-      );
+      whereConditions.push(eq(laboratoryTypes.category, category));
     }
 
     if (isactive !== null && isactive !== undefined) {
-      query = query.where(
-        and(
-          eq(laboratoryTypes.workspaceid, workspaceid),
-          eq(laboratoryTypes.isactive, isactive === "true")
-        )
-      );
+      whereConditions.push(eq(laboratoryTypes.isactive, isactive === "true"));
     }
 
-    const laboratoryTypesList = await query.orderBy(desc(laboratoryTypes.sortorder), desc(laboratoryTypes.name));
+    const laboratoryTypesList = await db
+      .select()
+      .from(laboratoryTypes)
+      .where(and(...whereConditions))
+      .orderBy(desc(laboratoryTypes.sortorder), desc(laboratoryTypes.name));
 
     return NextResponse.json({ laboratoryTypes: laboratoryTypesList });
   } catch (error) {
@@ -121,7 +109,7 @@ export async function POST(
 
     const newLaboratoryType = await db.insert(laboratoryTypes).values({
       ...validatedData,
-      createdby: user.id,
+      createdby: user.userid,
       createdat: new Date().toISOString(),
       workspaceid,
     }).returning();
@@ -131,7 +119,7 @@ export async function POST(
     console.error("Error creating laboratory type:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation failed", details: error.errors },
+        { error: "Validation failed", details: error.issues },
         { status: 400 }
       );
     }

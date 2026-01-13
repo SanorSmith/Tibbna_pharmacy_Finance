@@ -1043,10 +1043,14 @@ export default function ResultsEntryForm({
                               
                               // Auto-flag using reference and panic values
                               const refData = {
-                                min: parseFloat(newResults[index].referencemin || '0') as number,
-                                max: parseFloat(newResults[index].referencemax || '999999') as number,
-                                criticalLow: newResults[index].paniclow ? parseFloat(newResults[index].paniclow) as number : undefined,
-                                criticalHigh: newResults[index].panichigh ? parseFloat(newResults[index].panichigh) as number : undefined,
+                                min: parseFloat(String(newResults[index].referencemin ?? "0")),
+                                max: parseFloat(String(newResults[index].referencemax ?? "999999")),
+                                criticalLow: newResults[index].paniclow !== undefined && newResults[index].paniclow !== null && String(newResults[index].paniclow).trim() !== ""
+                                  ? parseFloat(String(newResults[index].paniclow))
+                                  : undefined,
+                                criticalHigh: newResults[index].panichigh !== undefined && newResults[index].panichigh !== null && String(newResults[index].panichigh).trim() !== ""
+                                  ? parseFloat(String(newResults[index].panichigh))
+                                  : undefined,
                               };
                               const flags = autoFlagResult(numValue, refData);
                               newResults[index] = { ...newResults[index], ...flags };

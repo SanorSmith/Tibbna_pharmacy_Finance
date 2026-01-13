@@ -56,34 +56,25 @@ export async function GET(
     const category = searchParams.get("category");
     const status = searchParams.get("status");
 
-    let query = db
-      .select()
-      .from(equipment)
-      .where(and(eq(equipment.workspaceid, workspaceid)));
+    const whereConditions = [eq(equipment.workspaceid, workspaceid)];
 
-    // Apply filters
     if (search) {
-      query = query.where(
-        and(
-          eq(equipment.workspaceid, workspaceid),
-          ilike(equipment.model, `%${search}%`)
-        )
-      );
+      whereConditions.push(ilike(equipment.model, `%${search}%`));
     }
 
     if (category) {
-      query = query.where(
-        and(eq(equipment.workspaceid, workspaceid), eq(equipment.category, category))
-      );
+      whereConditions.push(eq(equipment.category, category));
     }
 
     if (status) {
-      query = query.where(
-        and(eq(equipment.workspaceid, workspaceid), eq(equipment.status, status))
-      );
+      whereConditions.push(eq(equipment.status, status));
     }
 
-    const equipmentList = await query.orderBy(desc(equipment.createdat));
+    const equipmentList = await db
+      .select()
+      .from(equipment)
+      .where(and(...whereConditions))
+      .orderBy(desc(equipment.createdat));
 
     return NextResponse.json({ equipment: equipmentList });
   } catch (error) {
@@ -110,6 +101,13 @@ export async function POST(
 
     const body = await request.json();
     const validatedData = equipmentSchema.parse(body);
+
+    const toDateOrUndefined = (value?: string) => {
+      if (!value) return undefined;
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      return new Date(trimmed);
+    };
 
     // Check if equipment ID or serial number already exists
     const existingEquipment = await db
@@ -148,19 +146,43 @@ export async function POST(
       );
     }
 
-    const newEquipment = await db.insert(equipment).values({
-      ...validatedData,
-      createdby: user.id,
-      createdat: new Date().toISOString(),
-      workspaceid,
-    }).returning();
+    const newEquipment = await db
+      .insert(equipment)
+      .values({
+        ...validatedData,
+        vendoremail:
+          validatedData.vendoremail && validatedData.vendoremail.trim()
+            ? validatedData.vendoremail
+            : undefined,
+        manualurl:
+          validatedData.manualurl && validatedData.manualurl.trim()
+            ? validatedData.manualurl
+            : undefined,
+        lastservicedate: toDateOrUndefined(validatedData.lastservicedate || undefined),
+        nextservicedate: toDateOrUndefined(validatedData.nextservicedate || undefined),
+        warrantyexpiry: toDateOrUndefined(validatedData.warrantyexpiry || undefined),
+        calibrationdate: toDateOrUndefined(validatedData.calibrationdate || undefined),
+        nextcalibrationdate: toDateOrUndefined(validatedData.nextcalibrationdate || undefined),
+        purchaseprice:
+          validatedData.purchaseprice !== undefined && validatedData.purchaseprice !== null
+            ? validatedData.purchaseprice.toString()
+            : undefined,
+        currentvalue:
+          validatedData.currentvalue !== undefined && validatedData.currentvalue !== null
+            ? validatedData.currentvalue.toString()
+            : undefined,
+        createdby: user.userid,
+        createdat: new Date().toISOString(),
+        workspaceid,
+      })
+      .returning();
 
     return NextResponse.json({ equipment: newEquipment[0] }, { status: 201 });
   } catch (error) {
     console.error("Error creating equipment:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation failed", details: error.errors },
+        { error: "Validation failed", details: error.issues },
         { status: 400 }
       );
     }

@@ -6,7 +6,7 @@
  */
 
 import { db } from "./index";
-import { accessionSamples, testResults, validationStates } from "./schema";
+import { samples, testResults, validationStates } from "./schema";
 
 // NOTE: This seed file is deprecated and references the old 'samples' table
 // It has been replaced by the accession_samples workflow
@@ -170,7 +170,7 @@ async function seedValidationData() {
       receivedDate.setMinutes(receivedDate.getMinutes() + 30); // 30 min after collection
 
       const [sample] = await db
-        .insert(accessionSamples)
+        .insert(samples)
         .values({
           patientid: scenario.patient.patientid,
           workspaceid,
@@ -212,13 +212,13 @@ async function seedValidationData() {
 
         if (resultValue < numericMin) {
           flag = "low";
-          if (test.criticalLow !== undefined && resultValue < test.criticalLow) {
+          if (test.criticalLow !== undefined && resultValue < test.criticalLow!) {
             isCritical = true;
             flag = "critical_low";
           }
         } else if (resultValue > numericMax) {
           flag = "high";
-          if (test.criticalHigh !== undefined && resultValue > test.criticalHigh) {
+          if (test.criticalHigh !== undefined && resultValue > test.criticalHigh!) {
             isCritical = true;
             flag = "critical_high";
           }

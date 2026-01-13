@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc, ilike } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { materials, suppliers } from "@/lib/db/schema";
+import { materials } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
 
@@ -68,7 +68,25 @@ export async function GET(
     const supplier = searchParams.get("supplier");
     const status = searchParams.get("status");
 
-    let query = db
+    const whereConditions = [eq(materials.workspaceid, workspaceid)];
+
+    if (search) {
+      whereConditions.push(ilike(materials.name, `%${search}%`));
+    }
+
+    if (category) {
+      whereConditions.push(eq(materials.category, category));
+    }
+
+    if (supplier) {
+      whereConditions.push(eq(materials.suppliername, supplier));
+    }
+
+    if (status) {
+      whereConditions.push(eq(materials.status, status));
+    }
+
+    const query = db
       .select({
         materialid: materials.materialid,
         name: materials.name,
@@ -108,35 +126,7 @@ export async function GET(
         updatedat: materials.updatedat,
       })
       .from(materials)
-      .where(eq(materials.workspaceid, workspaceid));
-
-    // Apply filters
-    if (search) {
-      query = query.where(
-        and(
-          eq(materials.workspaceid, workspaceid),
-          ilike(materials.name, `%${search}%`)
-        )
-      );
-    }
-
-    if (category) {
-      query = query.where(
-        and(eq(materials.workspaceid, workspaceid), eq(materials.category, category))
-      );
-    }
-
-    if (supplier) {
-      query = query.where(
-        and(eq(materials.workspaceid, workspaceid), eq(materials.suppliername, supplier))
-      );
-    }
-
-    if (status) {
-      query = query.where(
-        and(eq(materials.workspaceid, workspaceid), eq(materials.status, status))
-      );
-    }
+      .where(and(...whereConditions));
 
     const materialsList = await query.orderBy(desc(materials.createdat));
 
@@ -191,20 +181,47 @@ export async function POST(
       totalCost = validatedData.price * validatedData.quantity;
     }
 
-    const newMaterial = await db.insert(materials).values({
-      ...validatedData,
-      totalcost: totalCost,
-      createdby: user.id,
-      createdat: new Date().toISOString(),
-      workspaceid,
-    }).returning();
+    const toDateOrUndefined = (value?: string) => {
+      if (!value) return undefined;
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      return new Date(trimmed);
+    };
+
+    const newMaterial = await db
+      .insert(materials)
+      .values({
+        ...validatedData,
+        manufacturedate: toDateOrUndefined(validatedData.manufacturedate || undefined),
+        expirydate: toDateOrUndefined(validatedData.expirydate || undefined),
+        msdsurl: validatedData.msdsurl && validatedData.msdsurl.trim() ? validatedData.msdsurl : undefined,
+        quantity: validatedData.quantity.toString(),
+        minquantity:
+          validatedData.minquantity !== undefined && validatedData.minquantity !== null
+            ? validatedData.minquantity.toString()
+            : undefined,
+        maxquantity:
+          validatedData.maxquantity !== undefined && validatedData.maxquantity !== null
+            ? validatedData.maxquantity.toString()
+            : undefined,
+        price:
+          validatedData.price !== undefined && validatedData.price !== null
+            ? validatedData.price.toString()
+            : undefined,
+        totalcost:
+          totalCost !== undefined && totalCost !== null ? totalCost.toString() : undefined,
+        createdby: user.userid,
+        createdat: new Date().toISOString(),
+        workspaceid,
+      })
+      .returning();
 
     return NextResponse.json({ material: newMaterial[0] }, { status: 201 });
   } catch (error) {
     console.error("Error creating material:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation failed", details: error.errors },
+        { error: "Validation failed", details: error.issues },
         { status: 400 }
       );
     }
