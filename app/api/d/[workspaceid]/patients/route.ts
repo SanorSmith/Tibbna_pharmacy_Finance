@@ -78,6 +78,7 @@ export async function POST(
   );
   const isWorkspaceAdmin = membership?.role === "administrator";
   const isDoctor = membership?.role === "doctor";
+  const isLabTechnician = membership?.role === "lab_technician";
   // Normalize permissions to an array of strings
   const normalizePerms = (perms: unknown): string[] => {
     try {
@@ -95,9 +96,12 @@ export async function POST(
     return [];
   };
   const isGlobalAdmin = normalizePerms(user.permissions).includes("admin");
-  if (!isWorkspaceAdmin && !isGlobalAdmin && !isDoctor) {
+  if (!isWorkspaceAdmin && !isGlobalAdmin && !isDoctor && !isLabTechnician) {
     // Block non-admin, non-doctor users from creating patients
-    return NextResponse.json({ error: "Only admin or doctor can register a patient" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Only admin, doctor, or lab technician can register a patient" },
+      { status: 403 },
+    );
   }
 
   const body = await req.json();
