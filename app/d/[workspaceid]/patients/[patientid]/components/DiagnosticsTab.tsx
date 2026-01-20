@@ -233,7 +233,7 @@ export function DiagnosticsTab({
 
       {/* Diagnosis Details Dialog */}
       <Dialog open={showDiagnosisDetails} onOpenChange={setShowDiagnosisDetails}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Diagnosis Details</DialogTitle>
             <DialogDescription>
@@ -310,7 +310,7 @@ export function DiagnosticsTab({
 
       {/* Diagnosis Form Dialog */}
       <Dialog open={showDiagnosisForm} onOpenChange={setShowDiagnosisForm}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDiagnosis ? "Edit Diagnosis" : "Add New Diagnosis"}</DialogTitle>
             <DialogDescription>

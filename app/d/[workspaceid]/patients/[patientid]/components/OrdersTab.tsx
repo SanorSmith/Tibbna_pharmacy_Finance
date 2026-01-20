@@ -258,7 +258,7 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
 
       {/* Details Dialog */}
       <Dialog open={showTestOrderDetails} onOpenChange={setShowTestOrderDetails}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Test Order Details</DialogTitle>
             <DialogDescription>Complete information about this laboratory test order</DialogDescription>

@@ -1,0 +1,1 @@
+ALTER TABLE "accession_samples" ADD COLUMN "labcategory" text;

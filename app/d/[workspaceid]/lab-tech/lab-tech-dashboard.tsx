@@ -20,7 +20,7 @@ import {
   ListTodo,
   Home,
   ScanBarcode,
-  FileEdit
+  ClipboardCheck,
 } from "lucide-react";
 import OrdersTab from "./components/OrdersTab";
 import RegisterSample from "./components/RegisterSample";
@@ -30,7 +30,7 @@ import SampleManagementTab from "./components/SampleManagementTab";
 import NotificationTab from "./components/NotificationTab";
 import ContactsTab from "./components/ContactsTab";
 import ToDoTab from "./components/ToDoTab";
-import ResultsEntryForm from "@/components/lab-tech/ResultsEntryForm";
+import QCCalibrationTab from "./components/QCCalibrationTab";
 
 export default function LabTechDashboard({
   workspaceid,
@@ -62,7 +62,7 @@ export default function LabTechDashboard({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1">
           <Link href={`/d/${workspaceid}/lab-tech`}>
             <Button
               variant="outline"
@@ -74,10 +74,7 @@ export default function LabTechDashboard({
             </Button>
           </Link>
           <div>
-            <h1 className="text-md font-medium text-muted-foreground">Laboratory Information Management System</h1>
-            <p className="mt-1">
-              
-            </p>
+            <h1 className="text-lg font-medium text-muted-foreground">Laboratory Information Management System</h1>
           </div>
         </div>
       </div>
@@ -113,14 +110,6 @@ export default function LabTechDashboard({
           </TabsTrigger>
 
           <TabsTrigger
-            value="results-entry"
-            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
-          >
-            <FileEdit className="h-4 w-4" />
-            Results Entry
-          </TabsTrigger>
-
-          <TabsTrigger
             value="validation"
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
@@ -134,6 +123,14 @@ export default function LabTechDashboard({
           >
             <TestTube2 className="h-4 w-4" />
             Sample Management
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="qc"
+            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            QC & Calibration
           </TabsTrigger>
 
           <TabsTrigger
@@ -184,9 +181,9 @@ export default function LabTechDashboard({
           )}
         </TabsContent>
 
-        <TabsContent value="results-entry" className="mt-4">
-          {loadedTabs.has("results-entry") && (
-            <ResultsEntryForm workspaceid={workspaceid} />
+        <TabsContent value="qc" className="mt-4">
+          {loadedTabs.has("qc") && (
+            <QCCalibrationTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 

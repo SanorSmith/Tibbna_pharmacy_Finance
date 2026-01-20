@@ -29,7 +29,7 @@ import {
   checkOrderPermission,
   CreateOrderInput,
 } from "@/lib/lims/order-validation";
-import { createAndSubmitLabOrder } from "@/lib/lims/openehr-order-service";
+import { createOpenEHRComposition } from "@/lib/openehr/openehr";
 import { getOpenEHRTestOrders } from "@/lib/openehr/openehr";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -159,28 +159,110 @@ export async function POST(request: NextRequest) {
       return { order, tests: testValidation.validTests! };
     });
 
-    // Create openEHR composition (async, don't block response)
+    // Create openEHR composition using same FLAT structure as patient test-orders (best-effort)
     if (result.order.ehrid) {
-      createAndSubmitLabOrder(
-        result.order,
-        result.tests.map((t) => t.testname),
-        orderData.orderingProviderName || "Unknown Provider",
-        result.order.ehrid
-      )
-        .then((openEhrResult) => {
-          if (openEhrResult) {
-            // Update order with composition UID
-            db.update(limsOrders)
-              .set({
-                compositionuid: openEhrResult.compositionUid,
-                timecommitted: openEhrResult.timeCommitted,
-              })
-              .where(eq(limsOrders.orderid, result.order.orderid))
-              .execute()
-              .catch((err) => console.error("Failed to update composition UID:", err));
-          }
+      const requestId = `testreq-${Date.now()}`;
+
+      const serviceName =
+        (body.service_name as string) ||
+        (body.serviceName as string) ||
+        (result.tests.length === 1
+          ? result.tests[0].testname
+          : `${result.tests.length} Laboratory Tests`);
+
+      const categories = Array.from(
+        new Set(
+          (result.tests || [])
+            .map((t: any) => t.testcategory)
+            .filter((c: any): c is string => Boolean(c))
+        )
+      );
+      const testCategory = categories[0] || "Laboratory";
+
+      const urgency =
+        (orderData.priority || "ROUTINE").toString().toLowerCase() === "stat"
+          ? "stat"
+          : (orderData.priority || "ROUTINE").toString().toLowerCase() ===
+              "urgent" ||
+            (orderData.priority || "ROUTINE").toString().toLowerCase() ===
+              "asap"
+          ? "urgent"
+          : "routine";
+
+      const selectedTests = (result.tests || []).map((t: any) => t.testname);
+      const totalTests = selectedTests.length;
+
+      const description =
+        `Test Group: ${serviceName} | ` +
+        `Category: ${testCategory} | ` +
+        `Laboratory: ${testCategory} | ` +
+        `Selected Tests (${totalTests}/${totalTests}): ${selectedTests.join(", ")} | ` +
+        `Urgency: ${urgency}`;
+
+      const clinicalIndication =
+        (orderData.clinicalIndication as string) || "";
+
+      const narrative =
+        `${serviceName} ordered (${urgency})` +
+        (clinicalIndication ? ` due to ${clinicalIndication}` : "");
+
+      const eventTime = new Date().toISOString();
+
+      const compositionData: Record<string, unknown> = {
+        "template_clinical_encounter_v1/language|code": "en",
+        "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+        "template_clinical_encounter_v1/territory|code": "US",
+        "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+        "template_clinical_encounter_v1/composer|name": user.name || "Unknown",
+        "template_clinical_encounter_v1/context/start_time": eventTime,
+        "template_clinical_encounter_v1/context/setting|code": "238",
+        "template_clinical_encounter_v1/context/setting|value": "other care",
+        "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+        "template_clinical_encounter_v1/category|code": "433",
+        "template_clinical_encounter_v1/category|value": "event",
+        "template_clinical_encounter_v1/category|terminology": "openehr",
+
+        // Service request
+        "template_clinical_encounter_v1/service_request/request/service_name|other":
+          serviceName,
+        "template_clinical_encounter_v1/service_request/request/description":
+          description,
+        "template_clinical_encounter_v1/service_request/request/clinical_indication":
+          clinicalIndication,
+        "template_clinical_encounter_v1/service_request/request/requested_date":
+          eventTime,
+        "template_clinical_encounter_v1/service_request/request/requesting_provider":
+          orderData.orderingProviderName || user.name || "Dr. Unknown",
+        "template_clinical_encounter_v1/service_request/request/receiving_provider":
+          testCategory,
+        "template_clinical_encounter_v1/service_request/request/timing": eventTime,
+        "template_clinical_encounter_v1/service_request/request_id": requestId,
+        "template_clinical_encounter_v1/service_request/narrative": narrative,
+        "template_clinical_encounter_v1/service_request/language|code": "en",
+        "template_clinical_encounter_v1/service_request/language|terminology":
+          "ISO_639-1",
+        "template_clinical_encounter_v1/service_request/encoding|code": "UTF-8",
+        "template_clinical_encounter_v1/service_request/encoding|terminology":
+          "IANA_character-sets",
+      };
+
+      createOpenEHRComposition(result.order.ehrid, "template_clinical_encounter_v1", compositionData)
+        .then((compositionUid) => {
+          db.update(limsOrders)
+            .set({
+              compositionuid: compositionUid,
+              openehrrequestid: requestId,
+              timecommitted: new Date(),
+            })
+            .where(eq(limsOrders.orderid, result.order.orderid))
+            .execute()
+            .catch((err) =>
+              console.error("Failed to update order openEHR ids:", err)
+            );
         })
-        .catch((err) => console.error("openEHR composition creation failed:", err));
+        .catch((err) =>
+          console.error("openEHR composition creation failed:", err)
+        );
     }
 
     // Return success response
@@ -260,10 +342,19 @@ export async function GET(request: NextRequest) {
           .select({
             testCode: labTestCatalog.testcode,
             testName: labTestCatalog.testname,
+            testcategory: labTestCatalog.testcategory,
           })
           .from(limsOrderTests)
           .innerJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
           .where(eq(limsOrderTests.orderid, order.orderid));
+
+        const categories = Array.from(
+          new Set(
+            (orderTests || [])
+              .map((t) => t.testcategory)
+              .filter((c): c is string => Boolean(c))
+          )
+        );
 
         // Get patient name, age, and sex
         let patientName = order.subjectidentifier;
@@ -306,6 +397,7 @@ export async function GET(request: NextRequest) {
         return {
           ...order,
           tests: orderTests,
+          test_category: categories[0] || null,
           patientName,
           patientage: patientAge,
           patientsex: patientSex,

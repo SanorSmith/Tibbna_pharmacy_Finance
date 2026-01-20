@@ -24,6 +24,8 @@ import {
   limsOrders,
   ORDER_STATUS,
   patients,
+  labTestCatalog,
+  limsOrderTests,
 } from "@/lib/db/schema";
 import { createWorkspaceNotification } from "@/lib/notifications";
 import { 
@@ -32,7 +34,7 @@ import {
   generateQRCodePayload,
   validateAccessionData,
 } from "@/lib/lims/accession-utils";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,6 +51,8 @@ export async function POST(request: NextRequest) {
       volume,
       volumeUnit,
       collectionDate,
+      accessionNumber,
+      labCategory,
       collectorId,
       collectorName,
       orderId,
@@ -97,10 +101,68 @@ export async function POST(request: NextRequest) {
     
     // Create sample record in transaction
     const result = await db.transaction(async (tx) => {
+      let resolvedLabCategory: string | null = null;
+
+      try {
+        const categories = new Set<string>();
+
+        if (isUuidOrder && orderId) {
+          const rows = await tx
+            .select({ testcategory: labTestCatalog.testcategory })
+            .from(limsOrderTests)
+            .leftJoin(
+              labTestCatalog,
+              eq(limsOrderTests.testid, labTestCatalog.testid)
+            )
+            .where(
+              and(
+                eq(limsOrderTests.orderid, orderId),
+                eq(labTestCatalog.workspaceid, workspaceId)
+              )
+            );
+
+          for (const r of rows) {
+            if (r.testcategory) categories.add(r.testcategory);
+          }
+        } else if (Array.isArray(tests) && tests.length > 0) {
+          const normalizedTestCodes = tests
+            .map((t: unknown) => String(t || "").trim())
+            .filter(Boolean);
+
+          if (normalizedTestCodes.length > 0) {
+            const rows = await tx
+              .select({ testcategory: labTestCatalog.testcategory })
+              .from(labTestCatalog)
+              .where(
+                and(
+                  eq(labTestCatalog.workspaceid, workspaceId),
+                  inArray(labTestCatalog.testcode, normalizedTestCodes)
+                )
+              );
+
+            for (const r of rows) {
+              if (r.testcategory) categories.add(r.testcategory);
+            }
+          }
+        }
+
+        if (categories.size === 0 && labCategory) {
+          const trimmed = String(labCategory).trim();
+          if (trimmed) categories.add(trimmed);
+        }
+
+        if (categories.size > 0) {
+          resolvedLabCategory = Array.from(categories)[0] || null;
+        }
+      } catch (e) {
+        // Best-effort only
+      }
+
       // Insert sample
       const sampleData: NewAccessionSample = {
         sampleid: sampleId,
         samplenumber: sampleNumber,
+        accessionnumber: accessionNumber ? String(accessionNumber).trim() : null,
         sampletype: sampleType,
         containertype: containerType,
         volume: volume ? volume.toString() : null,
@@ -113,7 +175,8 @@ export async function POST(request: NextRequest) {
         patientid: patientId || null,
         ehrid: ehrId || null,
         subjectidentifier: subjectIdentifier || null,
-        tests: tests ? JSON.stringify(tests) : null, // Store ordered tests as JSON
+        tests: tests || null, // Store ordered tests as JSONB
+        labcategory: resolvedLabCategory,
         barcode,
         qrcode,
         currentstatus: SAMPLE_STATUS.RECEIVED,
@@ -161,7 +224,7 @@ export async function POST(request: NextRequest) {
           })
           .where(eq(limsOrders.orderid, orderId));
       }
-      // Note: OpenEHR order status updates would be handled via openEHR API
+      // Note: OpenEHR order status updates are handled after commit via openEHR API
 
       return sample;
     });
@@ -186,6 +249,18 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if notification fails
     }
 
+    // Best-effort: update openEHR order status when sample is collected
+    if (!isUuidOrder && orderId) {
+      try {
+        const { updateOpenEHROrderStatusInComposition } = await import(
+          "@/lib/openehr-order-status"
+        );
+        await updateOpenEHROrderStatusInComposition(orderId, "IN_PROGRESS");
+      } catch (e) {
+        // Best-effort only
+      }
+    }
+
     // TODO: Create openEHR composition
     // This would be done asynchronously or as part of the transaction
     // For now, we'll leave openehrcompositionuid as null
@@ -196,6 +271,7 @@ export async function POST(request: NextRequest) {
       sample: {
         sampleId: result.sampleid,
         sampleNumber: result.samplenumber,
+        accessionNumber: result.accessionnumber,
         barcode: result.barcode,
         qrcode: result.qrcode,
         status: result.currentstatus,
@@ -243,6 +319,7 @@ export async function GET(request: NextRequest) {
       .select({
         sampleid: accessionSamples.sampleid,
         samplenumber: accessionSamples.samplenumber,
+        accessionnumber: accessionSamples.accessionnumber,
         sampletype: accessionSamples.sampletype,
         containertype: accessionSamples.containertype,
         volume: accessionSamples.volume,
@@ -254,6 +331,8 @@ export async function GET(request: NextRequest) {
         patientid: accessionSamples.patientid,
         ehrid: accessionSamples.ehrid,
         subjectidentifier: accessionSamples.subjectidentifier,
+        tests: accessionSamples.tests,
+        labcategory: accessionSamples.labcategory,
         barcode: accessionSamples.barcode,
         qrcode: accessionSamples.qrcode,
         openehrcompositionuid: accessionSamples.openehrcompositionuid,
@@ -264,8 +343,8 @@ export async function GET(request: NextRequest) {
         workspaceid: accessionSamples.workspaceid,
         createdat: accessionSamples.createdat,
         updatedat: accessionSamples.updatedat,
-        // Patient information - handle null values
-        patientName: sql<string>`COALESCE(CONCAT(${patients.firstname}, ' ', ${patients.lastname}), ${accessionSamples.subjectidentifier})`.as('patientName'),
+        openehrrequestid: accessionSamples.openehrrequestid,
+        patientname: sql<string>`COALESCE(${patients.firstname} || ' ' || ${patients.lastname}, null)`.as('patientname'),
         patientage: sql<number>`COALESCE(EXTRACT(YEAR FROM AGE(${patients.dateofbirth})), null)`.as('patientage'),
         patientsex: sql<string>`COALESCE(${patients.gender}, null)`.as('patientsex'),
       })
@@ -276,12 +355,113 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
+    // Best-effort: derive labcategory for older rows / missing values
+    // Keep this robust (avoid complex SQL array bindings that can cause 500s)
+    const missing = samples.filter((s: any) => !s.labcategory);
+    const derivedBySampleId = new Map<string, string>();
+
+    // 1) Derive from local LIMS order tests (per-sample query, only for missing)
+    for (const s of missing) {
+      if (!s.orderid) continue;
+      try {
+        const [row] = await db
+          .select({ testcategory: labTestCatalog.testcategory })
+          .from(limsOrderTests)
+          .leftJoin(
+            labTestCatalog,
+            eq(limsOrderTests.testid, labTestCatalog.testid)
+          )
+          .where(
+            and(
+              eq(limsOrderTests.orderid, s.orderid),
+              eq(labTestCatalog.workspaceid, workspaceId)
+            )
+          )
+          .limit(1);
+
+        if (row?.testcategory) {
+          derivedBySampleId.set(String(s.sampleid), String(row.testcategory));
+        }
+      } catch (e) {
+        // Best-effort only
+      }
+    }
+
+    // 2) Derive from stored tests array by matching catalog testcode/testname
+    // Build one lookup table for the whole batch to avoid N+1 catalog queries.
+    const tokens = Array.from(
+      new Set(
+        missing
+          .filter((s: any) => !derivedBySampleId.has(String(s.sampleid)))
+          .flatMap((s: any) => (Array.isArray(s.tests) ? s.tests : []))
+          .map((t: unknown) => String(t || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (tokens.length > 0) {
+      const byCode = await db
+        .select({
+          key: labTestCatalog.testcode,
+          testcategory: labTestCatalog.testcategory,
+        })
+        .from(labTestCatalog)
+        .where(
+          and(
+            eq(labTestCatalog.workspaceid, workspaceId),
+            inArray(labTestCatalog.testcode, tokens)
+          )
+        );
+
+      const byName = await db
+        .select({
+          key: labTestCatalog.testname,
+          testcategory: labTestCatalog.testcategory,
+        })
+        .from(labTestCatalog)
+        .where(
+          and(
+            eq(labTestCatalog.workspaceid, workspaceId),
+            inArray(labTestCatalog.testname, tokens)
+          )
+        );
+
+      const categoryByToken = new Map<string, string>();
+      for (const r of [...byCode, ...byName]) {
+        const key = r.key ? String(r.key) : "";
+        const cat = r.testcategory ? String(r.testcategory) : "";
+        if (!key || !cat) continue;
+        if (!categoryByToken.has(key)) categoryByToken.set(key, cat);
+      }
+
+      for (const s of missing) {
+        const sid = String(s.sampleid);
+        if (derivedBySampleId.has(sid)) continue;
+        const arr = Array.isArray(s.tests) ? s.tests : [];
+        for (const raw of arr) {
+          const token = String(raw || "").trim();
+          if (!token) continue;
+          const cat = categoryByToken.get(token);
+          if (cat) {
+            derivedBySampleId.set(sid, cat);
+            break;
+          }
+        }
+      }
+    }
+
+    const samplesWithDerived = samples.map((s: any) => {
+      if (s.labcategory) return s;
+      const derived = derivedBySampleId.get(String(s.sampleid));
+      return derived ? { ...s, labcategory: derived } : s;
+    });
+
     return NextResponse.json({
-      samples,
+      samples: samplesWithDerived,
       pagination: {
         limit,
         offset,
-        total: samples.length,
+        total: samplesWithDerived.length,
       },
     });
   } catch (error) {

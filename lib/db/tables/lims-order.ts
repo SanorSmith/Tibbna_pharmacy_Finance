@@ -86,6 +86,7 @@ export const limsOrders = pgTable(
     // openEHR integration
     ehrid: text("ehrid"), // openEHR EHR ID
     compositionuid: text("compositionuid"), // openEHR composition UID
+    openehrrequestid: text("openehrrequestid"), // openEHR request id (e.g., testreq-...)
     timecommitted: timestamp("timecommitted", { withTimezone: true }),
     
     // FHIR integration

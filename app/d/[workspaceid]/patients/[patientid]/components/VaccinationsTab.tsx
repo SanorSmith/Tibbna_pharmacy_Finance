@@ -189,7 +189,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
         open={showVaccinationForm}
         onOpenChange={setShowVaccinationForm}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Record Vaccination</DialogTitle>
             <DialogDescription>
@@ -437,7 +437,7 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
         open={showVaccinationDetails}
         onOpenChange={setShowVaccinationDetails}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vaccination Details</DialogTitle>
             <DialogDescription>

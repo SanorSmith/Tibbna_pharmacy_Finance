@@ -106,12 +106,15 @@ interface AccessionedSample {
   barcode: string;
   accessionedat: string;
   patientid: string | null;
-  patientName: string | null;
+  patientname: string | null; // Changed from patientName to match API response
   subjectidentifier?: string | null;
   orderid: string | null;
   openehrrequestid?: string | null;
   patientage?: number;
   patientsex?: string;
+  accessionnumber?: string | null;
+  tests?: unknown;
+  labcategory?: string | null;
 }
 
 export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
@@ -191,7 +194,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     // Search filter - matches sample number, patient name, patient ID, sample type, container
     const matchesSearch = 
       sample.samplenumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (sample.patientName && sample.patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (sample.patientname && sample.patientname.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (sample.patientid && sample.patientid.toLowerCase().includes(searchTerm.toLowerCase())) ||
       sample.sampletype.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (sample.containertype && sample.containertype.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -223,6 +226,22 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
     return matchesSearch && matchesStatus && matchesDate;
   }) || [];
+
+  const groupedSamples = filteredSamples.reduce<Record<string, AccessionedSample[]>>(
+    (acc, sample) => {
+      const key = sample.labcategory ? String(sample.labcategory) : "Unassigned";
+      acc[key] = acc[key] || [];
+      acc[key].push(sample);
+      return acc;
+    },
+    {}
+  );
+
+  const groupKeys = Object.keys(groupedSamples).sort((a, b) => {
+    if (a === "Unassigned") return 1;
+    if (b === "Unassigned") return -1;
+    return a.localeCompare(b);
+  });
 
   // Fetch existing worklists
   const { data: worklists } = useQuery({
@@ -512,54 +531,64 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
           ) : filteredSamples.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sample Number</TableHead>
-                    <TableHead>Sample Type</TableHead>
-                    <TableHead>Container</TableHead>
-                    <TableHead>Collection Date</TableHead>
-                    <TableHead>Patient Name</TableHead>
-                    <TableHead>Age</TableHead>
-                    <TableHead>Sex</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Accessioned</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSamples.map((sample) => (
-                    <TableRow 
-                      key={sample.sampleid}
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => {
-                        setSelectedSample(sample);
-                        setShowSampleDetail(true);
-                      }}
-                    >
-                      <TableCell className="font-medium">{sample.samplenumber}</TableCell>
-                      <TableCell className="capitalize">{sample.sampletype}</TableCell>
-                      <TableCell className="text-sm">{sample.containertype}</TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(sample.collectiondate).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {sample.patientName || sample.subjectidentifier || sample.patientid || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {sample.patientage ? `${sample.patientage} yrs` : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm capitalize">
-                        {sample.patientsex || '-'}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(sample.accessionedat).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="space-y-6">
+              {groupKeys.map((group) => (
+                <div key={group} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-sm">
+                      {group}
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {groupedSamples[group].length} samples
+                    </Badge>
+                  </div>
+
+                  <div className="overflow-x-auto border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Sample Number</TableHead>
+                          <TableHead>Sample Type</TableHead>
+                        
+                          <TableHead>Collection Date</TableHead>
+                          <TableHead>Patient Name</TableHead>
+                          
+                          <TableHead>Status</TableHead>
+                          <TableHead>Accessioned</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {groupedSamples[group].map((sample) => (
+                          <TableRow
+                            key={`${group}-${sample.sampleid}`}
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => {
+                              setSelectedSample(sample);
+                              setShowSampleDetail(true);
+                            }}
+                          >
+                            <TableCell className="font-mono font-medium text-blue-600">
+                              {sample.samplenumber}
+                            </TableCell>
+                            <TableCell className="capitalize">{sample.sampletype}</TableCell>
+                            
+                            <TableCell className="text-sm">
+                              {new Date(sample.collectiondate).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {sample.patientname || sample.subjectidentifier || "Unknown"}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
+                            <TableCell className="text-sm">
+                              {new Date(sample.accessionedat).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : samples && samples.length > 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -622,7 +651,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Sample Detail Dialog */}
       <Dialog open={showSampleDetail} onOpenChange={setShowSampleDetail}>
-        <DialogContent className={getDialogClasses("STANDARD")}>
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Sample Details</DialogTitle>
             <DialogDescription>
@@ -668,7 +697,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Patient Name:</span>
-                        <span className="font-medium">{selectedSample.patientName || "-"}</span>
+                        <span className="font-medium">{selectedSample.patientname || "-"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Patient ID:</span>
@@ -999,7 +1028,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
             <BarcodePrint
               barcode={selectedSample.barcode}
               sampleNumber={selectedSample.samplenumber}
-              patientName={selectedSample.patientName || selectedSample.patientid || "Unknown"}
+              patientName={selectedSample.patientname || selectedSample.patientid || "Unknown"}
               collectionDate={selectedSample.collectiondate}
               sampleType={selectedSample.sampletype}
             />
@@ -1025,7 +1054,10 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setAlertDialog(prev => ({ ...prev, isOpen: false }))}>
+            <AlertDialogAction 
+              onClick={() => setAlertDialog(prev => ({ ...prev, isOpen: false }))}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               OK
             </AlertDialogAction>
           </AlertDialogFooter>

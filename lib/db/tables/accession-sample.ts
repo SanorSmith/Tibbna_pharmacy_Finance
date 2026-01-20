@@ -29,6 +29,9 @@ export const accessionSamples = pgTable(
     
     // Human-readable sample ID (e.g., SMP-2025-0001)
     samplenumber: text("samplenumber").notNull().unique(),
+
+    // Scanned / manually entered accession number (unique when present)
+    accessionnumber: text("accessionnumber"),
     
     // Sample metadata
     sampletype: text("sampletype").notNull(), // blood, tissue, urine, etc.
@@ -57,6 +60,9 @@ export const accessionSamples = pgTable(
     
     // Ordered tests (stored as JSON array for OpenEHR orders)
     tests: jsonb("tests"), // e.g., ["CBC", "HGB", "WBC"]
+
+    // Lab category / department (e.g., 'Hematology', 'Biochemistry')
+    labcategory: text("labcategory"),
     
     // Current status
     currentstatus: text("currentstatus").notNull().default("RECEIVED"), // RECEIVED, IN_STORAGE, IN_PROCESS, etc.

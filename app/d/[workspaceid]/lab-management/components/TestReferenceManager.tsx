@@ -437,7 +437,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
 
         {/* Add/Edit Dialog */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingRange ? "Edit Test Reference Range" : "Add Test Reference Range"}

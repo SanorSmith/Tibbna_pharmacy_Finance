@@ -1991,13 +1991,13 @@ export default function EnhancedOrdersTab({
         </CardContent>
       </Card>
 
-      {/* Enhanced Form Dialog */}
+      {/* Test Order Form Dialog */}
       <Dialog open={showTestOrderForm} onOpenChange={setShowTestOrderForm}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Order Laboratory Tests</DialogTitle>
+            <DialogTitle>New Laboratory Test Order</DialogTitle>
             <DialogDescription>
-              Create comprehensive test orders with packages and lab selection
+              Order laboratory tests for this patient
             </DialogDescription>
           </DialogHeader>
 

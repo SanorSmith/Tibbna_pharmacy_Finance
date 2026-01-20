@@ -15,7 +15,7 @@ export function Header({
           {userRole === "admin" || userRole === "administrator" 
             ? "Tibbna-Admin" 
             : userRole === "lab_technician" 
-            ? "Tibbna-LIMS" 
+            ? "Tibbna-LIMs" 
             : "Tibbna-EHR"}
         </h1>
         {middleSlot && (

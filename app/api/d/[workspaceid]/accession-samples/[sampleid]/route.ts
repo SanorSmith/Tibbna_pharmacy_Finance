@@ -26,6 +26,7 @@ export async function GET(
       .select({
         sampleid: accessionSamples.sampleid,
         samplenumber: accessionSamples.samplenumber,
+        accessionnumber: accessionSamples.accessionnumber,
         sampletype: accessionSamples.sampletype,
         containertype: accessionSamples.containertype,
         volume: accessionSamples.volume,

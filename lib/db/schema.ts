@@ -17,6 +17,8 @@ export * from "./tables/storage-locations";
 export * from "./tables/lims-order";
 export * from "./tables/worklist";
 export * from "./tables/equipment";
+export * from "./tables/qc-run";
+export * from "./tables/sample-storage";
 export * from "./tables/materials";
 export * from "./tables/suppliers";
 export * from "./tables/laboratory-types";

@@ -104,13 +104,9 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status } = body;
+    const { status, resultvalue, changeComment } = body;
 
-    if (!status) {
-      return NextResponse.json({ error: "Status is required" }, { status: 400 });
-    }
-
-    // Get current result to capture previous status
+    // Get current result to capture previous values
     const currentResult = await db
       .select()
       .from(testResults)
@@ -122,61 +118,99 @@ export async function PATCH(
     }
 
     const previousStatus = currentResult[0].status;
+    const previousValue = currentResult[0].resultvalue;
 
-    // Update test result status
-    const updatedResult = await db
-      .update(testResults)
-      .set({
-        status: status,
-        updatedby: user.userid,
-        updatedat: new Date(),
-      })
-      .where(and(eq(testResults.workspaceid, workspaceid), eq(testResults.resultid, resultid)))
-      .returning();
+    // Handle result value update with change comment
+    if (resultvalue !== undefined && changeComment) {
+      const updatedResult = await db
+        .update(testResults)
+        .set({
+          resultvalue: resultvalue,
+          updatedby: user.userid,
+          updatedat: new Date(),
+        })
+        .where(and(eq(testResults.workspaceid, workspaceid), eq(testResults.resultid, resultid)))
+        .returning();
 
-    // Create validation history entry
-    await db.insert(resultValidationHistory).values({
-      resultid: resultid,
-      action: status === 'released' ? 'released' : status === 'rejected' ? 'rejected' : 'rerun_requested',
-      previousstatus: previousStatus,
-      newstatus: status,
-      validatedby: user.userid,
-      validationlevel: 'technical',
-      comment: `Status changed to ${status}`,
-      workspaceid: workspaceid,
-    });
+      // Create validation history entry for result change
+      await db.insert(resultValidationHistory).values({
+        resultid: resultid,
+        action: 'result_modified',
+        previousstatus: previousStatus,
+        newstatus: previousStatus, // Status remains the same
+        validatedby: user.userid,
+        validationlevel: 'technical',
+        comment: `Result changed from "${previousValue}" to "${resultvalue}". Reason: ${changeComment}`,
+        workspaceid: workspaceid,
+      });
 
-    // Create notification for test validation/release
-    if (['released', 'validated'].includes(status.toLowerCase())) {
-      try {
-        await createWorkspaceNotification({
-          workspaceid,
-          type: "TEST_VALIDATED",
-          title: `Test Result ${status.toUpperCase()}`,
-          message: `Test result for ${updatedResult[0].testname} (${updatedResult[0].testcode}) has been ${status.toLowerCase()}.`,
-          relatedentityid: resultid,
-          relatedentitytype: "test_result",
-          metadata: {
-            testCode: updatedResult[0].testcode,
-            testName: updatedResult[0].testname,
-            resultValue: updatedResult[0].resultvalue,
-            sampleId: updatedResult[0].sampleid,
-            validationStatus: status,
-            validatedBy: user.userid,
-          },
-          priority: status === 'released' ? "high" : "medium",
-        });
-      } catch (notificationError) {
-        // Don't fail the request if notification fails
-      }
+      return NextResponse.json({ 
+        success: true,
+        result: updatedResult[0],
+        message: 'Test result updated successfully'
+      });
     }
 
-    return NextResponse.json({ 
-      success: true,
-      result: updatedResult[0],
-      message: `Test result ${status} successfully`
-    });
+    // Handle status change
+    if (status) {
+      // Update test result status
+      const updatedResult = await db
+        .update(testResults)
+        .set({
+          status: status,
+          updatedby: user.userid,
+          updatedat: new Date(),
+        })
+        .where(and(eq(testResults.workspaceid, workspaceid), eq(testResults.resultid, resultid)))
+        .returning();
+
+      // Create validation history entry
+      await db.insert(resultValidationHistory).values({
+        resultid: resultid,
+        action: status === 'released' ? 'released' : status === 'rejected' ? 'rejected' : 'rerun_requested',
+        previousstatus: previousStatus,
+        newstatus: status,
+        validatedby: user.userid,
+        validationlevel: 'technical',
+        comment: `Status changed to ${status}`,
+        workspaceid: workspaceid,
+      });
+
+      // Create notification for test validation/release
+      if (['released', 'validated'].includes(status.toLowerCase())) {
+        try {
+          await createWorkspaceNotification({
+            workspaceid,
+            type: "TEST_VALIDATED",
+            title: `Test Result ${status.toUpperCase()}`,
+            message: `Test result for ${updatedResult[0].testname} (${updatedResult[0].testcode}) has been ${status.toLowerCase()}.`,
+            relatedentityid: resultid,
+            relatedentitytype: "test_result",
+            metadata: {
+              testCode: updatedResult[0].testcode,
+              testName: updatedResult[0].testname,
+              resultValue: updatedResult[0].resultvalue,
+              sampleId: updatedResult[0].sampleid,
+              validationStatus: status,
+              validatedBy: user.userid,
+            },
+            priority: status === 'released' ? "high" : "medium",
+          });
+        } catch (notificationError) {
+          // Don't fail the request if notification fails
+        }
+      }
+
+      return NextResponse.json({ 
+        success: true,
+        result: updatedResult[0],
+        message: `Test result ${status} successfully`
+      });
+    }
+
+    return NextResponse.json({ error: "Either status or resultvalue with changeComment is required" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update test result status" }, { status: 500 });
+    console.error('PATCH error:', error);
+    return NextResponse.json({ error: "Failed to update test result" }, { status: 500 });
   }
 }

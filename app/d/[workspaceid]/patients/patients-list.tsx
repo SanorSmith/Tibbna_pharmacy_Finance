@@ -255,7 +255,7 @@ export default function PatientsList({
       {/* Edit Patient Dialog */}
       {editingPatient && (
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Patient</DialogTitle>
               <DialogDescription>
