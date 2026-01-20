@@ -106,7 +106,7 @@ interface AccessionedSample {
   barcode: string;
   accessionedat: string;
   patientid: string | null;
-  patientName: string | null;
+  patientname: string | null; // Changed from patientName to match API response
   subjectidentifier?: string | null;
   orderid: string | null;
   openehrrequestid?: string | null;
@@ -194,7 +194,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     // Search filter - matches sample number, patient name, patient ID, sample type, container
     const matchesSearch = 
       sample.samplenumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (sample.patientName && sample.patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (sample.patientname && sample.patientname.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (sample.patientid && sample.patientid.toLowerCase().includes(searchTerm.toLowerCase())) ||
       sample.sampletype.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (sample.containertype && sample.containertype.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -549,11 +549,10 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                         <TableRow>
                           <TableHead>Sample Number</TableHead>
                           <TableHead>Sample Type</TableHead>
-                          <TableHead>Container</TableHead>
+                        
                           <TableHead>Collection Date</TableHead>
                           <TableHead>Patient Name</TableHead>
-                          <TableHead>Age</TableHead>
-                          <TableHead>Sex</TableHead>
+                          
                           <TableHead>Status</TableHead>
                           <TableHead>Accessioned</TableHead>
                         </TableRow>
@@ -572,19 +571,13 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                               {sample.samplenumber}
                             </TableCell>
                             <TableCell className="capitalize">{sample.sampletype}</TableCell>
-                            <TableCell className="capitalize">
-                              {sample.containertype?.replace(/_/g, " ")}
-                            </TableCell>
+                            
                             <TableCell className="text-sm">
                               {new Date(sample.collectiondate).toLocaleDateString()}
                             </TableCell>
                             <TableCell className="font-medium">
-                              {sample.patientName || sample.subjectidentifier || "Unknown"}
+                              {sample.patientname || sample.subjectidentifier || "Unknown"}
                             </TableCell>
-                            <TableCell className="text-sm">
-                              {sample.patientage ? `${sample.patientage} yrs` : "-"}
-                            </TableCell>
-                            <TableCell className="text-sm">{sample.patientsex || "-"}</TableCell>
                             <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
                             <TableCell className="text-sm">
                               {new Date(sample.accessionedat).toLocaleString()}
@@ -704,7 +697,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Patient Name:</span>
-                        <span className="font-medium">{selectedSample.patientName || "-"}</span>
+                        <span className="font-medium">{selectedSample.patientname || "-"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Patient ID:</span>
@@ -1035,7 +1028,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
             <BarcodePrint
               barcode={selectedSample.barcode}
               sampleNumber={selectedSample.samplenumber}
-              patientName={selectedSample.patientName || selectedSample.patientid || "Unknown"}
+              patientName={selectedSample.patientname || selectedSample.patientid || "Unknown"}
               collectionDate={selectedSample.collectiondate}
               sampleType={selectedSample.sampletype}
             />

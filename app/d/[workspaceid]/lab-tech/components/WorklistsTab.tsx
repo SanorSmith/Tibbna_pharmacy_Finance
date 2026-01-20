@@ -818,7 +818,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Worklist Detail Dialog */}
       <Dialog open={showWorklistDetail} onOpenChange={setShowWorklistDetail}>
-        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>{selectedWorklist?.worklistname}</DialogTitle>
             <DialogDescription>
@@ -845,60 +845,50 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                   <Printer className="h-4 w-4 mr-2" />
                   Print
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => cancelWorklistMutation.mutate(selectedWorklist.worklistid)}
-                  disabled={
-                    selectedWorklist.status === 'completed' ||
-                    selectedWorklist.status === 'cancelled'
-                  }
-                >
-                  Cancel
-                </Button>
               </div>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="text-sm text-gray-600">Status</div>
-                    <div className="mt-1">{getStatusBadge(selectedWorklist.status)}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Priority</div>
-                    <div className="mt-1">{getPriorityBadge(selectedWorklist.priority)}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Created By</div>
-                    <div className="mt-1 font-medium">{selectedWorklist.createdbyname || '-'}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Total Items</div>
-                    <div className="mt-1 font-medium">{selectedWorklist.itemCount || 0}</div>
-                  </div>
-                  <div className="col-span-2">
-                    <div className="text-sm text-gray-600 mb-2">Assigned To</div>
+              <div className="space-y-2">
+                <div className="p-2 bg-gray-50 rounded-lg text-xs space-y-1">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 font-medium">
-                        {selectedWorklist.assignedtoname || 'Unassigned'}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setAssignToName(selectedWorklist.assignedtoname || '');
-                          setShowAssignDialog(true);
-                        }}
-                      >
-                        <User className="h-3 w-3 mr-1" />
-                        {selectedWorklist.assignedtoname ? 'Reassign' : 'Assign'}
-                      </Button>
+                      <span className="text-gray-600">Status:</span>
+                      {getStatusBadge(selectedWorklist.status)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Priority:</span>
+                      {getPriorityBadge(selectedWorklist.priority)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Created By:</span>
+                      <span className="font-medium">{selectedWorklist.createdbyname || '-'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Total Items:</span>
+                      <span className="font-medium">{selectedWorklist.itemCount || 0}</span>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Assigned To:</span>
+                      <span className="font-medium">{selectedWorklist.assignedtoname || 'Unassigned'}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setAssignToName(selectedWorklist.assignedtoname || '');
+                        setShowAssignDialog(true);
+                      }}
+                      className="h-6 text-xs px-2"
+                    >
+                      <User className="h-3 w-3 mr-1" />
+                      {selectedWorklist.assignedtoname ? 'Reassign' : 'Assign'}
+                    </Button>
+                  </div>
                   {selectedWorklist.description && (
-                    <div className="col-span-2">
-                      <div className="text-sm text-gray-600">Description</div>
-                      <div className="mt-1">{selectedWorklist.description}</div>
+                    <div className="flex items-start gap-2 pt-1 border-t">
+                      <span className="text-gray-600">Description:</span>
+                      <span className="flex-1">{selectedWorklist.description}</span>
                     </div>
                   )}
                 </div>
@@ -909,119 +899,43 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                   Worklist Items ({worklistItems?.length || 0})
                 </h3>
 
-                <Card className="border-gray-200">
-                  <CardHeader>
-                    <CardTitle className="text-base">Add / Remove Samples</CardTitle>
-                    <CardDescription>
-                      Add accessioned samples to this worklist, or remove existing ones.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <Input
-                        placeholder="Search samples by patient name, sample #, accession #"
-                        value={addSampleSearch}
-                        onChange={(e) => setAddSampleSearch(e.target.value)}
-                      />
-                      <div className="border rounded-md overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Sample #</TableHead>
-                              <TableHead>Accession #</TableHead>
-                              <TableHead>Patient</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {availableSamplesToAdd.length > 0 ? (
-                              availableSamplesToAdd.map((s: any) => (
-                                <TableRow key={String(s.sampleid)}>
-                                  <TableCell className="font-mono text-xs">{s.samplenumber}</TableCell>
-                                  <TableCell className="font-mono text-xs">{s.accessionnumber || '-'}</TableCell>
-                                  <TableCell className="text-sm">{s.patientname || '-'}</TableCell>
-                                  <TableCell className="text-sm">{s.sampletype || '-'}</TableCell>
-                                  <TableCell className="text-right">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() =>
-                                        addWorklistItemMutation.mutate({
-                                          worklistid: selectedWorklist.worklistid,
-                                          sample: s,
-                                        })
-                                      }
-                                      disabled={addWorklistItemMutation.isPending}
-                                    >
-                                      <Plus className="h-4 w-4 mr-1" />
-                                      Add
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={5}
-                                  className="text-center text-sm text-muted-foreground py-6"
-                                >
-                                  No available samples to add.
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                      <div className="text-xs text-muted-foreground">Showing up to 25 matches.</div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {itemsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                   </div>
                 ) : worklistItems && worklistItems.length > 0 ? (
-                  <div className="overflow-x-auto border rounded-md">
+                  <div className="border rounded-md">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead>Sample Number</TableHead>
-                          <TableHead>Accession Number</TableHead>
-                          <TableHead>Tests</TableHead>
-                          <TableHead>Patient Name</TableHead>
-                          <TableHead>Sample Type</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Added By</TableHead>
-                          <TableHead>Added Date</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
+                        <TableRow className="text-xs">
+                          <TableHead className="w-[120px]">Sample #</TableHead>
+                          <TableHead className="w-[100px]">Accession #</TableHead>
+                          <TableHead className="w-[120px]">Tests</TableHead>
+                          <TableHead className="w-[140px]">Patient Name</TableHead>
+                          <TableHead className="w-[100px]">Sample Type</TableHead>
+                          <TableHead className="w-[100px]">Location</TableHead>
+                          <TableHead className="w-[100px]">Added Date</TableHead>
+                          <TableHead className="w-[80px]">Status</TableHead>
+                          <TableHead className="w-[60px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {worklistItems.map((item) => (
-                          <TableRow key={item.worklistitemid}>
+                          <TableRow key={item.worklistitemid} className="text-xs">
                             <TableCell className="font-mono font-medium">{item.samplenumber}</TableCell>
-                            <TableCell className="font-mono text-xs">{item.accessionnumber || '-'}</TableCell>
-                            <TableCell className="text-xs">
+                            <TableCell className="font-mono">{item.accessionnumber || '-'}</TableCell>
+                            <TableCell className="truncate max-w-[120px]" title={Array.isArray(item.tests) ? item.tests.join(', ') : '-'}>
                               {Array.isArray(item.tests) ? item.tests.join(', ') : '-'}
                             </TableCell>
-                            <TableCell className="font-medium">{item.patientName || item.patientid || '-'}</TableCell>
+                            <TableCell className="font-medium truncate max-w-[140px]" title={item.patientName || item.patientid || '-'}>
+                              {item.patientName || item.patientid || '-'}
+                            </TableCell>
                             <TableCell className="capitalize">{item.sampletype}</TableCell>
+                            <TableCell className="truncate max-w-[100px]" title={item.currentlocation}>
+                              <MapPin className="h-3 w-3 inline mr-1 text-gray-500" />
+                              {item.currentlocation}
+                            </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1 text-sm">
-                                <MapPin className="h-3 w-3 text-gray-500" />
-                                {item.currentlocation}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              <div className="flex items-center gap-1">
-                                <User className="h-3 w-3 text-gray-500" />
-                                {item.addedbyname || '-'}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">
                               {new Date(item.addedat).toLocaleDateString()}
                             </TableCell>
                             <TableCell>{getStatusBadge(item.status)}</TableCell>
@@ -1029,7 +943,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0"
                                 onClick={() => setDeleteConfirm({ show: true, item })}
                                 disabled={deleteWorklistItemMutation.isPending}
                               >

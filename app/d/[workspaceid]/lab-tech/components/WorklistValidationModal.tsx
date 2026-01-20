@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -76,6 +78,11 @@ export default function WorklistValidationModal({
   const [showRerunDialog, setShowRerunDialog] = useState(false);
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [editedResults, setEditedResults] = useState<Record<string, string>>({});
+  const [editingResultId, setEditingResultId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
+  const [showCommentDialog, setShowCommentDialog] = useState(false);
+  const [changeComment, setChangeComment] = useState<string>("");
+  const [pendingResultUpdate, setPendingResultUpdate] = useState<{resultId: string, newValue: string} | null>(null);
 
   // Fetch worklist items with patient and sample data
   const { data: worklistData, isLoading, error } = useQuery({
@@ -165,6 +172,29 @@ export default function WorklistValidationModal({
     },
   });
 
+  // Update existing result mutation
+  const updateResultMutation = useMutation({
+    mutationFn: async ({ resultId, newValue, comment }: { resultId: string, newValue: string, comment: string }) => {
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          resultvalue: newValue,
+          changeComment: comment,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to update result');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+      setEditingResultId(null);
+      setEditingValue("");
+      setChangeComment("");
+      setPendingResultUpdate(null);
+    },
+  });
+
   // Save bulk results mutation
   const saveResultsMutation = useMutation({
     mutationFn: async () => {
@@ -213,6 +243,40 @@ export default function WorklistValidationModal({
     },
   });
 
+  const handleEditResult = (resultId: string, currentValue: string) => {
+    setEditingResultId(resultId);
+    setEditingValue(currentValue);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingResultId || !editingValue.trim()) return;
+    
+    // Store pending update and show comment dialog
+    setPendingResultUpdate({ resultId: editingResultId, newValue: editingValue });
+    setShowCommentDialog(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    if (!changeComment.trim()) {
+      alert("Please provide a comment explaining why the result was changed.");
+      return;
+    }
+    
+    if (pendingResultUpdate) {
+      updateResultMutation.mutate({
+        resultId: pendingResultUpdate.resultId,
+        newValue: pendingResultUpdate.newValue,
+        comment: changeComment,
+      });
+      setShowCommentDialog(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingResultId(null);
+    setEditingValue("");
+  };
+
   const handlePrevious = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
@@ -251,6 +315,12 @@ export default function WorklistValidationModal({
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Worklist ID Display - Only show for worklist validation */}
+              {!selectedSample && worklistid && (
+                <div className="border-b pb-3">
+                  <p className="text-sm font-semibold text-gray-700 mb-1">Worklist ID: {worklistid.substring(0, 8)} </p>
+                </div>
+              )}
               {/* Search and Navigation - Only show for worklists with multiple samples */}
               {!selectedSample && filteredItems.length > 1 && (
                 <div className="flex items-center gap-4">
@@ -288,37 +358,33 @@ export default function WorklistValidationModal({
               )}
 
               {/* Patient Information */}
-              <Card>
-                <CardHeader className="bg-blue-50">
-                  <CardTitle className="text-lg">Patient Information</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {currentItem.patient ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Name</p>
-                        <p className="font-medium">
-                          {currentItem.patient.firstname} {currentItem.patient.lastname}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Age</p>
-                        <p className="font-medium">{currentItem.patient.age} years</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Gender</p>
-                        <p className="font-medium capitalize">{currentItem.patient.gender}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Sample ID</p>
-                        <p className="font-medium font-mono">{currentItem.sample.samplenumber}</p>
-                      </div>
+              <div className="border-b pb-3">
+                <p className="text-sm font-semibold text-gray-700 mb-2">Patient Information</p>
+                {currentItem.patient ? (
+                  <div className="flex items-center gap-6 flex-wrap text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Name:</span>
+                      <span className="font-medium">
+                        {currentItem.patient.firstname} {currentItem.patient.lastname}
+                      </span>
                     </div>
-                  ) : (
-                    <p className="text-muted-foreground">No patient information available</p>
-                  )}
-                </CardContent>
-              </Card>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Age:</span>
+                      <span className="font-medium">{currentItem.patient.age} years</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Gender:</span>
+                      <span className="font-medium capitalize">{currentItem.patient.gender}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Sample ID:</span>
+                      <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-xs">No patient information available</p>
+                )}
+              </div>
 
               {/* Test Results Table */}
               <Card>
@@ -354,12 +420,92 @@ export default function WorklistValidationModal({
                               </TableCell>
                               <TableCell>
                                 {hasResult ? (
-                                  <div className="flex items-center gap-2">
-                                    {result.resultvalue || "-"}
-                                    {result.iscritical && (
-                                      <div className="w-3 h-3 bg-red-600 rounded-sm" />
-                                    )}
-                                  </div>
+                                  editingResultId === result.resultid ? (
+                                    // Editing mode
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        type="text"
+                                        value={editingValue}
+                                        onChange={(e) => setEditingValue(e.target.value)}
+                                        className="w-32"
+                                        autoFocus
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={handleSaveEdit}
+                                        className="h-7 px-2 bg-green-600 hover:bg-green-700"
+                                      >
+                                        Save
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleCancelEdit}
+                                        className="h-7 px-2"
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    // Display mode
+                                    <div className="flex items-center gap-2">
+                                      <span className={(() => {
+                                        const value = result.resultvalue;
+                                        if (!value || value === '-') return '';
+                                        
+                                        const numericValue = parseFloat(value);
+                                        
+                                        // Handle numeric results
+                                        if (!isNaN(numericValue)) {
+                                          const min = result.referencemin;
+                                          const max = result.referencemax;
+                                          
+                                          if (min !== null && max !== null) {
+                                            if (numericValue > max) {
+                                              return 'bg-red-100 text-red-900 px-2 py-1 rounded font-semibold';
+                                            } else if (numericValue < min) {
+                                              return 'bg-yellow-100 text-yellow-900 px-2 py-1 rounded font-semibold';
+                                            }
+                                          }
+                                          return 'font-medium';
+                                        }
+                                        
+                                        // Handle descriptive results
+                                        const valueLower = value.toLowerCase().trim();
+                                        const refRange = (result.referencerange || '').toLowerCase();
+                                        
+                                        // Check if result indicates abnormal/positive finding
+                                        const abnormalTerms = ['positive', 'detected', 'present', 'abnormal', 'growth', 'reactive'];
+                                        const normalTerms = ['negative', 'no growth', 'not detected', 'absent', 'normal', 'non-reactive'];
+                                        
+                                        const isAbnormal = abnormalTerms.some(term => valueLower.includes(term));
+                                        const isNormal = normalTerms.some(term => valueLower.includes(term));
+                                        
+                                        if (isAbnormal && refRange.includes('negative')) {
+                                          return 'bg-red-100 text-red-900 px-2 py-1 rounded font-semibold';
+                                        } else if (isNormal) {
+                                          return 'font-medium';
+                                        }
+                                        
+                                        return 'font-medium';
+                                      })()}>
+                                        {result.resultvalue || "-"}
+                                      </span>
+                                      {result.iscritical && (
+                                        <div className="w-3 h-3 bg-red-600 rounded-sm" />
+                                      )}
+                                      {result.resultid && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleEditResult(result.resultid!, result.resultvalue || "")}
+                                          className="h-6 px-2 text-xs bg-green-400 hover:bg-green-500 text-green-800"
+                                        >
+                                          Edit
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )
                                 ) : (
                                   <div className="flex items-center gap-2">
                                     {result.referencerange === 'Descriptive result' || result.unit === 'N/A' ? (
@@ -370,7 +516,23 @@ export default function WorklistValidationModal({
                                           ...prev,
                                           [resultKey]: e.target.value
                                         }))}
-                                        className="w-64 min-h-[60px] px-3 py-2 text-sm border rounded-md"
+                                        className={`w-64 min-h-[60px] px-3 py-2 text-sm border rounded-md ${(() => {
+                                          const value = editedResults[resultKey];
+                                          if (!value || value.trim() === '') return '';
+                                          
+                                          const valueLower = value.toLowerCase().trim();
+                                          const refRange = (result.referencerange || '').toLowerCase();
+                                          
+                                          // Check if result indicates abnormal/positive finding
+                                          const abnormalTerms = ['positive', 'detected', 'present', 'abnormal', 'growth', 'reactive'];
+                                          const isAbnormal = abnormalTerms.some(term => valueLower.includes(term));
+                                          
+                                          if (isAbnormal && refRange.includes('negative')) {
+                                            return 'bg-red-100 border-red-300 focus:border-red-500';
+                                          }
+                                          
+                                          return '';
+                                        })()}`}
                                         rows={2}
                                       />
                                     ) : (
@@ -383,7 +545,25 @@ export default function WorklistValidationModal({
                                             ...prev,
                                             [resultKey]: e.target.value
                                           }))}
-                                          className="w-32"
+                                          className={`w-32 ${(() => {
+                                            const value = editedResults[resultKey];
+                                            if (!value || value.trim() === '') return '';
+                                            
+                                            const numericValue = parseFloat(value);
+                                            if (isNaN(numericValue)) return '';
+                                            
+                                            const min = result.referencemin;
+                                            const max = result.referencemax;
+                                            
+                                            if (min !== null && max !== null) {
+                                              if (numericValue > max) {
+                                                return 'bg-red-100 border-red-300 focus:border-red-500';
+                                              } else if (numericValue < min) {
+                                                return 'bg-yellow-100 border-yellow-300 focus:border-yellow-500';
+                                              }
+                                            }
+                                            return '';
+                                          })()}`}
                                         />
                                         {result.unit && result.unit !== 'N/A' && (
                                           <span className="text-sm text-muted-foreground">
@@ -609,6 +789,53 @@ export default function WorklistValidationModal({
               className="bg-blue-600 hover:bg-blue-700"
             >
               Request Rerun
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Change Comment Dialog */}
+      <AlertDialog open={showCommentDialog} onOpenChange={setShowCommentDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Result Change Comment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a comment explaining why this result is being changed. This is required for audit purposes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="change-comment" className="text-sm font-medium mb-2 block">
+              Comment <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="change-comment"
+              value={changeComment}
+              onChange={(e) => setChangeComment(e.target.value)}
+              placeholder="Enter reason for changing the result..."
+              className="min-h-[100px]"
+              rows={4}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setChangeComment("");
+              setPendingResultUpdate(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmUpdate}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={!changeComment.trim() || updateResultMutation.isPending}
+            >
+              {updateResultMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Confirm Update"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
