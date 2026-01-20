@@ -1988,17 +1988,6 @@ export default function EnhancedOrdersTab({
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Enhanced Form Dialog */}
-      <Dialog open={showTestOrderForm} onOpenChange={setShowTestOrderForm}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Order Laboratory Tests</DialogTitle>
-            <DialogDescription>
-              Create comprehensive test orders with packages and lab selection
-            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">

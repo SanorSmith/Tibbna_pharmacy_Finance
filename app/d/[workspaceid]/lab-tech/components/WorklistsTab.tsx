@@ -818,7 +818,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
 
       {/* Worklist Detail Dialog */}
       <Dialog open={showWorklistDetail} onOpenChange={setShowWorklistDetail}>
-        <DialogContent className="!max-w-[98vw] w-[98vw] max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedWorklist?.worklistname}</DialogTitle>
             <DialogDescription>
@@ -1412,7 +1412,10 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setAlertDialog({ show: false, title: '', message: '' })}>
+            <AlertDialogAction 
+              onClick={() => setAlertDialog({ show: false, title: '', message: '' })}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               OK
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -176,6 +176,13 @@
       "when": 1768869625515,
       "tag": "0024_known_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1768875144485,
+      "tag": "0025_past_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

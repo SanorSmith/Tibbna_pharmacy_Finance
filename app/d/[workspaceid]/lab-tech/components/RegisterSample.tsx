@@ -658,7 +658,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Sample Detail Dialog */}
       <Dialog open={showSampleDetail} onOpenChange={setShowSampleDetail}>
-        <DialogContent className={getDialogClasses("STANDARD")}>
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Sample Details</DialogTitle>
             <DialogDescription>
@@ -1061,7 +1061,10 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setAlertDialog(prev => ({ ...prev, isOpen: false }))}>
+            <AlertDialogAction 
+              onClick={() => setAlertDialog(prev => ({ ...prev, isOpen: false }))}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               OK
             </AlertDialogAction>
           </AlertDialogFooter>

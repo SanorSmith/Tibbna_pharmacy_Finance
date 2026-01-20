@@ -827,7 +827,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                 {/* Patient List */}
                 {patientSearchTerm.length > 0 && (
-                  <div className="border rounded-md max-h-[300px] overflow-y-auto bg-white shadow-sm">
+                  <div className="max-h-[300px] overflow-y-auto bg-white shadow-sm rounded-md border">
                     {patients.length === 0 ? (
                       <div className="p-4 text-center text-sm text-muted-foreground space-y-3">
                         <div>No patients found</div>
@@ -2481,6 +2481,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               onClick={() =>
                 setAlertDialog({ show: false, title: "", message: "" })
               }
+              className="bg-blue-600 hover:bg-blue-700"
             >
               OK
             </AlertDialogAction>

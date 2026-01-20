@@ -20,6 +20,7 @@ import {
   ListTodo,
   Home,
   ScanBarcode,
+  ClipboardCheck,
 } from "lucide-react";
 import OrdersTab from "./components/OrdersTab";
 import RegisterSample from "./components/RegisterSample";
@@ -29,6 +30,7 @@ import SampleManagementTab from "./components/SampleManagementTab";
 import NotificationTab from "./components/NotificationTab";
 import ContactsTab from "./components/ContactsTab";
 import ToDoTab from "./components/ToDoTab";
+import QCCalibrationTab from "./components/QCCalibrationTab";
 
 export default function LabTechDashboard({
   workspaceid,
@@ -124,6 +126,14 @@ export default function LabTechDashboard({
           </TabsTrigger>
 
           <TabsTrigger
+            value="qc"
+            className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            QC & Calibration
+          </TabsTrigger>
+
+          <TabsTrigger
             value="notification"
             className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4E95D9] text-white border border-gray-300 font-semibold px-2 py-2 flex items-center gap-1 text-sm"
           >
@@ -168,6 +178,12 @@ export default function LabTechDashboard({
         <TabsContent value="worklist" className="mt-4">
           {loadedTabs.has("worklist") && (
             <WorklistsTab workspaceid={workspaceid} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="qc" className="mt-4">
+          {loadedTabs.has("qc") && (
+            <QCCalibrationTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 

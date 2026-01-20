@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, Package, Thermometer, Archive, Plus, Edit, Trash2, MapPin } from "lucide-react";
+import { Search, Loader2, Package, Thermometer, Archive, Plus, Edit, Trash2, MapPin, ArrowRight, Clock, AlertTriangle } from "lucide-react";
 
-interface StoredSample {
+interface FinishedSample {
   sampleid: string;
   samplenumber: string;
   sampletype: string;
@@ -34,6 +34,27 @@ interface StoredSample {
   volumeunit: string | null;
   patientage?: number;
   patientsex?: string;
+}
+
+interface StoredSample {
+  storageid: string;
+  sampleid: string;
+  locationid: string;
+  storagedate: string;
+  expirydate: string;
+  retentiondays: number;
+  status: string;
+  storagenotes: string | null;
+  samplenumber: string;
+  sampletype: string;
+  containertype: string;
+  barcode: string;
+  patientid: string | null;
+  collectiondate: string;
+  locationname: string;
+  locationcode: string;
+  locationtype: string;
+  storedbyname: string;
 }
 
 interface StorageLocation {
@@ -73,7 +94,12 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [isAddLocationDialogOpen, setIsAddLocationDialogOpen] = useState(false);
   const [isEditLocationDialogOpen, setIsEditLocationDialogOpen] = useState(false);
+  const [isMoveToStorageDialogOpen, setIsMoveToStorageDialogOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<StorageLocation | null>(null);
+  const [selectedSample, setSelectedSample] = useState<FinishedSample | null>(null);
+  const [storageLocationId, setStorageLocationId] = useState<string>('');
+  const [retentionDays, setRetentionDays] = useState<number>(3);
+  const [storageNotes, setStorageNotes] = useState<string>('');
   const queryClient = useQueryClient();
 
   // Form state for new/edit location
@@ -227,13 +253,24 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
     setIsEditLocationDialogOpen(true);
   };
 
-  // Fetch stored samples (IN_STORAGE status)
-  const { data: samples, isLoading } = useQuery<StoredSample[]>({
+  // Fetch finished samples ready for storage
+  const { data: finishedSamples, isLoading: finishedLoading } = useQuery<FinishedSample[]>({
+    queryKey: ["finished-samples", workspaceid],
+    queryFn: async () => {
+      const response = await fetch(`/api/lims/accession?workspaceid=${workspaceid}&status=VALIDATED&limit=500`);
+      if (!response.ok) throw new Error("Failed to fetch finished samples");
+      const data = await response.json();
+      return data.samples;
+    },
+  });
+
+  // Fetch stored samples
+  const { data: storedSamples, isLoading: storedLoading } = useQuery<StoredSample[]>({
     queryKey: ["stored-samples", workspaceid, locationFilter],
     queryFn: async () => {
       const url = locationFilter === 'all'
-        ? `/api/lims/accession?workspaceid=${workspaceid}&status=IN_STORAGE&limit=500`
-        : `/api/lims/accession?workspaceid=${workspaceid}&status=IN_STORAGE&limit=500`;
+        ? `/api/lims/sample-storage?workspaceid=${workspaceid}&status=stored&limit=500`
+        : `/api/lims/sample-storage?workspaceid=${workspaceid}&status=stored&locationid=${locationFilter}&limit=500`;
       
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch stored samples");
@@ -242,27 +279,62 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
     },
   });
 
-  // Filter samples by search term
-  const filteredSamples = samples?.filter(sample => {
-    const matchesSearch = searchTerm === '' || 
-      sample.samplenumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sample.patientName?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesLocation = locationFilter === 'all' || 
-      sample.currentlocation?.toLowerCase().includes(locationFilter.toLowerCase());
-
-    return matchesSearch && matchesLocation;
+  // Move sample to storage mutation
+  const moveToStorageMutation = useMutation({
+    mutationFn: async (data: { sampleid: string; locationid: string; retentiondays: number; storagenotes?: string }) => {
+      const response = await fetch('/api/lims/sample-storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, workspaceid }),
+      });
+      if (!response.ok) throw new Error('Failed to move sample to storage');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finished-samples", workspaceid] });
+      queryClient.invalidateQueries({ queryKey: ["stored-samples", workspaceid] });
+      setIsMoveToStorageDialogOpen(false);
+      setSelectedSample(null);
+      setStorageLocationId('');
+      setRetentionDays(3);
+      setStorageNotes('');
+    },
   });
 
-  // Group samples by location
-  const samplesByLocation = filteredSamples?.reduce((acc, sample) => {
-    const location = sample.currentlocation || 'Unknown';
-    if (!acc[location]) {
-      acc[location] = [];
+  const handleMoveToStorage = () => {
+    if (selectedSample && storageLocationId) {
+      moveToStorageMutation.mutate({
+        sampleid: selectedSample.sampleid,
+        locationid: storageLocationId,
+        retentiondays: retentionDays,
+        storagenotes: storageNotes || undefined,
+      });
     }
-    acc[location].push(sample);
-    return acc;
-  }, {} as Record<string, StoredSample[]>);
+  };
+
+  const openMoveToStorageDialog = (sample: FinishedSample) => {
+    setSelectedSample(sample);
+    setIsMoveToStorageDialogOpen(true);
+  };
+
+  // Filter stored samples by search term
+  const filteredStoredSamples = storedSamples?.filter(sample => {
+    const matchesSearch = searchTerm === '' || 
+      sample.samplenumber.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
+  // Check if sample is expiring soon (within 24 hours)
+  const isExpiringSoon = (expiryDate: string) => {
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    const hoursUntilExpiry = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60);
+    return hoursUntilExpiry > 0 && hoursUntilExpiry <= 24;
+  };
+
+  const isExpired = (expiryDate: string) => {
+    return new Date(expiryDate) < new Date();
+  };
 
   const getLocationIcon = (location: string) => {
     const loc = location.toLowerCase();
@@ -310,47 +382,6 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Stored</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{samples?.length || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Refrigerated</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {samples?.filter(s => s.currentlocation?.toLowerCase().includes('refrigerator')).length || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Frozen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {samples?.filter(s => s.currentlocation?.toLowerCase().includes('freezer')).length || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Room Temp</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {samples?.filter(s => s.currentlocation?.toLowerCase().includes('room_temp')).length || 0}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Storage Locations Management */}
       <Card>
@@ -370,7 +401,7 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
                   Add Location
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Storage Location</DialogTitle>
                   <DialogDescription>
@@ -680,18 +711,153 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
         </DialogContent>
       </Dialog>
 
-      {/* Search and Filter */}
+      {/* Finished Samples Ready for Storage */}
       <Card>
         <CardHeader>
-          <CardTitle>Stored Samples</CardTitle>
-          <CardDescription>All samples currently in storage</CardDescription>
+          <CardTitle>Finished Samples - Ready for Storage</CardTitle>
+          <CardDescription>Validated samples that can be moved to storage</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {finishedLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : finishedSamples && finishedSamples.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sample Number</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Sample Type</TableHead>
+                    <TableHead>Container</TableHead>
+                    <TableHead>Collection Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {finishedSamples.map((sample) => (
+                    <TableRow key={sample.sampleid} className="hover:bg-gray-50">
+                      <TableCell className="font-medium font-mono">{sample.samplenumber}</TableCell>
+                      <TableCell className="font-medium">{sample.patientName || sample.patientid || "-"}</TableCell>
+                      <TableCell className="capitalize">{sample.sampletype}</TableCell>
+                      <TableCell className="text-sm">{sample.containertype}</TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(sample.collectiondate).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className="bg-green-500 text-white">{sample.currentstatus}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          onClick={() => openMoveToStorageDialog(sample)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <ArrowRight className="h-4 w-4 mr-1" />
+                          Move to Storage
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No finished samples ready for storage</p>
+              <p className="text-sm">Validated samples will appear here</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Move to Storage Dialog */}
+      <Dialog open={isMoveToStorageDialogOpen} onOpenChange={setIsMoveToStorageDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Sample to Storage</DialogTitle>
+            <DialogDescription>
+              Select storage location and retention period for sample {selectedSample?.samplenumber}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="storage-location">Storage Location *</Label>
+              <Select value={storageLocationId} onValueChange={setStorageLocationId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select storage location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {storageLocations?.filter(loc => loc.status === 'active' && loc.isavailable).map((location) => (
+                    <SelectItem key={location.locationid} value={location.locationid}>
+                      {location.name} ({location.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="retention-days">Retention Period (days) *</Label>
+              <Input
+                id="retention-days"
+                type="number"
+                min="1"
+                max="365"
+                value={retentionDays}
+                onChange={(e) => setRetentionDays(parseInt(e.target.value) || 3)}
+                placeholder="Default: 3 days"
+              />
+              <p className="text-xs text-muted-foreground">
+                Sample will expire on: {new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000).toLocaleDateString()}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="storage-notes">Storage Notes (optional)</Label>
+              <Textarea
+                id="storage-notes"
+                value={storageNotes}
+                onChange={(e) => setStorageNotes(e.target.value)}
+                placeholder="Any special notes about this storage..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMoveToStorageDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMoveToStorage}
+              disabled={moveToStorageMutation.isPending || !storageLocationId}
+            >
+              {moveToStorageMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Move to Storage
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stored Samples */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Stored Samples</CardTitle>
+              <CardDescription>Samples currently in storage with retention tracking</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-6">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search by sample number or patient name..."
+                placeholder="Search by sample number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -703,59 +869,75 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                <SelectItem value="refrigerator">Refrigerator</SelectItem>
-                <SelectItem value="freezer">Freezer</SelectItem>
-                <SelectItem value="room_temp">Room Temperature</SelectItem>
-                <SelectItem value="rack">Racks</SelectItem>
+                {storageLocations?.map((location) => (
+                  <SelectItem key={location.locationid} value={location.locationid}>
+                    {location.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          {isLoading ? (
+          {storedLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
-          ) : filteredSamples && filteredSamples.length > 0 ? (
+          ) : filteredStoredSamples && filteredStoredSamples.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Sample Number</TableHead>
-                    <TableHead>Patient Name</TableHead>
-                    <TableHead>Age</TableHead>
-                    <TableHead>Sex</TableHead>
                     <TableHead>Sample Type</TableHead>
-                    <TableHead>Container</TableHead>
-                    <TableHead>Volume</TableHead>
                     <TableHead>Storage Location</TableHead>
-                    <TableHead>Collection Date</TableHead>
-                    <TableHead>Stored Since</TableHead>
+                    <TableHead>Stored Date</TableHead>
+                    <TableHead>Retention</TableHead>
+                    <TableHead>Expiry Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Stored By</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSamples.map((sample) => (
-                    <TableRow key={sample.sampleid} className="hover:bg-gray-50">
+                  {filteredStoredSamples.map((sample) => (
+                    <TableRow key={sample.storageid} className="hover:bg-gray-50">
                       <TableCell className="font-medium font-mono">{sample.samplenumber}</TableCell>
-                      <TableCell className="font-medium">{sample.patientName || sample.patientid || "-"}</TableCell>
-                      <TableCell className="text-sm">{sample.patientage ? `${sample.patientage} yrs` : '-'}</TableCell>
-                      <TableCell className="text-sm capitalize">{sample.patientsex || '-'}</TableCell>
                       <TableCell className="capitalize">{sample.sampletype}</TableCell>
-                      <TableCell className="text-sm">{sample.containertype}</TableCell>
-                      <TableCell className="text-sm">
-                        {sample.volume ? `${sample.volume} ${sample.volumeunit || ''}` : '-'}
-                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {getLocationIcon(sample.currentlocation)}
-                          {getLocationBadge(sample.currentlocation)}
+                          <MapPin className="h-4 w-4 text-blue-500" />
+                          <div>
+                            <div className="font-medium">{sample.locationname}</div>
+                            <div className="text-xs text-gray-500">{sample.locationcode}</div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {new Date(sample.collectiondate).toLocaleDateString()}
+                        {new Date(sample.storagedate).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {new Date(sample.accessionedat).toLocaleDateString()}
+                        {sample.retentiondays} days
                       </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {isExpired(sample.expirydate) ? (
+                            <Badge variant="destructive" className="flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Expired
+                            </Badge>
+                          ) : isExpiringSoon(sample.expirydate) ? (
+                            <Badge className="bg-orange-500 text-white flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Expiring Soon
+                            </Badge>
+                          ) : (
+                            <span className="text-sm">{new Date(sample.expirydate).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className="bg-blue-500 text-white capitalize">{sample.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{sample.storedbyname}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -771,8 +953,8 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
         </CardContent>
       </Card>
 
-      {/* Samples by Location */}
-      {samplesByLocation && Object.keys(samplesByLocation).length > 0 && (
+      {/* Storage Overview - Removed as per requirements */}
+      {false && (
         <Card>
           <CardHeader>
             <CardTitle>Storage Overview</CardTitle>

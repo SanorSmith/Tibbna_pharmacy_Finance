@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { accessionSamples, validationStates, testResults, limsOrders, patients, limsOrderTests, labTestCatalog } from "@/lib/db/schema";
+import { accessionSamples, validationStates, testResults, limsOrders, patients, limsOrderTests, labTestCatalog, worklists, worklistItems } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
 /**
  * GET /api/lims/worklist
- * Fetch samples pending clinical validation with filters
- * Server-side filtering for performance
+ * Fetch worklists or samples pending clinical validation with filters
+ * - If mode=list: Returns list of worklists
+ * - Otherwise: Returns samples with validation data (legacy mode)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const workspaceid = searchParams.get("workspaceid");
+    const mode = searchParams.get("mode"); // 'list' for worklist listing
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const analyzer = searchParams.get("analyzer");
@@ -31,6 +33,50 @@ export async function GET(request: NextRequest) {
         { error: "workspaceid is required" },
         { status: 400 }
       );
+    }
+
+    // If mode=list, return worklists instead of samples
+    if (mode === "list") {
+      const worklistsData = await db
+        .select({
+          worklistid: worklists.worklistid,
+          worklistname: worklists.worklistname,
+          worklisttype: worklists.worklisttype,
+          department: worklists.department,
+          analyzer: worklists.analyzer,
+          priority: worklists.priority,
+          status: worklists.status,
+          description: worklists.description,
+          createdat: worklists.createdat,
+          createdby: worklists.createdby,
+          createdbyname: worklists.createdbyname,
+          assignedto: worklists.assignedto,
+          assignedtoname: worklists.assignedtoname,
+          completedat: worklists.completedat,
+        })
+        .from(worklists)
+        .where(eq(worklists.workspaceid, workspaceid))
+        .orderBy(desc(worklists.createdat));
+
+      // Get sample count for each worklist
+      const enrichedWorklists = await Promise.all(
+        worklistsData.map(async (worklist) => {
+          const items = await db
+            .select()
+            .from(worklistItems)
+            .where(eq(worklistItems.worklistid, worklist.worklistid));
+          
+          return {
+            ...worklist,
+            samplecount: items.length,
+          };
+        })
+      );
+
+      return NextResponse.json({
+        worklists: enrichedWorklists,
+        total: enrichedWorklists.length,
+      });
     }
 
     // Build query conditions

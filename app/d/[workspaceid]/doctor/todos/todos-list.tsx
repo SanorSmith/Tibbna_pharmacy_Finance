@@ -449,7 +449,7 @@ export default function TodosList({ workspaceid, showHomeButton = true }: Props)
 
       {/* Edit Todo Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Todo</DialogTitle>
             <DialogDescription>Update your todo details</DialogDescription>

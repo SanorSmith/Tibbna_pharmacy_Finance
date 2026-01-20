@@ -169,7 +169,7 @@ export default function WorkListTab({ workspaceid: _workspaceid }: { workspaceid
 
       {/* Order Details Modal */}
       <Dialog open={isOrderDetailsOpen} onOpenChange={setIsOrderDetailsOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Order Details</DialogTitle>
             <DialogDescription>
