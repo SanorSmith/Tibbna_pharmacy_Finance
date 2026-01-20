@@ -44,7 +44,9 @@ export async function GET(
         notes: worklistItems.notes,
         // Sample information
         samplenumber: accessionSamples.samplenumber,
+        accessionnumber: accessionSamples.accessionnumber,
         sampletype: accessionSamples.sampletype,
+        tests: accessionSamples.tests,
         currentlocation: accessionSamples.currentlocation,
         barcode: accessionSamples.barcode,
         // Order information

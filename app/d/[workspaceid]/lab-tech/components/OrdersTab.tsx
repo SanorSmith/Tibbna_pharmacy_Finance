@@ -68,6 +68,7 @@ import { useSession } from "next-auth/react";
 
 type PatientCreatePayload = {
   firstname: string;
+  middlename: string;
   lastname: string;
   nationalid?: string;
   dateofbirth?: string;
@@ -86,6 +87,8 @@ interface SampleData {
   volume: string | number;
   volumeUnit: string;
   collectionDate: string;
+  accessionNumber?: string;
+  labCategory?: string;
   collectorName: string | undefined;
   currentLocation: string;
   notes?: string;
@@ -114,6 +117,7 @@ interface OrderFormData {
 interface Patient {
   patientid: string;
   firstname: string;
+  middletname: string;
   lastname: string;
   dateofbirth: string;
   mrn?: string;
@@ -149,6 +153,7 @@ interface LimsOrder {
   patientage?: number;
   patientsex?: string;
   service_name?: string;
+  test_category?: string;
   clinical_indication?: string;
   clinicalnotes?: string;
   urgency?: string;
@@ -206,6 +211,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     useState(false);
   const [sampleCollectionData, setSampleCollectionData] = useState({
     sampleNumber: "", // Manual entry or auto-generated
+    accessionNumber: "", // Scanned/manual accession number
     sampleType: "",
     containerType: "",
     volume: "",
@@ -214,6 +220,18 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     collectorName: session?.user?.name || "",
     currentLocation: "Laboratory",
   });
+
+  const getVolumeUnitsForSampleType = (sampleType?: string) => {
+    const normalized = String(sampleType || "").toLowerCase();
+    if (normalized === "swab") return [] as string[];
+    if (normalized === "tissue" || normalized === "stool") return ["g", "mg"];
+    return ["mL", "L", "μL"];
+  };
+
+  const isVolumeApplicable = (sampleType?: string) => {
+    const normalized = String(sampleType || "").toLowerCase();
+    return normalized !== "swab";
+  };
   const [currentPatientId, setCurrentPatientId] = useState("");
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
@@ -221,6 +239,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [showRegisterPatientDialog, setShowRegisterPatientDialog] = useState(false);
   const [registerPatientForm, setRegisterPatientForm] = useState<PatientCreatePayload>({
     firstname: "",
+    middlename:"",
     lastname: "",
     nationalid: "",
     dateofbirth: "",
@@ -254,6 +273,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       setShowRegisterPatientDialog(false);
       setRegisterPatientForm({
         firstname: "",
+        middlename:"",
         lastname: "",
         nationalid: "",
         dateofbirth: "",
@@ -397,7 +417,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       setAlertDialog({
         show: true,
         title: "Sample Collected Successfully",
-        message: `Sample Number: ${data.sample.sampleNumber}\nBarcode: ${data.sample.barcode}\n\nOrder status updated to IN PROGRESS`,
+        message: `Sample Number: ${data.sample.sampleNumber}\nAccession Number: ${data.sample.accessionNumber || "-"}\nBarcode: ${data.sample.barcode}\n\nOrder status updated to IN PROGRESS`,
         type: "success",
       });
     },
@@ -816,11 +836,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           variant="outline"
                           className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
                           onClick={() => {
+                            const trimmed = patientSearchTerm.trim();
+                            const looksLikeId = /^\d+$/.test(trimmed);
                             setRegisterPatientForm((prev) => ({
                               ...prev,
-                              firstname: prev.firstname || "",
+                              firstname: prev.firstname || (!looksLikeId ? trimmed : ""),
+                              middlename: prev.middlename || "",
                               lastname: prev.lastname || "",
-                              nationalid: prev.nationalid || (patientSearchTerm.trim() || ""),
+                              nationalid: prev.nationalid || (looksLikeId ? trimmed : ""),
                             }));
                             setShowRegisterPatientDialog(true);
                           }}
@@ -869,10 +892,12 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     </div>
                     <div className="mt-1">
                       <div className="font-semibold">
-                        {selectedPatient.name}
+                        {selectedPatient.name ||
+                          `${selectedPatient.firstname || ""} ${selectedPatient.lastname || ""}`.trim() ||
+                          "Unknown Patient"}
                       </div>
                       <div className="text-sm text-gray-600">
-                        ID: {selectedPatient.patientid}
+                        National ID: {selectedPatient.nationalid || "—"}
                       </div>
                     </div>
                   </div>
@@ -885,6 +910,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     if (!open) {
                       setRegisterPatientForm({
                         firstname: "",
+                        middlename:"",
                         lastname: "",
                         nationalid: "",
                         dateofbirth: "",
@@ -902,7 +928,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="reg-firstname">First name *</Label>
                           <Input
@@ -910,6 +936,16 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             value={registerPatientForm.firstname}
                             onChange={(e) =>
                               setRegisterPatientForm((prev) => ({ ...prev, firstname: e.target.value }))
+                            }
+                          />
+                        </div>
+                          <div className="space-y-2">
+                          <Label htmlFor="reg-middlename">Middle name *</Label>
+                          <Input
+                            id="reg-middlename"
+                            value={registerPatientForm.middlename}
+                            onChange={(e) =>
+                              setRegisterPatientForm((prev) => ({ ...prev,middlename: e.target.value }))
                             }
                           />
                         </div>
@@ -998,6 +1034,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           }
                           createPatientMutation.mutate({
                             firstname: registerPatientForm.firstname.trim(),
+                            middlename: registerPatientForm.middlename.trim(),
                             lastname: registerPatientForm.lastname.trim(),
                             nationalid: registerPatientForm.nationalid?.trim() || undefined,
                             dateofbirth: registerPatientForm.dateofbirth || undefined,
@@ -1460,6 +1497,16 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       <span className="font-medium">{selectedOrder.patientName || selectedOrder.subjectidentifier || "N/A"}</span>
     </div>
 
+    {(selectedOrder.test_category || (selectedOrder as any)?.tests?.[0]?.testcategory) && (
+      <div className="flex gap-1 items-center">
+        <span className="text-muted-foreground">Test Category:</span>
+        <span className="font-medium">
+          {selectedOrder.test_category ||
+            ((selectedOrder as any)?.tests?.[0]?.testcategory as string)}
+        </span>
+      </div>
+    )}
+
    {/*  <div className="flex gap-1 items-center">
       <span className="text-muted-foreground">Patient ID:</span>
       <span className="font-mono">{selectedOrder.subjectidentifier || "N/A"}</span>
@@ -1541,6 +1588,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             <div className="text-sm font-medium truncate">
                               {selectedOrder.service_name}
                             </div>
+                            {selectedOrder.test_category && (
+                              <div className="text-xs text-gray-600 truncate">
+                                Category: {selectedOrder.test_category}
+                              </div>
+                            )}
                             {selectedOrder.clinical_indication && (
                               <div className="text-xs text-gray-600 truncate">
                                 Indication: {selectedOrder.clinical_indication}
@@ -1636,6 +1688,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 </span>
                               </div>
                             )}
+                            {displayRecommendations?.specialInstructions?.length > 0 && (
+                              <div className="col-span-2">
+                                <strong>Method:</strong> {displayRecommendations.specialInstructions[0]}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1663,6 +1720,25 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   className="h-8 text-xs font-mono border border-gray-0 rounded px-2 focus:outline-none focus:ring-0 focus:border-gray-300"
 />
 
+                        </div>
+
+                        <div>
+                          <Label htmlFor="accessionNumberDetail" className="text-xs">
+                            Accession Number
+                          </Label>
+                          <Input
+                            id="accessionNumberDetail"
+                            type="text"
+                            placeholder="Scan or type accession number"
+                            value={sampleCollectionData.accessionNumber || ""}
+                            onChange={(e) =>
+                              setSampleCollectionData((prev) => ({
+                                ...prev,
+                                accessionNumber: e.target.value,
+                              }))
+                            }
+                            className="h-8 text-xs font-mono"
+                          />
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
@@ -1741,6 +1817,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                               step="0.1"
                               placeholder="5.0"
                               value={sampleCollectionData.volume}
+                              disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
                               onChange={(e) =>
                                 setSampleCollectionData((prev) => ({
                                   ...prev,
@@ -1764,6 +1841,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                               title="Volume Unit"
                               className="w-full h-8 text-xs px-2 py-1 border rounded-md"
                               value={sampleCollectionData.volumeUnit}
+                              disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
                               onChange={(e) =>
                                 setSampleCollectionData((prev) => ({
                                   ...prev,
@@ -1771,9 +1849,13 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 }))
                               }
                             >
-                              <option value="mL">mL</option>
-                              <option value="L">L</option>
-                              <option value="μL">μL</option>
+                              {getVolumeUnitsForSampleType(
+                                sampleCollectionData.sampleType
+                              ).map((u) => (
+                                <option key={u} value={u}>
+                                  {u === "g" ? "g (grams)" : u === "mg" ? "mg" : u}
+                                </option>
+                              ))}
                             </select>
                           </div>
                         </div>
@@ -1844,6 +1926,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             const sampleData: SampleData = {
                               sampleNumber:
                                 sampleCollectionData.sampleNumber || undefined,
+                              accessionNumber:
+                                sampleCollectionData.accessionNumber || undefined,
                               sampleType: sampleCollectionData.sampleType,
                               containerType: sampleCollectionData.containerType,
                               volume: sampleCollectionData.volume
@@ -2075,6 +2159,26 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </p>
                     </div>
 
+                    <div>
+                      <Label htmlFor="accessionNumber" className="flex items-center gap-2">
+                        Accession Number
+                        <span className="text-xs font-normal text-gray-500">(Scan or type)</span>
+                      </Label>
+                      <Input
+                        id="accessionNumber"
+                        type="text"
+                        placeholder="Scan or type accession number"
+                        value={sampleCollectionData.accessionNumber || ""}
+                        onChange={(e) =>
+                          setSampleCollectionData((prev) => ({
+                            ...prev,
+                            accessionNumber: e.target.value,
+                          }))
+                        }
+                        className="font-mono"
+                      />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="sampleType">Sample Type *</Label>
@@ -2083,12 +2187,29 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           aria-label="Sample Type"
                           className="w-full mt-1 px-3 py-2 border rounded-md"
                           value={sampleCollectionData.sampleType}
-                          onChange={(e) =>
-                            setSampleCollectionData((prev) => ({
-                              ...prev,
-                              sampleType: e.target.value,
-                            }))
-                          }
+                          onChange={(e) => {
+                            const nextType = e.target.value;
+                            const nextUnits = getVolumeUnitsForSampleType(nextType);
+                            const nextVolumeApplicable = isVolumeApplicable(nextType);
+
+                            setSampleCollectionData((prev) => {
+                              const currentUnit = prev.volumeUnit;
+                              const hasValidUnit = nextUnits.includes(currentUnit);
+                              const nextUnit =
+                                nextUnits.length === 0
+                                  ? ""
+                                  : hasValidUnit
+                                    ? currentUnit
+                                    : nextUnits[0];
+
+                              return {
+                                ...prev,
+                                sampleType: nextType,
+                                volume: nextVolumeApplicable ? prev.volume : "",
+                                volumeUnit: nextUnit,
+                              };
+                            });
+                          }}
                           title="Select the type of sample being collected"
                         >
                           <option value="">Select type</option>
@@ -2149,6 +2270,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           step="0.1"
                           placeholder="e.g., 5.0"
                           value={sampleCollectionData.volume}
+                          disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
                           onChange={(e) =>
                             setSampleCollectionData((prev) => ({
                               ...prev,
@@ -2165,6 +2287,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           aria-label="Volume Unit"
                           className="w-full mt-1 px-3 py-2 border rounded-md"
                           value={sampleCollectionData.volumeUnit}
+                          disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
                           onChange={(e) =>
                             setSampleCollectionData((prev) => ({
                               ...prev,
@@ -2172,10 +2295,13 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             }))
                           }
                         >
-                          <option value="mL">mL</option>
-                          <option value="L">L</option>
-                          <option value="μL">μL</option>
-                          <option value="g">g (grams)</option>
+                          {getVolumeUnitsForSampleType(
+                            sampleCollectionData.sampleType
+                          ).map((u) => (
+                            <option key={u} value={u}>
+                              {u === "g" ? "g (grams)" : u === "mg" ? "mg" : u}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -2270,8 +2396,16 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               onClick={() => {
                 if (!selectedOrder) return;
 
-                const sampleData = {
-                  sampleNumber: sampleCollectionData.sampleNumber || undefined, // Manual or auto-generated
+                const sampleData: SampleData = {
+                  sampleNumber: sampleCollectionData.sampleNumber || undefined,
+                  accessionNumber:
+                    sampleCollectionData.accessionNumber || undefined,
+                  labCategory:
+                    selectedOrder.test_category ||
+                    ((selectedOrder as any)?.tests?.[0]?.testcategory as
+                      | string
+                      | undefined) ||
+                    undefined,
                   sampleType: sampleCollectionData.sampleType,
                   containerType: sampleCollectionData.containerType,
                   volume: sampleCollectionData.volume

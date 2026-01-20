@@ -1,0 +1,1 @@
+ALTER TABLE "lims_orders" ADD COLUMN "openehrrequestid" text;
