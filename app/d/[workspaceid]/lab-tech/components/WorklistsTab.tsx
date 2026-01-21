@@ -333,7 +333,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
           </table>
 
           <div class="footer">
-            <p>Laboratory Information Management System</p>
+            <p>Tibbna-LIMs</p>
             <p>Printed on ${new Date().toLocaleString()}</p>
           </div>
 
