@@ -736,6 +736,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       ? openEHROrderStatuses.get(requestId || "") || "REQUESTED"
       : order.status;
     
+    // Only show REQUESTED and CANCELLED orders
+    const isAllowedStatus = orderStatus === "REQUESTED" || orderStatus === "CANCELLED";
+    
     // Debug logging
     if (statusFilter !== "all") {
       console.log(`Order ${orderId}: status=${orderStatus}, filter=${statusFilter}, matches=${orderStatus === statusFilter}`);
@@ -744,7 +747,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     const matchesStatus =
       statusFilter === "all" || orderStatus === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && isAllowedStatus;
   });
 
   return (
@@ -1111,8 +1114,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       </div>
 
       {/* Filters and Search */}
-      <Card className="border-gray-200">
-        <CardContent className="p-4">
+      
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search Input */}
             <div className="flex-1">
@@ -1136,9 +1138,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="REQUESTED">Requested</SelectItem>
-                  <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
@@ -1158,8 +1157,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      
 
       {/* Orders Table */}
       <Card className="border-gray-200">

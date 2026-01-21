@@ -60,24 +60,8 @@ export default function LabTechDashboard({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center gap-1">
-          <Link href={`/d/${workspaceid}/lab-tech`}>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Home"
-              className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-            >
-              <Home className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-lg font-medium text-muted-foreground">Laboratory Information Management System</h1>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-4 mt-4">
+    
 
       <Tabs
         defaultValue="orders"

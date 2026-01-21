@@ -133,7 +133,7 @@ export default function BarcodePrint({
               ${barcodeRef.current?.outerHTML || ""}
             </div>
             <div class="footer">
-              Laboratory Information Management System
+              Tibbna-LIMs
             </div>
           </div>
           <script>
@@ -179,7 +179,7 @@ export default function BarcodePrint({
           <svg ref={barcodeRef}></svg>
         </div>
         <div className="text-center text-xs text-gray-500 border-t pt-2">
-          Laboratory Information Management System
+         Tibbna-LIMs
         </div>
       </div>
 
