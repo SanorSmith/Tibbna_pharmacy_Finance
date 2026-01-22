@@ -1329,7 +1329,10 @@ export async function getOpenEHRComposition(
   ehrId: string,
   compositionId: string
 ): Promise<unknown> {
-  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionId}?format=FLAT`;
+  // Extract just the UUID part from versioned UID (format: uuid::domain::version)
+  const compositionUuid = compositionId.split("::")[0];
+  
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionUuid}?format=FLAT`;
   const response = await axios.get(url, {
     headers: {
       "X-API-Key": process.env.EHRBASE_API_KEY!,

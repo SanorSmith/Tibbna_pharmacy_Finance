@@ -1652,6 +1652,7 @@ export default function EnhancedOrdersTab({
   const [orderToCancel, setOrderToCancel] = useState<TestOrderRecord | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showEditNotSupportedDialog, setShowEditNotSupportedDialog] = useState(false);
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
@@ -1800,6 +1801,11 @@ export default function EnhancedOrdersTab({
   const handleEditOrder = useCallback((order: TestOrderRecord) => {
     // Transform order data to match form structure
     const formData = {
+      // Preserve original order metadata
+      composition_uid: order.composition_uid,
+      recorded_time: order.recorded_time,
+      
+      // Form fields
       target_lab: order.target_lab || order.receiving_provider || "",
       selectedPackages: [], // We don't have this info from the order, so empty array
       selectedTests: [], // We don't have individual test IDs, so empty array
@@ -1856,7 +1862,6 @@ export default function EnhancedOrdersTab({
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : "Failed to update order");
-      throw error;
     } finally {
       setSavingTestOrder(false);
     }
@@ -2134,6 +2139,35 @@ export default function EnhancedOrdersTab({
               className="bg-red-600 hover:bg-red-700"
             >
               {isCancelling ? "Cancelling..." : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Not Supported Dialog */}
+      <AlertDialog open={showEditNotSupportedDialog} onOpenChange={setShowEditNotSupportedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Order Editing Not Supported</AlertDialogTitle>
+            <AlertDialogDescription>
+              Order editing is not currently supported due to OpenEHR composition complexity.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-700 mb-3">
+              To modify this order, please follow these steps:
+            </p>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+              <li>Cancel the existing order</li>
+              <li>Create a new order with the updated information</li>
+            </ol>
+            <p className="text-sm text-gray-600 mt-4 italic">
+              This approach preserves the complete audit trail.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowEditNotSupportedDialog(false)}>
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

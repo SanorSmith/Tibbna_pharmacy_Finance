@@ -47,16 +47,48 @@ export async function PATCH(
       return NextResponse.json({ error: "Test order data is required" }, { status: 400 });
     }
 
-    // Extract EHR ID and composition ID from the orderid (format: ehrId::compositionId::version)
-    const parts = orderid.split("::");
-    const ehrId = parts[0];
+    // Get EHR ID from patient record
+    const patient = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.patientid, patientid))
+      .limit(1);
+    
+    if (!patient.length || !patient[0].ehrid) {
+      return NextResponse.json({ error: "Patient EHR not found" }, { status: 404 });
+    }
+    
+    const ehrId = patient[0].ehrid;
     const compositionId = orderid;
     
-    // Get template ID from the test order data (default to a common template)
-    const templateId = testOrder.templateId || "Tibbna Lab Order";
+    console.log(`Updating order - EHR ID: ${ehrId}, Composition ID: ${compositionId}`);
+    
+    // Fetch the existing composition to get all fields
+    const { getOpenEHRComposition } = await import("@/lib/openehr/openehr");
+    const existingComposition = await getOpenEHRComposition(ehrId, compositionId) as Record<string, unknown>;
 
-    // Update the composition in OpenEHR
-    const result = await updateOpenEHRComposition(ehrId, compositionId, templateId, testOrder);
+    // Update the composition fields with new data
+    if (testOrder.clinical_indication) {
+      existingComposition["template_clinical_encounter_v1/service_request/request/clinical_indication"] = testOrder.clinical_indication;
+    }
+    if (testOrder.service_name) {
+      existingComposition["template_clinical_encounter_v1/service_request/request/service_name|other"] = testOrder.service_name;
+    }
+    if (testOrder.description) {
+      existingComposition["template_clinical_encounter_v1/service_request/request/description"] = testOrder.description;
+    }
+    if (testOrder.requesting_provider) {
+      existingComposition["template_clinical_encounter_v1/service_request/request/requesting_provider"] = testOrder.requesting_provider;
+    }
+    if (testOrder.receiving_provider) {
+      existingComposition["template_clinical_encounter_v1/service_request/request/receiving_provider"] = testOrder.receiving_provider;
+    }
+    if (testOrder.narrative) {
+      existingComposition["template_clinical_encounter_v1/service_request/narrative"] = testOrder.narrative;
+    }
+
+    const templateId = "template_clinical_encounter_v1";
+    const result = await updateOpenEHRComposition(ehrId, compositionId, templateId, existingComposition);
 
     return NextResponse.json({
       success: true,

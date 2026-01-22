@@ -134,7 +134,8 @@ export default function EnhancedLabOrderFormMultiple({
   useEffect(() => {
     if (editMode && initialData && open) {
       dispatch({ type: "LOAD_DATA", data: initialData });
-      setCurrentStep(3);
+      // Start at step 1 to allow user to select laboratory and tests
+      setCurrentStep(1);
     }
   }, [editMode, initialData, open]);
 
@@ -305,13 +306,12 @@ export default function EnhancedLabOrderFormMultiple({
             </div>
             <Select
               value={formState.target_lab}
-              onValueChange={(value) => {
+              onValueChange={(value: string) => {
                 dispatch({ type: "SET_FIELD", field: "target_lab", value });
                 dispatch({ type: "SET_FIELD", field: "selectedPackages", value: [] });
                 dispatch({ type: "SET_FIELD", field: "selectedTests", value: [] });
                 setCurrentStep(2);
               }}
-              disabled={editMode}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Choose a laboratory department" />
