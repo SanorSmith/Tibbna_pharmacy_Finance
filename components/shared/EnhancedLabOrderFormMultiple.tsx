@@ -548,7 +548,7 @@ export default function EnhancedLabOrderFormMultiple({
           )}
 
           {/* Sample Collection Recommendations */}
-          {currentStep >= 3 && formState.selectedTests.length > 0 && (
+          {currentStep >= 3 && formState.selectedTests?.length > 0 && (
             <div className="border-t pt-4">
               <div className="flex items-center gap-2 mb-3">
                 <Package className="h-5 w-5" />
