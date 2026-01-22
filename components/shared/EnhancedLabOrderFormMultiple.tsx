@@ -707,7 +707,7 @@ export default function EnhancedLabOrderFormMultiple({
               disabled={
                 isSubmitting ||
                 !formState.clinical_indication ||
-                formState.selectedTests.length === 0
+                !formState.selectedTests?.length
               }
               className="bg-blue-600 hover:bg-blue-700"
             >
