@@ -134,7 +134,8 @@ export default function EnhancedLabOrderFormMultiple({
   useEffect(() => {
     if (editMode && initialData && open) {
       dispatch({ type: "LOAD_DATA", data: initialData });
-      setCurrentStep(3);
+      // Start at step 1 to allow user to select laboratory and tests
+      setCurrentStep(1);
     }
   }, [editMode, initialData, open]);
 
@@ -305,13 +306,12 @@ export default function EnhancedLabOrderFormMultiple({
             </div>
             <Select
               value={formState.target_lab}
-              onValueChange={(value) => {
+              onValueChange={(value: string) => {
                 dispatch({ type: "SET_FIELD", field: "target_lab", value });
                 dispatch({ type: "SET_FIELD", field: "selectedPackages", value: [] });
                 dispatch({ type: "SET_FIELD", field: "selectedTests", value: [] });
                 setCurrentStep(2);
               }}
-              disabled={editMode}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Choose a laboratory department" />
@@ -548,7 +548,7 @@ export default function EnhancedLabOrderFormMultiple({
           )}
 
           {/* Sample Collection Recommendations */}
-          {currentStep >= 3 && formState.selectedTests.length > 0 && (
+          {currentStep >= 3 && formState.selectedTests?.length > 0 && (
             <div className="border-t pt-4">
               <div className="flex items-center gap-2 mb-3">
                 <Package className="h-5 w-5" />
@@ -707,7 +707,7 @@ export default function EnhancedLabOrderFormMultiple({
               disabled={
                 isSubmitting ||
                 !formState.clinical_indication ||
-                formState.selectedTests.length === 0
+                !formState.selectedTests?.length
               }
               className="bg-blue-600 hover:bg-blue-700"
             >
