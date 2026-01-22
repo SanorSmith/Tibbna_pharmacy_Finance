@@ -10,8 +10,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History } from "lucide-react";
-import LabOrderFormModal from "@/components/shared/LabOrderFormModal";
+import { Plus, History, Edit, Trash2 } from "lucide-react";
+import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ---------- Types ----------
 export interface TestOrderRecord {
@@ -47,6 +59,12 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
   const [selectedTestOrder, setSelectedTestOrder] = useState<TestOrderRecord | null>(null);
   const [showTestOrderDetails, setShowTestOrderDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<TestOrderRecord | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<TestOrderRecord | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
@@ -163,6 +181,82 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
     }
   }, [workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
+  // Handle edit order
+  const handleEditOrder = useCallback((order: TestOrderRecord) => {
+    setEditingOrder(order);
+    setShowEditForm(true);
+  }, []);
+
+  // Handle update order
+  const handleUpdateOrder = useCallback(async (formData: any) => {
+    if (!editingOrder) return;
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${editingOrder.composition_uid}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ testOrder: formData }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update order");
+      }
+
+      setShowEditForm(false);
+      setEditingOrder(null);
+      
+      // Reload list and clear cache
+      hasLoadedTestOrders.current = false;
+      sessionStorage.removeItem(CACHE_KEY);
+      setTimeout(() => loadTestOrders(true), 500);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Failed to update order");
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [editingOrder, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
+
+  // Handle cancel order
+  const handleCancelOrder = useCallback(async () => {
+    if (!orderToCancel) return;
+    
+    setIsCancelling(true);
+    try {
+      const response = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${orderToCancel.composition_uid}?reason=${encodeURIComponent(cancelReason || "Cancelled by doctor")}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to cancel order");
+      }
+
+      setShowCancelDialog(false);
+      setOrderToCancel(null);
+      setCancelReason("");
+      
+      // Reload list and clear cache
+      hasLoadedTestOrders.current = false;
+      sessionStorage.removeItem(CACHE_KEY);
+      setTimeout(() => loadTestOrders(true), 500);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Failed to cancel order");
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [orderToCancel, cancelReason, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
+
   return (
     <>
       <Card>
@@ -237,7 +331,33 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
                       </td>
                       <td className="p-3 text-sm">{new Date(order.recorded_time).toLocaleDateString()}</td>
                       <td className="p-3">
-                        <Button size="sm" variant="outline" onClick={() => { setSelectedTestOrder(order); setShowTestOrderDetails(true); }}>Details</Button>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => { setSelectedTestOrder(order); setShowTestOrderDetails(true); }}
+                          >
+                            Details
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                            onClick={() => handleEditOrder(order)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                            onClick={() => { setOrderToCancel(order); setShowCancelDialog(true); }}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -248,13 +368,55 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
         </CardContent>
       </Card>
 
-      {/* Form Dialog - Using Shared Component */}
-      <LabOrderFormModal
-        open={showTestOrderForm}
-        onOpenChange={setShowTestOrderForm}
-        onSubmit={handleSubmitOrder}
-        isSubmitting={isSubmitting}
+      {/* Form Dialog - Using Multiple Selection Component */}
+      <EnhancedLabOrderFormMultiple
+        open={showEditForm || showTestOrderForm}
+        onOpenChange={(open) => {
+          if (showEditForm) {
+            setShowEditForm(open);
+            if (!open) setEditingOrder(null);
+          } else {
+            setShowTestOrderForm(open);
+          }
+        }}
+        onSubmit={showEditForm ? handleUpdateOrder : handleSubmitOrder}
+        editMode={showEditForm}
+        initialData={editingOrder}
       />
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Test Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this test order? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="cancel-reason">Reason for Cancellation (Optional)</Label>
+            <Textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Enter reason for cancelling this order..."
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setCancelReason(""); setOrderToCancel(null); }}>
+              Keep Order
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelOrder}
+              disabled={isCancelling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isCancelling ? "Cancelling..." : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Details Dialog */}
       <Dialog open={showTestOrderDetails} onOpenChange={setShowTestOrderDetails}>

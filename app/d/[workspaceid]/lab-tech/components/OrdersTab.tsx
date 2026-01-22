@@ -733,7 +733,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     const isOpenEHR = order.source === "openEHR";
     const requestId = order.request_id || order.openehrrequestid;
     const orderStatus = isOpenEHR
-      ? openEHROrderStatuses.get(requestId || "") || "REQUESTED"
+      ? order.status || openEHROrderStatuses.get(requestId || "") || "REQUESTED"
       : order.status;
     
     // Only show REQUESTED and CANCELLED orders
@@ -1257,7 +1257,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       const requestId =
                         order.request_id || order.openehrrequestid;
                       const status = isOpenEHR
-                        ? openEHROrderStatuses.get(requestId || "") ||
+                        ? order.status || openEHROrderStatuses.get(requestId || "") ||
                           "REQUESTED"
                         : order.status;
                       const provider = isOpenEHR
@@ -1916,7 +1916,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           disabled={
                             createSampleMutation.isPending ||
                             !sampleCollectionData.sampleType ||
-                            !sampleCollectionData.containerType
+                            !sampleCollectionData.containerType ||
+                            openEHROrderStatus === "CANCELLED" ||
+                            (selectedOrder?.status === "CANCELLED")
                           }
                           onClick={() => {
                             if (!selectedOrder) return;
@@ -1975,6 +1977,13 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             </>
                           )}
                         </Button>
+                        
+                        {/* Show message if order is cancelled */}
+                        {(openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED") && (
+                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                            <strong>Cannot collect sample:</strong> This order has been cancelled.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

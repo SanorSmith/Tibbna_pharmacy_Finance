@@ -20,7 +20,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, Package, TestTube, Building2 } from "lucide-react";
+import { Plus, History, Package, TestTube, Building2, Edit, Trash2 } from "lucide-react";
+import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ---------- Types ----------
 export interface TestOrderRecord {
@@ -1633,6 +1646,12 @@ export default function EnhancedOrdersTab({
     useState<TestOrderRecord | null>(null);
   const [showTestOrderDetails, setShowTestOrderDetails] = useState(false);
   const [savingTestOrder, setSavingTestOrder] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<TestOrderRecord | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<TestOrderRecord | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
@@ -1726,69 +1745,22 @@ export default function EnhancedOrdersTab({
     [refetch]
   )
 
-  // Save order
-  const saveTestOrder = useCallback(async () => {
-    if (
-      !formState.target_lab ||
-      !formState.selectedPackage ||
-      formState.selectedTests.length === 0 ||
-      !formState.clinical_indication
-    ) {
-      alert(
-        "Please select laboratory, test group, tests, and fill in clinical indication"
-      );
-      return;
-    }
-
+  // Save order - now receives data from EnhancedLabOrderFormMultiple
+  const saveTestOrder = useCallback(async (submissionData: any) => {
     setSavingTestOrder(true);
 
     try {
-      // Use cached session data instead of fetching again
-      const currentUser = sessionData?.user;
-      const requesting =
-        currentUser?.name || currentUser?.email || "Unknown Provider";
-
-      // Prepare order data
-      const pkg = TEST_PACKAGES[formState.selectedPackage];
-      const selectedTestDetails = formState.selectedTests
-        .map((id) => INDIVIDUAL_TESTS[id])
-        .filter(Boolean);
-      const targetLab = LABORATORIES[formState.target_lab];
-
-      const service_name = pkg.name;
-      const service_type_value = "Test Group";
-      const service_type_code = pkg.snomedCode || "";
-      const test_category = pkg.category;
-
-      // Include detailed test list in description with urgency
-      const testNames = selectedTestDetails.map((test) => test.name).join(", ");
-      const description = `Test Group: ${pkg.name} | Category: ${pkg.category} | Laboratory: ${targetLab.name} | Selected Tests (${selectedTestDetails.length}/${pkg.tests.length}): ${testNames} | Urgency: ${formState.urgency}`;
-
-      const orderData = {
-        service_name,
-        service_type_code,
-        service_type_value,
-        description,
-        clinical_indication: formState.clinical_indication,
-        urgency: formState.urgency,
-        requesting_provider: requesting,
-        receiving_provider: targetLab.name,
-        narrative:
-          formState.narrative ||
-          `${service_name} ordered due to ${formState.clinical_indication}`,
-        test_category: test_category,
-        is_package: true,
-        target_lab: targetLab.name,
-      };
-
+      // The submissionData already comes formatted from EnhancedLabOrderFormMultiple
+      // Just pass it to the API
       console.log("Creating test order - this may take up to 30 seconds...");
+      console.log("Submission data:", submissionData);
 
       const response = await fetch(
         `/api/d/${workspaceid}/patients/${patientid}/test-orders`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ testOrder: orderData }),
+          body: JSON.stringify({ testOrder: submissionData }),
         }
       );
 
@@ -1801,12 +1773,11 @@ export default function EnhancedOrdersTab({
       console.log("Saved test order", result);
 
       setShowTestOrderForm(false);
-      dispatch({ type: "RESET", keepRequester: requesting });
 
       // reload list
       hasLoadedTestOrders.current = false;
       sessionStorage.removeItem(CACHE_KEY);
-      setTimeout(() => loadTestOrders(true), 100); // Reduced delay from 500ms to 100ms
+      setTimeout(() => loadTestOrders(true), 100);
     } catch (err) {
       console.error(err);
       const errorMessage =
@@ -1823,7 +1794,87 @@ export default function EnhancedOrdersTab({
     } finally {
       setSavingTestOrder(false);
     }
-  }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders, sessionData?.user]);
+  }, [workspaceid, patientid, CACHE_KEY, loadTestOrders]);
+
+  // Handle edit order
+  const handleEditOrder = useCallback((order: TestOrderRecord) => {
+    setEditingOrder(order);
+    setShowEditForm(true);
+  }, []);
+
+  // Handle update order
+  const handleUpdateOrder = useCallback(async (formData: any) => {
+    if (!editingOrder) return;
+    
+    setSavingTestOrder(true);
+    try {
+      const response = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${editingOrder.composition_uid}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ testOrder: formData }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update order");
+      }
+
+      setShowEditForm(false);
+      setEditingOrder(null);
+      
+      // Reload list and clear cache
+      hasLoadedTestOrders.current = false;
+      sessionStorage.removeItem(CACHE_KEY);
+      setTimeout(() => loadTestOrders(true), 500);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Failed to update order");
+      throw error;
+    } finally {
+      setSavingTestOrder(false);
+    }
+  }, [editingOrder, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
+
+  // Handle cancel order
+  const handleCancelOrder = useCallback(async () => {
+    if (!orderToCancel) return;
+    
+    setIsCancelling(true);
+    try {
+      const response = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${orderToCancel.composition_uid}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            reason: cancelReason || "Cancelled by doctor" 
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to cancel order");
+      }
+
+      setShowCancelDialog(false);
+      setOrderToCancel(null);
+      setCancelReason("");
+      
+      // Reload list and clear cache
+      hasLoadedTestOrders.current = false;
+      sessionStorage.removeItem(CACHE_KEY);
+      setTimeout(() => loadTestOrders(true), 500);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Failed to cancel order");
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [orderToCancel, cancelReason, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
   // Handlers
   const onFieldChange = useCallback(
@@ -1970,17 +2021,40 @@ export default function EnhancedOrdersTab({
                         {new Date(order.recorded_time).toLocaleDateString()}
                       </td>
                       <td className="p-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedTestOrder(order);
-                            setShowTestOrderDetails(true);
-                          }}
-                           className="bg-blue-100/90 hover:bg-blue-200"
-                        >
-                          Details
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTestOrder(order);
+                              setShowTestOrderDetails(true);
+                            }}
+                            className="bg-blue-100/90 hover:bg-blue-200"
+                          >
+                            Details
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                            onClick={() => handleEditOrder(order)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                            onClick={() => {
+                              setOrderToCancel(order);
+                              setShowCancelDialog(true);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1991,13 +2065,63 @@ export default function EnhancedOrdersTab({
         </CardContent>
       </Card>
 
-      {/* Test Order Form Dialog */}
-      <Dialog open={showTestOrderForm} onOpenChange={setShowTestOrderForm}>
+      {/* Form Dialog - Using Multiple Selection Component */}
+      <EnhancedLabOrderFormMultiple
+        open={showEditForm || showTestOrderForm}
+        onOpenChange={(open) => {
+          if (showEditForm) {
+            setShowEditForm(open);
+            if (!open) setEditingOrder(null);
+          } else {
+            setShowTestOrderForm(open);
+          }
+        }}
+        onSubmit={showEditForm ? handleUpdateOrder : saveTestOrder}
+        editMode={showEditForm}
+        initialData={editingOrder}
+      />
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Test Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this test order? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="cancel-reason">Reason for Cancellation (Optional)</Label>
+            <Textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Enter reason for cancelling this order..."
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setCancelReason(""); setOrderToCancel(null); }}>
+              Keep Order
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelOrder}
+              disabled={isCancelling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isCancelling ? "Cancelling..." : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Old embedded form - REMOVE THIS SECTION */}
+      <Dialog open={false} onOpenChange={() => {}}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>New Laboratory Test Order</DialogTitle>
+            <DialogTitle>Old Form (Hidden)</DialogTitle>
             <DialogDescription>
-              Order laboratory tests for this patient
+              This form is replaced by EnhancedLabOrderFormMultiple
             </DialogDescription>
           </DialogHeader>
 
@@ -2294,7 +2418,7 @@ export default function EnhancedOrdersTab({
         </DialogContent>
       </Dialog>
 
-       {/* Enhanced Details Dialog */}
+      {/* Enhanced Details Dialog */}
       <Dialog
         open={showTestOrderDetails}
         onOpenChange={setShowTestOrderDetails}
