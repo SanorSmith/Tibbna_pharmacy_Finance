@@ -1798,7 +1798,31 @@ export default function EnhancedOrdersTab({
 
   // Handle edit order
   const handleEditOrder = useCallback((order: TestOrderRecord) => {
-    setEditingOrder(order);
+    // Transform order data to match form structure
+    const formData = {
+      target_lab: order.target_lab || order.receiving_provider || "",
+      selectedPackages: [], // We don't have this info from the order, so empty array
+      selectedTests: [], // We don't have individual test IDs, so empty array
+      clinical_indication: order.clinical_indication || "",
+      urgency: order.urgency || "routine",
+      requesting_provider: order.requesting_provider || "",
+      narrative: order.narrative || "",
+      sampleType: "",
+      containerType: "",
+      volume: "",
+      volumeUnit: "mL",
+      sampleRecommendations: {
+        primarySampleType: "",
+        primaryContainer: "",
+        totalVolume: 0,
+        volumeUnit: "mL",
+        fastingRequired: false,
+        recommendations: [],
+        specialInstructions: [],
+      },
+    };
+    
+    setEditingOrder(formData as any);
     setShowEditForm(true);
   }, []);
 
