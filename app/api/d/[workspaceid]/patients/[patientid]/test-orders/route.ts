@@ -8,7 +8,7 @@ import { UserWorkspace } from "@/lib/db/tables/workspace";
 import {
   getOpenEHREHRBySubjectId,
   createOpenEHRComposition,
-  getOpenEHRTestOrders,
+  getOpenEHRTestOrdersWithCancelled,
 } from "@/lib/openehr/openehr";
 
 export async function GET(
@@ -70,8 +70,8 @@ export async function GET(
       );
     }
 
-    // Use optimized AQL query to fetch test orders directly
-    const validTestOrders = await getOpenEHRTestOrders(ehrId);
+    // Use optimized AQL query to fetch test orders directly (including cancelled for doctors)
+    const validTestOrders = await getOpenEHRTestOrdersWithCancelled(ehrId);
 
     // Apply pagination
     const totalFilteredCount = validTestOrders.length;
@@ -195,7 +195,7 @@ export async function POST(
     ] = service_name;
     compositionData[
       "template_clinical_encounter_v1/service_request/request/description"
-    ] = description || "";
+    ] = `Status: REQUESTED | ${description || ""}`;
     compositionData[
       "template_clinical_encounter_v1/service_request/request/clinical_indication"
     ] = clinical_indication;
