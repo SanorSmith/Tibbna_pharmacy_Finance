@@ -29,6 +29,9 @@ export * from "./radiology";
 // Re-export from careplan.ts
 export * from "./careplan";
 
+// Re-export from laboratory.ts
+export * from "./laboratory";
+
 // Re-export from referral.ts
 export * from "./referral";
 

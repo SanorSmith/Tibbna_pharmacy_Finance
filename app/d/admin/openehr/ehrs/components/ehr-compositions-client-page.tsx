@@ -3,10 +3,11 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, FlaskConical } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { CompositionListClient } from "./composition-list-client";
 import { AddEncounterDialog } from "./add-encounter-dialog";
+import { AddLabReportDialog } from "./add-lab-report-dialog";
 
 interface EhrCompositionsClientPageProps {
   ehrId: string;
@@ -17,10 +18,11 @@ export function EhrCompositionsClientPage({
 }: EhrCompositionsClientPageProps) {
   const { ttt } = useLanguage();
   const [isAddEncounterOpen, setIsAddEncounterOpen] = useState(false);
+  const [isAddLabReportOpen, setIsAddLabReportOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const refreshCompositionsRef = useRef<(() => void) | null>(null);
 
-  const handleEncounterSuccess = () => {
+  const handleSuccess = () => {
     // Trigger refresh of compositions list
     if (refreshCompositionsRef.current) {
       refreshCompositionsRef.current();
@@ -49,6 +51,10 @@ export function EhrCompositionsClientPage({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         </div>
         
+        <Button onClick={() => setIsAddLabReportOpen(true)} variant="outline">
+          <FlaskConical className="h-4 w-4 mr-2" />
+          {ttt("Add Lab Report")}
+        </Button>
         <Button onClick={() => setIsAddEncounterOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           {ttt("Add Encounter")}
@@ -66,7 +72,14 @@ export function EhrCompositionsClientPage({
         ehrId={ehrId}
         isOpen={isAddEncounterOpen}
         onClose={() => setIsAddEncounterOpen(false)}
-        onSuccess={handleEncounterSuccess}
+        onSuccess={handleSuccess}
+      />
+
+      <AddLabReportDialog
+        ehrId={ehrId}
+        isOpen={isAddLabReportOpen}
+        onClose={() => setIsAddLabReportOpen(false)}
+        onSuccess={handleSuccess}
       />
     </div>
   );
