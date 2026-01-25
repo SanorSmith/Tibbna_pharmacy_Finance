@@ -92,8 +92,8 @@ export interface ReferralRecord {
 }
 
 // Helper to find a value by field name in OpenEHR INSTRUCTION structure
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findValueByName(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   instruction: any,
   fieldName: string
 ): string | undefined {
@@ -333,9 +333,8 @@ export async function getOpenEHRTestOrders(
 
             // If still no narrative, create a meaningful one from other fields
             if (!narrative || narrative.length <= 2) {
-              narrative = `${serviceName} test ordered due to ${clinicalIndication}${
-                urgency !== "routine" ? ` (urgency: ${urgency})` : ""
-              }${receivingProvider ? ` at ${receivingProvider}` : ""}`;
+              narrative = `${serviceName} test ordered due to ${clinicalIndication}${urgency !== "routine" ? ` (urgency: ${urgency})` : ""
+                }${receivingProvider ? ` at ${receivingProvider}` : ""}`;
             }
 
             // Extract enhanced fields
@@ -405,8 +404,8 @@ export interface VitalSignsRecord {
 }
 
 // Helper to find a value by field name in OpenEHR EVALUATION structure
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findDiagnosisValue(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evaluation: any,
   fieldName: string
 ): string | undefined {
@@ -423,8 +422,8 @@ function findDiagnosisValue(
   return undefined;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findDiagnosisValueFuzzy(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evaluation: any,
   fieldSubstring: string
 ): string | undefined {
@@ -648,8 +647,8 @@ export interface PrescriptionRecord {
 }
 
 // Helper to find a value by field name in OpenEHR medication_order INSTRUCTION structure
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findMedicationValue(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   instruction: any,
   fieldName: string
 ): string | undefined {
