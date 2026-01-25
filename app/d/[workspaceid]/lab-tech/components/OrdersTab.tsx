@@ -82,23 +82,18 @@ interface ValidationError {
 }
 
 interface SampleData {
-  sampleType: string;
-  containerType: string;
-  volume: string | number;
-  volumeUnit: string;
   collectionDate: string;
   accessionNumber?: string;
   labCategory?: string;
-  collectorName: string | undefined;
-  currentLocation: string;
-  notes?: string;
+  sampleNumber?: string;
+  collectorName?: string;
   orderId?: string;
   patientId?: string;
   ehrId?: string;
   subjectIdentifier?: string;
-  workspaceId?: string;
-  sampleNumber?: string;
-  tests?: string[];
+  workspaceId: string;
+  currentLocation: string;
+  tests: string[];
 }
 
 interface OrderFormData {
@@ -139,39 +134,46 @@ interface LimsOrder {
   createdat: string;
   tests?: Array<{
     testCode: string;
-    testName: string;
-    material?: string;
   }>;
-
-  // OpenEHR integration properties
-  source?: string;
-  composition_uid?: string;
-  request_id?: string;
-  openehrrequestid?: string;
-  patientId?: string;
+  
+  // Additional properties
   patientName?: string;
-  patientage?: number;
+  patientId?: string;
+  patientage?: string;
   patientsex?: string;
-  service_name?: string;
-  test_category?: string;
-  clinical_indication?: string;
   clinicalnotes?: string;
-  urgency?: string;
-  requesting_provider?: string;
-  recorded_time?: string;
-  ehrid?: string;
+  testCodes: string[];
+  test_category?: string;
+  source: "local" | "openEHR";
   openEhr?: any;
-
-  // Sample collection requirements
-  sampleType?: string;
-  containerType?: string;
-  volume?: string | number;
-  volumeUnit?: string;
   sampleRecommendations?: any;
+  openehrrequestid?: string;
+  recorded_time?: string;
+  createdAt?: string;
+  orderId?: string;
+  requestingProvider?: string;
+  receivingProvider?: string;
+  urgency?: string;
+  clinicalIndication?: string;
+  clinical_indication?: string;
 
   // Aliases for compatibility
-  orderId?: string;
-  createdAt?: string;
+  order_id?: string;
+  request_id?: string;
+  composition_uid?: string;
+  ehrid?: string;
+  service_name?: string;
+  description?: string;
+  requesting_provider?: string;
+  receiving_provider?: string;
+  narrative?: string;
+  is_package?: boolean;
+  target_lab?: string;
+}
+
+interface ValidationError {
+  field: string;
+  message: string;
 }
 
 interface Test {
@@ -180,11 +182,6 @@ interface Test {
   specimentype: string;
   fastingrequired: boolean;
   turnaroundtime: string | null;
-}
-
-interface ValidationError {
-  field: string;
-  message: string;
 }
 
 export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
@@ -212,26 +209,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [sampleCollectionData, setSampleCollectionData] = useState({
     sampleNumber: "", // Manual entry or auto-generated
     accessionNumber: "", // Scanned/manual accession number
-    sampleType: "",
-    containerType: "",
-    volume: "",
-    volumeUnit: "mL",
     collectionDate: new Date().toISOString().slice(0, 16),
     collectorName: session?.user?.name || "",
     currentLocation: "Laboratory",
   });
 
-  const getVolumeUnitsForSampleType = (sampleType?: string) => {
-    const normalized = String(sampleType || "").toLowerCase();
-    if (normalized === "swab") return [] as string[];
-    if (normalized === "tissue" || normalized === "stool") return ["g", "mg"];
-    return ["mL", "L", "μL"];
-  };
-
-  const isVolumeApplicable = (sampleType?: string) => {
-    const normalized = String(sampleType || "").toLowerCase();
-    return normalized !== "swab";
-  };
   const [currentPatientId, setCurrentPatientId] = useState("");
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
@@ -1429,7 +1411,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               // Calculate sample recommendations if not stored in order
               let computedRecommendations = null;
               if (
-                !selectedOrder.sampleType &&
                 selectedOrder.tests &&
                 selectedOrder.tests.length > 0
               ) {
@@ -1448,18 +1429,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               }
 
               // Use stored data or computed recommendations
-              const displaySampleType =
-                selectedOrder.sampleType ||
-                computedRecommendations?.primarySampleType;
-              const displayContainerType =
-                selectedOrder.containerType ||
-                computedRecommendations?.primaryContainer;
-              const displayVolume =
-                selectedOrder.volume || computedRecommendations?.totalVolume;
-              const displayVolumeUnit =
-                selectedOrder.volumeUnit ||
-                computedRecommendations?.volumeUnit ||
-                "mL";
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
 
@@ -1653,38 +1622,21 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </h3>
 
                       {/* Sample Collection Requirements from Order */}
-                      {(displaySampleType || displayRecommendations) && (
+                      {displayRecommendations && (
                         <div className="mb-4 p-3 bg-white rounded border border-green-300">
                           <div className="text-xs font-medium text-green-800 mb-2">
                             Recommended Collection:
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-green-700">
-                            {displaySampleType && (
-                              <div>
-                                <strong>Type:</strong> {displaySampleType}
-                              </div>
-                            )}
-                            {displayContainerType && (
-                              <div>
-                                <strong>Container:</strong>{" "}
-                                {displayContainerType}
-                              </div>
-                            )}
-                            {displayVolume && (
-                              <div>
-                                <strong>Volume:</strong> {displayVolume}{" "}
-                                {displayVolumeUnit}
-                              </div>
-                            )}
+                          <div className="grid grid-cols-1 gap-2 text-xs text-green-700">
                             {displayRecommendations?.fastingRequired && (
-                              <div className="col-span-2">
+                              <div>
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
                                   ⚠️ Fasting Required
                                 </span>
                               </div>
                             )}
                             {displayRecommendations?.specialInstructions?.length > 0 && (
-                              <div className="col-span-2">
+                              <div>
                                 <strong>Method:</strong> {displayRecommendations.specialInstructions[0]}
                               </div>
                             )}
@@ -1805,10 +1757,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 sampleCollectionData.sampleNumber || undefined,
                               accessionNumber:
                                 sampleCollectionData.accessionNumber || undefined,
-                              sampleType: "", // Not required anymore
-                              containerType: "", // Not required anymore
-                              volume: 0, // Not required anymore
-                              volumeUnit: "mL", // Not required anymore
                               collectionDate: new Date(
                                 sampleCollectionData.collectionDate
                               ).toISOString(),
@@ -1899,7 +1847,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               // Calculate sample recommendations if not stored in order
               let computedRecommendations = null;
               if (
-                !selectedOrder.sampleType &&
                 selectedOrder.tests &&
                 selectedOrder.tests.length > 0
               ) {
@@ -1910,18 +1857,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               }
 
               // Use stored data or computed recommendations
-              const displaySampleType =
-                selectedOrder.sampleType ||
-                computedRecommendations?.primarySampleType;
-              const displayContainerType =
-                selectedOrder.containerType ||
-                computedRecommendations?.primaryContainer;
-              const displayVolume =
-                selectedOrder.volume || computedRecommendations?.totalVolume;
-              const displayVolumeUnit =
-                selectedOrder.volumeUnit ||
-                computedRecommendations?.volumeUnit ||
-                "mL";
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
 
@@ -1954,37 +1889,20 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   </div>
 
                   {/* Sample Collection Requirements from Order */}
-                  {(displaySampleType || displayRecommendations) && (
+                  {displayRecommendations && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <div className="text-sm font-medium text-green-900 mb-2 flex items-center gap-2">
                         <FlaskConical className="h-4 w-4" />
                         Recommended Sample Collection
-                        {!selectedOrder.sampleType &&
-                          computedRecommendations && (
-                            <span className="text-xs font-normal text-green-600">
-                              (Auto-calculated)
-                            </span>
-                          )}
+                        {computedRecommendations && (
+                          <span className="text-xs font-normal text-green-600">
+                            (Auto-calculated)
+                          </span>
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
-                        {displaySampleType && (
-                          <div>
-                            <strong>Sample Type:</strong> {displaySampleType}
-                          </div>
-                        )}
-                        {displayContainerType && (
-                          <div>
-                            <strong>Container:</strong> {displayContainerType}
-                          </div>
-                        )}
-                        {displayVolume && (
-                          <div>
-                            <strong>Volume:</strong> {displayVolume}{" "}
-                            {displayVolumeUnit}
-                          </div>
-                        )}
+                      <div className="grid grid-cols-1 gap-2 text-sm text-green-700">
                         {displayRecommendations?.fastingRequired && (
-                          <div className="col-span-2">
+                          <div>
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
                               ⚠️ Fasting Required
                             </span>
@@ -2158,10 +2076,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       | string
                       | undefined) ||
                     undefined,
-                  sampleType: "", // Not required anymore
-                  containerType: "", // Not required anymore
-                  volume: 0, // Not required anymore
-                  volumeUnit: "mL", // Not required anymore
                   collectionDate: new Date(
                     sampleCollectionData.collectionDate
                   ).toISOString(),
