@@ -94,7 +94,8 @@ export interface ReferralRecord {
 
 // Helper to find a value by field name in OpenEHR INSTRUCTION structure
 function findValueByName(
-  instruction: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  instruction: any,
   fieldName: string
 ): string | undefined {
   if (!instruction || typeof instruction !== "object") return undefined;
@@ -347,9 +348,8 @@ export async function getOpenEHRTestOrders(
 
             // If still no narrative, create a meaningful one from other fields
             if (!narrative || narrative.length <= 2) {
-              narrative = `${serviceName} test ordered due to ${clinicalIndication}${
-                urgency !== "routine" ? ` (urgency: ${urgency})` : ""
-              }${receivingProvider ? ` at ${receivingProvider}` : ""}`;
+              narrative = `${serviceName} test ordered due to ${clinicalIndication}${urgency !== "routine" ? ` (urgency: ${urgency})` : ""
+                }${receivingProvider ? ` at ${receivingProvider}` : ""}`;
             }
 
             // Extract enhanced fields
@@ -569,7 +569,8 @@ export interface VitalSignsRecord {
 
 // Helper to find a value by field name in OpenEHR EVALUATION structure
 function findDiagnosisValue(
-  evaluation: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  evaluation: any,
   fieldName: string
 ): string | undefined {
   if (!evaluation || typeof evaluation !== "object") return undefined;
@@ -588,7 +589,8 @@ function findDiagnosisValue(
 }
 
 function findDiagnosisValueFuzzy(
-  evaluation: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  evaluation: any,
   fieldSubstring: string
 ): string | undefined {
   if (!evaluation || typeof evaluation !== "object") return undefined;
@@ -859,7 +861,8 @@ export interface PrescriptionRecord {
 
 // Helper to find a value by field name in OpenEHR medication_order INSTRUCTION structure
 function findMedicationValue(
-  instruction: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  instruction: any,
   fieldName: string
 ): string | undefined {
   if (!instruction || typeof instruction !== "object") return undefined;
