@@ -1422,9 +1422,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               <FlaskConical className="h-6 w-6 text-blue-600" />
               Order Details
             </DialogTitle>
-            <DialogDescription>
-              Complete information about this laboratory order
-            </DialogDescription>
           </DialogHeader>
 
           {selectedOrder &&
@@ -1702,7 +1699,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             htmlFor="sampleNumberDetail"
                             className="text-xs"
                           >
-                            Sample Number
+                            Sample ID
                           </Label>
                          <Input
   id="sampleNumberDetail"
@@ -1722,7 +1719,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                         <div>
                           <Label htmlFor="accessionNumberDetail" className="text-xs">
-                            Accession Number
+                            Accession ID
                           </Label>
                           <Input
                             id="accessionNumberDetail"
@@ -1739,125 +1736,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label
-                              htmlFor="sampleTypeDetail"
-                              className="text-xs font-medium"
-                            >
-                              Sample Type *
-                            </Label>
-                            <select
-                              id="sampleTypeDetail"
-                              aria-label="Sample Type"
-                              title="Sample Type"
-                              className="w-full h-8 text-xs px-2 py-1 border rounded-md"
-                              value={sampleCollectionData.sampleType}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  sampleType: e.target.value,
-                                }))
-                              }
-                            >
-                              <option value="">Select</option>
-                              <option value="Blood">Blood</option>
-                              <option value="Urine">Urine</option>
-                              <option value="Serum">Serum</option>
-                              <option value="Plasma">Plasma</option>
-                              <option value="Sputum">Sputum</option>
-                              <option value="Stool">Stool</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="containerTypeDetail"
-                              className="text-xs font-medium"
-                            >
-                              Container *
-                            </Label>
-                            <select
-                              id="containerTypeDetail"
-                              aria-label="Container"
-                              title="Container"
-                              className="w-full h-8 text-xs px-2 py-1 border rounded-md"
-                              value={sampleCollectionData.containerType}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  containerType: e.target.value,
-                                }))
-                              }
-                            >
-                              <option value="">Select</option>
-                              <option value="Vacutainer">Vacutainer</option>
-                              <option value="EDTA Tube">EDTA Tube</option>
-                              <option value="Serum Tube">Serum Tube</option>
-                              <option value="Urine Container">
-                                Urine Container
-                              </option>
-                              <option value="Sterile Container">Sterile</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label htmlFor="volumeDetail" className="text-xs">
-                              Volume
-                            </Label>
-                            <Input
-                              id="volumeDetail"
-                              type="number"
-                              step="0.1"
-                              placeholder="5.0"
-                              value={sampleCollectionData.volume}
-                              disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  volume: e.target.value,
-                                }))
-                              }
-                              className="h-8 text-xs"
-                            />
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="volumeUnitDetail"
-                              className="text-xs font-medium"
-                            >
-                              Unit
-                            </Label>
-                            <select
-                              id="volumeUnitDetail"
-                              aria-label="Volume Unit"
-                              title="Volume Unit"
-                              className="w-full h-8 text-xs px-2 py-1 border rounded-md"
-                              value={sampleCollectionData.volumeUnit}
-                              disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  volumeUnit: e.target.value,
-                                }))
-                              }
-                            >
-                              {getVolumeUnitsForSampleType(
-                                sampleCollectionData.sampleType
-                              ).map((u) => (
-                                <option key={u} value={u}>
-                                  {u === "g" ? "g (grams)" : u === "mg" ? "mg" : u}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
+                        
                         <div>
                           <Label
                             htmlFor="collectionDateDetail"
@@ -1915,8 +1794,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           className="w-full h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
                           disabled={
                             createSampleMutation.isPending ||
-                            !sampleCollectionData.sampleType ||
-                            !sampleCollectionData.containerType ||
                             openEHROrderStatus === "CANCELLED" ||
                             (selectedOrder?.status === "CANCELLED")
                           }
@@ -1928,12 +1805,10 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 sampleCollectionData.sampleNumber || undefined,
                               accessionNumber:
                                 sampleCollectionData.accessionNumber || undefined,
-                              sampleType: sampleCollectionData.sampleType,
-                              containerType: sampleCollectionData.containerType,
-                              volume: sampleCollectionData.volume
-                                ? parseFloat(sampleCollectionData.volume)
-                                : 0,
-                              volumeUnit: sampleCollectionData.volumeUnit,
+                              sampleType: "", // Not required anymore
+                              containerType: "", // Not required anymore
+                              volume: 0, // Not required anymore
+                              volumeUnit: "mL", // Not required anymore
                               collectionDate: new Date(
                                 sampleCollectionData.collectionDate
                               ).toISOString(),
@@ -2186,133 +2061,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="sampleType">Sample Type *</Label>
-                        <select
-                          id="sampleType"
-                          aria-label="Sample Type"
-                          className="w-full mt-1 px-3 py-2 border rounded-md"
-                          value={sampleCollectionData.sampleType}
-                          onChange={(e) => {
-                            const nextType = e.target.value;
-                            const nextUnits = getVolumeUnitsForSampleType(nextType);
-                            const nextVolumeApplicable = isVolumeApplicable(nextType);
-
-                            setSampleCollectionData((prev) => {
-                              const currentUnit = prev.volumeUnit;
-                              const hasValidUnit = nextUnits.includes(currentUnit);
-                              const nextUnit =
-                                nextUnits.length === 0
-                                  ? ""
-                                  : hasValidUnit
-                                    ? currentUnit
-                                    : nextUnits[0];
-
-                              return {
-                                ...prev,
-                                sampleType: nextType,
-                                volume: nextVolumeApplicable ? prev.volume : "",
-                                volumeUnit: nextUnit,
-                              };
-                            });
-                          }}
-                          title="Select the type of sample being collected"
-                        >
-                          <option value="">Select type</option>
-                          <option value="Blood">Blood</option>
-                          <option value="Urine">Urine</option>
-                          <option value="Serum">Serum</option>
-                          <option value="Plasma">Plasma</option>
-                          <option value="Sputum">Sputum</option>
-                          <option value="Stool">Stool</option>
-                          <option value="Tissue">Tissue</option>
-                          <option value="CSF">CSF (Cerebrospinal Fluid)</option>
-                          <option value="Swab">Swab</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="containerType">Container Type *</Label>
-                        <select
-                          id="containerType"
-                          aria-label="Container Type"
-                          className="w-full mt-1 px-3 py-2 border rounded-md"
-                          value={sampleCollectionData.containerType}
-                          onChange={(e) =>
-                            setSampleCollectionData((prev) => ({
-                              ...prev,
-                              containerType: e.target.value,
-                            }))
-                          }
-                          title="Select the container type for sample collection"
-                        >
-                          <option value="">Select container</option>
-                          <option value="Vacutainer">Vacutainer (Blood)</option>
-                          <option value="EDTA Tube">EDTA Tube (Purple)</option>
-                          <option value="Serum Tube">Serum Tube (Red)</option>
-                          <option value="Heparin Tube">
-                            Heparin Tube (Green)
-                          </option>
-                          <option value="Urine Container">
-                            Urine Container
-                          </option>
-                          <option value="Sterile Container">
-                            Sterile Container
-                          </option>
-                          <option value="Culture Bottle">Culture Bottle</option>
-                          <option value="Swab Tube">Swab Tube</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="volume">Volume</Label>
-                        <Input
-                          id="volume"
-                          type="number"
-                          step="0.1"
-                          placeholder="e.g., 5.0"
-                          value={sampleCollectionData.volume}
-                          disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
-                          onChange={(e) =>
-                            setSampleCollectionData((prev) => ({
-                              ...prev,
-                              volume: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="volumeUnit">Volume Unit</Label>
-                        <select
-                          id="volumeUnit"
-                          aria-label="Volume Unit"
-                          className="w-full mt-1 px-3 py-2 border rounded-md"
-                          value={sampleCollectionData.volumeUnit}
-                          disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
-                          onChange={(e) =>
-                            setSampleCollectionData((prev) => ({
-                              ...prev,
-                              volumeUnit: e.target.value,
-                            }))
-                          }
-                        >
-                          {getVolumeUnitsForSampleType(
-                            sampleCollectionData.sampleType
-                          ).map((u) => (
-                            <option key={u} value={u}>
-                              {u === "g" ? "g (grams)" : u === "mg" ? "mg" : u}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
+                    
                     <div>
                       <Label htmlFor="collectionDate">
                         Collection Date & Time *
@@ -2395,11 +2144,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
             <Button
               type="button"
               className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={
-                createSampleMutation.isPending ||
-                !sampleCollectionData.sampleType ||
-                !sampleCollectionData.containerType
-              }
+              disabled={createSampleMutation.isPending}
               onClick={() => {
                 if (!selectedOrder) return;
 
@@ -2413,12 +2158,10 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       | string
                       | undefined) ||
                     undefined,
-                  sampleType: sampleCollectionData.sampleType,
-                  containerType: sampleCollectionData.containerType,
-                  volume: sampleCollectionData.volume
-                    ? parseFloat(sampleCollectionData.volume)
-                    : 0,
-                  volumeUnit: sampleCollectionData.volumeUnit,
+                  sampleType: "", // Not required anymore
+                  containerType: "", // Not required anymore
+                  volume: 0, // Not required anymore
+                  volumeUnit: "mL", // Not required anymore
                   collectionDate: new Date(
                     sampleCollectionData.collectionDate
                   ).toISOString(),

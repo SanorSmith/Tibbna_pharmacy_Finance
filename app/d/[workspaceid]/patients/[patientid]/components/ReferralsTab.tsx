@@ -85,9 +85,6 @@ export function ReferralsTab({ workspaceid, patientid }: ReferralsTabProps) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl font-semibold">Referrals</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Manage patient referrals to specialists
-              </p>
             </div>
             <Button
               size="sm"

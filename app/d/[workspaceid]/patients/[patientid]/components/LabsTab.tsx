@@ -163,9 +163,6 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-xl font-semibold">Laboratory Test Results</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              openEHR: Laboratory test result
-            </p>
           </div>
          
         </div>
