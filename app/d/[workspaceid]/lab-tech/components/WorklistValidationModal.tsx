@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X, Upload } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Patient {
@@ -83,6 +83,9 @@ export default function WorklistValidationModal({
   const [showCommentDialog, setShowCommentDialog] = useState(false);
   const [changeComment, setChangeComment] = useState<string>("");
   const [pendingResultUpdate, setPendingResultUpdate] = useState<{resultId: string, newValue: string} | null>(null);
+  const [showOpenEHRDialog, setShowOpenEHRDialog] = useState(false);
+  const [openEHRConclusion, setOpenEHRConclusion] = useState<string>("");
+  const [openEHRStatus, setOpenEHRStatus] = useState<"preliminary" | "final" | "amended">("final");
 
   // Fetch worklist items with patient and sample data
   const { data: worklistData, isLoading, error } = useQuery({
@@ -192,6 +195,62 @@ export default function WorklistValidationModal({
       setEditingValue("");
       setChangeComment("");
       setPendingResultUpdate(null);
+    },
+  });
+
+  // Submit to OpenEHR mutation
+  const submitToOpenEHRMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentItem) return;
+      
+      // Get all results with values
+      const resultsToSubmit = currentItem.results
+        .filter(result => result.resultvalue && result.resultvalue.trim() !== '')
+        .map(result => ({
+          testCode: result.testcode,
+          testName: result.testname,
+          resultValue: result.resultvalue!,
+          unit: result.unit || undefined,
+          referenceMin: result.referencemin || undefined,
+          referenceMax: result.referencemax || undefined,
+          referenceRange: result.referencerange || undefined,
+          flag: result.flag,
+          isAbnormal: result.isabormal,
+          isCritical: result.iscritical,
+        }));
+
+      if (resultsToSubmit.length === 0) {
+        throw new Error('No results to submit');
+      }
+
+      const response = await fetch('/api/lims/submit-to-openehr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sampleId: currentItem.sampleid,
+          workspaceId: workspaceid,
+          results: resultsToSubmit,
+          overallStatus: openEHRStatus,
+          conclusion: openEHRConclusion || undefined,
+          composerName: 'Lab Technician',
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to submit to OpenEHR');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+      setShowOpenEHRDialog(false);
+      setOpenEHRConclusion("");
+      setOpenEHRStatus("final");
+      alert(`Successfully submitted to OpenEHR!\nComposition UID: ${data.compositionUid}\nSample: ${data.sampleNumber}`);
+    },
+    onError: (error: Error) => {
+      alert(`Failed to submit to OpenEHR: ${error.message}`);
     },
   });
 
@@ -708,6 +767,16 @@ export default function WorklistValidationModal({
               <div className="flex gap-2">
                 <Button
                   variant="default"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => setShowOpenEHRDialog(true)}
+                  disabled={!currentItem.results.some(r => r.resultvalue)}
+                  title="Submit validated results to OpenEHR"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Submit to OpenEHR
+                </Button>
+                <Button
+                  variant="default"
                   className="bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     currentItem.results.forEach(result => {
@@ -835,6 +904,92 @@ export default function WorklistValidationModal({
                 </>
               ) : (
                 "Confirm Update"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Submit to OpenEHR Dialog */}
+      <AlertDialog open={showOpenEHRDialog} onOpenChange={setShowOpenEHRDialog}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Submit Results to OpenEHR</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create a laboratory report composition in OpenEHR using the laboratory_report_v1 template.
+              {currentItem && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg space-y-2">
+                  <p className="text-sm font-medium text-blue-900">Sample Information:</p>
+                  <div className="text-xs text-blue-800 space-y-1">
+                    <p><strong>Sample ID:</strong> {currentItem.sample.samplenumber}</p>
+                    <p><strong>Patient:</strong> {currentItem.patient ? `${currentItem.patient.firstname} ${currentItem.patient.lastname}` : 'Unknown'}</p>
+                    <p><strong>Sample Type:</strong> {currentItem.sample.sampletype}</p>
+                    <p><strong>Results to Submit:</strong> {currentItem.results.filter(r => r.resultvalue).length} test(s)</p>
+                  </div>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="openehr-status">Report Status</Label>
+              <select
+                id="openehr-status"
+                title="Select report status"
+                value={openEHRStatus}
+                onChange={(e) => setOpenEHRStatus(e.target.value as "preliminary" | "final" | "amended")}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="preliminary">Preliminary</option>
+                <option value="final">Final</option>
+                <option value="amended">Amended</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="openehr-conclusion">Overall Conclusion (Optional)</Label>
+              <Textarea
+                id="openehr-conclusion"
+                placeholder="Enter overall interpretation or conclusion for this report..."
+                value={openEHRConclusion}
+                onChange={(e) => setOpenEHRConclusion(e.target.value)}
+                rows={4}
+                className="w-full"
+              />
+            </div>
+
+            {currentItem && currentItem.results.filter(r => r.resultvalue).length === 0 && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ No results available to submit. Please enter test results before submitting to OpenEHR.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitToOpenEHRMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                submitToOpenEHRMutation.mutate();
+              }}
+              disabled={submitToOpenEHRMutation.isPending || (currentItem && currentItem.results.filter(r => r.resultvalue).length === 0)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {submitToOpenEHRMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Submit to OpenEHR
+                </>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

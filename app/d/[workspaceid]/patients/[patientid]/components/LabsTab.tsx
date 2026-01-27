@@ -85,9 +85,9 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
     narrative: "",
   });
 
-  // Use React Query for caching - will cache for 60 seconds
-  const { data: labResultRecords = [], isLoading: loadingLabResults, refetch: loadLabResults } = useQuery({
-    queryKey: ["lab-results", workspaceid, patientid],
+  // Fetch dummy lab results (local data)
+  const { data: dummyLabResults = [], isLoading: loadingDummyResults } = useQuery({
+    queryKey: ["lab-results-dummy", workspaceid, patientid],
     queryFn: async () => {
       const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/lab-results`);
       if (!res.ok) {
@@ -97,6 +97,23 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
       return (data.labResults || []) as LabTestResult[];
     },
   });
+
+  // Fetch OpenEHR lab results
+  const { data: openEHRLabResults = [], isLoading: loadingOpenEHRResults, refetch: loadLabResults } = useQuery({
+    queryKey: ["lab-results-openehr", workspaceid, patientid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/openehr-lab-results`);
+      if (!res.ok) {
+        throw new Error("Failed to load OpenEHR lab results");
+      }
+      const data = await res.json();
+      return (data.labResults || []) as LabTestResult[];
+    },
+  });
+
+  // Combine both sources
+  const labResultRecords = [...openEHRLabResults, ...dummyLabResults];
+  const loadingLabResults = loadingDummyResults || loadingOpenEHRResults;
 
   const saveLabOrder = async () => {
     if (!labOrderForm.service_name || !labOrderForm.clinical_indication) {
@@ -185,10 +202,17 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">
-                      {result.test_name}
-                    </h3>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-lg">
+                        {result.test_name}
+                      </h3>
+                      {(result as any).source === "openEHR" && (
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                          OpenEHR
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       Protocol: {result.protocol}
                     </p>
@@ -280,13 +304,16 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                               {analyte.analyte_name}
                             </td>
                             <td className="p-2 text-sm font-semibold">
-                              {analyte.result_value}
+                              {analyte.result_value !== undefined && analyte.result_value !== null
+                                ? `${analyte.result_value}${analyte.result_unit ? ' ' + analyte.result_unit : ''}`
+                                : "-"}
                             </td>
                             <td className="p-2 text-sm text-muted-foreground">
                               {analyte.reference_range || "N/A"}
                             </td>
                             <td className="p-2 text-sm">
-                              {analyte.result_unit || "-"}
+                              {/* Unit now shown with result */}
+                              -
                             </td>
                             <td className="p-2 text-sm">
                               <span
