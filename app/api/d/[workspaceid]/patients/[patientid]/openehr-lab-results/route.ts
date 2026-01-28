@@ -145,13 +145,48 @@ function parseLabReportComposition(composition: Record<string, any>, composition
     
     if (!resultName) break;
     
-    // Try to get result value - could be quantity or text
+    // Try to get result value - check multiple possible keys
     let resultValue = composition[`${resultPrefix}/result_value/quantity_value|magnitude`];
     let resultUnit = composition[`${resultPrefix}/result_value/quantity_value|unit`];
     
-    // Fallback: check if it's stored as text value
+    // Fallback 1: check if it's stored as text value
     if (resultValue === undefined || resultValue === null) {
       resultValue = composition[`${resultPrefix}/result_value`];
+    }
+    
+    // Fallback 2: check for magnitude without the |magnitude suffix
+    if (resultValue === undefined || resultValue === null) {
+      resultValue = composition[`${resultPrefix}/result_value/quantity_value`];
+    }
+    
+    // Fallback 3: check for direct magnitude
+    if (resultValue === undefined || resultValue === null) {
+      resultValue = composition[`${resultPrefix}/magnitude`];
+    }
+    
+    // Fallback 4: check for any key containing 'value' or 'magnitude'
+    if (resultValue === undefined || resultValue === null) {
+      const allKeys = Object.keys(composition).filter(k => k.includes(`test_result:${resultIndex}`));
+      const valueKey = allKeys.find(k => k.includes('value') || k.includes('magnitude'));
+      if (valueKey) {
+        resultValue = composition[valueKey];
+      }
+    }
+    
+    // Try to get unit from multiple possible keys
+    if (resultUnit === undefined || resultUnit === null) {
+      resultUnit = composition[`${resultPrefix}/result_value/quantity_value|unit`];
+    }
+    if (resultUnit === undefined || resultUnit === null) {
+      resultUnit = composition[`${resultPrefix}/unit`];
+    }
+    if (resultUnit === undefined || resultUnit === null) {
+      // Look for any key containing 'unit' for this result
+      const allKeys = Object.keys(composition).filter(k => k.includes(`test_result:${resultIndex}`));
+      const unitKey = allKeys.find(k => k.includes('unit'));
+      if (unitKey) {
+        resultUnit = composition[unitKey];
+      }
     }
     
     const referenceRange = composition[`${resultPrefix}/reference_range`];

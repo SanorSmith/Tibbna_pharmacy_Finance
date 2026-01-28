@@ -66,6 +66,96 @@ interface LabsTabProps {
   patientid: string;
 }
 
+// Helper function to determine if result is abnormal based on reference range
+const getResultStatus = (analyte: LabTestAnalyte) => {
+  // Debug logging for iron result
+  if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+    console.log('Iron Debug - Analyte:', {
+      name: analyte.analyte_name,
+      value: analyte.result_value,
+      unit: analyte.result_unit,
+      range: analyte.reference_range,
+      flag: analyte.result_flag,
+      status: analyte.result_status
+    });
+  }
+  
+  // PRIORITY 1: Parse reference range and compare with result value (most accurate)
+  if (analyte.reference_range && analyte.result_value !== undefined && analyte.result_value !== null) {
+    const result = parseFloat(String(analyte.result_value));
+    if (!isNaN(result)) {
+      const range = analyte.reference_range;
+      
+      if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+        console.log('Iron Debug - Parsing range:', { result, range });
+      }
+      
+      // Handle various reference range formats
+      // Example: "70-100", "< 5", "> 150", "3.5-11.0", "0.0-1.0"
+      
+      if (range.includes('-')) {
+        // Range format: "70-100" or "60-170 µg/dL"
+        // Extract just the numbers before any units
+        const rangePart = range.split('-')[1].trim(); // Get "170 µg/dL"
+        const maxStr = rangePart.split(' ')[0]; // Get "170"
+        const minStr = range.split('-')[0].trim(); // Get "60"
+        
+        const min = parseFloat(minStr);
+        const max = parseFloat(maxStr);
+        
+        if (!isNaN(min) && !isNaN(max)) {
+          if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+            console.log('Iron Debug - Range parsed:', { min, max, comparison: { result, min, max }, originalRange: range });
+          }
+          if (result < min) {
+            if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+              console.log('Iron Debug - Result is LOW');
+            }
+            return 'low';
+          }
+          if (result > max) {
+            if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+              console.log('Iron Debug - Result is HIGH');
+            }
+            return 'high';
+          }
+        }
+      } else if (range.includes('<')) {
+        // Less than format: "< 5"
+        const max = parseFloat(range.replace('<', '').trim());
+        if (!isNaN(max) && result >= max) return 'high';
+      } else if (range.includes('>')) {
+        // Greater than format: "> 150"
+        const min = parseFloat(range.replace('>', '').trim());
+        if (!isNaN(min) && result <= min) return 'low';
+      }
+    }
+  }
+  
+  // PRIORITY 2: If result_status is already set and not normal, use it
+  if (analyte.result_status && analyte.result_status.toLowerCase() !== 'normal') {
+    const status = analyte.result_status.toLowerCase();
+    if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+      console.log('Iron Debug - Using result_status:', status);
+    }
+    return status;
+  }
+  
+  // PRIORITY 3: If result_flag is set and not N (normal), use it
+  if (analyte.result_flag && analyte.result_flag.toLowerCase() !== 'n') {
+    const flag = analyte.result_flag.toLowerCase();
+    if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+      console.log('Iron Debug - Using result_flag:', flag);
+    }
+    return flag;
+  }
+  
+  if (analyte.analyte_name?.toLowerCase().includes('iron')) {
+    console.log('Iron Debug - Falling back to NORMAL');
+  }
+  return 'normal';
+};
+
 export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
@@ -304,34 +394,58 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                               {analyte.analyte_name}
                             </td>
                             <td className="p-2 text-sm font-semibold">
-                              {analyte.result_value !== undefined && analyte.result_value !== null
-                                ? `${analyte.result_value}${analyte.result_unit ? ' ' + analyte.result_unit : ''}`
-                                : "-"}
+                              {(() => {
+                                const status = getResultStatus(analyte);
+                                return (
+                                  <span
+                                    className={`${
+                                      status === "high" || status === "h"
+                                        ? "text-red-600"
+                                        : status === "low" || status === "l"
+                                        ? "text-blue-600"
+                                        : status === "critical" || status === "hh"
+                                        ? "text-red-700 font-bold"
+                                        : "text-green-600"
+                                    }`}
+                                  >
+                                    {analyte.result_value !== undefined && analyte.result_value !== null
+                                      ? String(analyte.result_value)
+                                      : "-"}
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td className="p-2 text-sm text-muted-foreground">
                               {analyte.reference_range || "N/A"}
                             </td>
                             <td className="p-2 text-sm">
-                              {/* Unit now shown with result */}
-                              -
+                              {analyte.result_unit || "-"}
                             </td>
                             <td className="p-2 text-sm">
                               <span
                                 className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  analyte.result_status === "normal"
-                                    ? "bg-green-100 text-green-800"
-                                    : analyte.result_status === "high" ||
-                                      analyte.result_status === "low"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : analyte.result_status === "critical"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-800"
+                                  (() => {
+                                    const status = getResultStatus(analyte);
+                                    return status === "normal" || status === "n"
+                                      ? "bg-green-100 text-green-800"
+                                      : status === "high" || status === "h"
+                                      ? "bg-red-100 text-red-800"
+                                      : status === "low" || status === "l"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : status === "critical" || status === "hh"
+                                      ? "bg-red-100 text-red-800 font-bold"
+                                      : "bg-gray-100 text-gray-800";
+                                  })()
                                 }`}
-                                aria-label={`Result status: ${analyte.result_flag || analyte.result_status}`}
-                                title={`Result status: ${analyte.result_flag || analyte.result_status}`}
+                                aria-label={`Result status: ${getResultStatus(analyte)}`}
+                                title={`Result status: ${getResultStatus(analyte)}`}
                               >
-                                {analyte.result_flag ||
-                                  analyte.result_status.toUpperCase()}
+                                {(() => {
+                                  const status = getResultStatus(analyte);
+                                  return (status === "critical" || status === "hh")
+                                    ? "CRITICAL"
+                                    : status.toUpperCase();
+                                })()}
                               </span>
                             </td>
                           </tr>
