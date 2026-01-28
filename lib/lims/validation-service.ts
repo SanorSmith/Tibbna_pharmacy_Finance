@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { testResults, validationStates, ValidationStateType, VALIDATION_STATES, NewValidationState, accessionSamples, SAMPLE_STATUS } from "@/lib/db/schema";
+import { testResults, validationStates, ValidationStateType, VALIDATION_STATES, NewValidationState, accessionSamples, SAMPLE_STATUS, limsOrders, patients } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { AuditService } from "./audit-service";
 import { AUDIT_ACTIONS } from "@/lib/db/tables/audit-log";
@@ -302,14 +302,94 @@ export class ValidationService {
 
   /**
    * Emit domain event for results release
-   * This is where openEHR integration would be triggered
+   * This triggers OpenEHR integration by submitting lab results
    */
   private static async emitResultsReleasedEvent(sampleid: string): Promise<void> {
-    // In production, this would publish to a message queue or event bus
-    // For now, we'll just log it
-    console.log(`[ValidationService] ResultsReleased event emitted for sample ${sampleid}`);
-    
-    // TODO: Implement actual event publishing
-    // Example: await eventBus.publish('ResultsReleased', { sampleid, timestamp: new Date() });
+    try {
+      // Fetch sample details to submit to OpenEHR
+      const sample = await db.query.accessionSamples.findFirst({
+        where: eq(accessionSamples.sampleid, sampleid),
+      });
+
+      if (!sample || !sample.orderid) {
+        console.log(`[ValidationService] Cannot submit to OpenEHR - missing sample/order data for sample ${sampleid}`);
+        return;
+      }
+
+      // Fetch the LIMS order
+      const limsOrder = await db.query.limsOrders.findFirst({
+        where: eq(limsOrders.orderid, sample.orderid)
+      });
+
+      if (!limsOrder) {
+        console.log(`[ValidationService] Cannot submit to OpenEHR - missing order data for sample ${sampleid}`);
+        return;
+      }
+
+      // Fetch the patient
+      const patient = await db.query.patients.findFirst({
+        where: eq(patients.patientid, limsOrder.subjectidentifier)
+      });
+
+      if (!patient) {
+        console.log(`[ValidationService] Cannot submit to OpenEHR - missing patient data for sample ${sampleid}`);
+        return;
+      }
+      if (!patient.ehrid) {
+        console.log(`[ValidationService] Cannot submit to OpenEHR - patient ${patient.patientid} has no EHR ID`);
+        return;
+      }
+
+      // Fetch test results for this sample
+      const testResults = await db.query.testResults.findMany({
+        where: eq(testResults.sampleid, sampleid)
+      });
+
+      if (testResults.length === 0) {
+        console.log(`[ValidationService] No test results to submit to OpenEHR for sample ${sampleid}`);
+        return;
+      }
+
+      // Prepare data for OpenEHR submission
+      const submitData = {
+        sampleId: sampleid,
+        workspaceId: sample.workspaceid,
+        results: testResults.map(result => ({
+          testCode: result.testcode,
+          testName: result.testname,
+          resultValue: result.resultvalue,
+          unit: result.unit,
+          referenceMin: result.referencemin,
+          referenceMax: result.referencemax,
+          referenceRange: result.referencerange,
+          flag: result.resultflag,
+          isAbnormal: result.isabormal,
+          isCritical: result.iscritical,
+        })),
+        overallStatus: "final",
+        conclusion: "Results released from LIMS",
+        composerName: "LIMS System"
+      };
+
+      // Submit to OpenEHR
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/lims/submit-to-openehr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to submit to OpenEHR');
+      }
+
+      const result = await response.json();
+      console.log(`[ValidationService] Successfully submitted results to OpenEHR for sample ${sampleid}`, result);
+
+    } catch (error) {
+      console.error(`[ValidationService] Failed to submit results to OpenEHR for sample ${sampleid}:`, error);
+      // Don't fail the release process if OpenEHR submission fails
+      // Just log the error and continue
+    }
   }
 }

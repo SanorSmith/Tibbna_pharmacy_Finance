@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { samples, validationStates, testResults } from "@/lib/db/schema";
+import { accessionSamples, validationStates, testResults } from "@/lib/db/schema";
 
 export async function POST() {
   try {
@@ -11,7 +11,7 @@ export async function POST() {
     await db.delete(validationStates);
     
     // Delete all samples
-    await db.delete(samples);
+    await db.delete(accessionSamples);
     
     return NextResponse.json({
       success: true,

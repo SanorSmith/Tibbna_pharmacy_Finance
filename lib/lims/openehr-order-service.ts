@@ -13,6 +13,7 @@ import { LimsOrder } from "@/lib/db/schema";
  */
 export interface OpenEHRLabOrderComposition {
   _type: "COMPOSITION";
+  archetype_node_id: string;
   name: {
     _type: "DV_TEXT";
     value: string;
@@ -97,167 +98,95 @@ export interface OpenEHRLabOrderComposition {
 }
 
 /**
- * Create openEHR composition for lab order
+ * Create openEHR composition for lab order using FLAT format
  */
 export function createLabOrderComposition(
   order: LimsOrder,
   testNames: string[],
   providerName: string
-): OpenEHRLabOrderComposition {
+): any {
+  const eventTime = order.createdat.toISOString();
+  const serviceName = testNames.join(", ");
+  const description = order.clinicalnotes || `Laboratory test order: ${serviceName}`;
+  const clinicalIndication = order.clinicalindication || "";
+  const narrative = `${serviceName} ordered${clinicalIndication ? ` due to ${clinicalIndication}` : ''}`;
+
   return {
-    _type: "COMPOSITION",
-    name: {
-      _type: "DV_TEXT",
-      value: "Laboratory Test Request",
-    },
-    archetype_details: {
-      archetype_id: {
-        value: "openEHR-EHR-COMPOSITION.request.v1",
-      },
-    },
-    language: {
-      terminology_id: { value: "ISO_639-1" },
-      code_string: "en",
-    },
-    territory: {
-      terminology_id: { value: "ISO_3166-1" },
-      code_string: "US",
-    },
-    category: {
-      value: "event",
-      defining_code: {
-        terminology_id: { value: "openehr" },
-        code_string: "433",
-      },
-    },
-    composer: {
-      _type: "PARTY_IDENTIFIED",
-      name: providerName || "Unknown Provider",
-    },
-    context: {
-      _type: "EVENT_CONTEXT",
-      start_time: {
-        _type: "DV_DATE_TIME",
-        value: order.createdat.toISOString(),
-      },
-      setting: {
-        value: "laboratory",
-        defining_code: {
-          terminology_id: { value: "openehr" },
-          code_string: "234",
-        },
-      },
-    },
-    content: [
-      {
-        _type: "INSTRUCTION",
-        name: {
-          _type: "DV_TEXT",
-          value: "Laboratory Test Request",
-        },
-        archetype_details: {
-          archetype_id: {
-            value: "openEHR-EHR-INSTRUCTION.request-lab_test.v1",
-          },
-        },
-        activities: [
-          {
-            _type: "ACTIVITY",
-            name: {
-              _type: "DV_TEXT",
-              value: "Request",
-            },
-            description: {
-              _type: "ITEM_TREE",
-              items: [
-                {
-                  _type: "ELEMENT",
-                  name: {
-                    _type: "DV_TEXT",
-                    value: "Service requested",
-                  },
-                  value: {
-                    _type: "DV_TEXT",
-                    value: testNames.join(", "),
-                  },
-                },
-                {
-                  _type: "ELEMENT",
-                  name: {
-                    _type: "DV_TEXT",
-                    value: "Request ID",
-                  },
-                  value: {
-                    _type: "DV_IDENTIFIER",
-                    value: order.orderid,
-                  },
-                },
-                {
-                  _type: "ELEMENT",
-                  name: {
-                    _type: "DV_TEXT",
-                    value: "Priority",
-                  },
-                  value: {
-                    _type: "DV_CODED_TEXT",
-                    value: order.priority,
-                    defining_code: {
-                      terminology_id: { value: "local" },
-                      code_string: order.priority,
-                    },
-                  },
-                },
-                ...(order.clinicalindication
-                  ? [
-                      {
-                        _type: "ELEMENT" as const,
-                        name: {
-                          _type: "DV_TEXT" as const,
-                          value: "Clinical indication",
-                        },
-                        value: {
-                          _type: "DV_TEXT" as const,
-                          value: order.clinicalindication,
-                        },
-                      },
-                    ]
-                  : []),
-              ],
-            },
-          },
-        ],
-      },
-    ],
+    "template_clinical_encounter_v1/language|code": "en",
+    "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+    "template_clinical_encounter_v1/territory|code": "US",
+    "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+    "template_clinical_encounter_v1/composer|name": providerName || "Unknown",
+    "template_clinical_encounter_v1/context/start_time": eventTime,
+    "template_clinical_encounter_v1/context/setting|code": "238",
+    "template_clinical_encounter_v1/context/setting|value": "other care",
+    "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+    "template_clinical_encounter_v1/category|code": "433",
+    "template_clinical_encounter_v1/category|value": "event",
+    "template_clinical_encounter_v1/category|terminology": "openehr",
+
+    // Service request for lab order
+    "template_clinical_encounter_v1/service_request/request/service_name|other": serviceName,
+    "template_clinical_encounter_v1/service_request/request/description": description,
+    "template_clinical_encounter_v1/service_request/request/clinical_indication": clinicalIndication,
+    "template_clinical_encounter_v1/service_request/request/requested_date": eventTime,
+    "template_clinical_encounter_v1/service_request/request/requesting_provider": providerName || "Unknown",
+    "template_clinical_encounter_v1/service_request/request/receiving_provider": "Laboratory",
+    "template_clinical_encounter_v1/service_request/request/timing": eventTime,
+    "template_clinical_encounter_v1/service_request/request_id": order.orderid,
+    "template_clinical_encounter_v1/service_request/narrative": narrative,
+    "template_clinical_encounter_v1/service_request/language|code": "en",
+    "template_clinical_encounter_v1/service_request/language|terminology": "ISO_639-1",
+    "template_clinical_encounter_v1/service_request/encoding|code": "UTF-8",
+    "template_clinical_encounter_v1/service_request/encoding|terminology": "IANA_character-sets",
   };
 }
 
 /**
  * Submit composition to openEHR server
- * This is a stub - in production, this would call the actual openEHR REST API
+ * Creates the lab order composition in OpenEHR using FLAT format
  */
 export async function submitCompositionToOpenEHR(
   ehrId: string,
-  composition: OpenEHRLabOrderComposition
+  composition: any
 ): Promise<{ compositionUid: string; timeCommitted: Date }> {
-  // In production, this would be:
-  // POST /ehr/{ehrId}/composition
-  // with the composition as the request body
-  
-  // For now, return a mock response
-  const compositionUid = `${crypto.randomUUID()}::local.ehrbase.org::1`;
-  const timeCommitted = new Date();
-  
-  console.log("openEHR composition created:", {
-    ehrId,
-    compositionUid,
-    timeCommitted,
-    composition: JSON.stringify(composition, null, 2),
-  });
-  
-  return {
-    compositionUid,
-    timeCommitted,
-  };
+  try {
+    const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition?format=FLAT&templateId=template_clinical_encounter_v1`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.EHRBASE_API_KEY!,
+        'Authorization': `Basic ${Buffer.from(`${process.env.EHRBASE_USER}:${process.env.EHRBASE_PASSWORD}`).toString('base64')}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify(composition),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to submit composition to OpenEHR: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    const compositionUid = result.compositionUid || result.uid?.value;
+    const timeCommitted = new Date();
+
+    console.log("openEHR composition created successfully:", {
+      ehrId,
+      compositionUid,
+      timeCommitted,
+    });
+
+    return {
+      compositionUid,
+      timeCommitted,
+    };
+  } catch (error) {
+    console.error("Error submitting composition to OpenEHR:", error);
+    throw error;
+  }
 }
 
 /**

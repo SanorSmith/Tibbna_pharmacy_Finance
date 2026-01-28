@@ -82,6 +82,8 @@ export default function PatientDashboard({
     loadingPrescriptions,
     labResults,
     loadingLabResults,
+    labOrders,
+    loadingLabOrders,
   } = usePatientData({ workspaceid, patientid: patient.patientid });
 
   // Transform care plans to dashboard format
@@ -153,8 +155,24 @@ export default function PatientDashboard({
       resultItems: resultItems, // Array of individual results with their abnormal status
       status: result.overall_test_status || result.status || "completed",
       normal_range: result.test_results?.[0]?.reference_range,
+      isOrder: false, // Mark as lab result
     };
   });
+
+  // Transform lab orders to dashboard format (LabRecord)
+  const transformedLabOrders = labOrders.map((order: any) => ({
+    labid: order.composition_uid,
+    test_name: order.service_name || "Lab Test",
+    test_date: order.requested_date || order.recorded_time,
+    resultItems: [{ text: order.clinical_indication || "Lab test ordered", isAbnormal: false }],
+    status: order.request_status || "REQUESTED",
+    normal_range: "",
+    isOrder: true, // Mark as lab order
+  }));
+
+  // Combine lab results and orders, sorted by date (newest first)
+  const allLabItems = [...transformedLabResults, ...transformedLabOrders]
+    .sort((a, b) => new Date(b.test_date).getTime() - new Date(a.test_date).getTime());
 
   // const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] =
@@ -454,12 +472,12 @@ export default function PatientDashboard({
               appointments={appointments}
               vitalSigns={vitalSignsRecords}
               diagnoses={diagnoses}
-              labs={transformedLabResults}
+              labs={allLabItems}
               imaging={[] as DashboardTypes.ImagingRecord[]} // Empty array for imaging
               carePlans={carePlans} // Now showing actual care plans from openEHR
               loadingVitalSigns={loadingVitalSigns}
               loadingDiagnoses={loadingDiagnoses}
-              loadingLabs={loadingLabResults}
+              loadingLabs={loadingLabResults || loadingLabOrders}
               loadingImaging={loadingImaging}
               loadingCarePlans={loadingCarePlans} // Now tracking care plans loading state
             />
