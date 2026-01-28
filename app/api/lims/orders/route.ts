@@ -421,12 +421,28 @@ export async function GET(request: NextRequest) {
       for (const patient of patientsWithEhr) {
         try {
           const orders = await getOpenEHRTestOrders(patient.ehrid!);
+          
+          // Calculate age from date of birth
+          let patientAge = undefined;
+          if (patient.dateofbirth) {
+            const today = new Date();
+            const birthDate = new Date(patient.dateofbirth);
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+              age--;
+            }
+            patientAge = age;
+          }
+          
           const ordersWithPatient = orders.map(order => ({
             ...order,
             source: "openEHR",
             patientId: patient.patientid,
             patientName: `${patient.firstname} ${patient.lastname}`,
             subjectidentifier: patient.patientid,
+            patientage: patientAge,
+            patientsex: patient.gender,
           }));
           openEHROrders.push(...ordersWithPatient);
         } catch (error) {

@@ -50,6 +50,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getDialogClasses } from "@/lib/ui-constants";
 import {
   Search,
@@ -93,7 +99,9 @@ interface SampleData {
   subjectIdentifier?: string;
   workspaceId: string;
   currentLocation: string;
+  sampleType?: string;
   tests: string[];
+  comments?: string;
 }
 
 interface OrderFormData {
@@ -212,6 +220,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     collectionDate: new Date().toISOString().slice(0, 16),
     collectorName: session?.user?.name || "",
     currentLocation: "Laboratory",
+    specimenType: "", // Selected specimen type for this sample
   });
   const [sampleComments, setSampleComments] = useState("");
 
@@ -1453,22 +1462,19 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     {/* Left Column */}
     <div className="space-y-1.5">
       <div>
-        <span className="text-muted-foreground">Name:</span>
+        <span className="text-muted-foreground">Patient:</span>
         <div className="font-semibold text-sm">
           {selectedOrder.patientName || selectedOrder.subjectidentifier || "N/A"}
+          {(selectedOrder.patientage !== undefined || selectedOrder.patientsex) && (
+            <>
+              {" • "}
+              {selectedOrder.patientage !== undefined && `${selectedOrder.patientage}y`}
+              {selectedOrder.patientage !== undefined && selectedOrder.patientsex && " / "}
+              {selectedOrder.patientsex && `${selectedOrder.patientsex.charAt(0).toUpperCase()}`}
+            </>
+          )}
         </div>
       </div>
-      
-      {(selectedOrder.patientage !== undefined || selectedOrder.patientsex) && (
-        <div>
-          <span className="text-muted-foreground">Age/Sex:</span>
-          <div className="font-semibold">
-            {selectedOrder.patientage !== undefined && `${selectedOrder.patientage}y`}
-            {selectedOrder.patientage !== undefined && selectedOrder.patientsex && " / "}
-            {selectedOrder.patientsex && `${selectedOrder.patientsex.charAt(0).toUpperCase()}`}
-          </div>
-        </div>
-      )}
       
       <div>
         <span className="text-muted-foreground">Order ID:</span>
@@ -1539,54 +1545,145 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </h3>
 
                       {selectedOrder.source === "openEHR" ? (
-                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded">
-                          <FlaskConical className="h-4 w-4 text-gray-600" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">
-                              {selectedOrder.service_name}
-                            </div>
-                            {selectedOrder.test_category && (
-                              <div className="text-xs text-gray-600 truncate">
-                                Category: {selectedOrder.test_category}
-                              </div>
-                            )}
-                            {selectedOrder.clinical_indication && (
-                              <div className="text-xs text-gray-600 truncate">
-                                Indication: {selectedOrder.clinical_indication}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto">
-                          {selectedOrder.tests?.map(
-                            (test: any, idx: number) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-1 bg-gray-50 px-2 py-1.5 rounded border border-gray-200 hover:bg-gray-100 transition-colors"
-                                title={`${test.testName} (${test.testCode})`}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 bg-gray-50 px-3 py-1 rounded text-left"
                               >
-                                <FlaskConical className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                <FlaskConical className="h-4 w-4 text-gray-600" />
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-xs font-medium truncate leading-tight">
-                                    {test.testName}
+                                  <div className="text-sm font-medium truncate">
+                                    {selectedOrder.service_name}
                                   </div>
-                                  <div className="text-[10px] text-gray-500 truncate">
-                                    {test.testCode}
-                                  </div>
-
-                                  {test.fastingRequired && (
-                                    <span className="inline-block mt-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-1 py-0.5">
-                                      F
-                                    </span>
+                                  {selectedOrder.test_category && (
+                                    <div className="text-xs text-gray-600 truncate">
+                                      Category: {selectedOrder.test_category}
+                                    </div>
+                                  )}
+                                  {selectedOrder.clinical_indication && (
+                                    <div className="text-xs text-gray-600 truncate">
+                                      Indication: {selectedOrder.clinical_indication}
+                                    </div>
                                   )}
                                 </div>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>
+                              <div className="space-y-0.5">
+                                <div className="font-medium">
+                                  {selectedOrder.service_name}
+                                </div>
+                                {selectedOrder.test_category && (
+                                  <div>
+                                    <span className="font-medium">Category:</span>{" "}
+                                    {selectedOrder.test_category}
+                                  </div>
+                                )}
+                                {selectedOrder.clinical_indication && (
+                                  <div>
+                                    <span className="font-medium">Indication:</span>{" "}
+                                    {selectedOrder.clinical_indication}
+                                  </div>
+                                )}
+                                {(selectedOrder as any).request_id && (
+                                  <div>
+                                    <span className="font-medium">Request ID:</span>{" "}
+                                    {(selectedOrder as any).request_id}
+                                  </div>
+                                )}
                               </div>
-                            )
-                          )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto">
+                          <TooltipProvider>
+                            {selectedOrder.tests?.map(
+                              (test: any, idx: number) => (
+                                <Tooltip key={idx}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-1 bg-gray-50 px-2 py-1.5 rounded border border-gray-200 hover:bg-gray-100 transition-colors text-left"
+                                    >
+                                      <FlaskConical className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-medium truncate leading-tight">
+                                          {test.testName}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 truncate">
+                                          {test.testCode}
+                                        </div>
+
+                                        {test.fastingRequired && (
+                                          <span className="inline-block mt-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-1 py-0.5">
+                                            F
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent sideOffset={6}>
+                                    <div className="space-y-0.5">
+                                      <div className="font-medium">{test.testName}</div>
+                                      <div>
+                                        <span className="font-medium">Code:</span> {test.testCode}
+                                      </div>
+                                      {(test.specimenType || test.specimentype || test.material) && (
+                                        <div>
+                                          <span className="font-medium">Specimen:</span>{" "}
+                                          {test.specimenType || test.specimentype || test.material}
+                                        </div>
+                                      )}
+                                      {typeof test.fastingRequired === "boolean" && (
+                                        <div>
+                                          <span className="font-medium">Fasting:</span>{" "}
+                                          {test.fastingRequired ? "Required" : "Not required"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )
+                            )}
+                          </TooltipProvider>
                         </div>
                       )}
                     </div>
+
+                    {/* Required Specimen Types */}
+                    {selectedOrder.tests && selectedOrder.tests.length > 0 && (() => {
+                      const specimenGroups = selectedOrder.tests.reduce((acc: any, test: any) => {
+                        const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
+                        if (!acc[specimen]) {
+                          acc[specimen] = [];
+                        }
+                        acc[specimen].push(test);
+                        return acc;
+                      }, {});
+                      
+                      return (
+                        <div className="border rounded-lg p-3">
+                          <h3 className="font-semibold text-sm mb-2">Required Specimen Types</h3>
+                          <div className="space-y-2">
+                            {Object.entries(specimenGroups).map(([specimen, tests]: [string, any]) => (
+                              <div key={specimen} className="bg-blue-50 border border-blue-200 rounded p-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <FlaskConical className="h-4 w-4 text-blue-600" />
+                                  <span className="font-medium text-sm text-blue-900">{specimen}</span>
+                                  <span className="text-xs text-blue-600">({tests.length} test{tests.length > 1 ? 's' : ''})</span>
+                                </div>
+                                <div className="text-xs text-blue-700 ml-6">
+                                  {tests.map((t: any) => t.testName).join(", ")}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Fasting Requirements Alert */}
                     {selectedOrder.tests?.some(
@@ -1639,6 +1736,107 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                       {/* Sample Collection Form */}
                       <div className="space-y-2">
+                        {/* Specimen Type Selection */}
+                        {(() => {
+                          // For local orders with tests array
+                          if (selectedOrder.tests && selectedOrder.tests.length > 0) {
+                            const specimenTypes = Array.from(new Set(
+                              selectedOrder.tests.map((t: any) => 
+                                t.specimenType || t.specimentype || t.material || "Not specified"
+                              )
+                            ));
+                            
+                            return (
+                              <div>
+                                <Label htmlFor="specimenTypeDetail" className="text-xs font-semibold">
+                                  Specimen Type *
+                                </Label>
+                                <select
+                                  id="specimenTypeDetail"
+                                  title="Select specimen type for sample collection"
+                                  value={sampleCollectionData.specimenType}
+                                  onChange={(e) =>
+                                    setSampleCollectionData((prev) => ({
+                                      ...prev,
+                                      specimenType: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 text-xs border border-gray-300 rounded px-2 bg-white"
+                                >
+                                  <option value="">Select specimen type...</option>
+                                  {specimenTypes.map((type) => (
+                                    <option key={type} value={type}>
+                                      {type}
+                                    </option>
+                                  ))}
+                                </select>
+                                {sampleCollectionData.specimenType && (
+                                  <p className="text-[10px] text-blue-600 mt-1">
+                                    Tests for this specimen: {selectedOrder.tests
+                                      .filter((t: any) => 
+                                        (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
+                                      )
+                                      .map((t: any) => t.testName)
+                                      .join(", ")}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          // For openEHR orders without tests array - provide common specimen types
+                          if (selectedOrder.source === "openEHR") {
+                            const commonSpecimenTypes = [
+                              "Blood",
+                              "Venous blood",
+                              "Arterial blood",
+                              "Capillary blood",
+                              "Urine",
+                              "Serum",
+                              "Plasma",
+                              "Tissue",
+                              "Saliva",
+                              "Stool",
+                              "Cerebrospinal fluid",
+                              "Other"
+                            ];
+                            
+                            return (
+                              <div>
+                                <Label htmlFor="specimenTypeDetail" className="text-xs font-semibold">
+                                  Specimen Type *
+                                </Label>
+                                <select
+                                  id="specimenTypeDetail"
+                                  title="Select specimen type for sample collection"
+                                  value={sampleCollectionData.specimenType}
+                                  onChange={(e) =>
+                                    setSampleCollectionData((prev) => ({
+                                      ...prev,
+                                      specimenType: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 text-xs border border-gray-300 rounded px-2 bg-white"
+                                >
+                                  <option value="">Select specimen type...</option>
+                                  {commonSpecimenTypes.map((type) => (
+                                    <option key={type} value={type}>
+                                      {type}
+                                    </option>
+                                  ))}
+                                </select>
+                                {sampleCollectionData.specimenType && (
+                                  <p className="text-[10px] text-blue-600 mt-1">
+                                    Service: {selectedOrder.service_name}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
+
                         {/* Sample ID and Accession ID on one line */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
@@ -1755,12 +1953,19 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           type="button"
                           className="w-full h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
                           disabled={
+                            !sampleCollectionData.specimenType ||
                             createSampleMutation.isPending ||
                             openEHROrderStatus === "CANCELLED" ||
                             (selectedOrder?.status === "CANCELLED")
                           }
                           onClick={() => {
-                            if (!selectedOrder) return;
+                            if (!selectedOrder || !sampleCollectionData.specimenType) return;
+
+                            // Filter tests that match the selected specimen type
+                            const testsForSpecimen = selectedOrder.tests?.filter(
+                              (t: any) => 
+                                (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
+                            ) || [];
 
                             const sampleData: SampleData = {
                               sampleNumber:
@@ -1779,20 +1984,18 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                               patientId:
                                 selectedOrder.subjectidentifier || undefined,
                               ehrId: selectedOrder.ehrid || undefined,
+                              sampleType: sampleCollectionData.specimenType,
                               subjectIdentifier:
                                 selectedOrder.subjectidentifier || undefined,
                               workspaceId: workspaceid,
                               currentLocation:
                                 sampleCollectionData.currentLocation,
                               tests:
-                                selectedOrder.tests?.map(
+                                testsForSpecimen.map(
                                   (t: any) =>
                                     t.testCode || t.testcode || t.testName || t
-                                ) ||
-                                (selectedOrder.service_name
-                                  ? [selectedOrder.service_name]
-                                  : []) ||
-                                [],
+                                ) || [],
+                              comments: sampleComments || undefined,
                             };
 
                             createSampleMutation.mutate(sampleData);
@@ -1806,7 +2009,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           ) : (
                             <>
                               <FlaskConical className="h-3 w-3 mr-1" />
-                              Collect Sample
+                              {!sampleCollectionData.specimenType 
+                                ? "Select Specimen Type" 
+                                : `Collect ${sampleCollectionData.specimenType} Sample`}
                             </>
                           )}
                         </Button>
