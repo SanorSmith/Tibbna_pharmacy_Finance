@@ -72,14 +72,11 @@ export function VitalSignsTab({
   return (
     <div className="space-y-2">
       {/* Card Header */}
-      <Card className="bg-card-bg">
+      <Card className="">
         <CardHeader className="py-2 px-3">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl font-semibold">Vital Signs Monitor</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Track essential health metrics
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <Button

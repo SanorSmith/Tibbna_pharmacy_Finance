@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X, CheckCircle2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Patient {
@@ -194,6 +194,7 @@ export default function WorklistValidationModal({
       setPendingResultUpdate(null);
     },
   });
+
 
   // Save bulk results mutation
   const saveResultsMutation = useMutation({
@@ -717,7 +718,9 @@ export default function WorklistValidationModal({
                     });
                   }}
                   disabled={releaseMutation.isPending}
+                  title="Release validated results and submit to OpenEHR"
                 >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
                   Release
                 </Button>
                 <Button
@@ -840,6 +843,7 @@ export default function WorklistValidationModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </>
   );
 }

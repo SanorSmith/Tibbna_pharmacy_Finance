@@ -50,6 +50,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getDialogClasses } from "@/lib/ui-constants";
 import {
   Search,
@@ -82,23 +88,20 @@ interface ValidationError {
 }
 
 interface SampleData {
-  sampleType: string;
-  containerType: string;
-  volume: string | number;
-  volumeUnit: string;
   collectionDate: string;
   accessionNumber?: string;
   labCategory?: string;
-  collectorName: string | undefined;
-  currentLocation: string;
-  notes?: string;
+  sampleNumber?: string;
+  collectorName?: string;
   orderId?: string;
   patientId?: string;
   ehrId?: string;
   subjectIdentifier?: string;
-  workspaceId?: string;
-  sampleNumber?: string;
-  tests?: string[];
+  workspaceId: string;
+  currentLocation: string;
+  sampleType?: string;
+  tests: string[];
+  comments?: string;
 }
 
 interface OrderFormData {
@@ -139,39 +142,46 @@ interface LimsOrder {
   createdat: string;
   tests?: Array<{
     testCode: string;
-    testName: string;
-    material?: string;
   }>;
-
-  // OpenEHR integration properties
-  source?: string;
-  composition_uid?: string;
-  request_id?: string;
-  openehrrequestid?: string;
-  patientId?: string;
+  
+  // Additional properties
   patientName?: string;
-  patientage?: number;
+  patientId?: string;
+  patientage?: string;
   patientsex?: string;
-  service_name?: string;
-  test_category?: string;
-  clinical_indication?: string;
   clinicalnotes?: string;
-  urgency?: string;
-  requesting_provider?: string;
-  recorded_time?: string;
-  ehrid?: string;
+  testCodes: string[];
+  test_category?: string;
+  source: "local" | "openEHR";
   openEhr?: any;
-
-  // Sample collection requirements
-  sampleType?: string;
-  containerType?: string;
-  volume?: string | number;
-  volumeUnit?: string;
   sampleRecommendations?: any;
+  openehrrequestid?: string;
+  recorded_time?: string;
+  createdAt?: string;
+  orderId?: string;
+  requestingProvider?: string;
+  receivingProvider?: string;
+  urgency?: string;
+  clinicalIndication?: string;
+  clinical_indication?: string;
 
   // Aliases for compatibility
-  orderId?: string;
-  createdAt?: string;
+  order_id?: string;
+  request_id?: string;
+  composition_uid?: string;
+  ehrid?: string;
+  service_name?: string;
+  description?: string;
+  requesting_provider?: string;
+  receiving_provider?: string;
+  narrative?: string;
+  is_package?: boolean;
+  target_lab?: string;
+}
+
+interface ValidationError {
+  field: string;
+  message: string;
 }
 
 interface Test {
@@ -180,11 +190,6 @@ interface Test {
   specimentype: string;
   fastingrequired: boolean;
   turnaroundtime: string | null;
-}
-
-interface ValidationError {
-  field: string;
-  message: string;
 }
 
 export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
@@ -212,26 +217,13 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [sampleCollectionData, setSampleCollectionData] = useState({
     sampleNumber: "", // Manual entry or auto-generated
     accessionNumber: "", // Scanned/manual accession number
-    sampleType: "",
-    containerType: "",
-    volume: "",
-    volumeUnit: "mL",
     collectionDate: new Date().toISOString().slice(0, 16),
     collectorName: session?.user?.name || "",
     currentLocation: "Laboratory",
+    specimenType: "", // Selected specimen type for this sample
   });
+  const [sampleComments, setSampleComments] = useState("");
 
-  const getVolumeUnitsForSampleType = (sampleType?: string) => {
-    const normalized = String(sampleType || "").toLowerCase();
-    if (normalized === "swab") return [] as string[];
-    if (normalized === "tissue" || normalized === "stool") return ["g", "mg"];
-    return ["mL", "L", "μL"];
-  };
-
-  const isVolumeApplicable = (sampleType?: string) => {
-    const normalized = String(sampleType || "").toLowerCase();
-    return normalized !== "swab";
-  };
   const [currentPatientId, setCurrentPatientId] = useState("");
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
@@ -1422,9 +1414,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               <FlaskConical className="h-6 w-6 text-blue-600" />
               Order Details
             </DialogTitle>
-            <DialogDescription>
-              Complete information about this laboratory order
-            </DialogDescription>
           </DialogHeader>
 
           {selectedOrder &&
@@ -1432,7 +1421,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               // Calculate sample recommendations if not stored in order
               let computedRecommendations = null;
               if (
-                !selectedOrder.sampleType &&
                 selectedOrder.tests &&
                 selectedOrder.tests.length > 0
               ) {
@@ -1451,18 +1439,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               }
 
               // Use stored data or computed recommendations
-              const displaySampleType =
-                selectedOrder.sampleType ||
-                computedRecommendations?.primarySampleType;
-              const displayContainerType =
-                selectedOrder.containerType ||
-                computedRecommendations?.primaryContainer;
-              const displayVolume =
-                selectedOrder.volume || computedRecommendations?.totalVolume;
-              const displayVolumeUnit =
-                selectedOrder.volumeUnit ||
-                computedRecommendations?.volumeUnit ||
-                "mL";
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
 
@@ -1470,94 +1446,83 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
                   {/* Left Column - Order Information */}
                   <div className="space-y-4">
-                   {/* Compact Order & Patient Info */}
-<div className="border rounded-lg p-3 text-sm">
-  <div className="flex flex-wrap gap-4 mb-2">
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Order ID:</span>
-      <span className="font-mono">{selectedOrder.orderid || selectedOrder.composition_uid || selectedOrder.request_id || "N/A"}</span>
-    </div>
-
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Status:</span>
+                   {/* Combined Patient & Order Info Card - Compact */}
+<div className="border rounded-lg p-2.5">
+  {/* Header with badges */}
+  <div className="flex items-center justify-between mb-2">
+    <h3 className="font-semibold text-xs">Patient Information</h3>
+    <div className="flex gap-1.5">
       {getStatusBadge(selectedOrder.source === "openEHR" ? openEHROrderStatus : selectedOrder.status)}
-    </div>
-
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Priority:</span>
       {getPriorityBadge(selectedOrder.source === "openEHR" ? selectedOrder.urgency?.toUpperCase() || "ROUTINE" : selectedOrder.priority || "ROUTINE")}
     </div>
   </div>
-
-  <div className="flex flex-wrap gap-4 mb-2">
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Patient:</span>
-      <span className="font-medium">{selectedOrder.patientName || selectedOrder.subjectidentifier || "N/A"}</span>
+  
+  {/* Patient & Order Details - Side by Side */}
+  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+    {/* Left Column */}
+    <div className="space-y-1.5">
+      <div>
+        <span className="text-muted-foreground">Patient:</span>
+        <div className="font-semibold text-sm">
+          {selectedOrder.patientName || selectedOrder.subjectidentifier || "N/A"}
+          {(selectedOrder.patientage !== undefined || selectedOrder.patientsex) && (
+            <>
+              {" • "}
+              {selectedOrder.patientage !== undefined && `${selectedOrder.patientage}y`}
+              {selectedOrder.patientage !== undefined && selectedOrder.patientsex && " / "}
+              {selectedOrder.patientsex && `${selectedOrder.patientsex.charAt(0).toUpperCase()}`}
+            </>
+          )}
+        </div>
+      </div>
+      
+      <div>
+        <span className="text-muted-foreground">Order ID:</span>
+        <div className="font-mono text-[10px]">
+          {(() => {
+            const orderId = selectedOrder.orderid || selectedOrder.composition_uid || selectedOrder.request_id || "N/A";
+            return orderId.length > 20 ? `${orderId.substring(0, 8)}...${orderId.substring(orderId.length - 8)}` : orderId;
+          })()}
+        </div>
+      </div>
     </div>
 
-    {(selectedOrder.test_category || (selectedOrder as any)?.tests?.[0]?.testcategory) && (
-      <div className="flex gap-1 items-center">
-        <span className="text-muted-foreground">Test Category:</span>
-        <span className="font-medium">
-          {selectedOrder.test_category ||
-            ((selectedOrder as any)?.tests?.[0]?.testcategory as string)}
-        </span>
+    {/* Right Column */}
+    <div className="space-y-1.5">
+      <div>
+        <span className="text-muted-foreground">Order Date:</span>
+        <div className="text-xs">
+          {(
+            selectedOrder.source === "openEHR"
+              ? selectedOrder.recorded_time || selectedOrder.createdat
+              : selectedOrder.createdat
+          )
+            ? new Date(
+                selectedOrder.source === "openEHR"
+                  ? selectedOrder.recorded_time || selectedOrder.createdat
+                  : selectedOrder.createdat
+              ).toLocaleString()
+            : "N/A"}
+        </div>
       </div>
-    )}
-
-   {/*  <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Patient ID:</span>
-      <span className="font-mono">{selectedOrder.subjectidentifier || "N/A"}</span>
-    </div> */}
-
-    {/* Patient Age and Sex */}
-    {(selectedOrder.patientage !== undefined || selectedOrder.patientsex) && (
-      <>
-        {selectedOrder.patientage !== undefined && (
-          <div className="flex gap-1 items-center">
-            <span className="text-muted-foreground">Age:</span>
-            <span>{selectedOrder.patientage} years</span>
+      
+      {(selectedOrder.test_category || (selectedOrder as any)?.tests?.[0]?.testcategory) && (
+        <div>
+          <span className="text-muted-foreground">Test Category:</span>
+          <div className="font-medium">
+            {selectedOrder.test_category ||
+              ((selectedOrder as any)?.tests?.[0]?.testcategory as string)}
           </div>
-        )}
-        
-        {selectedOrder.patientsex && (
-          <div className="flex gap-1 items-center">
-            <span className="text-muted-foreground">Sex:</span>
-            <span className="capitalize">{selectedOrder.patientsex}</span>
-          </div>
-        )}
-      </>
-    )}
-
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Order Date:</span>
-      <span>
-        {(
-          selectedOrder.source === "openEHR"
-            ? selectedOrder.recorded_time || selectedOrder.createdat
-            : selectedOrder.createdat
-        )
-          ? new Date(
-              selectedOrder.source === "openEHR"
-                ? selectedOrder.recorded_time || selectedOrder.createdat
-                : selectedOrder.createdat
-            ).toLocaleString()
-          : "N/A"}
-      </span>
+        </div>
+      )}
     </div>
-
-  {/*   {selectedOrder.encounterid && (
-      <div className="flex gap-1 items-center">
-        <span className="text-muted-foreground">Encounter ID:</span>
-        <span className="font-mono break-all">{selectedOrder.encounterid}</span>
-      </div>
-    )} */}
   </div>
 
+  {/* Clinical Information - Full Width */}
   {(selectedOrder.clinicalindication || selectedOrder.clinicalnotes) && (
-    <div className="border-t pt-2 text-xs">
+    <div className="border-t mt-2 pt-2 text-[11px]">
       {selectedOrder.clinicalindication && (
-        <div className="mb-1">
+        <div className="mb-0.5">
           <span className="font-medium text-muted-foreground">Clinical Indication:</span>{" "}
           <span>{selectedOrder.clinicalindication}</span>
         </div>
@@ -1580,54 +1545,145 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </h3>
 
                       {selectedOrder.source === "openEHR" ? (
-                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded">
-                          <FlaskConical className="h-4 w-4 text-gray-600" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">
-                              {selectedOrder.service_name}
-                            </div>
-                            {selectedOrder.test_category && (
-                              <div className="text-xs text-gray-600 truncate">
-                                Category: {selectedOrder.test_category}
-                              </div>
-                            )}
-                            {selectedOrder.clinical_indication && (
-                              <div className="text-xs text-gray-600 truncate">
-                                Indication: {selectedOrder.clinical_indication}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto">
-                          {selectedOrder.tests?.map(
-                            (test: any, idx: number) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-1 bg-gray-50 px-2 py-1.5 rounded border border-gray-200 hover:bg-gray-100 transition-colors"
-                                title={`${test.testName} (${test.testCode})`}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 bg-gray-50 px-3 py-1 rounded text-left"
                               >
-                                <FlaskConical className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                <FlaskConical className="h-4 w-4 text-gray-600" />
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-xs font-medium truncate leading-tight">
-                                    {test.testName}
+                                  <div className="text-sm font-medium truncate">
+                                    {selectedOrder.service_name}
                                   </div>
-                                  <div className="text-[10px] text-gray-500 truncate">
-                                    {test.testCode}
-                                  </div>
-
-                                  {test.fastingRequired && (
-                                    <span className="inline-block mt-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-1 py-0.5">
-                                      F
-                                    </span>
+                                  {selectedOrder.test_category && (
+                                    <div className="text-xs text-gray-600 truncate">
+                                      Category: {selectedOrder.test_category}
+                                    </div>
+                                  )}
+                                  {selectedOrder.clinical_indication && (
+                                    <div className="text-xs text-gray-600 truncate">
+                                      Indication: {selectedOrder.clinical_indication}
+                                    </div>
                                   )}
                                 </div>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>
+                              <div className="space-y-0.5">
+                                <div className="font-medium">
+                                  {selectedOrder.service_name}
+                                </div>
+                                {selectedOrder.test_category && (
+                                  <div>
+                                    <span className="font-medium">Category:</span>{" "}
+                                    {selectedOrder.test_category}
+                                  </div>
+                                )}
+                                {selectedOrder.clinical_indication && (
+                                  <div>
+                                    <span className="font-medium">Indication:</span>{" "}
+                                    {selectedOrder.clinical_indication}
+                                  </div>
+                                )}
+                                {(selectedOrder as any).request_id && (
+                                  <div>
+                                    <span className="font-medium">Request ID:</span>{" "}
+                                    {(selectedOrder as any).request_id}
+                                  </div>
+                                )}
                               </div>
-                            )
-                          )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto">
+                          <TooltipProvider>
+                            {selectedOrder.tests?.map(
+                              (test: any, idx: number) => (
+                                <Tooltip key={idx}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-1 bg-gray-50 px-2 py-1.5 rounded border border-gray-200 hover:bg-gray-100 transition-colors text-left"
+                                    >
+                                      <FlaskConical className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-medium truncate leading-tight">
+                                          {test.testName}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 truncate">
+                                          {test.testCode}
+                                        </div>
+
+                                        {test.fastingRequired && (
+                                          <span className="inline-block mt-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-1 py-0.5">
+                                            F
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent sideOffset={6}>
+                                    <div className="space-y-0.5">
+                                      <div className="font-medium">{test.testName}</div>
+                                      <div>
+                                        <span className="font-medium">Code:</span> {test.testCode}
+                                      </div>
+                                      {(test.specimenType || test.specimentype || test.material) && (
+                                        <div>
+                                          <span className="font-medium">Specimen:</span>{" "}
+                                          {test.specimenType || test.specimentype || test.material}
+                                        </div>
+                                      )}
+                                      {typeof test.fastingRequired === "boolean" && (
+                                        <div>
+                                          <span className="font-medium">Fasting:</span>{" "}
+                                          {test.fastingRequired ? "Required" : "Not required"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )
+                            )}
+                          </TooltipProvider>
                         </div>
                       )}
                     </div>
+
+                    {/* Required Specimen Types */}
+                    {selectedOrder.tests && selectedOrder.tests.length > 0 && (() => {
+                      const specimenGroups = selectedOrder.tests.reduce((acc: any, test: any) => {
+                        const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
+                        if (!acc[specimen]) {
+                          acc[specimen] = [];
+                        }
+                        acc[specimen].push(test);
+                        return acc;
+                      }, {});
+                      
+                      return (
+                        <div className="border rounded-lg p-3">
+                          <h3 className="font-semibold text-sm mb-2">Required Specimen Types</h3>
+                          <div className="space-y-2">
+                            {Object.entries(specimenGroups).map(([specimen, tests]: [string, any]) => (
+                              <div key={specimen} className="bg-blue-50 border border-blue-200 rounded p-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <FlaskConical className="h-4 w-4 text-blue-600" />
+                                  <span className="font-medium text-sm text-blue-900">{specimen}</span>
+                                  <span className="text-xs text-blue-600">({tests.length} test{tests.length > 1 ? 's' : ''})</span>
+                                </div>
+                                <div className="text-xs text-blue-700 ml-6">
+                                  {tests.map((t: any) => t.testName).join(", ")}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Fasting Requirements Alert */}
                     {selectedOrder.tests?.some(
@@ -1649,45 +1705,28 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                   {/* Right Column - Sample Collection */}
                   <div className="space-y-4">
-                    <div className="bg-gray-50 border border-green-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-green-900">
-                        <FlaskConical className="h-4 w-4" />
+                    <div className="bg-gray-50 border border-green-200 rounded-lg p-2.5">
+                      <h3 className="font-semibold text-xs mb-2 flex items-center gap-1.5 text-green-900">
+                        <FlaskConical className="h-3.5 w-3.5" />
                         Collect Sample
                       </h3>
 
                       {/* Sample Collection Requirements from Order */}
-                      {(displaySampleType || displayRecommendations) && (
-                        <div className="mb-4 p-3 bg-white rounded border border-green-300">
-                          <div className="text-xs font-medium text-green-800 mb-2">
+                      {displayRecommendations && (
+                        <div className="mb-2.5 p-2 bg-white rounded border border-green-300">
+                          <div className="text-[10px] font-medium text-green-800 mb-1">
                             Recommended Collection:
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-green-700">
-                            {displaySampleType && (
-                              <div>
-                                <strong>Type:</strong> {displaySampleType}
-                              </div>
-                            )}
-                            {displayContainerType && (
-                              <div>
-                                <strong>Container:</strong>{" "}
-                                {displayContainerType}
-                              </div>
-                            )}
-                            {displayVolume && (
-                              <div>
-                                <strong>Volume:</strong> {displayVolume}{" "}
-                                {displayVolumeUnit}
-                              </div>
-                            )}
+                          <div className="grid grid-cols-1 gap-1 text-[10px] text-green-700">
                             {displayRecommendations?.fastingRequired && (
-                              <div className="col-span-2">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                              <div>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
                                   ⚠️ Fasting Required
                                 </span>
                               </div>
                             )}
                             {displayRecommendations?.specialInstructions?.length > 0 && (
-                              <div className="col-span-2">
+                              <div>
                                 <strong>Method:</strong> {displayRecommendations.specialInstructions[0]}
                               </div>
                             )}
@@ -1696,168 +1735,153 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       )}
 
                       {/* Sample Collection Form */}
-                      <div className="space-y-3">
-                        <div>
-                          <Label
-                            htmlFor="sampleNumberDetail"
-                            className="text-xs"
-                          >
-                            Sample Number
-                          </Label>
-                         <Input
-  id="sampleNumberDetail"
-  type="text"
-  placeholder="Auto-generated if blank"
-  value={sampleCollectionData.sampleNumber || ""}
-  onChange={(e) =>
-    setSampleCollectionData((prev) => ({
-      ...prev,
-      sampleNumber: e.target.value,
-    }))
-  }
-  className="h-8 text-xs font-mono border border-gray-0 rounded px-2 focus:outline-none focus:ring-0 focus:border-gray-300"
-/>
+                      <div className="space-y-2">
+                        {/* Specimen Type Selection */}
+                        {(() => {
+                          // For local orders with tests array
+                          if (selectedOrder.tests && selectedOrder.tests.length > 0) {
+                            const specimenTypes = Array.from(new Set(
+                              selectedOrder.tests.map((t: any) => 
+                                t.specimenType || t.specimentype || t.material || "Not specified"
+                              )
+                            ));
+                            
+                            return (
+                              <div>
+                                <Label htmlFor="specimenTypeDetail" className="text-xs font-semibold">
+                                  Specimen Type *
+                                </Label>
+                                <select
+                                  id="specimenTypeDetail"
+                                  title="Select specimen type for sample collection"
+                                  value={sampleCollectionData.specimenType}
+                                  onChange={(e) =>
+                                    setSampleCollectionData((prev) => ({
+                                      ...prev,
+                                      specimenType: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 text-xs border border-gray-300 rounded px-2 bg-white"
+                                >
+                                  <option value="">Select specimen type...</option>
+                                  {specimenTypes.map((type) => (
+                                    <option key={type} value={type}>
+                                      {type}
+                                    </option>
+                                  ))}
+                                </select>
+                                {sampleCollectionData.specimenType && (
+                                  <p className="text-[10px] text-blue-600 mt-1">
+                                    Tests for this specimen: {selectedOrder.tests
+                                      .filter((t: any) => 
+                                        (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
+                                      )
+                                      .map((t: any) => t.testName)
+                                      .join(", ")}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          // For openEHR orders without tests array - provide common specimen types
+                          if (selectedOrder.source === "openEHR") {
+                            const commonSpecimenTypes = [
+                              "Blood",
+                              "Venous blood",
+                              "Arterial blood",
+                              "Capillary blood",
+                              "Urine",
+                              "Serum",
+                              "Plasma",
+                              "Tissue",
+                              "Saliva",
+                              "Stool",
+                              "Cerebrospinal fluid",
+                              "Other"
+                            ];
+                            
+                            return (
+                              <div>
+                                <Label htmlFor="specimenTypeDetail" className="text-xs font-semibold">
+                                  Specimen Type *
+                                </Label>
+                                <select
+                                  id="specimenTypeDetail"
+                                  title="Select specimen type for sample collection"
+                                  value={sampleCollectionData.specimenType}
+                                  onChange={(e) =>
+                                    setSampleCollectionData((prev) => ({
+                                      ...prev,
+                                      specimenType: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-8 text-xs border border-gray-300 rounded px-2 bg-white"
+                                >
+                                  <option value="">Select specimen type...</option>
+                                  {commonSpecimenTypes.map((type) => (
+                                    <option key={type} value={type}>
+                                      {type}
+                                    </option>
+                                  ))}
+                                </select>
+                                {sampleCollectionData.specimenType && (
+                                  <p className="text-[10px] text-blue-600 mt-1">
+                                    Service: {selectedOrder.service_name}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
 
-                        </div>
-
-                        <div>
-                          <Label htmlFor="accessionNumberDetail" className="text-xs">
-                            Accession Number
-                          </Label>
-                          <Input
-                            id="accessionNumberDetail"
-                            type="text"
-                            placeholder="Scan or type accession number"
-                            value={sampleCollectionData.accessionNumber || ""}
-                            onChange={(e) =>
-                              setSampleCollectionData((prev) => ({
-                                ...prev,
-                                accessionNumber: e.target.value,
-                              }))
-                            }
-                            className="h-8 text-xs font-mono"
-                          />
-                        </div>
-
+                        {/* Sample ID and Accession ID on one line */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label
-                              htmlFor="sampleTypeDetail"
-                              className="text-xs font-medium"
+                              htmlFor="sampleNumberDetail"
+                              className="text-xs"
                             >
-                              Sample Type *
-                            </Label>
-                            <select
-                              id="sampleTypeDetail"
-                              aria-label="Sample Type"
-                              title="Sample Type"
-                              className="w-full h-8 text-xs px-2 py-1 border rounded-md"
-                              value={sampleCollectionData.sampleType}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  sampleType: e.target.value,
-                                }))
-                              }
-                            >
-                              <option value="">Select</option>
-                              <option value="Blood">Blood</option>
-                              <option value="Urine">Urine</option>
-                              <option value="Serum">Serum</option>
-                              <option value="Plasma">Plasma</option>
-                              <option value="Sputum">Sputum</option>
-                              <option value="Stool">Stool</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="containerTypeDetail"
-                              className="text-xs font-medium"
-                            >
-                              Container *
-                            </Label>
-                            <select
-                              id="containerTypeDetail"
-                              aria-label="Container"
-                              title="Container"
-                              className="w-full h-8 text-xs px-2 py-1 border rounded-md"
-                              value={sampleCollectionData.containerType}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  containerType: e.target.value,
-                                }))
-                              }
-                            >
-                              <option value="">Select</option>
-                              <option value="Vacutainer">Vacutainer</option>
-                              <option value="EDTA Tube">EDTA Tube</option>
-                              <option value="Serum Tube">Serum Tube</option>
-                              <option value="Urine Container">
-                                Urine Container
-                              </option>
-                              <option value="Sterile Container">Sterile</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label htmlFor="volumeDetail" className="text-xs">
-                              Volume
+                              Sample ID
                             </Label>
                             <Input
-                              id="volumeDetail"
-                              type="number"
-                              step="0.1"
-                              placeholder="5.0"
-                              value={sampleCollectionData.volume}
-                              disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
+                              id="sampleNumberDetail"
+                              type="text"
+                              placeholder="Auto-generated"
+                              value={sampleCollectionData.sampleNumber || ""}
                               onChange={(e) =>
                                 setSampleCollectionData((prev) => ({
                                   ...prev,
-                                  volume: e.target.value,
+                                  sampleNumber: e.target.value,
                                 }))
                               }
-                              className="h-8 text-xs"
+                              className="h-8 text-xs font-mono"
                             />
                           </div>
 
                           <div>
-                            <Label
-                              htmlFor="volumeUnitDetail"
-                              className="text-xs font-medium"
-                            >
-                              Unit
+                            <Label htmlFor="accessionNumberDetail" className="text-xs">
+                              Accession ID
                             </Label>
-                            <select
-                              id="volumeUnitDetail"
-                              aria-label="Volume Unit"
-                              title="Volume Unit"
-                              className="w-full h-8 text-xs px-2 py-1 border rounded-md"
-                              value={sampleCollectionData.volumeUnit}
-                              disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
+                            <Input
+                              id="accessionNumberDetail"
+                              type="text"
+                              placeholder="Scan or type"
+                              value={sampleCollectionData.accessionNumber || ""}
                               onChange={(e) =>
                                 setSampleCollectionData((prev) => ({
                                   ...prev,
-                                  volumeUnit: e.target.value,
+                                  accessionNumber: e.target.value,
                                 }))
                               }
-                            >
-                              {getVolumeUnitsForSampleType(
-                                sampleCollectionData.sampleType
-                              ).map((u) => (
-                                <option key={u} value={u}>
-                                  {u === "g" ? "g (grams)" : u === "mg" ? "mg" : u}
-                                </option>
-                              ))}
-                            </select>
+                              className="h-8 text-xs font-mono"
+                            />
                           </div>
                         </div>
 
+                        
                         <div>
                           <Label
                             htmlFor="collectionDateDetail"
@@ -1910,30 +1934,44 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           </div>
                         </div>
 
+                        {/* Comments Section */}
+                        <div>
+                          <Label htmlFor="sampleCommentsDetail" className="text-xs">
+                            Comments (Optional)
+                          </Label>
+                          <textarea
+                            id="sampleCommentsDetail"
+                            placeholder="Add notes about sample collection..."
+                            value={sampleComments}
+                            onChange={(e) => setSampleComments(e.target.value)}
+                            rows={2}
+                            className="w-full mt-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                          />
+                        </div>
+
                         <Button
                           type="button"
                           className="w-full h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
                           disabled={
+                            !sampleCollectionData.specimenType ||
                             createSampleMutation.isPending ||
-                            !sampleCollectionData.sampleType ||
-                            !sampleCollectionData.containerType ||
                             openEHROrderStatus === "CANCELLED" ||
                             (selectedOrder?.status === "CANCELLED")
                           }
                           onClick={() => {
-                            if (!selectedOrder) return;
+                            if (!selectedOrder || !sampleCollectionData.specimenType) return;
+
+                            // Filter tests that match the selected specimen type
+                            const testsForSpecimen = selectedOrder.tests?.filter(
+                              (t: any) => 
+                                (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
+                            ) || [];
 
                             const sampleData: SampleData = {
                               sampleNumber:
                                 sampleCollectionData.sampleNumber || undefined,
                               accessionNumber:
                                 sampleCollectionData.accessionNumber || undefined,
-                              sampleType: sampleCollectionData.sampleType,
-                              containerType: sampleCollectionData.containerType,
-                              volume: sampleCollectionData.volume
-                                ? parseFloat(sampleCollectionData.volume)
-                                : 0,
-                              volumeUnit: sampleCollectionData.volumeUnit,
                               collectionDate: new Date(
                                 sampleCollectionData.collectionDate
                               ).toISOString(),
@@ -1946,20 +1984,18 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                               patientId:
                                 selectedOrder.subjectidentifier || undefined,
                               ehrId: selectedOrder.ehrid || undefined,
+                              sampleType: sampleCollectionData.specimenType,
                               subjectIdentifier:
                                 selectedOrder.subjectidentifier || undefined,
                               workspaceId: workspaceid,
                               currentLocation:
                                 sampleCollectionData.currentLocation,
                               tests:
-                                selectedOrder.tests?.map(
+                                testsForSpecimen.map(
                                   (t: any) =>
                                     t.testCode || t.testcode || t.testName || t
-                                ) ||
-                                (selectedOrder.service_name
-                                  ? [selectedOrder.service_name]
-                                  : []) ||
-                                [],
+                                ) || [],
+                              comments: sampleComments || undefined,
                             };
 
                             createSampleMutation.mutate(sampleData);
@@ -1973,7 +2009,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           ) : (
                             <>
                               <FlaskConical className="h-3 w-3 mr-1" />
-                              Collect Sample
+                              {!sampleCollectionData.specimenType 
+                                ? "Select Specimen Type" 
+                                : `Collect ${sampleCollectionData.specimenType} Sample`}
                             </>
                           )}
                         </Button>
@@ -2024,7 +2062,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               // Calculate sample recommendations if not stored in order
               let computedRecommendations = null;
               if (
-                !selectedOrder.sampleType &&
                 selectedOrder.tests &&
                 selectedOrder.tests.length > 0
               ) {
@@ -2035,18 +2072,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               }
 
               // Use stored data or computed recommendations
-              const displaySampleType =
-                selectedOrder.sampleType ||
-                computedRecommendations?.primarySampleType;
-              const displayContainerType =
-                selectedOrder.containerType ||
-                computedRecommendations?.primaryContainer;
-              const displayVolume =
-                selectedOrder.volume || computedRecommendations?.totalVolume;
-              const displayVolumeUnit =
-                selectedOrder.volumeUnit ||
-                computedRecommendations?.volumeUnit ||
-                "mL";
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
 
@@ -2079,37 +2104,20 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   </div>
 
                   {/* Sample Collection Requirements from Order */}
-                  {(displaySampleType || displayRecommendations) && (
+                  {displayRecommendations && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <div className="text-sm font-medium text-green-900 mb-2 flex items-center gap-2">
                         <FlaskConical className="h-4 w-4" />
                         Recommended Sample Collection
-                        {!selectedOrder.sampleType &&
-                          computedRecommendations && (
-                            <span className="text-xs font-normal text-green-600">
-                              (Auto-calculated)
-                            </span>
-                          )}
+                        {computedRecommendations && (
+                          <span className="text-xs font-normal text-green-600">
+                            (Auto-calculated)
+                          </span>
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
-                        {displaySampleType && (
-                          <div>
-                            <strong>Sample Type:</strong> {displaySampleType}
-                          </div>
-                        )}
-                        {displayContainerType && (
-                          <div>
-                            <strong>Container:</strong> {displayContainerType}
-                          </div>
-                        )}
-                        {displayVolume && (
-                          <div>
-                            <strong>Volume:</strong> {displayVolume}{" "}
-                            {displayVolumeUnit}
-                          </div>
-                        )}
+                      <div className="grid grid-cols-1 gap-2 text-sm text-green-700">
                         {displayRecommendations?.fastingRequired && (
-                          <div className="col-span-2">
+                          <div>
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
                               ⚠️ Fasting Required
                             </span>
@@ -2186,133 +2194,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="sampleType">Sample Type *</Label>
-                        <select
-                          id="sampleType"
-                          aria-label="Sample Type"
-                          className="w-full mt-1 px-3 py-2 border rounded-md"
-                          value={sampleCollectionData.sampleType}
-                          onChange={(e) => {
-                            const nextType = e.target.value;
-                            const nextUnits = getVolumeUnitsForSampleType(nextType);
-                            const nextVolumeApplicable = isVolumeApplicable(nextType);
-
-                            setSampleCollectionData((prev) => {
-                              const currentUnit = prev.volumeUnit;
-                              const hasValidUnit = nextUnits.includes(currentUnit);
-                              const nextUnit =
-                                nextUnits.length === 0
-                                  ? ""
-                                  : hasValidUnit
-                                    ? currentUnit
-                                    : nextUnits[0];
-
-                              return {
-                                ...prev,
-                                sampleType: nextType,
-                                volume: nextVolumeApplicable ? prev.volume : "",
-                                volumeUnit: nextUnit,
-                              };
-                            });
-                          }}
-                          title="Select the type of sample being collected"
-                        >
-                          <option value="">Select type</option>
-                          <option value="Blood">Blood</option>
-                          <option value="Urine">Urine</option>
-                          <option value="Serum">Serum</option>
-                          <option value="Plasma">Plasma</option>
-                          <option value="Sputum">Sputum</option>
-                          <option value="Stool">Stool</option>
-                          <option value="Tissue">Tissue</option>
-                          <option value="CSF">CSF (Cerebrospinal Fluid)</option>
-                          <option value="Swab">Swab</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="containerType">Container Type *</Label>
-                        <select
-                          id="containerType"
-                          aria-label="Container Type"
-                          className="w-full mt-1 px-3 py-2 border rounded-md"
-                          value={sampleCollectionData.containerType}
-                          onChange={(e) =>
-                            setSampleCollectionData((prev) => ({
-                              ...prev,
-                              containerType: e.target.value,
-                            }))
-                          }
-                          title="Select the container type for sample collection"
-                        >
-                          <option value="">Select container</option>
-                          <option value="Vacutainer">Vacutainer (Blood)</option>
-                          <option value="EDTA Tube">EDTA Tube (Purple)</option>
-                          <option value="Serum Tube">Serum Tube (Red)</option>
-                          <option value="Heparin Tube">
-                            Heparin Tube (Green)
-                          </option>
-                          <option value="Urine Container">
-                            Urine Container
-                          </option>
-                          <option value="Sterile Container">
-                            Sterile Container
-                          </option>
-                          <option value="Culture Bottle">Culture Bottle</option>
-                          <option value="Swab Tube">Swab Tube</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="volume">Volume</Label>
-                        <Input
-                          id="volume"
-                          type="number"
-                          step="0.1"
-                          placeholder="e.g., 5.0"
-                          value={sampleCollectionData.volume}
-                          disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
-                          onChange={(e) =>
-                            setSampleCollectionData((prev) => ({
-                              ...prev,
-                              volume: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="volumeUnit">Volume Unit</Label>
-                        <select
-                          id="volumeUnit"
-                          aria-label="Volume Unit"
-                          className="w-full mt-1 px-3 py-2 border rounded-md"
-                          value={sampleCollectionData.volumeUnit}
-                          disabled={!isVolumeApplicable(sampleCollectionData.sampleType)}
-                          onChange={(e) =>
-                            setSampleCollectionData((prev) => ({
-                              ...prev,
-                              volumeUnit: e.target.value,
-                            }))
-                          }
-                        >
-                          {getVolumeUnitsForSampleType(
-                            sampleCollectionData.sampleType
-                          ).map((u) => (
-                            <option key={u} value={u}>
-                              {u === "g" ? "g (grams)" : u === "mg" ? "mg" : u}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
+                    
                     <div>
                       <Label htmlFor="collectionDate">
                         Collection Date & Time *
@@ -2365,6 +2247,24 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     </div>
                   </div>
 
+                  {/* Comments/Notes Section */}
+                  <div>
+                    <Label htmlFor="sampleComments" className="text-sm font-medium">
+                      Comments / Notes (Optional)
+                    </Label>
+                    <textarea
+                      id="sampleComments"
+                      placeholder="Add any notes about this sample collection (e.g., patient condition, special handling, etc.)"
+                      value={sampleComments}
+                      onChange={(e) => setSampleComments(e.target.value)}
+                      rows={3}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Optional: Add any relevant notes about the sample collection
+                    </p>
+                  </div>
+
                   {/* Fasting Warning if applicable */}
                   {displayRecommendations?.fastingRequired && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -2395,11 +2295,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
             <Button
               type="button"
               className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={
-                createSampleMutation.isPending ||
-                !sampleCollectionData.sampleType ||
-                !sampleCollectionData.containerType
-              }
+              disabled={createSampleMutation.isPending}
               onClick={() => {
                 if (!selectedOrder) return;
 
@@ -2413,12 +2309,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       | string
                       | undefined) ||
                     undefined,
-                  sampleType: sampleCollectionData.sampleType,
-                  containerType: sampleCollectionData.containerType,
-                  volume: sampleCollectionData.volume
-                    ? parseFloat(sampleCollectionData.volume)
-                    : 0,
-                  volumeUnit: sampleCollectionData.volumeUnit,
                   collectionDate: new Date(
                     sampleCollectionData.collectionDate
                   ).toISOString(),

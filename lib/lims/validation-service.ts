@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { testResults, validationStates, ValidationStateType, VALIDATION_STATES, NewValidationState } from "@/lib/db/schema";
+import { testResults, validationStates, ValidationStateType, VALIDATION_STATES, NewValidationState, accessionSamples, SAMPLE_STATUS } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { AuditService } from "./audit-service";
 import { AUDIT_ACTIONS } from "@/lib/db/tables/audit-log";
@@ -270,20 +270,34 @@ export class ValidationService {
   }): Promise<{ success: boolean; violations?: ValidationRuleViolation[] }> {
     const { sampleid, userid, userrole } = params;
 
-    const result = await this.transitionState({
-      sampleid,
-      targetState: VALIDATION_STATES.RELEASED,
-      userid,
-      userrole,
-    });
+    return await db.transaction(async (tx) => {
+      // Transition validation state to RELEASED
+      const result = await this.transitionState({
+        sampleid,
+        targetState: VALIDATION_STATES.RELEASED,
+        userid,
+        userrole,
+      });
 
-    if (result.success) {
+      if (!result.success) {
+        return result;
+      }
+
+      // Update sample status to ANALYZED
+      await tx
+        .update(accessionSamples)
+        .set({
+          currentstatus: SAMPLE_STATUS.ANALYZED,
+          updatedat: new Date(),
+        })
+        .where(eq(accessionSamples.sampleid, sampleid));
+
       // Emit domain event for openEHR integration
       // This would be handled by a separate integration service
       await this.emitResultsReleasedEvent(sampleid);
-    }
 
-    return result;
+      return result;
+    });
   }
 
   /**

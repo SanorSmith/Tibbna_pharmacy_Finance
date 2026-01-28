@@ -75,9 +75,6 @@ export function VaccinationsTab({ workspaceid, patientid }: VaccinationsTabProps
               <CardTitle className="text-xl font-semibold">
                 Vaccination Records
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Track immunization history
-              </p>
             </div>
             <Button
               size="sm"
