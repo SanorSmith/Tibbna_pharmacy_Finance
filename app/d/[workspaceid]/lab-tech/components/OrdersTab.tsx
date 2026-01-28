@@ -213,6 +213,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     collectorName: session?.user?.name || "",
     currentLocation: "Laboratory",
   });
+  const [sampleComments, setSampleComments] = useState("");
 
   const [currentPatientId, setCurrentPatientId] = useState("");
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
@@ -1436,94 +1437,86 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
                   {/* Left Column - Order Information */}
                   <div className="space-y-4">
-                   {/* Compact Order & Patient Info */}
-<div className="border rounded-lg p-3 text-sm">
-  <div className="flex flex-wrap gap-4 mb-2">
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Order ID:</span>
-      <span className="font-mono">{selectedOrder.orderid || selectedOrder.composition_uid || selectedOrder.request_id || "N/A"}</span>
-    </div>
-
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Status:</span>
+                   {/* Combined Patient & Order Info Card - Compact */}
+<div className="border rounded-lg p-2.5">
+  {/* Header with badges */}
+  <div className="flex items-center justify-between mb-2">
+    <h3 className="font-semibold text-xs">Patient Information</h3>
+    <div className="flex gap-1.5">
       {getStatusBadge(selectedOrder.source === "openEHR" ? openEHROrderStatus : selectedOrder.status)}
-    </div>
-
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Priority:</span>
       {getPriorityBadge(selectedOrder.source === "openEHR" ? selectedOrder.urgency?.toUpperCase() || "ROUTINE" : selectedOrder.priority || "ROUTINE")}
     </div>
   </div>
-
-  <div className="flex flex-wrap gap-4 mb-2">
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Patient:</span>
-      <span className="font-medium">{selectedOrder.patientName || selectedOrder.subjectidentifier || "N/A"}</span>
+  
+  {/* Patient & Order Details - Side by Side */}
+  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+    {/* Left Column */}
+    <div className="space-y-1.5">
+      <div>
+        <span className="text-muted-foreground">Name:</span>
+        <div className="font-semibold text-sm">
+          {selectedOrder.patientName || selectedOrder.subjectidentifier || "N/A"}
+        </div>
+      </div>
+      
+      {(selectedOrder.patientage !== undefined || selectedOrder.patientsex) && (
+        <div>
+          <span className="text-muted-foreground">Age/Sex:</span>
+          <div className="font-semibold">
+            {selectedOrder.patientage !== undefined && `${selectedOrder.patientage}y`}
+            {selectedOrder.patientage !== undefined && selectedOrder.patientsex && " / "}
+            {selectedOrder.patientsex && `${selectedOrder.patientsex.charAt(0).toUpperCase()}`}
+          </div>
+        </div>
+      )}
+      
+      <div>
+        <span className="text-muted-foreground">Order ID:</span>
+        <div className="font-mono text-[10px]">
+          {(() => {
+            const orderId = selectedOrder.orderid || selectedOrder.composition_uid || selectedOrder.request_id || "N/A";
+            return orderId.length > 20 ? `${orderId.substring(0, 8)}...${orderId.substring(orderId.length - 8)}` : orderId;
+          })()}
+        </div>
+      </div>
     </div>
 
-    {(selectedOrder.test_category || (selectedOrder as any)?.tests?.[0]?.testcategory) && (
-      <div className="flex gap-1 items-center">
-        <span className="text-muted-foreground">Test Category:</span>
-        <span className="font-medium">
-          {selectedOrder.test_category ||
-            ((selectedOrder as any)?.tests?.[0]?.testcategory as string)}
-        </span>
+    {/* Right Column */}
+    <div className="space-y-1.5">
+      <div>
+        <span className="text-muted-foreground">Order Date:</span>
+        <div className="text-xs">
+          {(
+            selectedOrder.source === "openEHR"
+              ? selectedOrder.recorded_time || selectedOrder.createdat
+              : selectedOrder.createdat
+          )
+            ? new Date(
+                selectedOrder.source === "openEHR"
+                  ? selectedOrder.recorded_time || selectedOrder.createdat
+                  : selectedOrder.createdat
+              ).toLocaleString()
+            : "N/A"}
+        </div>
       </div>
-    )}
-
-   {/*  <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Patient ID:</span>
-      <span className="font-mono">{selectedOrder.subjectidentifier || "N/A"}</span>
-    </div> */}
-
-    {/* Patient Age and Sex */}
-    {(selectedOrder.patientage !== undefined || selectedOrder.patientsex) && (
-      <>
-        {selectedOrder.patientage !== undefined && (
-          <div className="flex gap-1 items-center">
-            <span className="text-muted-foreground">Age:</span>
-            <span>{selectedOrder.patientage} years</span>
+      
+      {(selectedOrder.test_category || (selectedOrder as any)?.tests?.[0]?.testcategory) && (
+        <div>
+          <span className="text-muted-foreground">Test Category:</span>
+          <div className="font-medium">
+            {selectedOrder.test_category ||
+              ((selectedOrder as any)?.tests?.[0]?.testcategory as string)}
           </div>
-        )}
-        
-        {selectedOrder.patientsex && (
-          <div className="flex gap-1 items-center">
-            <span className="text-muted-foreground">Sex:</span>
-            <span className="capitalize">{selectedOrder.patientsex}</span>
-          </div>
-        )}
-      </>
-    )}
-
-    <div className="flex gap-1 items-center">
-      <span className="text-muted-foreground">Order Date:</span>
-      <span>
-        {(
-          selectedOrder.source === "openEHR"
-            ? selectedOrder.recorded_time || selectedOrder.createdat
-            : selectedOrder.createdat
-        )
-          ? new Date(
-              selectedOrder.source === "openEHR"
-                ? selectedOrder.recorded_time || selectedOrder.createdat
-                : selectedOrder.createdat
-            ).toLocaleString()
-          : "N/A"}
-      </span>
+        </div>
+      )}
     </div>
-
-  {/*   {selectedOrder.encounterid && (
-      <div className="flex gap-1 items-center">
-        <span className="text-muted-foreground">Encounter ID:</span>
-        <span className="font-mono break-all">{selectedOrder.encounterid}</span>
-      </div>
-    )} */}
   </div>
 
+  {/* Clinical Information - Full Width */}
   {(selectedOrder.clinicalindication || selectedOrder.clinicalnotes) && (
-    <div className="border-t pt-2 text-xs">
+    <div className="border-t mt-2 pt-2 text-[11px]">
       {selectedOrder.clinicalindication && (
-        <div className="mb-1">
+        <div className="mb-0.5">
           <span className="font-medium text-muted-foreground">Clinical Indication:</span>{" "}
           <span>{selectedOrder.clinicalindication}</span>
         </div>
@@ -1615,22 +1608,22 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                   {/* Right Column - Sample Collection */}
                   <div className="space-y-4">
-                    <div className="bg-gray-50 border border-green-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-green-900">
-                        <FlaskConical className="h-4 w-4" />
+                    <div className="bg-gray-50 border border-green-200 rounded-lg p-2.5">
+                      <h3 className="font-semibold text-xs mb-2 flex items-center gap-1.5 text-green-900">
+                        <FlaskConical className="h-3.5 w-3.5" />
                         Collect Sample
                       </h3>
 
                       {/* Sample Collection Requirements from Order */}
                       {displayRecommendations && (
-                        <div className="mb-4 p-3 bg-white rounded border border-green-300">
-                          <div className="text-xs font-medium text-green-800 mb-2">
+                        <div className="mb-2.5 p-2 bg-white rounded border border-green-300">
+                          <div className="text-[10px] font-medium text-green-800 mb-1">
                             Recommended Collection:
                           </div>
-                          <div className="grid grid-cols-1 gap-2 text-xs text-green-700">
+                          <div className="grid grid-cols-1 gap-1 text-[10px] text-green-700">
                             {displayRecommendations?.fastingRequired && (
                               <div>
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
                                   ⚠️ Fasting Required
                                 </span>
                               </div>
@@ -1645,47 +1638,49 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       )}
 
                       {/* Sample Collection Form */}
-                      <div className="space-y-3">
-                        <div>
-                          <Label
-                            htmlFor="sampleNumberDetail"
-                            className="text-xs"
-                          >
-                            Sample ID
-                          </Label>
-                         <Input
-  id="sampleNumberDetail"
-  type="text"
-  placeholder="Auto-generated if blank"
-  value={sampleCollectionData.sampleNumber || ""}
-  onChange={(e) =>
-    setSampleCollectionData((prev) => ({
-      ...prev,
-      sampleNumber: e.target.value,
-    }))
-  }
-  className="h-8 text-xs font-mono border border-gray-0 rounded px-2 focus:outline-none focus:ring-0 focus:border-gray-300"
-/>
+                      <div className="space-y-2">
+                        {/* Sample ID and Accession ID on one line */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label
+                              htmlFor="sampleNumberDetail"
+                              className="text-xs"
+                            >
+                              Sample ID
+                            </Label>
+                            <Input
+                              id="sampleNumberDetail"
+                              type="text"
+                              placeholder="Auto-generated"
+                              value={sampleCollectionData.sampleNumber || ""}
+                              onChange={(e) =>
+                                setSampleCollectionData((prev) => ({
+                                  ...prev,
+                                  sampleNumber: e.target.value,
+                                }))
+                              }
+                              className="h-8 text-xs font-mono"
+                            />
+                          </div>
 
-                        </div>
-
-                        <div>
-                          <Label htmlFor="accessionNumberDetail" className="text-xs">
-                            Accession ID
-                          </Label>
-                          <Input
-                            id="accessionNumberDetail"
-                            type="text"
-                            placeholder="Scan or type accession number"
-                            value={sampleCollectionData.accessionNumber || ""}
-                            onChange={(e) =>
-                              setSampleCollectionData((prev) => ({
-                                ...prev,
-                                accessionNumber: e.target.value,
-                              }))
-                            }
-                            className="h-8 text-xs font-mono"
-                          />
+                          <div>
+                            <Label htmlFor="accessionNumberDetail" className="text-xs">
+                              Accession ID
+                            </Label>
+                            <Input
+                              id="accessionNumberDetail"
+                              type="text"
+                              placeholder="Scan or type"
+                              value={sampleCollectionData.accessionNumber || ""}
+                              onChange={(e) =>
+                                setSampleCollectionData((prev) => ({
+                                  ...prev,
+                                  accessionNumber: e.target.value,
+                                }))
+                              }
+                              className="h-8 text-xs font-mono"
+                            />
+                          </div>
                         </div>
 
                         
@@ -1739,6 +1734,21 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                               className="h-8 text-xs bg-gray-50"
                             />
                           </div>
+                        </div>
+
+                        {/* Comments Section */}
+                        <div>
+                          <Label htmlFor="sampleCommentsDetail" className="text-xs">
+                            Comments (Optional)
+                          </Label>
+                          <textarea
+                            id="sampleCommentsDetail"
+                            placeholder="Add notes about sample collection..."
+                            value={sampleComments}
+                            onChange={(e) => setSampleComments(e.target.value)}
+                            rows={2}
+                            className="w-full mt-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                          />
                         </div>
 
                         <Button
@@ -2030,6 +2040,24 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                         Automatically filled from your workplace
                       </p>
                     </div>
+                  </div>
+
+                  {/* Comments/Notes Section */}
+                  <div>
+                    <Label htmlFor="sampleComments" className="text-sm font-medium">
+                      Comments / Notes (Optional)
+                    </Label>
+                    <textarea
+                      id="sampleComments"
+                      placeholder="Add any notes about this sample collection (e.g., patient condition, special handling, etc.)"
+                      value={sampleComments}
+                      onChange={(e) => setSampleComments(e.target.value)}
+                      rows={3}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Optional: Add any relevant notes about the sample collection
+                    </p>
                   </div>
 
                   {/* Fasting Warning if applicable */}
