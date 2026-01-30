@@ -160,6 +160,10 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
   
+  // State for navigation and history per test
+  const [currentIndexByTest, setCurrentIndexByTest] = useState<Map<string, number>>(new Map());
+  const [showHistoryByTest, setShowHistoryByTest] = useState<Map<string, boolean>>(new Map());
+  
   const [showLabOrderForm, setShowLabOrderForm] = useState(false);
   const [labOrderForm, setLabOrderForm] = useState({
     service_name: "",
@@ -201,9 +205,30 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
     },
   });
 
-  // Combine both sources
-  const labResultRecords = [...openEHRLabResults, ...dummyLabResults];
+  // Combine both sources and group by test name
+  const allLabResults = [...openEHRLabResults, ...dummyLabResults];
   const loadingLabResults = loadingDummyResults || loadingOpenEHRResults;
+
+  // Group lab results by test name
+  const labResultsByTest = new Map<string, LabTestResult[]>();
+  
+  allLabResults.forEach((result) => {
+    const testKey = result.test_name.toLowerCase().trim();
+    const existing = labResultsByTest.get(testKey);
+    if (existing) {
+      existing.push(result);
+    } else {
+      labResultsByTest.set(testKey, [result]);
+    }
+  });
+
+  // Sort each test group by date (newest first)
+  labResultsByTest.forEach((results) => {
+    results.sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
+  });
+
+  // Convert to array for rendering
+  const labResultRecords = Array.from(labResultsByTest.entries());
 
   const saveLabOrder = async () => {
     if (!labOrderForm.service_name || !labOrderForm.clinical_indication) {
@@ -284,57 +309,99 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
             No lab results found.
           </div>
         ) : (
-          <div className="space-y-4">
-            {labResultRecords.map((result) => (
-              <div
-                key={result.composition_uid}
-                className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg">
-                        {result.test_name}
-                      </h3>
-                      {(result as any).source === "openEHR" && (
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                          OpenEHR
+          <div className="space-y-6">
+            {labResultRecords.map(([testName, results]) => {
+              const currentIndex = currentIndexByTest.get(testName) || 0;
+              const showHistory = showHistoryByTest.get(testName) || false;
+              const currentResult = results[currentIndex];
+              const hasMultipleResults = results.length > 1;
+
+              return (
+                <div
+                  key={testName}
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  {/* Header with Navigation */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-lg">
+                          {currentResult.test_name}
+                        </h3>
+                        {(currentResult as any).source === "openEHR" && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                            OpenEHR
+                          </span>
+                        )}
+                        {hasMultipleResults && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                            {currentIndex + 1} of {results.length}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Protocol: {currentResult.protocol}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {currentResult.laboratory_name}
+                      </p>
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-2">
+                      <div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            currentResult.overall_test_status === "final"
+                              ? "bg-green-100 text-green-800"
+                              : currentResult.overall_test_status === "preliminary"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : currentResult.overall_test_status === "amended"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {currentResult.overall_test_status
+                            .charAt(0)
+                            .toUpperCase() +
+                            currentResult.overall_test_status.slice(1)}
                         </span>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(currentResult.report_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {/* Navigation Buttons */}
+                      {hasMultipleResults && (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const newIndex = Math.max(0, currentIndex - 1);
+                              setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, newIndex)));
+                            }}
+                            disabled={currentIndex === 0}
+                            className="h-7 px-2 text-xs"
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const newIndex = Math.min(results.length - 1, currentIndex + 1);
+                              setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, newIndex)));
+                            }}
+                            disabled={currentIndex === results.length - 1}
+                            className="h-7 px-2 text-xs"
+                          >
+                            Next
+                          </Button>
+                        </div>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Protocol: {result.protocol}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {result.laboratory_name}
-                    </p>
                   </div>
-                  <div className="text-right">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        result.overall_test_status === "final"
-                          ? "bg-green-100 text-green-800"
-                          : result.overall_test_status === "preliminary"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : result.overall_test_status === "amended"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {result.overall_test_status
-                        .charAt(0)
-                        .toUpperCase() +
-                        result.overall_test_status.slice(1)}
-                    </span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(result.report_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
 
                 {/* Specimen Details */}
-                {result.specimen_type && (
+                {currentResult.specimen_type && (
                   <div className="mb-3 p-2 bg-muted/30 rounded">
                     <p className="text-xs font-medium text-muted-foreground mb-1">
                       Specimen Details
@@ -344,15 +411,15 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                         <span className="text-muted-foreground">
                           Type:
                         </span>{" "}
-                        {result.specimen_type}
+                        {currentResult.specimen_type}
                       </div>
-                      {result.specimen_collection_time && (
+                      {currentResult.specimen_collection_time && (
                         <div>
                           <span className="text-muted-foreground">
                             Collected:
                           </span>{" "}
                           {new Date(
-                            result.specimen_collection_time
+                            currentResult.specimen_collection_time
                           ).toLocaleString()}
                         </div>
                       )}
@@ -377,15 +444,12 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             Range
                           </th>
                           <th className="p-2 text-left text-xs font-medium">
-                            Unit
-                          </th>
-                          <th className="p-2 text-left text-xs font-medium">
                             Status
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {result.test_results.map((analyte, idx) => (
+                        {currentResult.test_results.map((analyte: LabTestAnalyte, idx: number) => (
                           <tr
                             key={idx}
                             className="border-b last:border-0 hover:bg-muted/30"
@@ -417,9 +481,6 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             </td>
                             <td className="p-2 text-sm text-muted-foreground">
                               {analyte.reference_range || "N/A"}
-                            </td>
-                            <td className="p-2 text-sm">
-                              {analyte.result_unit || "-"}
                             </td>
                             <td className="p-2 text-sm">
                               <span
@@ -456,62 +517,131 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                 </div>
 
                 {/* Clinical Information */}
-                {result.clinical_information_provided && (
+                {currentResult.clinical_information_provided && (
                   <div className="mb-3 p-2 bg-blue-50 rounded">
                     <p className="text-xs font-medium text-blue-900 mb-1">
                       Clinical Information Provided
                     </p>
                     <p className="text-sm">
-                      {result.clinical_information_provided}
+                      {currentResult.clinical_information_provided}
                     </p>
                   </div>
                 )}
 
                 {/* Conclusion */}
-                {result.conclusion && (
+                {currentResult.conclusion && (
                   <div className="mb-3 p-2 bg-purple-50 rounded">
                     <p className="text-xs font-medium text-purple-900 mb-1">
                       Conclusion
                     </p>
-                    <p className="text-sm">{result.conclusion}</p>
+                    <p className="text-sm">{currentResult.conclusion}</p>
                   </div>
                 )}
 
                 {/* Test Diagnosis */}
-                {result.test_diagnosis && (
+                {currentResult.test_diagnosis && (
                   <div className="mb-3 p-2 bg-orange-50 rounded">
                     <p className="text-xs font-medium text-orange-900 mb-1">
                       Test Diagnosis
                     </p>
-                    <p className="text-sm">{result.test_diagnosis}</p>
+                    <p className="text-sm">{currentResult.test_diagnosis}</p>
                   </div>
                 )}
 
                 {/* Footer */}
                 <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
                   <div>
-                    {result.reported_by && (
-                      <span>Reported by: {result.reported_by}</span>
+                    {currentResult.reported_by && (
+                      <span>Reported by: {currentResult.reported_by}</span>
                     )}
-                    {result.verified_by && (
+                    {currentResult.verified_by && (
                       <span className="ml-3">
-                        Verified by: {result.verified_by}
+                        Verified by: {currentResult.verified_by}
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedTest(result);
-                      setShowTestDetails(true);
-                    }}
-                    className="text-primary hover:underline"
-                    aria-label="View detailed lab result information"
-                  >
-                    View Details
-                  </button>
+                  <div className="flex gap-2">
+                    {hasMultipleResults && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const newMap = new Map(showHistoryByTest);
+                          newMap.set(testName, !showHistory);
+                          setShowHistoryByTest(newMap);
+                        }}
+                        className="h-7 px-2 text-xs"
+                      >
+                        {showHistory ? 'Hide History' : 'Show History'}
+                      </Button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setSelectedTest(currentResult);
+                        setShowTestDetails(true);
+                      }}
+                      className="text-primary hover:underline"
+                      aria-label="View detailed lab result information"
+                    >
+                      View Details
+                    </button>
+                  </div>
                 </div>
+
+                {/* History Section */}
+                {hasMultipleResults && showHistory && (
+                  <div className="mt-4 border-t pt-4">
+                    <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Previous Results</h4>
+                    <div className="space-y-2">
+                      {results.slice(1).map((historyResult, idx) => (
+                        <div
+                          key={historyResult.composition_uid}
+                          className="border rounded p-3 bg-muted/20 hover:bg-muted/30 cursor-pointer"
+                          onClick={() => {
+                            setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, idx + 1)));
+                            setShowHistoryByTest(new Map(showHistoryByTest.set(testName, false)));
+                          }}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="text-sm font-medium">
+                              {new Date(historyResult.report_date).toLocaleDateString()}
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                historyResult.overall_test_status === "final"
+                                  ? "bg-green-100 text-green-800"
+                                  : historyResult.overall_test_status === "preliminary"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {historyResult.overall_test_status.charAt(0).toUpperCase() +
+                                historyResult.overall_test_status.slice(1)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {historyResult.test_results.slice(0, 4).map((analyte: LabTestAnalyte, i: number) => (
+                              <div key={i} className="flex justify-between">
+                                <span className="text-muted-foreground">{analyte.analyte_name}:</span>
+                                <span className="font-medium">
+                                  {analyte.result_value} {analyte.result_unit}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          {historyResult.test_results.length > 4 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              +{historyResult.test_results.length - 4} more results
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
