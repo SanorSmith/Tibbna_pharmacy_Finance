@@ -610,7 +610,7 @@ export default function EnhancedLabOrderFormMultiple({
                 !formState.clinical_indication ||
                 !formState.selectedTests?.length
               }
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isSubmitting ? "Submitting..." : editMode ? "Update Order" : "Order Tests"}
             </Button>

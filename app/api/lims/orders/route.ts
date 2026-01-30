@@ -351,7 +351,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Always fetch openEHR orders
+    // Try to fetch openEHR orders, but don't fail if OpenEHR is unavailable
     const openEHROrders: any[] = [];
     try {
       // Get all patients in workspace with EHR IDs
@@ -364,39 +364,48 @@ export async function GET(request: NextRequest) {
 
       console.log(`Fetching openEHR orders for ${patientsWithEhr.length} patients with EHR IDs`);
 
-      for (const patient of patientsWithEhr) {
-        try {
-          const orders = await getOpenEHRTestOrders(patient.ehrid!);
-          
-          // Calculate age from date of birth
-          let patientAge = undefined;
-          if (patient.dateofbirth) {
-            const today = new Date();
-            const birthDate = new Date(patient.dateofbirth);
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-              age--;
+      // Limit concurrent OpenEHR requests to avoid overwhelming the server
+      const batchSize = 5;
+      for (let i = 0; i < patientsWithEhr.length; i += batchSize) {
+        const batch = patientsWithEhr.slice(i, i + batchSize);
+        
+        await Promise.allSettled(
+          batch.map(async (patient) => {
+            try {
+              const orders = await getOpenEHRTestOrders(patient.ehrid!);
+              
+              // Calculate age from date of birth
+              let patientAge = undefined;
+              if (patient.dateofbirth) {
+                const today = new Date();
+                const birthDate = new Date(patient.dateofbirth);
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                  age--;
+                }
+                patientAge = age;
+              }
+              
+              const ordersWithPatient = orders.map(order => ({
+                ...order,
+                source: "openEHR",
+                patientId: patient.patientid,
+                patientName: `${patient.firstname} ${patient.lastname}`,
+                subjectidentifier: patient.patientid,
+                patientage: patientAge,
+                patientsex: patient.gender,
+              }));
+              openEHROrders.push(...ordersWithPatient);
+            } catch (error) {
+              console.error(`Error fetching openEHR orders for patient ${patient.patientid}:`, error);
             }
-            patientAge = age;
-          }
-          
-          const ordersWithPatient = orders.map(order => ({
-            ...order,
-            source: "openEHR",
-            patientId: patient.patientid,
-            patientName: `${patient.firstname} ${patient.lastname}`,
-            subjectidentifier: patient.patientid,
-            patientage: patientAge,
-            patientsex: patient.gender,
-          }));
-          openEHROrders.push(...ordersWithPatient);
-        } catch (error) {
-          console.error(`Error fetching openEHR orders for patient ${patient.patientid}:`, error);
-        }
+          })
+        );
       }
     } catch (error) {
-      console.error("Error fetching openEHR orders:", error);
+      console.error("Error fetching openEHR orders (continuing with local orders only):", error);
+      // Don't throw - continue with local orders only
     }
 
     // Combine and return

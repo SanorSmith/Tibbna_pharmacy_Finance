@@ -2307,7 +2307,10 @@ export default function EnhancedOrdersTab({
             </p>
           </div>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowEditNotSupportedDialog(false)}>
+            <AlertDialogAction 
+              onClick={() => setShowEditNotSupportedDialog(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
               OK
             </AlertDialogAction>
           </AlertDialogFooter>
