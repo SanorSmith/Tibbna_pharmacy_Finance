@@ -1640,7 +1640,9 @@ export default function EnhancedOrdersTab({
   const [testOrderRecords, setTestOrderRecords] = useState<TestOrderRecord[]>(
     []
   );
-  // const [loadingMoreTestOrders, setLoadingMoreTestOrders] = useState(false);
+  const [olderTestOrders, setOlderTestOrders] = useState<TestOrderRecord[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [testOrdersHasMore, setTestOrdersHasMore] = useState(false);
   const [selectedTestOrder, setSelectedTestOrder] =
     useState<TestOrderRecord | null>(null);
@@ -1733,17 +1735,45 @@ export default function EnhancedOrdersTab({
     }
   }, [testOrdersData]);
 
-  // Placeholder for loading more (can be enhanced later)
+  // Load history - toggle visibility and fetch if needed
   const loadTestOrders = useCallback(
     async (reset = true) => {
       if (reset) {
         refetch();
       } else {
-        // Load more functionality can be added here if needed
-        console.log("Load more test orders");
+        // Toggle history visibility
+        if (showHistory) {
+          setShowHistory(false);
+        } else {
+          // Load history if not already loaded
+          if (olderTestOrders.length === 0) {
+            setLoadingHistory(true);
+            try {
+              const offset = testOrdersOffsetRef.current;
+              const limit = 20;
+              const res = await fetch(
+                `/api/d/${workspaceid}/patients/${patientid}/test-orders?limit=${limit}&offset=${offset}`
+              );
+              
+              if (!res.ok) {
+                console.error("Failed to load history", res.status);
+                return;
+              }
+              
+              const data = await res.json();
+              setOlderTestOrders(data.testOrders || []);
+              setTestOrdersHasMore(data.hasMore || false);
+            } catch (err) {
+              console.error("Error loading history:", err);
+            } finally {
+              setLoadingHistory(false);
+            }
+          }
+          setShowHistory(true);
+        }
       }
     },
-    [refetch]
+    [refetch, workspaceid, patientid, showHistory, olderTestOrders.length]
   )
 
   // Save order - now receives data from EnhancedLabOrderFormMultiple
@@ -1947,20 +1977,20 @@ export default function EnhancedOrdersTab({
                 New Test Order
               </Button>
 
-              {testOrdersHasMore && (
+              {(testOrdersHasMore || olderTestOrders.length > 0) && (
                 <Button
                   onClick={() => loadTestOrders(false)}
-                  disabled={loadingTestOrders}
+                  disabled={loadingHistory}
                   variant="outline"
                   size="sm"
                   className="bg-orange-500 hover:bg-orange-600 hover:text-white text-white border-none flex items-center gap-1 text-xs"
                 >
-                  {loadingTestOrders ? (
+                  {loadingHistory ? (
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                   ) : (
                     <History className="w-3 h-3" />
                   )}
-                  {loadingTestOrders ? "Loading..." : "History"}
+                  {loadingHistory ? "Loading..." : showHistory ? "Hide History" : "Show History"}
                 </Button>
               )}
             </div>
@@ -2089,6 +2119,117 @@ export default function EnhancedOrdersTab({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* History Section - Collapsible */}
+          {showHistory && (
+            <div className="mt-6 border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-muted-foreground">Order History</h3>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowHistory(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Hide History
+                </Button>
+              </div>
+              
+              {loadingHistory ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading history...
+                </div>
+              ) : olderTestOrders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No older test orders found
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3 font-medium text-sm">Test Name</th>
+                        <th className="text-left p-3 font-medium text-sm">Category</th>
+                        <th className="text-left p-3 font-medium text-sm">Target Lab</th>
+                        <th className="text-left p-3 font-medium text-sm">Urgency</th>
+                        <th className="text-left p-3 font-medium text-sm">Date Ordered</th>
+                        <th className="text-left p-3 font-medium text-sm">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {olderTestOrders.map((order, index) => (
+                        <tr
+                          key={`${order.composition_uid}-history-${index}`}
+                          className={`border-b ${
+                            index % 2 === 0 ? "bg-background" : "bg-muted/25"
+                          } hover:bg-muted/50 transition-colors`}
+                        >
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {order.is_package ? (
+                                <Package className="h-4 w-4 text-blue-500" />
+                              ) : (
+                                <TestTube className="h-4 w-4 text-green-500" />
+                              )}
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {order.service_name}
+                                </div>
+                                {order.description && order.description.trim() ? (
+                                  <div className="text-xs text-muted-foreground line-clamp-1">
+                                    {order.description}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground line-clamp-1">
+                                    {order.clinical_indication || "No additional details"}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            {order.test_category && (
+                              <Badge variant="outline" className="text-xs">
+                                {order.test_category}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-3 text-sm">{order.target_lab || "-"}</td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-1 text-xs rounded-full capitalize ${
+                                order.urgency === "urgent"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-green-100 text-green-800"
+                              }`}
+                            >
+                              {order.urgency || "routine"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-sm">
+                            {new Date(order.recorded_time).toLocaleDateString()}
+                          </td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedTestOrder(order);
+                                setShowTestOrderDetails(true);
+                              }}
+                              className="bg-blue-100/90 hover:bg-blue-200"
+                            >
+                              Details
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
