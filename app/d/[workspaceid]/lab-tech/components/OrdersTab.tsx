@@ -704,7 +704,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     }
   }, [orders, workspaceid]);
 
-  const filteredOrders = orders.filter((order: LimsOrder) => {
+  // First filter by search and status, then group by test to show only latest
+  const baseFilteredOrders = orders.filter((order: LimsOrder) => {
     // Handle both local and openEHR orders
     const orderId =
       order.orderid || order.composition_uid || order.request_id || "";
@@ -741,6 +742,39 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
     return matchesSearch && matchesStatus && isAllowedStatus;
   });
+
+  // Group orders by test and keep only the latest one for each test
+  const latestOrdersByTest = new Map<string, LimsOrder>();
+  
+  baseFilteredOrders.forEach((order: LimsOrder) => {
+    // Create a unique key for each test (test name + patient)
+    const testInfo = order.source === "openEHR" 
+      ? order.service_name 
+      : order.tests?.map((t: any) => t.testName).join(", ") || "N/A";
+    
+    const patientId = order.subjectidentifier || order.patientId || "";
+    const testKey = `${testInfo}_${patientId}`;
+    
+    const orderDate = order.source === "openEHR" 
+      ? new Date(order.recorded_time || "")
+      : new Date(order.createdat || "");
+    
+    // If this test doesn't exist yet, or if this order is newer, keep it
+    const existingOrder = latestOrdersByTest.get(testKey);
+    if (!existingOrder) {
+      latestOrdersByTest.set(testKey, order);
+    } else {
+      const existingDate = existingOrder.source === "openEHR" 
+        ? new Date(existingOrder.recorded_time || "")
+        : new Date(existingOrder.createdat || "");
+      
+      if (orderDate > existingDate) {
+        latestOrdersByTest.set(testKey, order);
+      }
+    }
+  });
+
+  const filteredOrders = Array.from(latestOrdersByTest.values());
 
   return (
     <div className="space-y-4">
