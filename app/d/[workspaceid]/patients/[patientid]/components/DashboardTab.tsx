@@ -30,8 +30,10 @@ export interface LabRecord {
   test_name: string;
   test_date: string;
   result?: string;
+  resultItems?: Array<{text: string, isAbnormal: boolean}>;
   status: string;
   normal_range?: string;
+  isOrder?: boolean;
 }
 
 export interface ImagingRecord {
@@ -366,34 +368,58 @@ export function DashboardTab({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {labs.slice(0, 1).map((lab: LabRecord) => (
-                    <div key={lab.labid} className="py-1">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{lab.test_name}</div>
-                          <div className="text-xs opacity-90">
-                            {new Date(lab.test_date).toLocaleDateString()}
+                  {labs.slice(0, 2).map((lab: LabRecord) => {
+                    return (
+                      <div key={lab.labid} className="py-1">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate flex items-center gap-1">
+                              {lab.test_name}
+                              {lab.isOrder && (
+                                <span className="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-800">
+                                  Order
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs opacity-90">
+                              {new Date(lab.test_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className={`px-1.5 py-0.5 rounded text-xs ml-2 shrink-0 ${
+                            lab.isOrder 
+                              ? 'bg-orange-200 text-orange-900' 
+                              : 'bg-gray-200 text-gray-700'
+                          }`}>
+                            {lab.status}
                           </div>
                         </div>
-                        <div
-                          className={`px-1.5 py-0.5 rounded text-xs ml-2 shrink-0 ${
-                            lab.status === "completed"
-                              ? "bg-green-400 text-green-900"
-                              : lab.status === "pending"
-                              ? "bg-yellow-400 text-yellow-900"
-                              : "bg-red-400 text-red-900"
-                          }`}
-                        >
-                          {lab.status}
-                        </div>
+                        {lab.resultItems && lab.resultItems.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {lab.resultItems.map((item, idx) => (
+                              <span
+                                key={idx}
+                                className={`text-xs font-medium px-2 py-0.5 rounded ${
+                                  lab.isOrder 
+                                    ? 'bg-orange-50 text-orange-700'
+                                    : item.isAbnormal 
+                                      ? 'bg-red-100 text-red-900' 
+                                      : 'bg-gray-50 text-gray-700'
+                                }`}
+                              >
+                                {item.text}
+                              </span>
+                            ))}
+                          </div>
+                        ) : lab.result && (
+                          <div className={`text-xs mt-1 ${
+                            lab.isOrder ? 'text-orange-700' : 'opacity-90'
+                          }`}>
+                            {lab.result}
+                          </div>
+                        )}
                       </div>
-                      {lab.result && (
-                        <div className="text-sm font-medium mt-1 truncate">
-                          Result: {lab.result}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

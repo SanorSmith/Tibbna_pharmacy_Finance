@@ -31,6 +31,7 @@ import {
 } from "@/lib/lims/order-validation";
 import { createOpenEHRComposition } from "@/lib/openehr/openehr";
 import { getOpenEHRTestOrders } from "@/lib/openehr/openehr";
+import { createAndSubmitLabOrder } from "@/lib/lims/openehr-order-service";
 import { eq, and, inArray } from "drizzle-orm";
 
 /**
@@ -117,6 +118,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch patient's EHR ID if subject is a patient
+    let patientEhrId: string | null = null;
+    if (orderData.subjectType === 'patient') {
+      const [patient] = await db
+        .select({ ehrid: patients.ehrid })
+        .from(patients)
+        .where(eq(patients.patientid, orderData.subjectIdentifier!))
+        .limit(1);
+      
+      if (patient) {
+        patientEhrId = patient.ehrid;
+        console.log(`[LIMS Order] Found patient EHR ID: ${patientEhrId || 'NONE'}`);
+      }
+    }
+
     // Create order in transaction
     const result = await db.transaction(async (tx) => {
       // Insert order
@@ -134,7 +150,7 @@ export async function POST(request: NextRequest) {
         clinicalindication: orderData.clinicalIndication || null,
         clinicalnotes: orderData.clinicalNotes || null,
         statjustification: orderData.statJustification || null,
-        ehrid: orderData.ehrId || null,
+        ehrid: patientEhrId || orderData.ehrId || null,
         fhirservicerequestid: orderData.fhirServiceRequestId || null,
         workspaceid: orderData.workspaceId!,
         // Sample collection requirements
@@ -159,109 +175,39 @@ export async function POST(request: NextRequest) {
       return { order, tests: testValidation.validTests! };
     });
 
-    // Create openEHR composition using same FLAT structure as patient test-orders (best-effort)
+    // Create OpenEHR lab order composition if patient has EHR ID
+    console.log(`[LIMS Order] Order created with EHR ID: ${result.order.ehrid || 'NONE'}`);
+    
     if (result.order.ehrid) {
-      const requestId = `testreq-${Date.now()}`;
-
-      const serviceName =
-        (body.service_name as string) ||
-        (body.serviceName as string) ||
-        (result.tests.length === 1
-          ? result.tests[0].testname
-          : `${result.tests.length} Laboratory Tests`);
-
-      const categories = Array.from(
-        new Set(
-          (result.tests || [])
-            .map((t: any) => t.testcategory)
-            .filter((c: any): c is string => Boolean(c))
-        )
-      );
-      const testCategory = categories[0] || "Laboratory";
-
-      const urgency =
-        (orderData.priority || "ROUTINE").toString().toLowerCase() === "stat"
-          ? "stat"
-          : (orderData.priority || "ROUTINE").toString().toLowerCase() ===
-              "urgent" ||
-            (orderData.priority || "ROUTINE").toString().toLowerCase() ===
-              "asap"
-          ? "urgent"
-          : "routine";
-
-      const selectedTests = (result.tests || []).map((t: any) => t.testname);
-      const totalTests = selectedTests.length;
-
-      const description =
-        `Test Group: ${serviceName} | ` +
-        `Category: ${testCategory} | ` +
-        `Laboratory: ${testCategory} | ` +
-        `Selected Tests (${totalTests}/${totalTests}): ${selectedTests.join(", ")} | ` +
-        `Urgency: ${urgency}`;
-
-      const clinicalIndication =
-        (orderData.clinicalIndication as string) || "";
-
-      const narrative =
-        `${serviceName} ordered (${urgency})` +
-        (clinicalIndication ? ` due to ${clinicalIndication}` : "");
-
-      const eventTime = new Date().toISOString();
-
-      const compositionData: Record<string, unknown> = {
-        "template_clinical_encounter_v1/language|code": "en",
-        "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
-        "template_clinical_encounter_v1/territory|code": "US",
-        "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
-        "template_clinical_encounter_v1/composer|name": user.name || "Unknown",
-        "template_clinical_encounter_v1/context/start_time": eventTime,
-        "template_clinical_encounter_v1/context/setting|code": "238",
-        "template_clinical_encounter_v1/context/setting|value": "other care",
-        "template_clinical_encounter_v1/context/setting|terminology": "openehr",
-        "template_clinical_encounter_v1/category|code": "433",
-        "template_clinical_encounter_v1/category|value": "event",
-        "template_clinical_encounter_v1/category|terminology": "openehr",
-
-        // Service request
-        "template_clinical_encounter_v1/service_request/request/service_name|other":
-          serviceName,
-        "template_clinical_encounter_v1/service_request/request/description":
-          description,
-        "template_clinical_encounter_v1/service_request/request/clinical_indication":
-          clinicalIndication,
-        "template_clinical_encounter_v1/service_request/request/requested_date":
-          eventTime,
-        "template_clinical_encounter_v1/service_request/request/requesting_provider":
-          orderData.orderingProviderName || user.name || "Dr. Unknown",
-        "template_clinical_encounter_v1/service_request/request/receiving_provider":
-          testCategory,
-        "template_clinical_encounter_v1/service_request/request/timing": eventTime,
-        "template_clinical_encounter_v1/service_request/request_id": requestId,
-        "template_clinical_encounter_v1/service_request/narrative": narrative,
-        "template_clinical_encounter_v1/service_request/language|code": "en",
-        "template_clinical_encounter_v1/service_request/language|terminology":
-          "ISO_639-1",
-        "template_clinical_encounter_v1/service_request/encoding|code": "UTF-8",
-        "template_clinical_encounter_v1/service_request/encoding|terminology":
-          "IANA_character-sets",
-      };
-
-      createOpenEHRComposition(result.order.ehrid, "template_clinical_encounter_v1", compositionData)
-        .then((compositionUid) => {
-          db.update(limsOrders)
-            .set({
-              compositionuid: compositionUid,
-              openehrrequestid: requestId,
-              timecommitted: new Date(),
-            })
-            .where(eq(limsOrders.orderid, result.order.orderid))
-            .execute()
-            .catch((err) =>
-              console.error("Failed to update order openEHR ids:", err)
-            );
+      // Extract test names for OpenEHR submission
+      const testNames = result.tests.map((test: any) => test.testname);
+      
+      console.log(`[LIMS Order] Submitting to OpenEHR - Tests: ${testNames.join(', ')}`);
+      
+      // Submit lab order to OpenEHR
+      createAndSubmitLabOrder(
+        result.order,
+        testNames,
+        orderData.orderingProviderName || user.name || "Unknown",
+        result.order.ehrid
+      )
+        .then((openEHRResult) => {
+          if (openEHRResult) {
+            // Update order with OpenEHR composition details
+            db.update(limsOrders)
+              .set({
+                compositionuid: openEHRResult.compositionUid,
+                timecommitted: openEHRResult.timeCommitted,
+              })
+              .where(eq(limsOrders.orderid, result.order.orderid))
+              .execute()
+              .catch((err: any) =>
+                console.error("Failed to update order openEHR ids:", err)
+              );
+          }
         })
-        .catch((err) =>
-          console.error("openEHR composition creation failed:", err)
+        .catch((err: any) =>
+          console.error("OpenEHR lab order submission failed:", err)
         );
     }
 
@@ -405,7 +351,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Always fetch openEHR orders
+    // Try to fetch openEHR orders, but don't fail if OpenEHR is unavailable
     const openEHROrders: any[] = [];
     try {
       // Get all patients in workspace with EHR IDs
@@ -418,39 +364,48 @@ export async function GET(request: NextRequest) {
 
       console.log(`Fetching openEHR orders for ${patientsWithEhr.length} patients with EHR IDs`);
 
-      for (const patient of patientsWithEhr) {
-        try {
-          const orders = await getOpenEHRTestOrders(patient.ehrid!);
-          
-          // Calculate age from date of birth
-          let patientAge = undefined;
-          if (patient.dateofbirth) {
-            const today = new Date();
-            const birthDate = new Date(patient.dateofbirth);
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-              age--;
+      // Limit concurrent OpenEHR requests to avoid overwhelming the server
+      const batchSize = 5;
+      for (let i = 0; i < patientsWithEhr.length; i += batchSize) {
+        const batch = patientsWithEhr.slice(i, i + batchSize);
+        
+        await Promise.allSettled(
+          batch.map(async (patient) => {
+            try {
+              const orders = await getOpenEHRTestOrders(patient.ehrid!);
+              
+              // Calculate age from date of birth
+              let patientAge = undefined;
+              if (patient.dateofbirth) {
+                const today = new Date();
+                const birthDate = new Date(patient.dateofbirth);
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                  age--;
+                }
+                patientAge = age;
+              }
+              
+              const ordersWithPatient = orders.map(order => ({
+                ...order,
+                source: "openEHR",
+                patientId: patient.patientid,
+                patientName: `${patient.firstname} ${patient.lastname}`,
+                subjectidentifier: patient.patientid,
+                patientage: patientAge,
+                patientsex: patient.gender,
+              }));
+              openEHROrders.push(...ordersWithPatient);
+            } catch (error) {
+              console.error(`Error fetching openEHR orders for patient ${patient.patientid}:`, error);
             }
-            patientAge = age;
-          }
-          
-          const ordersWithPatient = orders.map(order => ({
-            ...order,
-            source: "openEHR",
-            patientId: patient.patientid,
-            patientName: `${patient.firstname} ${patient.lastname}`,
-            subjectidentifier: patient.patientid,
-            patientage: patientAge,
-            patientsex: patient.gender,
-          }));
-          openEHROrders.push(...ordersWithPatient);
-        } catch (error) {
-          console.error(`Error fetching openEHR orders for patient ${patient.patientid}:`, error);
-        }
+          })
+        );
       }
     } catch (error) {
-      console.error("Error fetching openEHR orders:", error);
+      console.error("Error fetching openEHR orders (continuing with local orders only):", error);
+      // Don't throw - continue with local orders only
     }
 
     // Combine and return

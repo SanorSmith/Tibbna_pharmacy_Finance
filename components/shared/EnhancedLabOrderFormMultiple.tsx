@@ -19,7 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Package, TestTube, Building2, X } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Package, TestTube, Building2, X, ChevronsUpDown } from "lucide-react";
 
 // Import test catalog from a separate file
 import { TEST_PACKAGES, INDIVIDUAL_TESTS, LABORATORIES } from "@/lib/test-catalog";
@@ -172,6 +178,13 @@ export default function EnhancedLabOrderFormMultiple({
     }
   }, [sampleRecommendations, formState.sampleType]);
 
+  // Auto-progress to step 3 when packages are selected
+  useEffect(() => {
+    if ((formState.selectedPackages || []).length > 0 && currentStep < 3) {
+      setCurrentStep(3);
+    }
+  }, [formState.selectedPackages, currentStep]);
+
   // Get lab category mapping
   const getLabCategory = (labId: string): string => {
     const labMap: Record<string, string> = {
@@ -286,7 +299,7 @@ export default function EnhancedLabOrderFormMultiple({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editMode ? "Edit Laboratory Test Order" : "Order Laboratory Tests"}</DialogTitle>
           <DialogDescription>
@@ -295,13 +308,13 @@ export default function EnhancedLabOrderFormMultiple({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="grid grid-cols-3 gap-4 py-4">
           {/* Step 1: Select Laboratory */}
-          <div>
+          <div className="border-r pr-4">
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="h-5 w-5" />
               <Label className="text-base font-semibold">
-                Step 1: Select Laboratory
+                Step 1: Laboratory
               </Label>
             </div>
             <Select
@@ -339,116 +352,138 @@ export default function EnhancedLabOrderFormMultiple({
           </div>
 
           {/* Step 2: Select Test Groups (Multiple Selection) */}
-          {currentStep >= 2 && formState.target_lab && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  <Label className="text-base font-semibold">
-                    Step 2: Select Test Groups ({(formState.selectedPackages || []).length} selected)
-                  </Label>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600 mb-3">
-                ✓ Select one or more test groups from the same laboratory type
-              </p>
-              
-              {/* Selected Packages Summary */}
-              {(formState.selectedPackages || []).length > 0 && (
-                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-blue-900">Selected Groups:</span>
-                    <span className="text-xs text-blue-700">{formState.selectedTests.length} total tests</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {(formState.selectedPackages || []).map(pkgId => {
-                      const pkg = TEST_PACKAGES[pkgId];
-                      return (
-                        <div key={pkgId} className="inline-flex items-center gap-1 bg-white px-2 py-1 rounded text-sm border">
-                          <span>{pkg?.name}</span>
-                          <button
-                            onClick={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkgId })}
-                            className="text-gray-500 hover:text-red-600"
-                            aria-label="Remove test group"
-                            title="Remove this test group"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2 max-h-80 overflow-y-auto border rounded-md p-3">
-                {availablePackages.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className={`flex items-start gap-3 p-3 rounded border cursor-pointer transition-colors ${
-                      (formState.selectedPackages || []).includes(pkg.id)
-                        ? 'bg-blue-50 border-blue-300'
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => {
-                      dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id });
-                      if ((formState.selectedPackages || []).length === 0) {
-                        setCurrentStep(3);
-                      }
-                    }}
-                  >
-                    <Checkbox
-                      checked={(formState.selectedPackages || []).includes(pkg.id)}
-                      onCheckedChange={() => {
-                        dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id });
-                        if ((formState.selectedPackages || []).length === 0) {
-                          setCurrentStep(3);
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium">{pkg.name}</div>
-                      <div className="text-sm text-gray-600">{pkg.description}</div>
-                      <div className="text-xs text-gray-500 mt-1">{pkg.tests.length} tests included</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {(formState.selectedPackages || []).length > 0 && (
-                <Button
-                  type="button"
-                  className="mt-3 w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log("Advancing to step 3, selected tests:", formState.selectedTests.length);
-                    setCurrentStep(3);
-                  }}
-                >
-                  Continue to Review Tests ({(formState.selectedTests || []).length} tests)
-                </Button>
-              )}
+          <div className="border-r pr-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="h-5 w-5" />
+              <Label className="text-base font-semibold">
+                Step 2: Test Groups
+              </Label>
             </div>
-          )}
+            
+            {!formState.target_lab ? (
+              <p className="text-sm text-muted-foreground">Select a laboratory first</p>
+            ) : (
+              <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between h-auto min-h-[40px]"
+                  >
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {(formState.selectedPackages || []).length === 0 ? (
+                        <span className="text-muted-foreground">Select test groups...</span>
+                      ) : (
+                        (formState.selectedPackages || []).map((packageId) => {
+                          const pkg = TEST_PACKAGES[packageId];
+                          return pkg ? (
+                            <Badge
+                              key={packageId}
+                              variant="secondary"
+                              className="mr-1"
+                            >
+                              {pkg.name}
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    dispatch({ type: "TOGGLE_PACKAGE", packageId });
+                                  }
+                                }}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  dispatch({ type: "TOGGLE_PACKAGE", packageId });
+                                }}
+                                aria-label={`Remove ${pkg.name}`}
+                                title={`Remove ${pkg.name}`}
+                              >
+                                <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                              </span>
+                            </Badge>
+                          ) : null;
+                        })
+                      )}
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <div className="max-h-64 overflow-y-auto p-1">
+                    {availablePackages.map((pkg) => (
+                      <div
+                        key={pkg.id}
+                        className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
+                          (formState.selectedPackages || []).includes(pkg.id) ? 'bg-accent' : ''
+                        }`}
+                        onClick={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
+                      >
+                        <div className="flex h-5 items-center">
+                          <Checkbox
+                            checked={(formState.selectedPackages || []).includes(pkg.id)}
+                            onCheckedChange={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
+                          />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            {pkg.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {pkg.description}
+                          </p>
+                          <p className="text-xs text-blue-600">
+                            {pkg.category} • {pkg.tests.length} tests
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {(formState.selectedPackages || []).length > 0 && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-md text-sm">
+                  <p className="font-medium text-blue-800">
+                    {(formState.selectedPackages || []).length} test group{(formState.selectedPackages || []).length > 1 ? 's' : ''} selected • {formState.selectedTests.length} total tests
+                  </p>
+                </div>
+              )}
+              </>
+            )}
+          </div>
 
           {/* Step 3: Review and Customize Tests */}
-          {currentStep >= 3 && allSelectedTests.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <TestTube className="h-5 w-5" />
-                <Label className="text-base font-semibold">
-                  Step 3: Review Tests ({formState.selectedTests.length}/
-                  {allSelectedTests.length} selected)
-                </Label>
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <TestTube className="h-5 w-5" />
+              <Label className="text-base font-semibold">
+                Step 3: Review Tests
+              </Label>
+            </div>
+            
+            {allSelectedTests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Select test groups first</p>
+            ) : (
+              <>
+              <div className="mb-3">
+                <p className="text-sm text-muted-foreground">
+                  {formState.selectedTests.length} of {allSelectedTests.length} tests selected
+                </p>
               </div>
-              <p className="text-sm text-gray-600 mb-2">
-                Review and customize the tests from your selected groups. You can deselect any tests you don't need.
-              </p>
-              <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-3">
+              <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
                 {allSelectedTests.map((test) => (
                   <div
                     key={test.id}
-                    className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded"
+                    className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded border"
                   >
                     <Checkbox
                       checked={formState.selectedTests.includes(test.id)}
@@ -456,25 +491,27 @@ export default function EnhancedLabOrderFormMultiple({
                         dispatch({ type: "TOGGLE_TEST", testId: test.id })
                       }
                     />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm">{test.name}</p>
-                        {test.fastingRequired && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                            Fasting Required
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Code: {test.code} | Material: {test.material}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-xs truncate" title={test.name}>{test.name}</p>
+                      {test.fastingRequired && (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 mt-1">
+                          Fasting
+                        </span>
+                      )}
+                      <p className="text-[10px] text-gray-500 mt-1 truncate" title={`Code: ${test.code}`}>
+                        {test.code}
                       </p>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+              </>
+            )}
+          </div>
+        </div>
 
+        {/* Full-width sections below the 3-column layout */}
+        <div className="space-y-4 mt-6">
           {/* Fasting Requirements Alert */}
           {currentStep >= 3 && allSelectedTests.some(t => t.fastingRequired && formState.selectedTests.includes(t.id)) && (
             <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
@@ -490,8 +527,8 @@ export default function EnhancedLabOrderFormMultiple({
           {/* Clinical Information */}
           {currentStep >= 3 && (
             <>
-              <div>
-                <Label htmlFor="clinical_indication">
+              <div className="space-y-2">
+                <Label htmlFor="clinical_indication" className="text-sm">
                   Clinical Indication *
                 </Label>
                 <Textarea
@@ -505,186 +542,50 @@ export default function EnhancedLabOrderFormMultiple({
                       value: e.target.value,
                     })
                   }
-                  className="mt-1"
+                  className="min-h-[60px] text-sm"
+                  rows={2}
                 />
               </div>
 
-              <div>
-                <Label htmlFor="urgency">Urgency</Label>
-                <Select
-                  value={formState.urgency}
-                  onValueChange={(value: any) =>
-                    dispatch({ type: "SET_FIELD", field: "urgency", value })
-                  }
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="routine">Routine</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="stat">STAT</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="urgency" className="text-sm">Urgency</Label>
+                  <Select
+                    value={formState.urgency}
+                    onValueChange={(value: any) =>
+                      dispatch({ type: "SET_FIELD", field: "urgency", value })
+                    }
+                  >
+                    <SelectTrigger className="mt-1 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="routine">Routine</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="stat">STAT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div>
-                <Label htmlFor="narrative">Additional Notes (Optional)</Label>
-                <Textarea
-                  id="narrative"
-                  placeholder="Any additional clinical notes or special instructions"
-                  value={formState.narrative}
-                  onChange={(e) =>
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "narrative",
-                      value: e.target.value,
-                    })
-                  }
-                  className="mt-1"
-                />
+                <div>
+                  <Label htmlFor="narrative" className="text-sm">Additional Notes</Label>
+                  <Textarea
+                    id="narrative"
+                    placeholder="Optional notes"
+                    value={formState.narrative}
+                    onChange={(e) =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "narrative",
+                        value: e.target.value,
+                      })
+                    }
+                    className="mt-1 min-h-[36px] text-sm"
+                    rows={1}
+                  />
+                </div>
               </div>
             </>
-          )}
-
-          {/* Sample Collection Recommendations */}
-          {currentStep >= 3 && formState.selectedTests?.length > 0 && (
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Package className="h-5 w-5" />
-                <Label className="text-base font-semibold">
-                  Sample Collection Requirements
-                </Label>
-                {sampleRecommendations.fastingRequired && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                    ⚠️ Fasting Required
-                  </span>
-                )}
-              </div>
-
-              {/* Sample Recommendations Summary */}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
-                <h4 className="font-medium text-sm text-blue-800 mb-2">Recommended Collection:</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><strong>Sample Type:</strong> {sampleRecommendations.primarySampleType}</div>
-                  <div><strong>Container:</strong> {sampleRecommendations.primaryContainer}</div>
-                  <div><strong>Volume:</strong> {sampleRecommendations.totalVolume} {sampleRecommendations.volumeUnit}</div>
-                  <div><strong>Tests:</strong> {formState.selectedTests.length} selected</div>
-                </div>
-                {sampleRecommendations.specialInstructions.length > 0 && (
-                  <div className="mt-2">
-                    <strong className="text-sm">Special Instructions:</strong>
-                    <ul className="text-sm text-blue-700 mt-1 space-y-1">
-                      {sampleRecommendations.specialInstructions.map((instruction, index) => (
-                        <li key={index}>• {instruction}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Sample Collection Form */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="sampleType">Sample Type</Label>
-                  <Select
-                    value={formState.sampleType}
-                    onValueChange={(value) =>
-                      dispatch({ type: "SET_FIELD", field: "sampleType", value })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select sample type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="blood">Blood</SelectItem>
-                      <SelectItem value="serum">Serum</SelectItem>
-                      <SelectItem value="plasma">Plasma</SelectItem>
-                      <SelectItem value="urine">Urine</SelectItem>
-                      <SelectItem value="csf">CSF</SelectItem>
-                      <SelectItem value="tissue">Tissue</SelectItem>
-                      <SelectItem value="swab">Swab</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="containerType">Container Type</Label>
-                  <Select
-                    value={formState.containerType}
-                    onValueChange={(value) =>
-                      dispatch({ type: "SET_FIELD", field: "containerType", value })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select container" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getContainerOptions(formState.sampleType).map((container) => (
-                        <SelectItem key={container} value={container}>
-                          {container}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="volume">Volume</Label>
-                  <div className="flex gap-2 mt-1">
-                    <input
-                      type="number"
-                      id="volume"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter volume"
-                      value={formState.volume}
-                      onChange={(e) =>
-                        dispatch({ type: "SET_FIELD", field: "volume", value: e.target.value })
-                      }
-                    />
-                    <Select
-                      value={formState.volumeUnit}
-                      onValueChange={(value) =>
-                        dispatch({ type: "SET_FIELD", field: "volumeUnit", value })
-                      }
-                    >
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getVolumeUnits().map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Test-specific Requirements */}
-              {sampleRecommendations.recommendations.length > 1 && (
-                <div className="mt-4">
-                  <h4 className="font-medium text-sm mb-2">Individual Test Requirements:</h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                    {sampleRecommendations.recommendations.map((rec, index) => (
-                      <div key={index} className="text-xs bg-gray-50 p-2 rounded">
-                        <div className="font-medium">{rec.testName}</div>
-                        <div className="text-gray-600">
-                          {rec.sampleType} • {rec.containerType} • {rec.volume} {rec.volumeUnit}
-                          {rec.fastingRequired && " • Fasting Required"}
-                        </div>
-                        {rec.specialInstructions && (
-                          <div className="text-blue-600 mt-1">{rec.specialInstructions}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           )}
         </div>
 
@@ -709,7 +610,7 @@ export default function EnhancedLabOrderFormMultiple({
                 !formState.clinical_indication ||
                 !formState.selectedTests?.length
               }
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isSubmitting ? "Submitting..." : editMode ? "Update Order" : "Order Tests"}
             </Button>
