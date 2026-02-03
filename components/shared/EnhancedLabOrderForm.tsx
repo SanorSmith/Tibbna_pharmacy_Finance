@@ -169,6 +169,15 @@ export default function EnhancedLabOrderForm({
       const response = await fetch(`/api/test-catalog?workspaceid=${workspaceid}`);
       if (response.ok) {
         const data = await response.json();
+        console.log('Test catalog API response:', {
+          success: data.success,
+          totalTests: data.totalTests,
+          packagesCount: Object.keys(data.testPackages || {}).length,
+          laboratoriesCount: Object.keys(data.laboratories || {}).length,
+          laboratories: Object.keys(data.laboratories || {}),
+          samplePackages: Object.keys(data.testPackages || {}).slice(0, 5),
+        });
+        
         if (data.success) {
           setTestCatalog({
             testPackages: data.testPackages,
@@ -177,6 +186,8 @@ export default function EnhancedLabOrderForm({
             testsByLabType: data.testsByLabType,
           });
         }
+      } else {
+        console.error('Failed to fetch test catalog:', response.status, response.statusText);
       }
     } catch (error) {
       console.error("Error fetching test catalog:", error);
@@ -236,6 +247,13 @@ export default function EnhancedLabOrderForm({
 
   // Get lab category mapping
   const getLabCategory = (labId: string): string => {
+    // First check if the lab exists in dynamic catalog
+    const lab = testCatalog.laboratories[labId];
+    if (lab) {
+      return lab.name;
+    }
+    
+    // Fallback to hardcoded mapping
     const labMap: Record<string, string> = {
       "hematology-lab": "Hematology",
       "biochemistry-lab": "Biochemistry",
@@ -250,10 +268,21 @@ export default function EnhancedLabOrderForm({
   const availablePackages = useMemo(() => {
     if (!formState.target_lab) return [];
     const category = getLabCategory(formState.target_lab);
-    return Object.values(testCatalog.testPackages).filter(
+    
+    const packages = Object.values(testCatalog.testPackages).filter(
       (pkg) => pkg.category === category
     );
-  }, [formState.target_lab, testCatalog.testPackages]);
+    
+    console.log('Available packages:', {
+      selectedLab: formState.target_lab,
+      category,
+      totalPackages: Object.keys(testCatalog.testPackages).length,
+      filteredPackages: packages.length,
+      packages: packages.map(p => ({ id: p.id, name: p.name, category: p.category }))
+    });
+    
+    return packages;
+  }, [formState.target_lab, testCatalog.testPackages, testCatalog.laboratories]);
 
   // Get tests for selected packages
   const packageTests = useMemo(() => {
@@ -303,6 +332,20 @@ export default function EnhancedLabOrderForm({
       // Get all unique categories from selected packages
       const categories = [...new Set(selectedPackages.map(pkg => pkg.category))];
       
+      // Convert slugified test IDs to actual test codes for LIMS validation
+      const actualTestCodes = formState.selectedTests
+        .map(testId => {
+          const test = testCatalog.individualTests[testId];
+          return test ? test.code : testId; // Use actual code or fallback to ID
+        })
+        .filter(Boolean);
+      
+      console.log('Submitting order with test codes:', {
+        selectedTestIds: formState.selectedTests,
+        actualTestCodes,
+        testCatalogSample: Object.keys(testCatalog.individualTests).slice(0, 5)
+      });
+      
       const submissionData = {
         clinical_indication: formState.clinical_indication,
         urgency: formState.urgency,
@@ -315,7 +358,7 @@ export default function EnhancedLabOrderForm({
         test_category: categories.join(', ') || "",
         is_package: selectedPackages.length > 0,
         selected_packages: formState.selectedPackages,
-        selected_tests: formState.selectedTests,
+        selected_tests: actualTestCodes, // Use actual test codes instead of slugified IDs
         // Sample collection information
         sampleType: formState.sampleType,
         containerType: formState.containerType,
@@ -470,9 +513,21 @@ export default function EnhancedLabOrderForm({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
+                <PopoverContent className="w-[400px] p-0" align="start">
                   <div className="max-h-64 overflow-y-auto p-1">
-                    {availablePackages.map((pkg) => (
+                    {isLoadingTests ? (
+                      <div className="flex items-center justify-center p-4">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <span className="text-sm">Loading test packages...</span>
+                      </div>
+                    ) : availablePackages.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No test packages available for this laboratory.
+                        <br />
+                        <span className="text-xs">Try selecting a different laboratory or contact admin to add test packages.</span>
+                      </div>
+                    ) : (
+                      availablePackages.map((pkg) => (
                       <div
                         key={pkg.id}
                         className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
@@ -498,7 +553,8 @@ export default function EnhancedLabOrderForm({
                           </p>
                         </div>
                       </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </PopoverContent>
               </Popover>

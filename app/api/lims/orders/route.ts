@@ -22,6 +22,7 @@ import {
   NewLimsOrderTest,
   patients,
 } from "@/lib/db/schema";
+import { testReferenceRanges } from "@/lib/db/schema/test-reference-ranges";
 import {
   validateOrderCreation,
   validateFHIRServiceRequest,
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate requested tests against catalog
-    const testValidation = await validateTestsAgainstCatalog(
+    const testValidation = await validateTestsInCatalog(
       orderData.requestedTests!,
       orderData.workspaceId!
     );
@@ -433,7 +434,7 @@ export async function GET(request: NextRequest) {
 /**
  * Validate requested tests against lab test catalog
  */
-async function validateTestsAgainstCatalog(
+async function validateTestsInCatalog(
   testCodes: string[],
   workspaceId: string
 ): Promise<{
@@ -442,7 +443,7 @@ async function validateTestsAgainstCatalog(
   invalidTests?: string[];
   validTests?: Array<{ testid: string; testcode: string; testname: string }>;
 }> {
-  // Query catalog for requested tests
+  // First try labTestCatalog
   const catalogTests = await db
     .select()
     .from(labTestCatalog)
@@ -455,9 +456,35 @@ async function validateTestsAgainstCatalog(
     );
 
   const foundTestCodes = catalogTests.map((t) => t.testcode);
-  const invalidTests = testCodes.filter((code) => !foundTestCodes.includes(code));
+  const remainingTestCodes = testCodes.filter((code) => !foundTestCodes.includes(code));
+
+  // If some tests not found in labTestCatalog, check testReferenceRanges
+  let referenceTests: any[] = [];
+  if (remainingTestCodes.length > 0) {
+    referenceTests = await db
+      .select()
+      .from(testReferenceRanges)
+      .where(
+        and(
+          inArray(testReferenceRanges.testcode, remainingTestCodes),
+          eq(testReferenceRanges.workspaceid, workspaceId),
+          eq(testReferenceRanges.isactive, "Y")
+        )
+      );
+  }
+
+  const foundReferenceTestCodes = referenceTests.map((t) => t.testcode);
+  const allFoundTestCodes = [...foundTestCodes, ...foundReferenceTestCodes];
+  const invalidTests = testCodes.filter((code) => !allFoundTestCodes.includes(code));
 
   if (invalidTests.length > 0) {
+    console.log('Test validation details:', {
+      requestedTests: testCodes,
+      foundInCatalog: foundTestCodes,
+      foundInReferences: foundReferenceTestCodes,
+      invalidTests
+    });
+    
     return {
       valid: false,
       message: "Some requested tests are not available in the catalog",
@@ -465,12 +492,22 @@ async function validateTestsAgainstCatalog(
     };
   }
 
-  return {
-    valid: true,
-    validTests: catalogTests.map((t) => ({
+  // Combine results from both tables
+  const validTests = [
+    ...catalogTests.map((t) => ({
       testid: t.testid,
       testcode: t.testcode,
       testname: t.testname,
     })),
+    ...referenceTests.map((t) => ({
+      testid: t.testcode, // Use testcode as ID for reference ranges
+      testcode: t.testcode,
+      testname: t.testname,
+    })),
+  ];
+
+  return {
+    valid: true,
+    validTests,
   };
 }
