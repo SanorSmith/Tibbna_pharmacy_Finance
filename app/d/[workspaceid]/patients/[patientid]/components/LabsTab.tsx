@@ -156,6 +156,62 @@ const getResultStatus = (analyte: LabTestAnalyte) => {
   return 'normal';
 };
 
+// Helper function to generate lab report content for download
+const generateLabReport = (test: LabTestResult, patientId: string, workspaceId: string): string => {
+  const report = [
+    'LABORATORY TEST REPORT',
+    '=====================',
+    '',
+    `Test Name: ${test.test_name}`,
+    `Laboratory: ${test.laboratory_name}`,
+    `Report Date: ${new Date(test.report_date).toLocaleDateString()}`,
+    `Status: ${test.overall_test_status}`,
+    '',
+    'PATIENT INFORMATION',
+    '-------------------',
+    `Patient ID: ${patientId}`,
+    `Workspace ID: ${workspaceId}`,
+    '',
+    'SPECIMEN INFORMATION',
+    '--------------------',
+    test.specimen_type ? `Specimen Type: ${test.specimen_type}` : '',
+    test.specimen_collection_time ? `Collection Time: ${new Date(test.specimen_collection_time).toLocaleString()}` : '',
+    test.specimen_received_time ? `Received Time: ${new Date(test.specimen_received_time).toLocaleString()}` : '',
+    '',
+    'TEST RESULTS',
+    '------------',
+  ].filter(Boolean).join('\n');
+
+  const resultsTable = test.test_results.map((analyte) => {
+    return `${analyte.analyte_name.padEnd(30)} | ${String(analyte.result_value).padEnd(10)} ${analyte.result_unit || ''} | ${analyte.reference_range || 'N/A'} | ${getResultStatus(analyte)}`;
+  }).join('\n');
+
+  const additionalInfo = [
+    '',
+    'CLINICAL INFORMATION',
+    '--------------------',
+    test.clinical_information_provided || 'Not provided',
+    '',
+    'CONCLUSION',
+    '----------',
+    test.conclusion || 'Not provided',
+    '',
+    'TEST DIAGNOSIS',
+    '-------------',
+    test.test_diagnosis || 'Not provided',
+    '',
+    'REPORTING INFORMATION',
+    '---------------------',
+    test.reported_by ? `Reported by: ${test.reported_by}` : '',
+    test.verified_by ? `Verified by: ${test.verified_by}` : '',
+    '',
+    `Report generated on: ${new Date().toLocaleString()}`,
+    `Source: ${(test as any).source === 'openEHR' ? 'OpenEHR System' : 'Local LIMS'}`,
+  ].filter(Boolean).join('\n');
+
+  return report + '\n' + resultsTable + '\n' + additionalInfo;
+};
+
 export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
@@ -747,7 +803,74 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
               >
                 Close
               </Button>
-              <Button>Download Report</Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  if (selectedTest) {
+                    // Create a printable report
+                    const reportContent = generateLabReport(selectedTest, patientid, workspaceid);
+                    console.log('Report content:', reportContent); // Debug log
+                    
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {
+                      // Escape the report content for HTML
+                      const escapedContent = reportContent
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;')
+                        .replace(/\n/g, '<br>');
+                      
+                      printWindow.document.write(`
+                        <html>
+                          <head>
+                            <title>Lab Report - ${selectedTest.test_name}</title>
+                            <style>
+                              body { 
+                                font-family: 'Courier New', monospace; 
+                                margin: 20px; 
+                                line-height: 1.4;
+                                font-size: 12px;
+                              }
+                              @media print {
+                                body { margin: 10px; font-size: 10px; }
+                              }
+                              .report-header {
+                                text-align: center;
+                                font-weight: bold;
+                                margin-bottom: 20px;
+                                font-size: 16px;
+                              }
+                              .section-title {
+                                font-weight: bold;
+                                margin-top: 15px;
+                                margin-bottom: 5px;
+                                border-bottom: 1px solid #ccc;
+                                padding-bottom: 2px;
+                              }
+                            </style>
+                          </head>
+                          <body>
+                            <div class="report-header">LABORATORY TEST REPORT</div>
+                            <div>${escapedContent}</div>
+                          </body>
+                        </html>
+                      `);
+                      printWindow.document.close();
+                      
+                      // Wait a moment before printing to ensure content is loaded
+                      setTimeout(() => {
+                        printWindow.focus();
+                        printWindow.print();
+                        printWindow.close();
+                      }, 500);
+                    }
+                  }
+                }}
+              >
+                Print Report
+              </Button>
             </div>
           </div>
         )}

@@ -25,7 +25,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Package, TestTube, Building2, Check, ChevronsUpDown, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Package, TestTube, Building2, Check, ChevronsUpDown, X, Search } from "lucide-react";
 
 // Import test catalog from a separate file
 import { TEST_PACKAGES, INDIVIDUAL_TESTS, LABORATORIES } from "@/lib/test-catalog";
@@ -140,6 +141,7 @@ export default function EnhancedLabOrderForm({
   const [formState, dispatch] = useReducer(formReducer, DEFAULT_FORM);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [testSearchTerm, setTestSearchTerm] = useState("");
 
   // Calculate sample recommendations based on selected tests
   const sampleRecommendations = useMemo(() => {
@@ -226,6 +228,17 @@ export default function EnhancedLabOrderForm({
     const uniqueTestIds = [...new Set(allTests)];
     return uniqueTestIds.map((testId) => INDIVIDUAL_TESTS[testId]).filter(Boolean);
   }, [formState.selectedPackages]);
+
+  // Filter tests based on search term
+  const filteredPackageTests = useMemo(() => {
+    if (!testSearchTerm.trim()) return packageTests;
+    
+    return packageTests.filter((test) => 
+      test.name?.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
+      test.code?.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
+      test.category?.toLowerCase().includes(testSearchTerm.toLowerCase())
+    );
+  }, [packageTests, testSearchTerm]);
 
   const handleSubmit = async () => {
     if (!formState.clinical_indication) {
@@ -474,8 +487,33 @@ export default function EnhancedLabOrderForm({
                   {formState.selectedTests.length} of {packageTests.length} selected
                 </p>
               </div>
+              
+              {/* Search Bar for Tests */}
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    className="w-full pl-10"
+                    placeholder="Search tests by name, code, or category..."
+                    value={testSearchTerm}
+                    onChange={(e) => setTestSearchTerm(e.target.value)}
+                  />
+                </div>
+                {testSearchTerm && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Showing {filteredPackageTests.length} of {packageTests.length} tests
+                  </p>
+                )}
+              </div>
+              
               <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
-                {packageTests.map((test) => (
+                {filteredPackageTests.length === 0 ? (
+                  <div className="col-span-3 text-center py-4 text-sm text-muted-foreground">
+                    No tests found matching "{testSearchTerm}"
+                  </div>
+                ) : (
+                  filteredPackageTests.map((test) => (
                   <div
                     key={test.id}
                     className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded border"
@@ -498,7 +536,8 @@ export default function EnhancedLabOrderForm({
                       </p>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
               </>
             )}

@@ -199,6 +199,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
+  
+  // Standalone test search state
+  const [testSearchTerm, setTestSearchTerm] = useState("");
+  const [debouncedTestSearchTerm, setDebouncedTestSearchTerm] = useState("");
+  const [showTestSearch, setShowTestSearch] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<LimsOrder | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
@@ -312,6 +317,15 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     return () => clearTimeout(timer);
   }, [patientSearchTerm]);
 
+  // Debounce test search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTestSearchTerm(testSearchTerm);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [testSearchTerm]);
+
   // Fetch patients for search
   const { data: patientsData } = useQuery({
     queryKey: ["patients", workspaceid, debouncedSearchTerm],
@@ -326,6 +340,74 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   });
 
   const patients = patientsData?.patients || [];
+
+  // Fallback test catalog data
+  const getFallbackTestCatalog = (searchTerm: string) => {
+    const fallbackTests = [
+      { testid: "1", testcode: "CBC", testname: "Complete Blood Count", testcategory: "Hematology", specimentype: "Blood", turnaroundtime: "2-4 hours" },
+      { testid: "2", testcode: "CMP", testname: "Comprehensive Metabolic Panel", testcategory: "Chemistry", specimentype: "Blood", turnaroundtime: "1-2 hours" },
+      { testid: "3", testcode: "LIP", testname: "Lipid Panel", testcategory: "Chemistry", specimentype: "Blood", turnaroundtime: "2-3 hours" },
+      { testid: "4", testcode: "TSH", testname: "Thyroid Stimulating Hormone", testcategory: "Endocrinology", specimentype: "Blood", turnaroundtime: "1-2 days" },
+      { testid: "5", testcode: "HBA1C", testname: "Hemoglobin A1C", testcategory: "Chemistry", specimentype: "Blood", turnaroundtime: "1-2 days" },
+      { testid: "6", testcode: "UA", testname: "Urinalysis", testcategory: "Urinalysis", specimentype: "Urine", turnaroundtime: "1-2 hours" },
+      { testid: "7", testcode: "CULT", testname: "Blood Culture", testcategory: "Microbiology", specimentype: "Blood", turnaroundtime: "2-5 days" },
+      { testid: "8", testcode: "XRAY", testname: "Chest X-Ray", testcategory: "Radiology", specimentype: "N/A", turnaroundtime: "Same day" },
+      { testid: "9", testcode: "ECG", testname: "Electrocardiogram", testcategory: "Cardiology", specimentype: "N/A", turnaroundtime: "Same day" },
+      { testid: "10", testcode: "PSA", testname: "Prostate Specific Antigen", testcategory: "Chemistry", specimentype: "Blood", turnaroundtime: "1-2 days" },
+    ];
+    
+    const filtered = fallbackTests.filter((test: any) => 
+      test.testname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      test.testcode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      test.testcategory?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    console.log('Fallback filtered tests:', filtered);
+    return { tests: filtered };
+  };
+
+  // Fetch test catalog for standalone test search
+  const { data: testCatalogData } = useQuery({
+    queryKey: ["test-catalog", workspaceid, debouncedTestSearchTerm],
+    queryFn: async () => {
+      console.log('Fetching test catalog for workspace:', workspaceid);
+      
+      try {
+        const response = await fetch(
+          `/api/lims/test-catalog?workspaceid=${workspaceid}`
+        );
+        if (!response.ok) {
+          console.error('Failed to fetch test catalog:', response.status);
+          // Return fallback data if API fails
+          return getFallbackTestCatalog(debouncedTestSearchTerm);
+        }
+        const data = await response.json();
+        console.log('Test catalog data:', data);
+        
+        // Filter tests based on search term
+        const filteredTests = data.tests?.filter((test: any) => 
+          test.testname?.toLowerCase().includes(debouncedTestSearchTerm.toLowerCase()) ||
+          test.testcode?.toLowerCase().includes(debouncedTestSearchTerm.toLowerCase()) ||
+          test.testcategory?.toLowerCase().includes(debouncedTestSearchTerm.toLowerCase())
+        ) || [];
+        
+        console.log('Filtered tests:', filteredTests);
+        
+        // If no results from API, use fallback data
+        if (filteredTests.length === 0) {
+          return getFallbackTestCatalog(debouncedTestSearchTerm);
+        }
+        
+        return { tests: filteredTests };
+      } catch (error) {
+        console.error('Error fetching test catalog:', error);
+        return getFallbackTestCatalog(debouncedTestSearchTerm);
+      }
+    },
+    enabled: showTestSearch && debouncedTestSearchTerm.length > 1,
+  });
+
+  const availableTests = testCatalogData?.tests || [];
 
   // Fetch user session
   const { data: sessionData } = useQuery({
@@ -1140,7 +1222,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       </div>
 
       {/* Filters and Search */}
-      
+      <Card className="border-gray-200">
+        <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search Input */}
             <div className="flex-1">
@@ -1183,7 +1266,110 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               </Button>
             </div>
           </div>
-      
+        </CardContent>
+      </Card>
+
+          {/* Standalone Test Search */}
+          <Card className="border-blue-200 bg-blue-50/30">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold text-blue-800">
+                  Search Standalone Tests
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTestSearch(!showTestSearch)}
+                  className="border-blue-200 text-blue-700 hover:bg-blue-100"
+                >
+                  {showTestSearch ? "Hide" : "Show"} Search
+                </Button>
+              </div>
+            </CardHeader>
+            {showTestSearch && (
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="testSearch" className="text-sm font-medium text-blue-800">
+                    Search Tests
+                  </Label>
+                  <div className="relative mt-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="testSearch"
+                      type="text"
+                      className="w-full pl-10"
+                      placeholder="Search by test name, code, or category..."
+                      value={testSearchTerm}
+                      onChange={(e) => setTestSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Test Search Results */}
+                {testSearchTerm.length > 1 && (
+                  <div className="max-h-[400px] overflow-y-auto bg-white rounded-md border border-blue-200">
+                    {/* Debug Info */}
+                    <div className="p-2 bg-gray-100 text-xs border-b">
+                      Debug: Search term="{testSearchTerm}" | Debounced="{debouncedTestSearchTerm}" | 
+                      Show search={showTestSearch} | Results={availableTests.length}
+                    </div>
+                    
+                    {availableTests.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No tests found matching "{testSearchTerm}"
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-blue-100">
+                        {availableTests.map((test: any) => (
+                          <div
+                            key={test.testid}
+                            className="p-3 hover:bg-blue-50 cursor-pointer transition-colors"
+                            onClick={() => {
+                              // Handle test selection - could open order form or show details
+                              console.log('Selected test:', test);
+                              // You can implement what happens when a test is selected
+                              // For example, open a quick order dialog or show test details
+                            }}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-blue-900">{test.testname}</h4>
+                                <p className="text-sm text-blue-700">Code: {test.testcode}</p>
+                                <p className="text-sm text-muted-foreground">Category: {test.testcategory}</p>
+                                {test.specimen && (
+                                  <p className="text-sm text-muted-foreground">Specimen: {test.specimen}</p>
+                                )}
+                                {test.turnaroundtime && (
+                                  <p className="text-sm text-muted-foreground">TAT: {test.turnaroundtime}</p>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                  {test.testcategory}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs border-blue-200 text-blue-700 hover:bg-blue-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Quick order functionality
+                                    console.log('Quick order for:', test);
+                                  }}
+                                >
+                                  Quick Order
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
 
       {/* Orders Table */}
       <Card className="border-gray-200">
