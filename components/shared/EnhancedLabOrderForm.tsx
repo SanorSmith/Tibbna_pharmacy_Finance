@@ -564,6 +564,9 @@ export default function EnhancedLabOrderForm({
                   <p className="font-medium text-blue-800">
                     {formState.selectedPackages.length} test group{formState.selectedPackages.length > 1 ? 's' : ''} selected
                   </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    ℹ️ All tests in selected packages are included. Go to Step 3 to deselect individual tests.
+                  </p>
                   {shouldExpandModal && (
                     <p className="text-xs text-blue-600 mt-1 italic">
                       💡 Modal expanded for better multi-group selection view
@@ -580,7 +583,7 @@ export default function EnhancedLabOrderForm({
             <div className="flex items-center gap-2 mb-3">
               <TestTube className="h-5 w-5" />
               <Label className="text-base font-semibold">
-                Step 3: Review Tests
+                Step 3: Select Individual Tests
               </Label>
             </div>
             
@@ -588,10 +591,36 @@ export default function EnhancedLabOrderForm({
               <p className="text-sm text-muted-foreground">Select test groups first</p>
             ) : (
               <>
-              <div className="mb-2">
-                <p className="text-sm text-muted-foreground">
-                  {formState.selectedTests.length} of {packageTests.length} selected
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                  {formState.selectedTests.length} of {packageTests.length} tests selected
                 </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      // Select all tests from packages
+                      const allTestIds = packageTests.map(t => t.id);
+                      dispatch({ type: "SET_FIELD", field: "selectedTests", value: allTestIds });
+                    }}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      dispatch({ type: "SET_FIELD", field: "selectedTests", value: [] });
+                    }}
+                  >
+                    Deselect All
+                  </Button>
+                </div>
               </div>
               
               {/* Search Bar for Tests */}

@@ -167,7 +167,9 @@ export async function POST(request: NextRequest) {
       // Insert order tests
       const orderTestRecords: NewLimsOrderTest[] = testValidation.validTests!.map((test) => ({
         orderid: order.orderid,
-        testid: test.testid,
+        testid: test.testid || null, // UUID from labTestCatalog, or null for testReferenceRanges
+        testcode: test.testcode, // Always include test code
+        testname: test.testname, // Always include test name
         teststatus: "REQUESTED",
       }));
 
@@ -284,16 +286,27 @@ export async function GET(request: NextRequest) {
     // Fetch test details and patient name for each order
     const localOrders = await Promise.all(
       localOrdersRaw.map(async (order) => {
-        // Get test details
-        const orderTests = await db
+        // Get test details - handle both labTestCatalog and testReferenceRanges tests
+        const orderTestsRaw = await db
           .select({
-            testCode: labTestCatalog.testcode,
-            testName: labTestCatalog.testname,
+            // From limsOrderTests (always available)
+            orderTestCode: limsOrderTests.testcode,
+            orderTestName: limsOrderTests.testname,
+            // From labTestCatalog (only if testid is not null)
+            catalogTestCode: labTestCatalog.testcode,
+            catalogTestName: labTestCatalog.testname,
             testcategory: labTestCatalog.testcategory,
           })
           .from(limsOrderTests)
-          .innerJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
+          .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
           .where(eq(limsOrderTests.orderid, order.orderid));
+        
+        // Use testcode/testname from limsOrderTests if catalog data is not available
+        const orderTests = orderTestsRaw.map(t => ({
+          testCode: t.catalogTestCode || t.orderTestCode || 'Unknown',
+          testName: t.catalogTestName || t.orderTestName || 'Unknown Test',
+          testcategory: t.testcategory,
+        }));
 
         const categories = Array.from(
           new Set(
@@ -441,7 +454,7 @@ async function validateTestsInCatalog(
   valid: boolean;
   message?: string;
   invalidTests?: string[];
-  validTests?: Array<{ testid: string; testcode: string; testname: string }>;
+  validTests?: Array<{ testid: string | null; testcode: string; testname: string }>;
 }> {
   // First try labTestCatalog
   const catalogTests = await db
@@ -495,12 +508,12 @@ async function validateTestsInCatalog(
   // Combine results from both tables
   const validTests = [
     ...catalogTests.map((t) => ({
-      testid: t.testid,
+      testid: t.testid, // UUID from labTestCatalog
       testcode: t.testcode,
       testname: t.testname,
     })),
     ...referenceTests.map((t) => ({
-      testid: t.testcode, // Use testcode as ID for reference ranges
+      testid: null, // No UUID for tests from testReferenceRanges
       testcode: t.testcode,
       testname: t.testname,
     })),
