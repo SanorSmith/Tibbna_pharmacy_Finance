@@ -334,9 +334,10 @@ export async function GET(request: NextRequest) {
         }
         
         // Use testcode/testname from limsOrderTests if catalog data is not available
+        let testIndex = 0;
         const orderTests = orderTestsRaw.map(t => {
           const refData = referenceData[t.orderTestCode || ''];
-          return {
+          const testData = {
             testCode: t.catalogTestCode || t.orderTestCode || 'Unknown',
             testName: t.catalogTestName || t.orderTestName || 'Unknown Test',
             testcategory: t.testcategory || refData?.labtype,
@@ -344,6 +345,21 @@ export async function GET(request: NextRequest) {
             containerType: t.specimencontainer || refData?.containertype,
             specimenvolume: t.specimenvolume,
           };
+          
+          // Debug logging for first test
+          if (testIndex === 0) {
+            console.log('[LIMS Orders] Sample test data:', {
+              orderTestCode: t.orderTestCode,
+              catalogTestCode: t.catalogTestCode,
+              hasRefData: !!refData,
+              refDataSampleType: refData?.sampletype,
+              catalogSpecimenType: t.specimentype,
+              finalSpecimenType: testData.specimenType,
+            });
+          }
+          testIndex++;
+          
+          return testData;
         });
 
         const categories = Array.from(
@@ -392,7 +408,7 @@ export async function GET(request: NextRequest) {
           console.error("Error fetching patient details:", error);
         }
 
-        return {
+        const orderData = {
           ...order,
           tests: orderTests,
           test_category: categories[0] || null,
@@ -400,6 +416,14 @@ export async function GET(request: NextRequest) {
           patientage: patientAge,
           patientsex: patientSex,
         };
+        
+        // Debug log for order data
+        console.log(`[LIMS Orders] Order ${order.orderid} has ${orderTests.length} tests`);
+        if (orderTests.length > 0) {
+          console.log('[LIMS Orders] First test:', orderTests[0]);
+        }
+        
+        return orderData;
       })
     );
 

@@ -1875,6 +1875,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                     {/* Required Specimen Types */}
                     {selectedOrder.tests && selectedOrder.tests.length > 0 && (() => {
+                      console.log('[OrdersTab] Order tests:', selectedOrder.tests);
+                      console.log('[OrdersTab] First test:', selectedOrder.tests[0]);
+                      
                       const specimenGroups = selectedOrder.tests.reduce((acc: any, test: any) => {
                         const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
                         if (!acc[specimen]) {
