@@ -296,17 +296,55 @@ export async function GET(request: NextRequest) {
             catalogTestCode: labTestCatalog.testcode,
             catalogTestName: labTestCatalog.testname,
             testcategory: labTestCatalog.testcategory,
+            specimentype: labTestCatalog.specimentype,
+            specimencontainer: labTestCatalog.specimencontainer,
+            specimenvolume: labTestCatalog.specimenvolume,
           })
           .from(limsOrderTests)
           .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
           .where(eq(limsOrderTests.orderid, order.orderid));
         
+        // For tests without catalog data, fetch from testReferenceRanges
+        const testsNeedingReferenceData = orderTestsRaw
+          .filter(t => !t.catalogTestCode && t.orderTestCode)
+          .map(t => t.orderTestCode!);
+        
+        let referenceData: Record<string, any> = {};
+        if (testsNeedingReferenceData.length > 0) {
+          const refTests = await db
+            .select({
+              testcode: testReferenceRanges.testcode,
+              sampletype: testReferenceRanges.sampletype,
+              containertype: testReferenceRanges.containertype,
+              labtype: testReferenceRanges.labtype,
+            })
+            .from(testReferenceRanges)
+            .where(
+              and(
+                inArray(testReferenceRanges.testcode, testsNeedingReferenceData),
+                eq(testReferenceRanges.workspaceid, order.workspaceid),
+                eq(testReferenceRanges.isactive, "Y")
+              )
+            );
+          
+          referenceData = refTests.reduce((acc, test) => {
+            acc[test.testcode] = test;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+        
         // Use testcode/testname from limsOrderTests if catalog data is not available
-        const orderTests = orderTestsRaw.map(t => ({
-          testCode: t.catalogTestCode || t.orderTestCode || 'Unknown',
-          testName: t.catalogTestName || t.orderTestName || 'Unknown Test',
-          testcategory: t.testcategory,
-        }));
+        const orderTests = orderTestsRaw.map(t => {
+          const refData = referenceData[t.orderTestCode || ''];
+          return {
+            testCode: t.catalogTestCode || t.orderTestCode || 'Unknown',
+            testName: t.catalogTestName || t.orderTestName || 'Unknown Test',
+            testcategory: t.testcategory || refData?.labtype,
+            specimenType: t.specimentype || refData?.sampletype,
+            containerType: t.specimencontainer || refData?.containertype,
+            specimenvolume: t.specimenvolume,
+          };
+        });
 
         const categories = Array.from(
           new Set(

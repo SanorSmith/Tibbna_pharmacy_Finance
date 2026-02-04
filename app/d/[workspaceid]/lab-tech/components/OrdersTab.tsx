@@ -1878,9 +1878,22 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       const specimenGroups = selectedOrder.tests.reduce((acc: any, test: any) => {
                         const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
                         if (!acc[specimen]) {
-                          acc[specimen] = [];
+                          acc[specimen] = {
+                            tests: [],
+                            containers: new Set(),
+                            volumes: new Set()
+                          };
                         }
-                        acc[specimen].push(test);
+                        acc[specimen].tests.push(test);
+                        
+                        // Collect container types
+                        const container = test.containerType || test.containertype || test.specimencontainer;
+                        if (container) acc[specimen].containers.add(container);
+                        
+                        // Collect volume requirements
+                        const volume = test.specimenvolume || test.volume;
+                        if (volume) acc[specimen].volumes.add(volume);
+                        
                         return acc;
                       }, {});
                       
@@ -1888,15 +1901,19 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                         <div className="border rounded-lg p-3">
                           <h3 className="font-semibold text-sm mb-2">Required Specimen Types</h3>
                           <div className="space-y-2">
-                            {Object.entries(specimenGroups).map(([specimen, tests]: [string, any]) => (
+                            {Object.entries(specimenGroups).map(([specimen, data]: [string, any]) => (
                               <div key={specimen} className="bg-blue-50 border border-blue-200 rounded p-2">
                                 <div className="flex items-center gap-2 mb-1">
                                   <FlaskConical className="h-4 w-4 text-blue-600" />
                                   <span className="font-medium text-sm text-blue-900">{specimen}</span>
-                                  <span className="text-xs text-blue-600">({tests.length} test{tests.length > 1 ? 's' : ''})</span>
+                                  <span className="text-xs text-blue-600">({data.tests.length} test{data.tests.length > 1 ? 's' : ''})</span>
                                 </div>
-                                <div className="text-xs text-blue-700 ml-6">
-                                  {tests.map((t: any) => t.testName).join(", ")}
+                                
+                                {/* Container and Volume Info - Single Line */}
+                                <div className="ml-6 text-xs text-gray-700">
+                                  {data.containers.size > 0 && <span><strong>Container:</strong> {Array.from(data.containers).join(', ')} • </span>}
+                                  {data.volumes.size > 0 && <span><strong>Volume:</strong> {Array.from(data.volumes).join(', ')} • </span>}
+                                  <span><strong>Tests:</strong> {data.tests.map((t: any) => t.testName).join(", ")}</span>
                                 </div>
                               </div>
                             ))}
@@ -1931,28 +1948,31 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                         Collect Sample
                       </h3>
 
-                      {/* Sample Collection Requirements from Order */}
-                      {displayRecommendations && (
-                        <div className="mb-2.5 p-2 bg-white rounded border border-green-300">
-                          <div className="text-[10px] font-medium text-green-800 mb-1">
-                            Recommended Collection:
-                          </div>
-                          <div className="grid grid-cols-1 gap-1 text-[10px] text-green-700">
-                            {displayRecommendations?.fastingRequired && (
-                              <div>
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
-                                  ⚠️ Fasting Required
-                                </span>
-                              </div>
-                            )}
-                            {displayRecommendations?.specialInstructions?.length > 0 && (
-                              <div>
-                                <strong>Method:</strong> {displayRecommendations.specialInstructions[0]}
-                              </div>
-                            )}
-                          </div>
+                      {/* Sample Collection Requirements from Order - Single Line */}
+                      <div className="mb-2.5 p-2 bg-white rounded border border-green-300">
+                        <div className="text-[10px] font-medium text-green-800 mb-1">
+                          Recommended Collection:
                         </div>
-                      )}
+                        <div className="text-[10px] text-green-700">
+                          {(selectedOrder.sampletype || selectedOrder.sampleType || displayRecommendations?.primarySampleType) && (
+                            <span><strong>Sample:</strong> {selectedOrder.sampletype || selectedOrder.sampleType || displayRecommendations?.primarySampleType} • </span>
+                          )}
+                          {(selectedOrder.containertype || selectedOrder.containerType || displayRecommendations?.primaryContainer) && (
+                            <span><strong>Container:</strong> {selectedOrder.containertype || selectedOrder.containerType || displayRecommendations?.primaryContainer} • </span>
+                          )}
+                          {(selectedOrder.volume || displayRecommendations?.totalVolume) && (
+                            <span><strong>Volume:</strong> {selectedOrder.volume || displayRecommendations?.totalVolume} {selectedOrder.volumeunit || displayRecommendations?.volumeUnit || 'mL'}</span>
+                          )}
+                          {displayRecommendations?.fastingRequired && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 ml-2">
+                              ⚠️ Fasting
+                            </span>
+                          )}
+                          {displayRecommendations?.specialInstructions?.length > 0 && (
+                            <span className="block mt-1"><strong>Method:</strong> {displayRecommendations.specialInstructions[0]}</span>
+                          )}
+                        </div>
+                      </div>
 
                       {/* Sample Collection Form */}
                       <div className="space-y-2">
