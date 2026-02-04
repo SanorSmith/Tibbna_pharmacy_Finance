@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         id: packageId,
         name: groupName,
         category: firstTest?.labtype || "General",
-        description: `${groupName} panel`,
+        description: `${testCodes.length} test${testCodes.length > 1 ? 's' : ''}`,
         tests: testCodes,
       };
     });

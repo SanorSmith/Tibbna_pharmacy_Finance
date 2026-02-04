@@ -514,7 +514,7 @@ export default function EnhancedLabOrderForm({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[400px] p-0" align="start">
-                  <div className="max-h-64 overflow-y-auto p-1">
+                  <div className="max-h-96 overflow-y-auto p-1">
                     {isLoadingTests ? (
                       <div className="flex items-center justify-center p-4">
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
