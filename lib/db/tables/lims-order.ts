@@ -184,7 +184,11 @@ export const limsOrderTests = pgTable(
     
     // References
     orderid: uuid("orderid").notNull().references(() => limsOrders.orderid, { onDelete: "cascade" }),
-    testid: uuid("testid").notNull().references(() => labTestCatalog.testid),
+    testid: uuid("testid").references(() => labTestCatalog.testid), // Nullable to support testReferenceRanges
+    
+    // Test identification (for tests from testReferenceRanges)
+    testcode: text("testcode"), // Test code when testid is null
+    testname: text("testname"), // Test name when testid is null
     
     // Test-specific details
     teststatus: text("teststatus").notNull().default("REQUESTED"), // REQUESTED, IN_PROGRESS, COMPLETED, CANCELLED

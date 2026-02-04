@@ -25,9 +25,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Package, TestTube, Building2, Check, ChevronsUpDown, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Package, TestTube, Building2, Check, ChevronsUpDown, X, Search, Loader2 } from "lucide-react";
+import { useParams } from "next/navigation";
 
-// Import test catalog from a separate file
+// Import test catalog from a separate file (fallback)
 import { TEST_PACKAGES, INDIVIDUAL_TESTS, LABORATORIES } from "@/lib/test-catalog";
 import { getSampleRecommendations, getContainerOptions, getVolumeUnits } from "@/lib/lims/test-recommendations";
 
@@ -88,7 +90,7 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
           : [...state.selectedTests, action.testId],
       };
     case "SELECT_PACKAGE": {
-      const pkg = TEST_PACKAGES[action.packageId];
+      const pkg = (state as any)._testPackages?.[action.packageId] || TEST_PACKAGES[action.packageId];
       return {
         ...state,
         selectedPackage: action.packageId,
@@ -96,7 +98,7 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
       };
     }
     case "TOGGLE_PACKAGE": {
-      const pkg = TEST_PACKAGES[action.packageId];
+      const pkg = (state as any)._testPackages?.[action.packageId] || TEST_PACKAGES[action.packageId];
       const isPackageSelected = state.selectedPackages.includes(action.packageId);
       
       let newSelectedPackages: string[];
@@ -137,9 +139,63 @@ export default function EnhancedLabOrderForm({
   patientId,
   patientName,
 }: EnhancedLabOrderFormProps) {
+  const params = useParams();
+  const workspaceid = params?.workspaceid as string;
+  
   const [formState, dispatch] = useReducer(formReducer, DEFAULT_FORM);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [testSearchTerm, setTestSearchTerm] = useState("");
+  
+  // State for dynamic test catalog
+  const [testCatalog, setTestCatalog] = useState<{
+    testPackages: Record<string, any>;
+    individualTests: Record<string, any>;
+    laboratories: Record<string, any>;
+    testsByLabType: Record<string, any[]>;
+  }>({ testPackages: TEST_PACKAGES, individualTests: INDIVIDUAL_TESTS, laboratories: LABORATORIES, testsByLabType: {} });
+  const [isLoadingTests, setIsLoadingTests] = useState(false);
+  
+  // Fetch real test data from database
+  useEffect(() => {
+    if (open && workspaceid) {
+      fetchTestCatalog();
+    }
+  }, [open, workspaceid]);
+  
+  const fetchTestCatalog = async () => {
+    setIsLoadingTests(true);
+    try {
+      const response = await fetch(`/api/test-catalog?workspaceid=${workspaceid}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Test catalog API response:', {
+          success: data.success,
+          totalTests: data.totalTests,
+          packagesCount: Object.keys(data.testPackages || {}).length,
+          laboratoriesCount: Object.keys(data.laboratories || {}).length,
+          laboratories: Object.keys(data.laboratories || {}),
+          samplePackages: Object.keys(data.testPackages || {}).slice(0, 5),
+        });
+        
+        if (data.success) {
+          setTestCatalog({
+            testPackages: data.testPackages,
+            individualTests: data.individualTests,
+            laboratories: data.laboratories,
+            testsByLabType: data.testsByLabType,
+          });
+        }
+      } else {
+        console.error('Failed to fetch test catalog:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error("Error fetching test catalog:", error);
+      // Keep using fallback data
+    } finally {
+      setIsLoadingTests(false);
+    }
+  };
 
   // Calculate sample recommendations based on selected tests
   const sampleRecommendations = useMemo(() => {
@@ -147,19 +203,19 @@ export default function EnhancedLabOrderForm({
       ...formState.selectedTests,
       // Get tests from selected packages
       ...formState.selectedPackages.flatMap(packageId => 
-        TEST_PACKAGES[packageId]?.tests || []
+        testCatalog.testPackages[packageId]?.tests || []
       )
     ];
     return getSampleRecommendations(allTestCodes);
-  }, [formState.selectedTests, formState.selectedPackages]);
+  }, [formState.selectedTests, formState.selectedPackages, testCatalog.testPackages]);
 
   // Check if multiple test packages from same laboratory category are selected
   const shouldExpandModal = useMemo(() => {
     if (formState.selectedPackages.length === 0) return false;
     
     // Group selected packages by category
-    const packagesByCategory = formState.selectedPackages.reduce((acc: Record<string, typeof TEST_PACKAGES[string][]>, packageId) => {
-      const pkg = TEST_PACKAGES[packageId];
+    const packagesByCategory = formState.selectedPackages.reduce((acc: Record<string, any[]>, packageId) => {
+      const pkg = testCatalog.testPackages[packageId];
       if (pkg) {
         const category = pkg.category;
         if (!acc[category]) acc[category] = [];
@@ -170,7 +226,7 @@ export default function EnhancedLabOrderForm({
     
     // Check if any category has more than one package
     return Object.values(packagesByCategory).some((packages) => packages.length > 1);
-  }, [formState.selectedPackages]);
+  }, [formState.selectedPackages, testCatalog.testPackages]);
 
   // Auto-update sample recommendations when tests change
   useEffect(() => {
@@ -191,6 +247,13 @@ export default function EnhancedLabOrderForm({
 
   // Get lab category mapping
   const getLabCategory = (labId: string): string => {
+    // First check if the lab exists in dynamic catalog
+    const lab = testCatalog.laboratories[labId];
+    if (lab) {
+      return lab.name;
+    }
+    
+    // Fallback to hardcoded mapping
     const labMap: Record<string, string> = {
       "hematology-lab": "Hematology",
       "biochemistry-lab": "Biochemistry",
@@ -205,10 +268,21 @@ export default function EnhancedLabOrderForm({
   const availablePackages = useMemo(() => {
     if (!formState.target_lab) return [];
     const category = getLabCategory(formState.target_lab);
-    return Object.values(TEST_PACKAGES).filter(
+    
+    const packages = Object.values(testCatalog.testPackages).filter(
       (pkg) => pkg.category === category
     );
-  }, [formState.target_lab]);
+    
+    console.log('Available packages:', {
+      selectedLab: formState.target_lab,
+      category,
+      totalPackages: Object.keys(testCatalog.testPackages).length,
+      filteredPackages: packages.length,
+      packages: packages.map(p => ({ id: p.id, name: p.name, category: p.category }))
+    });
+    
+    return packages;
+  }, [formState.target_lab, testCatalog.testPackages, testCatalog.laboratories]);
 
   // Get tests for selected packages
   const packageTests = useMemo(() => {
@@ -216,7 +290,7 @@ export default function EnhancedLabOrderForm({
     
     const allTests: string[] = [];
     formState.selectedPackages.forEach(packageId => {
-      const pkg = TEST_PACKAGES[packageId];
+      const pkg = testCatalog.testPackages[packageId];
       if (pkg) {
         allTests.push(...pkg.tests);
       }
@@ -224,8 +298,24 @@ export default function EnhancedLabOrderForm({
     
     // Remove duplicates and get test details
     const uniqueTestIds = [...new Set(allTests)];
-    return uniqueTestIds.map((testId) => INDIVIDUAL_TESTS[testId]).filter(Boolean);
-  }, [formState.selectedPackages]);
+    return uniqueTestIds.map((testId) => testCatalog.individualTests[testId]).filter(Boolean);
+  }, [formState.selectedPackages, testCatalog.testPackages, testCatalog.individualTests]);
+
+  // Get tests to display (from selected packages)
+  const allAvailableTests = useMemo(() => {
+    return packageTests;
+  }, [packageTests]);
+
+  // Filter tests based on search term
+  const filteredPackageTests = useMemo(() => {
+    if (!testSearchTerm.trim()) return allAvailableTests;
+    
+    return allAvailableTests.filter((test) => 
+      test.name?.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
+      test.code?.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
+      test.category?.toLowerCase().includes(testSearchTerm.toLowerCase())
+    );
+  }, [allAvailableTests, testSearchTerm]);
 
   const handleSubmit = async () => {
     if (!formState.clinical_indication) {
@@ -241,11 +331,25 @@ export default function EnhancedLabOrderForm({
     setIsSubmitting(true);
     try {
       // Build the submission data
-      const selectedPackages = formState.selectedPackages.map(id => TEST_PACKAGES[id]).filter(Boolean);
+      const selectedPackages = formState.selectedPackages.map(id => testCatalog.testPackages[id]).filter(Boolean);
       const primaryPackage = selectedPackages[0];
       
       // Get all unique categories from selected packages
       const categories = [...new Set(selectedPackages.map(pkg => pkg.category))];
+      
+      // Convert slugified test IDs to actual test codes for LIMS validation
+      const actualTestCodes = formState.selectedTests
+        .map(testId => {
+          const test = testCatalog.individualTests[testId];
+          return test ? test.code : testId; // Use actual code or fallback to ID
+        })
+        .filter(Boolean);
+      
+      console.log('Submitting order with test codes:', {
+        selectedTestIds: formState.selectedTests,
+        actualTestCodes,
+        testCatalogSample: Object.keys(testCatalog.individualTests).slice(0, 5)
+      });
       
       const submissionData = {
         clinical_indication: formState.clinical_indication,
@@ -259,7 +363,7 @@ export default function EnhancedLabOrderForm({
         test_category: categories.join(', ') || "",
         is_package: selectedPackages.length > 0,
         selected_packages: formState.selectedPackages,
-        selected_tests: formState.selectedTests,
+        selected_tests: actualTestCodes, // Use actual test codes instead of slugified IDs
         // Sample collection information
         sampleType: formState.sampleType,
         containerType: formState.containerType,
@@ -282,7 +386,7 @@ export default function EnhancedLabOrderForm({
   };
 
   const selectedLab = formState.target_lab
-    ? LABORATORIES[formState.target_lab]
+    ? testCatalog.laboratories[formState.target_lab]
     : null;
 
   return (
@@ -319,11 +423,18 @@ export default function EnhancedLabOrderForm({
                 <SelectValue placeholder="Choose a laboratory department" />
               </SelectTrigger>
               <SelectContent>
-                {Object.values(LABORATORIES).map((lab) => (
-                  <SelectItem key={lab.id} value={lab.id}>
-                    {lab.name}
-                  </SelectItem>
-                ))}
+                {isLoadingTests ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <span className="text-sm">Loading laboratories...</span>
+                  </div>
+                ) : (
+                  Object.values(testCatalog.laboratories).map((lab) => (
+                    <SelectItem key={lab.id} value={lab.id}>
+                      {lab.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
 
@@ -366,7 +477,7 @@ export default function EnhancedLabOrderForm({
                         <span className="text-muted-foreground">Select test groups...</span>
                       ) : (
                         formState.selectedPackages.map((packageId) => {
-                          const pkg = TEST_PACKAGES[packageId];
+                          const pkg = testCatalog.testPackages[packageId];
                           return pkg ? (
                             <Badge
                               key={packageId}
@@ -407,9 +518,19 @@ export default function EnhancedLabOrderForm({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <div className="max-h-64 overflow-y-auto p-1">
-                    {availablePackages.map((pkg) => (
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <div className="max-h-96 overflow-y-auto p-1">
+                    {isLoadingTests ? (
+                      <div className="flex items-center justify-center p-4">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <span className="text-sm">Loading test packages...</span>
+                      </div>
+                    ) : availablePackages.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No test groups available for this laboratory.
+                      </div>
+                    ) : (
+                      availablePackages.map((pkg) => (
                       <div
                         key={pkg.id}
                         className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
@@ -423,19 +544,14 @@ export default function EnhancedLabOrderForm({
                             onCheckedChange={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
                           />
                         </div>
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1">
                           <p className="text-sm font-medium leading-none">
-                            {pkg.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {pkg.description}
-                          </p>
-                          <p className="text-xs text-blue-600">
-                            {pkg.category} • {pkg.tests.length} tests
+                            {pkg.name} <span className="text-xs text-muted-foreground font-normal">• {pkg.tests.length} test{pkg.tests.length > 1 ? 's' : ''}</span>
                           </p>
                         </div>
                       </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </PopoverContent>
               </Popover>
@@ -444,6 +560,9 @@ export default function EnhancedLabOrderForm({
                 <div className="mt-3 p-3 bg-blue-50 rounded-md text-sm">
                   <p className="font-medium text-blue-800">
                     {formState.selectedPackages.length} test group{formState.selectedPackages.length > 1 ? 's' : ''} selected
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    ℹ️ All tests in selected packages are included. Go to Step 3 to deselect individual tests.
                   </p>
                   {shouldExpandModal && (
                     <p className="text-xs text-blue-600 mt-1 italic">
@@ -461,23 +580,74 @@ export default function EnhancedLabOrderForm({
             <div className="flex items-center gap-2 mb-3">
               <TestTube className="h-5 w-5" />
               <Label className="text-base font-semibold">
-                Step 3: Review Tests
+                Step 3: Select Individual Tests
               </Label>
             </div>
             
-            {packageTests.length === 0 ? (
+            {allAvailableTests.length === 0 ? (
               <p className="text-sm text-muted-foreground">Select test groups first</p>
             ) : (
               <>
-              <div className="mb-2">
-                <p className="text-sm text-muted-foreground">
-                  {formState.selectedTests.length} of {packageTests.length} selected
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                  {formState.selectedTests.length} of {allAvailableTests.length} tests selected
                 </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      // Select all tests
+                      const allTestIds = allAvailableTests.map(t => t.id);
+                      dispatch({ type: "SET_FIELD", field: "selectedTests", value: allTestIds });
+                    }}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      dispatch({ type: "SET_FIELD", field: "selectedTests", value: [] });
+                    }}
+                  >
+                    Deselect All
+                  </Button>
+                </div>
               </div>
+              
+              {/* Search Bar for Tests */}
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    className="w-full pl-10"
+                    placeholder="Search tests by name, code, or category..."
+                    value={testSearchTerm}
+                    onChange={(e) => setTestSearchTerm(e.target.value)}
+                  />
+                </div>
+                {testSearchTerm && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Showing {filteredPackageTests.length} of {packageTests.length} tests
+                  </p>
+                )}
+              </div>
+              
               <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
-                {packageTests.map((test) => (
+                {filteredPackageTests.length === 0 ? (
+                  <div className="col-span-3 text-center py-4 text-sm text-muted-foreground">
+                    No tests found matching "{testSearchTerm}"
+                  </div>
+                ) : (
+                  filteredPackageTests.map((test, index) => (
                   <div
-                    key={test.id}
+                    key={`${test.id}-${index}`}
                     className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded border"
                   >
                     <Checkbox
@@ -498,7 +668,8 @@ export default function EnhancedLabOrderForm({
                       </p>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
               </>
             )}

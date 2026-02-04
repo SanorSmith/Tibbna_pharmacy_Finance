@@ -22,6 +22,7 @@ import {
   NewLimsOrderTest,
   patients,
 } from "@/lib/db/schema";
+import { testReferenceRanges } from "@/lib/db/schema/test-reference-ranges";
 import {
   validateOrderCreation,
   validateFHIRServiceRequest,
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate requested tests against catalog
-    const testValidation = await validateTestsAgainstCatalog(
+    const testValidation = await validateTestsInCatalog(
       orderData.requestedTests!,
       orderData.workspaceId!
     );
@@ -166,7 +167,9 @@ export async function POST(request: NextRequest) {
       // Insert order tests
       const orderTestRecords: NewLimsOrderTest[] = testValidation.validTests!.map((test) => ({
         orderid: order.orderid,
-        testid: test.testid,
+        testid: test.testid || null, // UUID from labTestCatalog, or null for testReferenceRanges
+        testcode: test.testcode, // Always include test code
+        testname: test.testname, // Always include test name
         teststatus: "REQUESTED",
       }));
 
@@ -283,16 +286,81 @@ export async function GET(request: NextRequest) {
     // Fetch test details and patient name for each order
     const localOrders = await Promise.all(
       localOrdersRaw.map(async (order) => {
-        // Get test details
-        const orderTests = await db
+        // Get test details - handle both labTestCatalog and testReferenceRanges tests
+        const orderTestsRaw = await db
           .select({
-            testCode: labTestCatalog.testcode,
-            testName: labTestCatalog.testname,
+            // From limsOrderTests (always available)
+            orderTestCode: limsOrderTests.testcode,
+            orderTestName: limsOrderTests.testname,
+            // From labTestCatalog (only if testid is not null)
+            catalogTestCode: labTestCatalog.testcode,
+            catalogTestName: labTestCatalog.testname,
             testcategory: labTestCatalog.testcategory,
+            specimentype: labTestCatalog.specimentype,
+            specimencontainer: labTestCatalog.specimencontainer,
+            specimenvolume: labTestCatalog.specimenvolume,
           })
           .from(limsOrderTests)
-          .innerJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
+          .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
           .where(eq(limsOrderTests.orderid, order.orderid));
+        
+        // For tests without catalog data, fetch from testReferenceRanges
+        const testsNeedingReferenceData = orderTestsRaw
+          .filter(t => !t.catalogTestCode && t.orderTestCode)
+          .map(t => t.orderTestCode!);
+        
+        let referenceData: Record<string, any> = {};
+        if (testsNeedingReferenceData.length > 0) {
+          const refTests = await db
+            .select({
+              testcode: testReferenceRanges.testcode,
+              sampletype: testReferenceRanges.sampletype,
+              containertype: testReferenceRanges.containertype,
+              labtype: testReferenceRanges.labtype,
+            })
+            .from(testReferenceRanges)
+            .where(
+              and(
+                inArray(testReferenceRanges.testcode, testsNeedingReferenceData),
+                eq(testReferenceRanges.workspaceid, order.workspaceid),
+                eq(testReferenceRanges.isactive, "Y")
+              )
+            );
+          
+          referenceData = refTests.reduce((acc, test) => {
+            acc[test.testcode] = test;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+        
+        // Use testcode/testname from limsOrderTests if catalog data is not available
+        let testIndex = 0;
+        const orderTests = orderTestsRaw.map(t => {
+          const refData = referenceData[t.orderTestCode || ''];
+          const testData = {
+            testCode: t.catalogTestCode || t.orderTestCode || 'Unknown',
+            testName: t.catalogTestName || t.orderTestName || 'Unknown Test',
+            testcategory: t.testcategory || refData?.labtype,
+            specimenType: t.specimentype || refData?.sampletype,
+            containerType: t.specimencontainer || refData?.containertype,
+            specimenvolume: t.specimenvolume,
+          };
+          
+          // Debug logging for first test
+          if (testIndex === 0) {
+            console.log('[LIMS Orders] Sample test data:', {
+              orderTestCode: t.orderTestCode,
+              catalogTestCode: t.catalogTestCode,
+              hasRefData: !!refData,
+              refDataSampleType: refData?.sampletype,
+              catalogSpecimenType: t.specimentype,
+              finalSpecimenType: testData.specimenType,
+            });
+          }
+          testIndex++;
+          
+          return testData;
+        });
 
         const categories = Array.from(
           new Set(
@@ -340,7 +408,7 @@ export async function GET(request: NextRequest) {
           console.error("Error fetching patient details:", error);
         }
 
-        return {
+        const orderData = {
           ...order,
           tests: orderTests,
           test_category: categories[0] || null,
@@ -348,6 +416,14 @@ export async function GET(request: NextRequest) {
           patientage: patientAge,
           patientsex: patientSex,
         };
+        
+        // Debug log for order data
+        console.log(`[LIMS Orders] Order ${order.orderid} has ${orderTests.length} tests`);
+        if (orderTests.length > 0) {
+          console.log('[LIMS Orders] First test:', orderTests[0]);
+        }
+        
+        return orderData;
       })
     );
 
@@ -433,16 +509,16 @@ export async function GET(request: NextRequest) {
 /**
  * Validate requested tests against lab test catalog
  */
-async function validateTestsAgainstCatalog(
+async function validateTestsInCatalog(
   testCodes: string[],
   workspaceId: string
 ): Promise<{
   valid: boolean;
   message?: string;
   invalidTests?: string[];
-  validTests?: Array<{ testid: string; testcode: string; testname: string }>;
+  validTests?: Array<{ testid: string | null; testcode: string; testname: string }>;
 }> {
-  // Query catalog for requested tests
+  // First try labTestCatalog
   const catalogTests = await db
     .select()
     .from(labTestCatalog)
@@ -455,9 +531,35 @@ async function validateTestsAgainstCatalog(
     );
 
   const foundTestCodes = catalogTests.map((t) => t.testcode);
-  const invalidTests = testCodes.filter((code) => !foundTestCodes.includes(code));
+  const remainingTestCodes = testCodes.filter((code) => !foundTestCodes.includes(code));
+
+  // If some tests not found in labTestCatalog, check testReferenceRanges
+  let referenceTests: any[] = [];
+  if (remainingTestCodes.length > 0) {
+    referenceTests = await db
+      .select()
+      .from(testReferenceRanges)
+      .where(
+        and(
+          inArray(testReferenceRanges.testcode, remainingTestCodes),
+          eq(testReferenceRanges.workspaceid, workspaceId),
+          eq(testReferenceRanges.isactive, "Y")
+        )
+      );
+  }
+
+  const foundReferenceTestCodes = referenceTests.map((t) => t.testcode);
+  const allFoundTestCodes = [...foundTestCodes, ...foundReferenceTestCodes];
+  const invalidTests = testCodes.filter((code) => !allFoundTestCodes.includes(code));
 
   if (invalidTests.length > 0) {
+    console.log('Test validation details:', {
+      requestedTests: testCodes,
+      foundInCatalog: foundTestCodes,
+      foundInReferences: foundReferenceTestCodes,
+      invalidTests
+    });
+    
     return {
       valid: false,
       message: "Some requested tests are not available in the catalog",
@@ -465,12 +567,22 @@ async function validateTestsAgainstCatalog(
     };
   }
 
-  return {
-    valid: true,
-    validTests: catalogTests.map((t) => ({
-      testid: t.testid,
+  // Combine results from both tables
+  const validTests = [
+    ...catalogTests.map((t) => ({
+      testid: t.testid, // UUID from labTestCatalog
       testcode: t.testcode,
       testname: t.testname,
     })),
+    ...referenceTests.map((t) => ({
+      testid: null, // No UUID for tests from testReferenceRanges
+      testcode: t.testcode,
+      testname: t.testname,
+    })),
+  ];
+
+  return {
+    valid: true,
+    validTests,
   };
 }
