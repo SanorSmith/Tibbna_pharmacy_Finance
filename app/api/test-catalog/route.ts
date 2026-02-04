@@ -89,6 +89,33 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Create virtual "Standalone Tests" packages for tests without groups
+    const standaloneTestsByLab: Record<string, string[]> = {};
+    tests.forEach((test) => {
+      if (!test.grouptests) {
+        const labType = test.labtype || "General";
+        if (!standaloneTestsByLab[labType]) {
+          standaloneTestsByLab[labType] = [];
+        }
+        standaloneTestsByLab[labType].push(test.testcode.toLowerCase().replace(/\s+/g, "-"));
+      }
+    });
+
+    // Add standalone test packages for each lab type
+    Object.entries(standaloneTestsByLab).forEach(([labType, testCodes]) => {
+      if (testCodes.length > 0) {
+        const packageId = `${labType.toLowerCase().replace(/\s+/g, "-")}-standalone-tests`;
+        testPackages[packageId] = {
+          id: packageId,
+          name: "Standalone Tests",
+          category: labType,
+          description: `${testCodes.length} test${testCodes.length > 1 ? 's' : ''}`,
+          tests: testCodes,
+          isStandalone: true,
+        };
+      }
+    });
+
     // Create laboratory information
     const laboratories: Record<string, any> = {};
     const uniqueLabTypes = [...new Set(tests.map(t => t.labtype).filter(Boolean))];

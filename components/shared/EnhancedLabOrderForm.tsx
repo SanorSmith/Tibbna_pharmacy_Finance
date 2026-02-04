@@ -301,27 +301,10 @@ export default function EnhancedLabOrderForm({
     return uniqueTestIds.map((testId) => testCatalog.individualTests[testId]).filter(Boolean);
   }, [formState.selectedPackages, testCatalog.testPackages, testCatalog.individualTests]);
 
-  // Get all available tests for selected lab (including standalone tests without groups)
-  const availableIndividualTests = useMemo(() => {
-    if (!formState.target_lab) return [];
-    const category = getLabCategory(formState.target_lab);
-    
-    // Get all tests for this lab type from testsByLabType
-    // These are already full test objects, not just IDs
-    const testsForLab = testCatalog.testsByLabType[category] || [];
-    
-    return testsForLab;
-  }, [formState.target_lab, testCatalog.testsByLabType]);
-
-  // Combined tests: tests from packages + standalone tests
+  // Get tests to display (from selected packages)
   const allAvailableTests = useMemo(() => {
-    // If packages are selected, show only package tests
-    if (formState.selectedPackages.length > 0) {
-      return packageTests;
-    }
-    // Otherwise, show all individual tests for the lab type (standalone tests)
-    return availableIndividualTests;
-  }, [formState.selectedPackages, packageTests, availableIndividualTests]);
+    return packageTests;
+  }, [packageTests]);
 
   // Filter tests based on search term
   const filteredPackageTests = useMemo(() => {
@@ -545,8 +528,6 @@ export default function EnhancedLabOrderForm({
                     ) : availablePackages.length === 0 ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">
                         No test groups available for this laboratory.
-                        <br />
-                        <span className="text-xs text-blue-600">You can skip this step and select individual tests in Step 3.</span>
                       </div>
                     ) : (
                       availablePackages.map((pkg) => (
@@ -604,19 +585,12 @@ export default function EnhancedLabOrderForm({
             </div>
             
             {allAvailableTests.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {formState.target_lab 
-                  ? "No tests available for this laboratory" 
-                  : "Select a laboratory first"}
-              </p>
+              <p className="text-sm text-muted-foreground">Select test groups first</p>
             ) : (
               <>
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium text-gray-700">
                   {formState.selectedTests.length} of {allAvailableTests.length} tests selected
-                  {formState.selectedPackages.length === 0 && (
-                    <span className="text-xs text-blue-600 ml-2">• Standalone tests</span>
-                  )}
                 </p>
                 <div className="flex gap-2">
                   <Button
