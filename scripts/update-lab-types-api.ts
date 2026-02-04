@@ -1,4 +1,4 @@
-// Script to update lab types via API
+// th no Script to update lab types via API
 // Run with: npx tsx scripts/update-lab-types-api.ts
 
 const WORKSPACE_ID = "fa9fb036-a7eb-49af-890c-54406dad139d";

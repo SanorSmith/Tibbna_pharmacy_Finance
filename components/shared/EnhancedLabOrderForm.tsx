@@ -301,16 +301,38 @@ export default function EnhancedLabOrderForm({
     return uniqueTestIds.map((testId) => testCatalog.individualTests[testId]).filter(Boolean);
   }, [formState.selectedPackages, testCatalog.testPackages, testCatalog.individualTests]);
 
+  // Get all available tests for selected lab (including standalone tests without groups)
+  const availableIndividualTests = useMemo(() => {
+    if (!formState.target_lab) return [];
+    const category = getLabCategory(formState.target_lab);
+    
+    // Get all tests for this lab type from testsByLabType
+    // These are already full test objects, not just IDs
+    const testsForLab = testCatalog.testsByLabType[category] || [];
+    
+    return testsForLab;
+  }, [formState.target_lab, testCatalog.testsByLabType]);
+
+  // Combined tests: tests from packages + standalone tests
+  const allAvailableTests = useMemo(() => {
+    // If packages are selected, show only package tests
+    if (formState.selectedPackages.length > 0) {
+      return packageTests;
+    }
+    // Otherwise, show all individual tests for the lab type (standalone tests)
+    return availableIndividualTests;
+  }, [formState.selectedPackages, packageTests, availableIndividualTests]);
+
   // Filter tests based on search term
   const filteredPackageTests = useMemo(() => {
-    if (!testSearchTerm.trim()) return packageTests;
+    if (!testSearchTerm.trim()) return allAvailableTests;
     
-    return packageTests.filter((test) => 
+    return allAvailableTests.filter((test) => 
       test.name?.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
       test.code?.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
       test.category?.toLowerCase().includes(testSearchTerm.toLowerCase())
     );
-  }, [packageTests, testSearchTerm]);
+  }, [allAvailableTests, testSearchTerm]);
 
   const handleSubmit = async () => {
     if (!formState.clinical_indication) {
@@ -522,9 +544,9 @@ export default function EnhancedLabOrderForm({
                       </div>
                     ) : availablePackages.length === 0 ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">
-                        No test packages available for this laboratory.
+                        No test groups available for this laboratory.
                         <br />
-                        <span className="text-xs">Try selecting a different laboratory or contact admin to add test packages.</span>
+                        <span className="text-xs text-blue-600">You can skip this step and select individual tests in Step 3.</span>
                       </div>
                     ) : (
                       availablePackages.map((pkg) => (
@@ -581,13 +603,20 @@ export default function EnhancedLabOrderForm({
               </Label>
             </div>
             
-            {packageTests.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Select test groups first</p>
+            {allAvailableTests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {formState.target_lab 
+                  ? "No tests available for this laboratory" 
+                  : "Select a laboratory first"}
+              </p>
             ) : (
               <>
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium text-gray-700">
-                  {formState.selectedTests.length} of {packageTests.length} tests selected
+                  {formState.selectedTests.length} of {allAvailableTests.length} tests selected
+                  {formState.selectedPackages.length === 0 && (
+                    <span className="text-xs text-blue-600 ml-2">• Standalone tests</span>
+                  )}
                 </p>
                 <div className="flex gap-2">
                   <Button
@@ -596,8 +625,8 @@ export default function EnhancedLabOrderForm({
                     size="sm"
                     className="h-7 text-xs"
                     onClick={() => {
-                      // Select all tests from packages
-                      const allTestIds = packageTests.map(t => t.id);
+                      // Select all tests
+                      const allTestIds = allAvailableTests.map(t => t.id);
                       dispatch({ type: "SET_FIELD", field: "selectedTests", value: allTestIds });
                     }}
                   >
@@ -642,9 +671,9 @@ export default function EnhancedLabOrderForm({
                     No tests found matching "{testSearchTerm}"
                   </div>
                 ) : (
-                  filteredPackageTests.map((test) => (
+                  filteredPackageTests.map((test, index) => (
                   <div
-                    key={test.id}
+                    key={`${test.id}-${index}`}
                     className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded border"
                   >
                     <Checkbox
