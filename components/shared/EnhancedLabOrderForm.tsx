@@ -541,15 +541,9 @@ export default function EnhancedLabOrderForm({
                             onCheckedChange={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
                           />
                         </div>
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1">
                           <p className="text-sm font-medium leading-none">
-                            {pkg.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {pkg.description}
-                          </p>
-                          <p className="text-xs text-blue-600">
-                            {pkg.category} • {pkg.tests.length} tests
+                            {pkg.name} <span className="text-xs text-muted-foreground font-normal">• {pkg.tests.length} test{pkg.tests.length > 1 ? 's' : ''}</span>
                           </p>
                         </div>
                       </div>
