@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
               sampletype: test.sampletype,
               containertype: test.containertype,
               unit: test.unit,
-              labtype: "Polymerase Chain Reaction (PCR)",
+              labtype: "Special Test",
               grouptests: null, // No test group for standalone tests
               updatedby: userid,
             })
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
             unit: test.unit,
             agegroup: "ALL",
             sex: "ANY",
-            labtype: "Polymerase Chain Reaction (PCR)",
+            labtype: "Special Test",
             grouptests: null, // No test group for standalone tests
             sampletype: test.sampletype,
             containertype: test.containertype,

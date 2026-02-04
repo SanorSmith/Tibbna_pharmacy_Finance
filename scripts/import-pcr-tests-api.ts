@@ -38,10 +38,10 @@ async function importPCRTests() {
         result.errors.forEach((error: string) => console.log(`   - ${error}`));
       }
       
-      console.log(`\n✅ All PCR standalone tests have been imported!`);
+      console.log(`\n✅ All PCR tests have been imported to Special Test lab type!`);
       console.log(`\nTest Details:`);
-      console.log(`   - Lab Type: Polymerase Chain Reaction (PCR)`);
-      console.log(`   - Total Tests: 9 standalone tests`);
+      console.log(`   - Lab Type: Special Test`);
+      console.log(`   - PCR Tests: 9 tests`);
       console.log(`   - Sample Types: Serum, Whole blood EDTA, Cervical Swab, Seminal fluid, Sputum, Fluid, Urine`);
       console.log(`   - Tests include: HCV, HBV, HIV viral loads, TB, HPV, Genotyping`);
       console.log(`   - Type: All standalone tests (no groups)`);
