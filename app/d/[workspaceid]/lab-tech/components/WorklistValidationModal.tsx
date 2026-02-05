@@ -444,6 +444,41 @@ export default function WorklistValidationModal({
                 )}
               </div>
 
+              {/* Batch Entry Summary */}
+              {(() => {
+                const totalTests = currentItem.results.length;
+                const withResults = currentItem.results.filter((r: TestResult) => r.hasResult !== false).length;
+                const pendingEntry = totalTests - withResults;
+                const enteredCount = Object.keys(editedResults).filter(key => 
+                  key.startsWith(currentItem.sampleid) && editedResults[key]?.trim()
+                ).length;
+                
+                return pendingEntry > 0 ? (
+                  <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-sm">
+                    <div className="flex items-center gap-4">
+                      <span className="text-amber-800">
+                        <strong>{pendingEntry}</strong> of {totalTests} tests awaiting results
+                      </span>
+                      {enteredCount > 0 && (
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                          {enteredCount} entered (unsaved)
+                        </Badge>
+                      )}
+                    </div>
+                    {withResults > 0 && (
+                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                        {withResults} completed
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center px-3 py-2 bg-green-50 border border-green-200 rounded-md text-sm">
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                    <span className="text-green-800">All {totalTests} tests have results</span>
+                  </div>
+                );
+              })()}
+
               {/* Test Results Table */}
               <Card>
                 <CardContent className="p-0">
@@ -665,25 +700,47 @@ export default function WorklistValidationModal({
               </Card>
 
               {/* Save Results Button */}
-              {Object.keys(editedResults).length > 0 && (
-                <div className="flex justify-end">
-                  <Button
-                    variant="default"
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={() => saveResultsMutation.mutate()}
-                    disabled={saveResultsMutation.isPending}
-                  >
-                    {saveResultsMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Results'
+              {(() => {
+                const pendingCount = currentItem ? Object.keys(editedResults).filter(key =>
+                  key.startsWith(currentItem.sampleid) && editedResults[key]?.trim()
+                ).length : 0;
+
+                return pendingCount > 0 ? (
+                  <div className="flex items-center justify-between">
+                    {saveResultsMutation.isSuccess && (
+                      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-1.5">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Results saved successfully
+                      </div>
                     )}
-                  </Button>
-                </div>
-              )}
+                    {saveResultsMutation.isError && (
+                      <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+                        <X className="h-4 w-4" />
+                        Failed to save results
+                      </div>
+                    )}
+                    {!saveResultsMutation.isSuccess && !saveResultsMutation.isError && <div />}
+                    <Button
+                      variant="default"
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => saveResultsMutation.mutate()}
+                      disabled={saveResultsMutation.isPending}
+                    >
+                      {saveResultsMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving {pendingCount} results...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Save {pendingCount} Result{pendingCount !== 1 ? 's' : ''}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : null;
+              })()}
 
             </div>
           )}

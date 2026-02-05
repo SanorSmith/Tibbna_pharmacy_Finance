@@ -17,9 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock, FlaskConical } from "lucide-react";
 import { calculateTAT, getTATStatusColor, getTATStatusLabel, formatDuration } from "@/lib/lims/tat-tracking";
 import BarcodePrint from "./BarcodePrint";
+import WorklistValidationModal from "./WorklistValidationModal";
 import { getDialogClasses } from "@/lib/ui-constants";
 
 // Storage Location interface
@@ -129,6 +130,8 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const [showWorklistDialog, setShowWorklistDialog] = useState(false);
   const [showCreateWorklistDialog, setShowCreateWorklistDialog] = useState(false);
   const [showBarcodePrintDialog, setShowBarcodePrintDialog] = useState(false);
+  const [showResultEntryModal, setShowResultEntryModal] = useState(false);
+  const [resultEntrySample, setResultEntrySample] = useState<any>(null);
   
   // Alert dialog states
   const [alertDialog, setAlertDialog] = useState<{
@@ -797,7 +800,36 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                     <Plus className="h-4 w-4 mr-2" />
                     Add to Worklist
                   </Button>
-                 
+                  <Button 
+                    variant="default" 
+                    className="w-full bg-blue-600 hover:bg-blue-700 col-span-2"
+                    onClick={() => {
+                      setResultEntrySample({
+                        worklistitemid: selectedSample?.sampleid,
+                        sampleid: selectedSample?.sampleid,
+                        sample: {
+                          sampleid: selectedSample?.sampleid,
+                          samplenumber: selectedSample?.samplenumber,
+                          sampletype: selectedSample?.sampletype,
+                          collectiondate: selectedSample?.collectiondate,
+                        },
+                        patient: selectedSample?.patientname ? {
+                          patientid: selectedSample?.patientid || '',
+                          firstname: selectedSample?.patientname?.split(' ')[0] || '',
+                          lastname: selectedSample?.patientname?.split(' ').slice(1).join(' ') || '',
+                          dateofbirth: '',
+                          gender: selectedSample?.patientsex || '',
+                          age: selectedSample?.patientage || 0,
+                        } : null,
+                        results: [],
+                      });
+                      setShowSampleDetail(false);
+                      setShowResultEntryModal(true);
+                    }}
+                  >
+                    <FlaskConical className="h-4 w-4 mr-2" />
+                    Enter Results
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1107,6 +1139,15 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Result Entry Modal - opens WorklistValidationModal for direct result entry from sample list */}
+      <WorklistValidationModal
+        workspaceid={workspaceid}
+        worklistid={null}
+        selectedSample={resultEntrySample}
+        open={showResultEntryModal}
+        onOpenChange={setShowResultEntryModal}
+      />
     </div>
   );
 }
