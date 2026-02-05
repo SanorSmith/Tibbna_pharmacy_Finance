@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
 import { createWorkspaceNotification, notifyDoctorOnResultRelease } from "@/lib/notifications";
+import { autoFlagResult } from "@/lib/lims/auto-flag";
 import { z } from "zod";
 
 const testResultUpdateSchema = z.object({
@@ -122,10 +123,21 @@ export async function PATCH(
 
     // Handle result value update with change comment
     if (resultvalue !== undefined && changeComment) {
+      // Re-compute flags based on the new result value
+      const flags = autoFlagResult({
+        resultvalue,
+        referencemin: currentResult[0].referencemin,
+        referencemax: currentResult[0].referencemax,
+        referencerange: currentResult[0].referencerange,
+      });
+
       const updatedResult = await db
         .update(testResults)
         .set({
           resultvalue: resultvalue,
+          flag: flags.flag,
+          isabormal: flags.isabormal,
+          iscritical: flags.iscritical,
           updatedby: user.userid,
           updatedat: new Date(),
         })
