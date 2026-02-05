@@ -636,74 +636,26 @@ export default function WorklistValidationModal({
             <DialogFooter className="flex justify-between items-center sm:justify-between">
               <Button
                 variant="outline"
-                onClick={() => {
-                  const printWindow = window.open('', '_blank');
-                  if (!printWindow) return;
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`/api/d/${workspaceid}/lab-report/${currentItem.sampleid}`);
+                    if (!response.ok) throw new Error('Failed to fetch report data');
+                    const { report } = await response.json();
 
-                  const patientInfo = currentItem.patient 
-                    ? `${currentItem.patient.firstname} ${currentItem.patient.lastname} (${currentItem.patient.age}y, ${currentItem.patient.gender})`
-                    : 'Unknown Patient';
+                    const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                    const html = generateLabReportHTML(report);
 
-                  const resultsHTML = currentItem.results.map(result => `
-                    <tr>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${currentItem.sample.samplenumber}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${result.testname}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${result.resultvalue || '-'}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${result.unit || '-'}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">
-                        ${result.referencemin !== null && result.referencemax !== null
-                          ? `${result.referencemin}-${result.referencemax} ${result.unit || ''}`
-                          : result.referencerange || '-'}
-                      </td>
-                    </tr>
-                  `).join('');
-
-                  printWindow.document.write(`
-                    <html>
-                      <head>
-                        <title>Test Results - ${currentItem.sample.samplenumber}</title>
-                        <style>
-                          body { font-family: Arial, sans-serif; padding: 20px; }
-                          h1 { color: #333; }
-                          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                          th { background-color: #4E95D9; color: white; padding: 10px; text-align: left; border: 1px solid #ddd; }
-                          td { padding: 8px; border: 1px solid #ddd; }
-                          .info { margin-bottom: 20px; }
-                          .info p { margin: 5px 0; }
-                        </style>
-                      </head>
-                      <body>
-                        <h1>Laboratory Test Results</h1>
-                        <div class="info">
-                          <p><strong>Patient:</strong> ${patientInfo}</p>
-                          <p><strong>Sample ID:</strong> ${currentItem.sample.samplenumber}</p>
-                          <p><strong>Sample Type:</strong> ${currentItem.sample.sampletype}</p>
-                          <p><strong>Collection Date:</strong> ${new Date(currentItem.sample.collectiondate).toLocaleString()}</p>
-                          <p><strong>Print Date:</strong> ${new Date().toLocaleString()}</p>
-                        </div>
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Sample ID</th>
-                              <th>Test Name</th>
-                              <th>Result</th>
-                              <th>Units</th>
-                              <th>Reference Interval</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            ${resultsHTML}
-                          </tbody>
-                        </table>
-                      </body>
-                    </html>
-                  `);
-                  printWindow.document.close();
-                  printWindow.print();
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) return;
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                  } catch (err) {
+                    console.error('Print report error:', err);
+                  }
                 }}
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Print Results
+                Print Report
               </Button>
               
               <div className="flex gap-2">

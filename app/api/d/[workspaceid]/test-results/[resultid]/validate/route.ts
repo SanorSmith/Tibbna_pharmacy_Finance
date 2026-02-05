@@ -8,6 +8,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
+import { notifyDoctorOnResultRelease } from "@/lib/notifications";
 import { z } from "zod";
 
 const statusChangeSchema = z.object({
@@ -96,6 +97,22 @@ export async function POST(
       rejectionreason: validatedData.rejectionreason,
       workspaceid,
     });
+
+    // Notify the ordering doctor when results are released
+    if (newStatus === "released") {
+      try {
+        await notifyDoctorOnResultRelease({
+          workspaceid,
+          sampleid: updatedResult[0].sampleid,
+          testname: updatedResult[0].testname,
+          testcode: updatedResult[0].testcode,
+          resultvalue: updatedResult[0].resultvalue,
+          resultid,
+        });
+      } catch (notificationError) {
+        // Don't fail the request if notification fails
+      }
+    }
 
     return NextResponse.json({ result: updatedResult[0] });
   } catch (error) {

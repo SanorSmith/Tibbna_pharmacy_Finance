@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
+import { db } from "@/lib/db";
+import { eq, and, desc } from "drizzle-orm";
+import { testResults, accessionSamples, users, workspaces } from "@/lib/db/schema";
+import { sql } from "drizzle-orm";
 
 // In-memory storage for lab results (dummy data)
 // In production, this would be stored in EHRbase or a database
@@ -351,8 +355,8 @@ export async function GET(
     }
 
     // Check workspace access
-    const workspaces = await getUserWorkspaces(user.userid);
-    const membership = workspaces.find(
+    const userWorkspaces = await getUserWorkspaces(user.userid);
+    const membership = userWorkspaces.find(
       (w) => w.workspace.workspaceid === workspaceid
     );
 
@@ -365,10 +369,105 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get lab results from in-memory store
+    // Get lab results from in-memory store (dummy data)
     const patientLabResults = labResultsStore[patientid] || [];
 
-    return NextResponse.json({ labResults: patientLabResults });
+    // Also fetch real LIMS results from the database
+    const limsResults = await db
+      .select({
+        resultid: testResults.resultid,
+        sampleid: testResults.sampleid,
+        testcode: testResults.testcode,
+        testname: testResults.testname,
+        resultvalue: testResults.resultvalue,
+        unit: testResults.unit,
+        referencemin: testResults.referencemin,
+        referencemax: testResults.referencemax,
+        referencerange: testResults.referencerange,
+        flag: testResults.flag,
+        isabormal: testResults.isabormal,
+        iscritical: testResults.iscritical,
+        interpretation: testResults.interpretation,
+        status: testResults.status,
+        comment: testResults.comment,
+        analyzeddate: testResults.analyzeddate,
+        releaseddate: testResults.releaseddate,
+        samplenumber: accessionSamples.samplenumber,
+        sampletype: accessionSamples.sampletype,
+        collectiondate: accessionSamples.collectiondate,
+        labcategory: accessionSamples.labcategory,
+        barcode: accessionSamples.barcode,
+      })
+      .from(testResults)
+      .innerJoin(accessionSamples, eq(testResults.sampleid, accessionSamples.sampleid))
+      .where(
+        and(
+          eq(accessionSamples.patientid, patientid),
+          eq(testResults.workspaceid, workspaceid)
+        )
+      )
+      .orderBy(desc(testResults.analyzeddate));
+
+    // Get facility name once
+    const facilityName = membership.workspace.name || "Laboratory";
+
+    // Group LIMS results by sample into LabTestResult format
+    const sampleMap = new Map<string, any>();
+    for (const r of limsResults) {
+      if (!sampleMap.has(r.sampleid)) {
+        sampleMap.set(r.sampleid, {
+          composition_uid: `lims-${r.sampleid}`,
+          recorded_time: r.analyzeddate?.toISOString() || new Date().toISOString(),
+          test_name: r.labcategory || "Laboratory Tests",
+          protocol: r.samplenumber,
+          specimen_type: r.sampletype,
+          specimen_collection_time: r.collectiondate?.toISOString(),
+          specimen_id: r.samplenumber,
+          overall_test_status: r.status === "released" ? "final" : r.status === "validated" ? "preliminary" : "registered",
+          test_results: [] as LabTestAnalyte[],
+          laboratory_name: facilityName,
+          report_date: r.releaseddate?.toISOString() || r.analyzeddate?.toISOString() || new Date().toISOString(),
+          source: "lims",
+          sampleid: r.sampleid,
+        });
+      }
+
+      const refRange =
+        r.referencemin !== null && r.referencemax !== null
+          ? `${r.referencemin} - ${r.referencemax}`
+          : r.referencerange || undefined;
+
+      const resultStatus = r.iscritical
+        ? "critical"
+        : r.isabormal
+        ? "abnormal"
+        : "normal";
+
+      const resultFlag = r.iscritical
+        ? "HH"
+        : r.flag === "high" || r.flag === "H"
+        ? "H"
+        : r.flag === "low" || r.flag === "L"
+        ? "L"
+        : "N";
+
+      sampleMap.get(r.sampleid).test_results.push({
+        analyte_name: r.testname,
+        analyte_code: r.testcode,
+        result_value: r.resultvalue || "-",
+        result_unit: r.unit || undefined,
+        reference_range: refRange,
+        result_status: resultStatus,
+        result_flag: resultFlag,
+      });
+    }
+
+    const limsLabResults = Array.from(sampleMap.values());
+
+    // Merge: LIMS results first (real data), then dummy data
+    const allResults = [...limsLabResults, ...patientLabResults];
+
+    return NextResponse.json({ labResults: allResults });
   } catch (error) {
     console.error("Error fetching lab results:", error);
     return NextResponse.json(
@@ -395,17 +494,17 @@ export async function POST(
     }
 
     // Check workspace access
-    const workspaces = await getUserWorkspaces(user.userid);
-    const membership = workspaces.find(
+    const userWorkspaces2 = await getUserWorkspaces(user.userid);
+    const membership2 = userWorkspaces2.find(
       (w) => w.workspace.workspaceid === workspaceid
     );
 
-    if (!membership) {
+    if (!membership2) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Only doctors and lab technicians can create lab results
-    if (membership.role !== "doctor" && membership.role !== "nurse") {
+    if (membership2.role !== "doctor" && membership2.role !== "nurse") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -9,7 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
-import { createWorkspaceNotification } from "@/lib/notifications";
+import { createWorkspaceNotification, notifyDoctorOnResultRelease } from "@/lib/notifications";
 import { z } from "zod";
 
 const testResultUpdateSchema = z.object({
@@ -176,14 +176,30 @@ export async function PATCH(
         workspaceid: workspaceid,
       });
 
-      // Create notification for test validation/release
-      if (['released', 'validated'].includes(status.toLowerCase())) {
+      // Notify doctor when results are released
+      if (status.toLowerCase() === 'released') {
+        try {
+          await notifyDoctorOnResultRelease({
+            workspaceid,
+            sampleid: updatedResult[0].sampleid,
+            testname: updatedResult[0].testname,
+            testcode: updatedResult[0].testcode,
+            resultvalue: updatedResult[0].resultvalue,
+            resultid,
+          });
+        } catch (notificationError) {
+          // Don't fail the request if notification fails
+        }
+      }
+
+      // Notify lab staff when results are validated
+      if (status.toLowerCase() === 'validated') {
         try {
           await createWorkspaceNotification({
             workspaceid,
             type: "TEST_VALIDATED",
-            title: `Test Result ${status.toUpperCase()}`,
-            message: `Test result for ${updatedResult[0].testname} (${updatedResult[0].testcode}) has been ${status.toLowerCase()}.`,
+            title: "Test Result Validated",
+            message: `Test result for ${updatedResult[0].testname} (${updatedResult[0].testcode}) has been validated.`,
             relatedentityid: resultid,
             relatedentitytype: "test_result",
             metadata: {
@@ -194,7 +210,7 @@ export async function PATCH(
               validationStatus: status,
               validatedBy: user.userid,
             },
-            priority: status === 'released' ? "high" : "medium",
+            priority: "medium",
           });
         } catch (notificationError) {
           // Don't fail the request if notification fails

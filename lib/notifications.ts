@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { notifications, workspaceusers } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { NotificationTypeType } from "@/lib/db/tables/notifications";
+import type { WorkspaceUserRole } from "@/lib/db/tables/workspace";
 
 interface CreateNotificationParams {
   workspaceid: string;
@@ -98,6 +99,170 @@ export async function createUserNotification({
     });
     return { success: true };
   } catch (error) {
+    return { success: false, error };
+  }
+}
+
+/**
+ * Create a notification for all users with a specific role in a workspace
+ * Used to notify doctors when lab results are validated/released
+ */
+export async function createRoleNotification({
+  workspaceid,
+  role,
+  type,
+  title,
+  message,
+  relatedentityid,
+  relatedentitytype,
+  metadata,
+  priority = "medium",
+}: CreateNotificationParams & { role: WorkspaceUserRole }) {
+  try {
+    // Get all users in the workspace with the specified role
+    const roleUsers = await db
+      .select({ userid: workspaceusers.userid })
+      .from(workspaceusers)
+      .where(
+        and(
+          eq(workspaceusers.workspaceid, workspaceid),
+          eq(workspaceusers.role, role)
+        )
+      );
+
+    if (roleUsers.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const notificationPromises = roleUsers.map(async (user) => {
+      return await db.insert(notifications).values({
+        workspaceid,
+        userid: user.userid,
+        type,
+        title,
+        message,
+        relatedentityid,
+        relatedentitytype,
+        metadata: metadata || {},
+        priority,
+        read: false,
+      });
+    });
+
+    await Promise.all(notificationPromises);
+    return { success: true, count: roleUsers.length };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+/**
+ * Notify the ordering doctor when lab results are released.
+ * Traces: test_result → accession_sample → lims_order → orderingproviderid
+ * Falls back to notifying all doctors in the workspace if the ordering doctor can't be resolved.
+ */
+export async function notifyDoctorOnResultRelease({
+  workspaceid,
+  sampleid,
+  testname,
+  testcode,
+  resultvalue,
+  resultid,
+  patientName,
+}: {
+  workspaceid: string;
+  sampleid: string;
+  testname: string;
+  testcode: string;
+  resultvalue: string;
+  resultid: string;
+  patientName?: string;
+}) {
+  try {
+    // Dynamic imports to avoid circular dependency issues
+    const { accessionSamples, limsOrders, patients } = await import("@/lib/db/schema");
+
+    // Trace: sample → order → ordering doctor
+    const [sample] = await db
+      .select({
+        orderid: accessionSamples.orderid,
+        patientid: accessionSamples.patientid,
+        samplenumber: accessionSamples.samplenumber,
+      })
+      .from(accessionSamples)
+      .where(eq(accessionSamples.sampleid, sampleid))
+      .limit(1);
+
+    let orderingDoctorId: string | null = null;
+    let resolvedPatientName = patientName || "Unknown Patient";
+
+    if (sample?.orderid) {
+      const [order] = await db
+        .select({ orderingproviderid: limsOrders.orderingproviderid })
+        .from(limsOrders)
+        .where(eq(limsOrders.orderid, sample.orderid))
+        .limit(1);
+
+      if (order?.orderingproviderid) {
+        orderingDoctorId = order.orderingproviderid;
+      }
+    }
+
+    // Resolve patient name if not provided
+    if (!patientName && sample?.patientid) {
+      const [patient] = await db
+        .select({ firstname: patients.firstname, lastname: patients.lastname })
+        .from(patients)
+        .where(eq(patients.patientid, sample.patientid))
+        .limit(1);
+
+      if (patient) {
+        resolvedPatientName = `${patient.firstname} ${patient.lastname}`;
+      }
+    }
+
+    const notificationTitle = "Lab Results Released";
+    const notificationMessage = `Results for ${testname} (${testcode}) are now available for patient ${resolvedPatientName}. Sample: ${sample?.samplenumber || "N/A"}.`;
+    const notificationMeta = {
+      testCode: testcode,
+      testName: testname,
+      resultValue: resultvalue,
+      sampleId: sampleid,
+      sampleNumber: sample?.samplenumber,
+      patientName: resolvedPatientName,
+    };
+
+    if (orderingDoctorId) {
+      // Notify the specific ordering doctor
+      await createUserNotification({
+        workspaceid,
+        userid: orderingDoctorId,
+        type: "RESULTS_RELEASED" as any,
+        title: notificationTitle,
+        message: notificationMessage,
+        relatedentityid: resultid,
+        relatedentitytype: "test_result",
+        metadata: notificationMeta,
+        priority: "high",
+      });
+      return { success: true, notifiedDoctor: orderingDoctorId };
+    } else {
+      // Fallback: notify all doctors in the workspace
+      const result = await createRoleNotification({
+        workspaceid,
+        role: "doctor",
+        type: "RESULTS_RELEASED" as any,
+        title: notificationTitle,
+        message: notificationMessage,
+        relatedentityid: resultid,
+        relatedentitytype: "test_result",
+        metadata: notificationMeta,
+        priority: "high",
+      });
+      return { success: true, notifiedDoctorCount: result.count };
+    }
+  } catch (error) {
+    console.error("Error notifying doctor on result release:", error);
     return { success: false, error };
   }
 }

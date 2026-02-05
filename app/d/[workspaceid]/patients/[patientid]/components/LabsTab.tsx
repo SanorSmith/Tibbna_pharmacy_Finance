@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Printer } from "lucide-react";
 
 // Lab Results interfaces (openEHR compliant)
 export interface LabTestAnalyte {
@@ -631,6 +632,73 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                         {showHistory ? 'Hide History' : 'Show History'}
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={async () => {
+                        const result = currentResult as any;
+                        if (result.source === 'lims' && result.sampleid) {
+                          // LIMS result: use the lab-report API for a professional report
+                          try {
+                            const response = await fetch(`/api/d/${workspaceid}/lab-report/${result.sampleid}`);
+                            if (!response.ok) throw new Error('Failed to fetch report');
+                            const { report } = await response.json();
+                            const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                            const html = generateLabReportHTML(report);
+                            const printWindow = window.open('', '_blank');
+                            if (printWindow) {
+                              printWindow.document.write(html);
+                              printWindow.document.close();
+                            }
+                          } catch (err) {
+                            console.error('Print error:', err);
+                          }
+                        } else {
+                          // OpenEHR / dummy result: generate report from existing data
+                          const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                          const reportData = {
+                            facility: { name: currentResult.laboratory_name || 'Laboratory' },
+                            patient: null,
+                            sample: {
+                              sampleid: currentResult.specimen_id || currentResult.composition_uid,
+                              samplenumber: currentResult.protocol || currentResult.specimen_id || '-',
+                              sampletype: currentResult.specimen_type || 'Blood',
+                              containertype: '-',
+                              collectiondate: currentResult.specimen_collection_time || currentResult.recorded_time,
+                              currentstatus: currentResult.overall_test_status,
+                              barcode: '-',
+                            },
+                            results: currentResult.test_results.map((a: LabTestAnalyte) => ({
+                              resultid: '',
+                              testcode: a.analyte_code || '',
+                              testname: a.analyte_name,
+                              resultvalue: String(a.result_value ?? '-'),
+                              unit: a.result_unit || null,
+                              referencemin: null,
+                              referencemax: null,
+                              referencerange: a.reference_range || null,
+                              flag: a.result_flag || 'normal',
+                              isabormal: a.result_status !== 'normal',
+                              iscritical: a.result_status === 'critical',
+                              status: currentResult.overall_test_status,
+                              releasedbyname: currentResult.verified_by || null,
+                              releaseddate: currentResult.report_date || null,
+                            })),
+                            generatedAt: new Date().toISOString(),
+                          };
+                          const html = generateLabReportHTML(reportData as any);
+                          const printWindow = window.open('', '_blank');
+                          if (printWindow) {
+                            printWindow.document.write(html);
+                            printWindow.document.close();
+                          }
+                        }
+                      }}
+                    >
+                      <Printer className="h-3 w-3 mr-1" />
+                      Print
+                    </Button>
                     <button
                       onClick={() => {
                         setSelectedTest(currentResult);
@@ -805,70 +873,63 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
               </Button>
               <Button 
                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => {
-                  if (selectedTest) {
-                    // Create a printable report
-                    const reportContent = generateLabReport(selectedTest, patientid, workspaceid);
-                    console.log('Report content:', reportContent); // Debug log
-                    
-                    const printWindow = window.open('', '_blank');
-                    if (printWindow) {
-                      // Escape the report content for HTML
-                      const escapedContent = reportContent
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#39;')
-                        .replace(/\n/g, '<br>');
-                      
-                      printWindow.document.write(`
-                        <html>
-                          <head>
-                            <title>Lab Report - ${selectedTest.test_name}</title>
-                            <style>
-                              body { 
-                                font-family: 'Courier New', monospace; 
-                                margin: 20px; 
-                                line-height: 1.4;
-                                font-size: 12px;
-                              }
-                              @media print {
-                                body { margin: 10px; font-size: 10px; }
-                              }
-                              .report-header {
-                                text-align: center;
-                                font-weight: bold;
-                                margin-bottom: 20px;
-                                font-size: 16px;
-                              }
-                              .section-title {
-                                font-weight: bold;
-                                margin-top: 15px;
-                                margin-bottom: 5px;
-                                border-bottom: 1px solid #ccc;
-                                padding-bottom: 2px;
-                              }
-                            </style>
-                          </head>
-                          <body>
-                            <div class="report-header">LABORATORY TEST REPORT</div>
-                            <div>${escapedContent}</div>
-                          </body>
-                        </html>
-                      `);
-                      printWindow.document.close();
-                      
-                      // Wait a moment before printing to ensure content is loaded
-                      setTimeout(() => {
-                        printWindow.focus();
-                        printWindow.print();
-                        printWindow.close();
-                      }, 500);
+                onClick={async () => {
+                  if (!selectedTest) return;
+                  const test = selectedTest as any;
+
+                  if (test.source === 'lims' && test.sampleid) {
+                    // LIMS: fetch full report from API
+                    try {
+                      const response = await fetch(`/api/d/${workspaceid}/lab-report/${test.sampleid}`);
+                      if (!response.ok) throw new Error('Failed to fetch report');
+                      const { report } = await response.json();
+                      const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                      const html = generateLabReportHTML(report);
+                      const pw = window.open('', '_blank');
+                      if (pw) { pw.document.write(html); pw.document.close(); }
+                    } catch (err) {
+                      console.error('Print error:', err);
                     }
+                  } else {
+                    // OpenEHR / dummy: build report data from existing fields
+                    const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                    const reportData = {
+                      facility: { name: selectedTest.laboratory_name || 'Laboratory' },
+                      patient: null,
+                      sample: {
+                        sampleid: selectedTest.specimen_id || selectedTest.composition_uid,
+                        samplenumber: selectedTest.protocol || selectedTest.specimen_id || '-',
+                        sampletype: selectedTest.specimen_type || 'Blood',
+                        containertype: '-',
+                        collectiondate: selectedTest.specimen_collection_time || selectedTest.recorded_time,
+                        currentstatus: selectedTest.overall_test_status,
+                        barcode: '-',
+                      },
+                      results: selectedTest.test_results.map((a: LabTestAnalyte) => ({
+                        resultid: '',
+                        testcode: a.analyte_code || '',
+                        testname: a.analyte_name,
+                        resultvalue: String(a.result_value ?? '-'),
+                        unit: a.result_unit || null,
+                        referencemin: null,
+                        referencemax: null,
+                        referencerange: a.reference_range || null,
+                        flag: a.result_flag || 'normal',
+                        isabormal: a.result_status !== 'normal',
+                        iscritical: a.result_status === 'critical',
+                        status: selectedTest.overall_test_status,
+                        releasedbyname: selectedTest.verified_by || null,
+                        releaseddate: selectedTest.report_date || null,
+                      })),
+                      generatedAt: new Date().toISOString(),
+                    };
+                    const html = generateLabReportHTML(reportData as any);
+                    const pw = window.open('', '_blank');
+                    if (pw) { pw.document.write(html); pw.document.close(); }
                   }
                 }}
               >
+                <Printer className="h-4 w-4 mr-2" />
                 Print Report
               </Button>
             </div>
