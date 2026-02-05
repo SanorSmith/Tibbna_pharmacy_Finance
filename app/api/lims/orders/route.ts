@@ -304,9 +304,9 @@ export async function GET(request: NextRequest) {
           .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
           .where(eq(limsOrderTests.orderid, order.orderid));
         
-        // For tests without catalog data, fetch from testReferenceRanges
+        // For tests without catalog data OR with missing specimen info, fetch from testReferenceRanges
         const testsNeedingReferenceData = orderTestsRaw
-          .filter(t => !t.catalogTestCode && t.orderTestCode)
+          .filter(t => (!t.catalogTestCode || !t.specimentype) && t.orderTestCode)
           .map(t => t.orderTestCode!);
         
         let referenceData: Record<string, any> = {};
