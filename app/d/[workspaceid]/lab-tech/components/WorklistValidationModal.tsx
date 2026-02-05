@@ -13,7 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X, CheckCircle2 } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X, CheckCircle2, Clock } from "lucide-react";
+import { calculateTAT, getTATStatusColor } from "@/lib/lims/tat-tracking";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Patient {
@@ -380,6 +381,18 @@ export default function WorklistValidationModal({
                     <div className="flex items-center gap-2">
                       <span className="text-gray-600">Sample ID:</span>
                       <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">TAT:</span>
+                      {(() => {
+                        const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
+                        return (
+                          <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
+                            <Clock className="h-3 w-3 mr-1" />
+                            {tat.elapsedDisplay} ({tat.percentUsed}%)
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
                 ) : (

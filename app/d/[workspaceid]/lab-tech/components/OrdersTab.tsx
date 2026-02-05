@@ -70,6 +70,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import EnhancedLabOrderForm from "@/components/shared/EnhancedLabOrderForm";
+import { calculateTAT, getTATStatusColor } from "@/lib/lims/tat-tracking";
 import { useSession } from "next-auth/react";
 
 type PatientCreatePayload = {
@@ -1423,13 +1424,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     <TableHead className="font-semibold w-24">Priority</TableHead>
                     <TableHead className="font-semibold w-28">Status</TableHead>
                     <TableHead className="font-semibold w-36">Provider</TableHead>
+                    <TableHead className="font-semibold w-28">TAT</TableHead>
                     <TableHead className="font-semibold w-32">Order Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12">
+                      <TableCell colSpan={8} className="text-center py-12">
                         <div className="flex flex-col items-center">
                           <Clock className="h-12 w-12 text-gray-300 mb-3" />
                           <p className="text-sm font-medium text-gray-900">
@@ -1521,6 +1523,20 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           <TableCell>{getStatusBadge(status)}</TableCell>
                           <TableCell className="text-sm text-gray-600">
                             {provider || "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              if (!orderDate) return <span className="text-gray-400">-</span>;
+                              const completedStatuses = ["COMPLETED", "CANCELLED", "REJECTED"];
+                              const isComplete = completedStatuses.includes(status || "");
+                              const tat = calculateTAT(orderDate, isComplete ? new Date().toISOString() : null, priority || "ROUTINE");
+                              return (
+                                <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {tat.elapsedDisplay}
+                                </Badge>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="text-sm text-gray-600">
                             {orderDate

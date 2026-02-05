@@ -17,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock } from "lucide-react";
+import { calculateTAT, getTATStatusColor, getTATStatusLabel, formatDuration } from "@/lib/lims/tat-tracking";
 import BarcodePrint from "./BarcodePrint";
 import { getDialogClasses } from "@/lib/ui-constants";
 
@@ -554,6 +555,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                           <TableHead>Patient Name</TableHead>
                           
                           <TableHead>Status</TableHead>
+                          <TableHead>TAT Elapsed</TableHead>
                           <TableHead>Accessioned</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -579,6 +581,29 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                               {sample.patientname || sample.subjectidentifier || "Unknown"}
                             </TableCell>
                             <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
+                            <TableCell>
+                              {(() => {
+                                const completedStatuses = ["ANALYZED", "DISPOSED"];
+                                const isComplete = completedStatuses.includes(sample.currentstatus);
+                                const tat = calculateTAT(
+                                  sample.collectiondate,
+                                  isComplete ? sample.accessionedat : null,
+                                  "ROUTINE"
+                                );
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}
+                                  >
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    {tat.elapsedDisplay}
+                                    {tat.status !== "completed" && (
+                                      <span className="ml-1 opacity-70">({tat.percentUsed}%)</span>
+                                    )}
+                                  </Badge>
+                                );
+                              })()}
+                            </TableCell>
                             <TableCell className="text-sm">
                               {new Date(sample.accessionedat).toLocaleString()}
                             </TableCell>
@@ -682,6 +707,25 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Status:</span>
                         {getStatusBadge(selectedSample.currentstatus)}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">TAT Elapsed:</span>
+                        {(() => {
+                          const completedStatuses = ["ANALYZED", "DISPOSED"];
+                          const isComplete = completedStatuses.includes(selectedSample.currentstatus);
+                          const tat = calculateTAT(
+                            selectedSample.collectiondate,
+                            isComplete ? selectedSample.accessionedat : null,
+                            "ROUTINE"
+                          );
+                          return (
+                            <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
+                              <Clock className="h-3 w-3 mr-1" />
+                              {tat.elapsedDisplay}
+                              {tat.status !== "completed" && ` (${tat.percentUsed}% of ${tat.expectedDisplay})`}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Barcode:</span>
