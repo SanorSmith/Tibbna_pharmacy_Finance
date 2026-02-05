@@ -123,15 +123,56 @@ export default function WorklistValidationModal({
 
   const currentItem = filteredItems[currentIndex];
 
-  // Release result mutation
+  // Technical validation mutation (draft → validated)
+  const techValidateMutation = useMutation({
+    mutationFn: async (resultid: string) => {
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate_technical' }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to validate technically');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+    },
+  });
+
+  // Medical/Clinical validation mutation (validated → approved)
+  const medicalValidateMutation = useMutation({
+    mutationFn: async (resultid: string) => {
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate_medical' }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to validate medically');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+    },
+  });
+
+  // Release result mutation (approved → released)
   const releaseMutation = useMutation({
     mutationFn: async (resultid: string) => {
-      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'released' }),
+        body: JSON.stringify({ action: 'release' }),
       });
-      if (!response.ok) throw new Error('Failed to release result');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to release result');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -141,13 +182,16 @@ export default function WorklistValidationModal({
 
   // Reject result mutation
   const rejectMutation = useMutation({
-    mutationFn: async (resultid: string) => {
-      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}`, {
-        method: 'PATCH',
+    mutationFn: async ({ resultid, reason }: { resultid: string; reason?: string }) => {
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'rejected' }),
+        body: JSON.stringify({ action: 'reject', rejectionreason: reason }),
       });
-      if (!response.ok) throw new Error('Failed to reject result');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reject result');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -671,41 +715,139 @@ export default function WorklistValidationModal({
                 Print Report
               </Button>
               
-              <div className="flex gap-2">
-                <Button
-                  variant="default"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => {
-                    currentItem.results.forEach(result => {
-                      if (result.resultid && result.status !== 'released') {
-                        releaseMutation.mutate(result.resultid);
-                      }
-                    });
-                  }}
-                  disabled={releaseMutation.isPending}
-                  title="Release validated results and submit to OpenEHR"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Release
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowRejectDialog(true)}
-                >
-                  Reject
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowRerunDialog(true)}
-                >
-                  Rerun
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Close
-                </Button>
+              <div className="flex flex-col gap-2 items-end">
+                {/* Validation Chain State Indicator */}
+                {(() => {
+                  const results = currentItem.results.filter((r: TestResult) => r.resultid);
+                  if (results.length === 0) return null;
+                  // Use the "lowest" status across all results to determine what's next
+                  const statuses = results.map((r: TestResult) => r.status);
+                  const allDraft = statuses.every((s: string) => s === 'draft' || s === 'pending');
+                  const allValidated = statuses.every((s: string) => s === 'validated');
+                  const allApproved = statuses.every((s: string) => s === 'approved');
+                  const allReleased = statuses.every((s: string) => s === 'released');
+                  const someReleased = statuses.some((s: string) => s === 'released');
+
+                  return (
+                    <div className="flex items-center gap-1 text-xs mb-1 w-full">
+                      <span className="text-muted-foreground mr-1">Chain:</span>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${!allDraft ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500'}`}>
+                        1. Technical
+                      </Badge>
+                      <span className="text-gray-300">→</span>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${allApproved || allReleased ? 'bg-green-100 text-green-700 border-green-300' : allValidated ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-gray-100 text-gray-500'}`}>
+                        2. Medical
+                      </Badge>
+                      <span className="text-gray-300">→</span>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${allReleased ? 'bg-green-100 text-green-700 border-green-300' : allApproved ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-gray-100 text-gray-500'}`}>
+                        3. Release
+                      </Badge>
+                    </div>
+                  );
+                })()}
+
+                {/* Chain-aware Action Buttons */}
+                <div className="flex gap-2">
+                  {(() => {
+                    const results = currentItem.results.filter((r: TestResult) => r.resultid);
+                    const statuses = results.map((r: TestResult) => r.status);
+                    const allDraft = statuses.every((s: string) => s === 'draft' || s === 'pending');
+                    const allValidated = statuses.every((s: string) => s === 'validated');
+                    const allApproved = statuses.every((s: string) => s === 'approved');
+                    const allReleased = statuses.every((s: string) => s === 'released');
+                    const anyPending = techValidateMutation.isPending || medicalValidateMutation.isPending || releaseMutation.isPending;
+
+                    return (
+                      <>
+                        {/* Technical Validate - shown when draft */}
+                        {allDraft && (
+                          <Button
+                            variant="default"
+                            className="bg-blue-600 hover:bg-blue-700"
+                            onClick={() => {
+                              results.forEach((result: TestResult) => {
+                                if (result.resultid) techValidateMutation.mutate(result.resultid);
+                              });
+                            }}
+                            disabled={anyPending}
+                            title="Technical validation (Step 1 of 3)"
+                          >
+                            {techValidateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                            Tech Validate
+                          </Button>
+                        )}
+
+                        {/* Medical Validate - shown when tech validated */}
+                        {allValidated && (
+                          <Button
+                            variant="default"
+                            className="bg-purple-600 hover:bg-purple-700"
+                            onClick={() => {
+                              results.forEach((result: TestResult) => {
+                                if (result.resultid) medicalValidateMutation.mutate(result.resultid);
+                              });
+                            }}
+                            disabled={anyPending}
+                            title="Medical/Clinical validation (Step 2 of 3)"
+                          >
+                            {medicalValidateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                            Medical Validate
+                          </Button>
+                        )}
+
+                        {/* Release - shown when medically approved */}
+                        {allApproved && (
+                          <Button
+                            variant="default"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => {
+                              results.forEach((result: TestResult) => {
+                                if (result.resultid) releaseMutation.mutate(result.resultid);
+                              });
+                            }}
+                            disabled={anyPending}
+                            title="Release to doctor (Step 3 of 3)"
+                          >
+                            {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                            Release
+                          </Button>
+                        )}
+
+                        {/* Already released indicator */}
+                        {allReleased && (
+                          <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Released
+                          </Badge>
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {/* Reject and Rerun - always available unless released */}
+                  {!currentItem.results.every((r: TestResult) => r.status === 'released') && (
+                    <>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setShowRejectDialog(true)}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowRerunDialog(true)}
+                      >
+                        Rerun
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             </DialogFooter>
           )}
@@ -725,8 +867,12 @@ export default function WorklistValidationModal({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedResultId) {
-                  rejectMutation.mutate(selectedResultId);
+                if (currentItem) {
+                  currentItem.results.forEach((result: TestResult) => {
+                    if (result.resultid && result.status !== 'released') {
+                      rejectMutation.mutate({ resultid: result.resultid, reason: 'Rejected by lab technician' });
+                    }
+                  });
                 }
               }}
               className="bg-red-600 hover:bg-red-700"
@@ -750,8 +896,12 @@ export default function WorklistValidationModal({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedResultId) {
-                  rerunMutation.mutate(selectedResultId);
+                if (currentItem) {
+                  currentItem.results.forEach((result: TestResult) => {
+                    if (result.resultid && result.status !== 'released') {
+                      rerunMutation.mutate(result.resultid);
+                    }
+                  });
                 }
               }}
               className="bg-blue-600 hover:bg-blue-700"

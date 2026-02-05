@@ -165,6 +165,32 @@ export async function PATCH(
 
     // Handle status change
     if (status) {
+      // ── Enforce multi-level validation chain ──
+      if (status === 'released' && previousStatus !== 'approved') {
+        return NextResponse.json(
+          { error: `Cannot release: result is currently "${previousStatus}". Release requires medical validation first (status "approved"). Chain: draft → validated → approved → released.` },
+          { status: 400 }
+        );
+      }
+      if (status === 'validated' && previousStatus !== 'draft' && previousStatus !== 'pending') {
+        return NextResponse.json(
+          { error: `Cannot perform technical validation: result is currently "${previousStatus}". Technical validation requires status "draft".` },
+          { status: 400 }
+        );
+      }
+      if (status === 'approved' && previousStatus !== 'validated') {
+        return NextResponse.json(
+          { error: `Cannot perform medical validation: result is currently "${previousStatus}". Medical validation requires technical validation first (status "validated").` },
+          { status: 400 }
+        );
+      }
+      if ((status === 'rejected' || status === 'rerun_requested') && previousStatus === 'released') {
+        return NextResponse.json(
+          { error: "Cannot reject or rerun: result has already been released." },
+          { status: 400 }
+        );
+      }
+
       // Update test result status
       const updatedResult = await db
         .update(testResults)
