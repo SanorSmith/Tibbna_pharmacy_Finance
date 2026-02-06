@@ -249,6 +249,14 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if notification fails
     }
 
+    // Check TAT thresholds (e.g. order-to-accession may already be breached)
+    try {
+      const { checkAndAlertTAT } = await import("@/lib/lims/tat-service");
+      await checkAndAlertTAT(workspaceId, result.sampleid);
+    } catch (tatError) {
+      // Don't fail the request if TAT check fails
+    }
+
     // Best-effort: update openEHR order status when sample is collected
     if (!isUuidOrder && orderId) {
       try {

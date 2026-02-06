@@ -8,7 +8,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
-import { notifyDoctorOnResultRelease } from "@/lib/notifications";
+import { notifyDoctorOnResultRelease, notifyDoctorOnResultApproval } from "@/lib/notifications";
 import { z } from "zod";
 
 const statusChangeSchema = z.object({
@@ -129,6 +129,21 @@ export async function POST(
       workspaceid,
     });
 
+    // Notify the ordering doctor when results are approved (medical validation)
+    if (newStatus === "approved") {
+      try {
+        await notifyDoctorOnResultApproval({
+          workspaceid,
+          sampleid: updatedResult[0].sampleid,
+          testname: updatedResult[0].testname,
+          testcode: updatedResult[0].testcode,
+          resultid,
+        });
+      } catch (notificationError) {
+        // Don't fail the request if notification fails
+      }
+    }
+
     // Notify the ordering doctor when results are released
     if (newStatus === "released") {
       try {
@@ -143,6 +158,14 @@ export async function POST(
       } catch (notificationError) {
         // Don't fail the request if notification fails
       }
+    }
+
+    // Check TAT thresholds after validation state change
+    try {
+      const { checkAndAlertTAT } = await import("@/lib/lims/tat-service");
+      await checkAndAlertTAT(workspaceid, updatedResult[0].sampleid);
+    } catch (tatError) {
+      // Don't fail the request if TAT check fails
     }
 
     return NextResponse.json({ result: updatedResult[0] });

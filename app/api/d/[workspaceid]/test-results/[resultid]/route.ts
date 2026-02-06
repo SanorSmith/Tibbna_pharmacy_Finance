@@ -9,7 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
-import { createWorkspaceNotification, notifyDoctorOnResultRelease } from "@/lib/notifications";
+import { createWorkspaceNotification, notifyDoctorOnResultRelease, notifyDoctorOnResultApproval } from "@/lib/notifications";
 import { autoFlagResult } from "@/lib/lims/auto-flag";
 import { z } from "zod";
 
@@ -230,6 +230,21 @@ export async function PATCH(
         }
       }
 
+      // Notify the ordering doctor when results are approved (medical validation)
+      if (status.toLowerCase() === 'approved') {
+        try {
+          await notifyDoctorOnResultApproval({
+            workspaceid,
+            sampleid: updatedResult[0].sampleid,
+            testname: updatedResult[0].testname,
+            testcode: updatedResult[0].testcode,
+            resultid,
+          });
+        } catch (notificationError) {
+          // Don't fail the request if notification fails
+        }
+      }
+
       // Notify lab staff when results are validated
       if (status.toLowerCase() === 'validated') {
         try {
@@ -253,6 +268,14 @@ export async function PATCH(
         } catch (notificationError) {
           // Don't fail the request if notification fails
         }
+      }
+
+      // Check TAT thresholds after status change
+      try {
+        const { checkAndAlertTAT } = await import("@/lib/lims/tat-service");
+        await checkAndAlertTAT(workspaceid, updatedResult[0].sampleid);
+      } catch (tatError) {
+        // Don't fail the request if TAT check fails
       }
 
       return NextResponse.json({ 
