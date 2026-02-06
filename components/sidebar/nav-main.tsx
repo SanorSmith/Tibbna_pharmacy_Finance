@@ -375,10 +375,15 @@ export function NavMain() {
       ],
       pharmacist: [
         {
-          title: ttt("Prescriptions"),
-          url: "/d/prescriptions",
+          title: "Pharmacy Orders",
+          url: `${base}/pharmacy/orders`,
           icon: Pill,
           isActive: true,
+        },
+        {
+          title: ttt("Prescriptions"),
+          url: "/d/prescriptions",
+          icon: ClipboardList,
           items: [
             { title: "Review Prescriptions", url: "/d/prescriptions/review" },
             { title: ttt("Drug Interactions"), url: "/d/prescriptions/interactions" },
@@ -393,16 +398,6 @@ export function NavMain() {
             { title: ttt("Inventory"), url: "/d/medications/inventory" },
             { title: ttt("Stock Levels"), url: "/d/medications/stock" },
             { title: ttt("Expiry Tracking"), url: "/d/medications/expiry" },
-          ],
-        },
-        {
-          title: ttt("Patient Consultation"),
-          url: "/d/consultation",
-          icon: Users,
-          items: [
-            { title: "Medication Review", url: "/d/consultation/review" },
-            { title: ttt("Therapy Management"), url: "/d/consultation/therapy" },
-            { title: ttt("Adverse Events"), url: "/d/consultation/adverse" },
           ],
         },
         {
@@ -892,10 +887,15 @@ export function NavMain() {
       ],
       pharmacist: [
         {
-          title: ttt("Prescription Review"),
-          url: "/d/prescriptions",
+          title: "Pharmacy Orders",
+          url: `${base}/pharmacy/orders`,
           icon: Pill,
           isActive: true,
+        },
+        {
+          title: ttt("Prescription Review"),
+          url: "/d/prescriptions",
+          icon: ClipboardList,
           items: [
             { title: ttt("Pending Review"), url: "/d/prescriptions/pending" },
             {
@@ -906,22 +906,6 @@ export function NavMain() {
               title: ttt("Clinical Guidelines"),
               url: "/d/prescriptions/guidelines",
             },
-          ],
-        },
-        {
-          title: ttt("Patient Consultation"),
-          url: "/d/consultation",
-          icon: Users,
-          items: [
-            {
-              title: ttt("Medication Counseling"),
-              url: "/d/consultation/counseling",
-            },
-            {
-              title: ttt("Therapy Management"),
-              url: "/d/consultation/therapy",
-            },
-            { title: ttt("Adverse Events"), url: "/d/consultation/adverse" },
           ],
         },
         {

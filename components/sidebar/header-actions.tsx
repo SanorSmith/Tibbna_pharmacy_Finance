@@ -17,7 +17,7 @@ export function HeaderActions() {
           variant="ghost"
           size="sm"
           onClick={() => setIsSettingsOpen(true)}
-          className="text-white hover:bg-white/20 hover:text-blue-900"
+          className="text-current hover:bg-white/20"
         >
           <Settings className="h-4 w-4" />
           <span className="ml-2 hidden sm:inline">{ttt("Settings")}</span>
@@ -26,7 +26,7 @@ export function HeaderActions() {
         <Button
           variant="ghost"
           size="sm"
-          className="text-white hover:bg-white/20 hover:text-blue-900"
+          className="text-current hover:bg-white/20"
         >
           <HelpCircle className="h-4 w-4" />
           <span className="ml-2 hidden sm:inline">{ttt("Help")}</span>

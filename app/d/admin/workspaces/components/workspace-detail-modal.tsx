@@ -341,10 +341,10 @@ export function WorkspaceDetailModal({
                   setSelectedRole(value as WorkspaceUserRole)
                 }
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="item-aligned">
                   <SelectItem value="doctor">Doctor</SelectItem>
                   <SelectItem value="nurse">Nurse</SelectItem>
                   <SelectItem value="lab_technician">Lab Technician</SelectItem>
