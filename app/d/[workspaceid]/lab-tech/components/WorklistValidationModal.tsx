@@ -13,7 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X, CheckCircle2 } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, Printer, X, CheckCircle2, Clock } from "lucide-react";
+import { calculateTAT, getTATStatusColor } from "@/lib/lims/tat-tracking";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Patient {
@@ -122,15 +123,56 @@ export default function WorklistValidationModal({
 
   const currentItem = filteredItems[currentIndex];
 
-  // Release result mutation
+  // Technical validation mutation (draft → validated)
+  const techValidateMutation = useMutation({
+    mutationFn: async (resultid: string) => {
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate_technical' }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to validate technically');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+    },
+  });
+
+  // Medical/Clinical validation mutation (validated → approved)
+  const medicalValidateMutation = useMutation({
+    mutationFn: async (resultid: string) => {
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate_medical' }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to validate medically');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+    },
+  });
+
+  // Release result mutation (approved → released)
   const releaseMutation = useMutation({
     mutationFn: async (resultid: string) => {
-      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'released' }),
+        body: JSON.stringify({ action: 'release' }),
       });
-      if (!response.ok) throw new Error('Failed to release result');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to release result');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -140,13 +182,16 @@ export default function WorklistValidationModal({
 
   // Reject result mutation
   const rejectMutation = useMutation({
-    mutationFn: async (resultid: string) => {
-      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}`, {
-        method: 'PATCH',
+    mutationFn: async ({ resultid, reason }: { resultid: string; reason?: string }) => {
+      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'rejected' }),
+        body: JSON.stringify({ action: 'reject', rejectionreason: reason }),
       });
-      if (!response.ok) throw new Error('Failed to reject result');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reject result');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -381,11 +426,58 @@ export default function WorklistValidationModal({
                       <span className="text-gray-600">Sample ID:</span>
                       <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">TAT:</span>
+                      {(() => {
+                        const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
+                        return (
+                          <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
+                            <Clock className="h-3 w-3 mr-1" />
+                            {tat.elapsedDisplay} ({tat.percentUsed}%)
+                          </Badge>
+                        );
+                      })()}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-xs">No patient information available</p>
                 )}
               </div>
+
+              {/* Batch Entry Summary */}
+              {(() => {
+                const totalTests = currentItem.results.length;
+                const withResults = currentItem.results.filter((r: TestResult) => r.hasResult !== false).length;
+                const pendingEntry = totalTests - withResults;
+                const enteredCount = Object.keys(editedResults).filter(key => 
+                  key.startsWith(currentItem.sampleid) && editedResults[key]?.trim()
+                ).length;
+                
+                return pendingEntry > 0 ? (
+                  <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-sm">
+                    <div className="flex items-center gap-4">
+                      <span className="text-amber-800">
+                        <strong>{pendingEntry}</strong> of {totalTests} tests awaiting results
+                      </span>
+                      {enteredCount > 0 && (
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                          {enteredCount} entered (unsaved)
+                        </Badge>
+                      )}
+                    </div>
+                    {withResults > 0 && (
+                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                        {withResults} completed
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center px-3 py-2 bg-green-50 border border-green-200 rounded-md text-sm">
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                    <span className="text-green-800">All {totalTests} tests have results</span>
+                  </div>
+                );
+              })()}
 
               {/* Test Results Table */}
               <Card>
@@ -608,25 +700,47 @@ export default function WorklistValidationModal({
               </Card>
 
               {/* Save Results Button */}
-              {Object.keys(editedResults).length > 0 && (
-                <div className="flex justify-end">
-                  <Button
-                    variant="default"
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={() => saveResultsMutation.mutate()}
-                    disabled={saveResultsMutation.isPending}
-                  >
-                    {saveResultsMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Results'
+              {(() => {
+                const pendingCount = currentItem ? Object.keys(editedResults).filter(key =>
+                  key.startsWith(currentItem.sampleid) && editedResults[key]?.trim()
+                ).length : 0;
+
+                return pendingCount > 0 ? (
+                  <div className="flex items-center justify-between">
+                    {saveResultsMutation.isSuccess && (
+                      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-1.5">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Results saved successfully
+                      </div>
                     )}
-                  </Button>
-                </div>
-              )}
+                    {saveResultsMutation.isError && (
+                      <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+                        <X className="h-4 w-4" />
+                        Failed to save results
+                      </div>
+                    )}
+                    {!saveResultsMutation.isSuccess && !saveResultsMutation.isError && <div />}
+                    <Button
+                      variant="default"
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => saveResultsMutation.mutate()}
+                      disabled={saveResultsMutation.isPending}
+                    >
+                      {saveResultsMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving {pendingCount} results...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Save {pendingCount} Result{pendingCount !== 1 ? 's' : ''}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : null;
+              })()}
 
             </div>
           )}
@@ -636,111 +750,161 @@ export default function WorklistValidationModal({
             <DialogFooter className="flex justify-between items-center sm:justify-between">
               <Button
                 variant="outline"
-                onClick={() => {
-                  const printWindow = window.open('', '_blank');
-                  if (!printWindow) return;
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`/api/d/${workspaceid}/lab-report/${currentItem.sampleid}`);
+                    if (!response.ok) throw new Error('Failed to fetch report data');
+                    const { report } = await response.json();
 
-                  const patientInfo = currentItem.patient 
-                    ? `${currentItem.patient.firstname} ${currentItem.patient.lastname} (${currentItem.patient.age}y, ${currentItem.patient.gender})`
-                    : 'Unknown Patient';
+                    const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                    const html = generateLabReportHTML(report);
 
-                  const resultsHTML = currentItem.results.map(result => `
-                    <tr>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${currentItem.sample.samplenumber}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${result.testname}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${result.resultvalue || '-'}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">${result.unit || '-'}</td>
-                      <td style="border: 1px solid #ddd; padding: 8px;">
-                        ${result.referencemin !== null && result.referencemax !== null
-                          ? `${result.referencemin}-${result.referencemax} ${result.unit || ''}`
-                          : result.referencerange || '-'}
-                      </td>
-                    </tr>
-                  `).join('');
-
-                  printWindow.document.write(`
-                    <html>
-                      <head>
-                        <title>Test Results - ${currentItem.sample.samplenumber}</title>
-                        <style>
-                          body { font-family: Arial, sans-serif; padding: 20px; }
-                          h1 { color: #333; }
-                          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                          th { background-color: #4E95D9; color: white; padding: 10px; text-align: left; border: 1px solid #ddd; }
-                          td { padding: 8px; border: 1px solid #ddd; }
-                          .info { margin-bottom: 20px; }
-                          .info p { margin: 5px 0; }
-                        </style>
-                      </head>
-                      <body>
-                        <h1>Laboratory Test Results</h1>
-                        <div class="info">
-                          <p><strong>Patient:</strong> ${patientInfo}</p>
-                          <p><strong>Sample ID:</strong> ${currentItem.sample.samplenumber}</p>
-                          <p><strong>Sample Type:</strong> ${currentItem.sample.sampletype}</p>
-                          <p><strong>Collection Date:</strong> ${new Date(currentItem.sample.collectiondate).toLocaleString()}</p>
-                          <p><strong>Print Date:</strong> ${new Date().toLocaleString()}</p>
-                        </div>
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Sample ID</th>
-                              <th>Test Name</th>
-                              <th>Result</th>
-                              <th>Units</th>
-                              <th>Reference Interval</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            ${resultsHTML}
-                          </tbody>
-                        </table>
-                      </body>
-                    </html>
-                  `);
-                  printWindow.document.close();
-                  printWindow.print();
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) return;
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                  } catch (err) {
+                    console.error('Print report error:', err);
+                  }
                 }}
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Print Results
+                Print Report
               </Button>
               
-              <div className="flex gap-2">
-                <Button
-                  variant="default"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => {
-                    currentItem.results.forEach(result => {
-                      if (result.resultid && result.status !== 'released') {
-                        releaseMutation.mutate(result.resultid);
-                      }
-                    });
-                  }}
-                  disabled={releaseMutation.isPending}
-                  title="Release validated results and submit to OpenEHR"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Release
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowRejectDialog(true)}
-                >
-                  Reject
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowRerunDialog(true)}
-                >
-                  Rerun
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Close
-                </Button>
+              <div className="flex flex-col gap-2 items-end">
+                {/* Validation Chain State Indicator */}
+                {(() => {
+                  const results = currentItem.results.filter((r: TestResult) => r.resultid);
+                  if (results.length === 0) return null;
+                  // Use the "lowest" status across all results to determine what's next
+                  const statuses = results.map((r: TestResult) => r.status);
+                  const allDraft = statuses.every((s: string) => s === 'draft' || s === 'pending');
+                  const allValidated = statuses.every((s: string) => s === 'validated');
+                  const allApproved = statuses.every((s: string) => s === 'approved');
+                  const allReleased = statuses.every((s: string) => s === 'released');
+                  const someReleased = statuses.some((s: string) => s === 'released');
+
+                  return (
+                    <div className="flex items-center gap-1 text-xs mb-1 w-full">
+                      <span className="text-muted-foreground mr-1">Chain:</span>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${!allDraft ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500'}`}>
+                        1. Technical
+                      </Badge>
+                      <span className="text-gray-300">→</span>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${allApproved || allReleased ? 'bg-green-100 text-green-700 border-green-300' : allValidated ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-gray-100 text-gray-500'}`}>
+                        2. Medical
+                      </Badge>
+                      <span className="text-gray-300">→</span>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${allReleased ? 'bg-green-100 text-green-700 border-green-300' : allApproved ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-gray-100 text-gray-500'}`}>
+                        3. Release
+                      </Badge>
+                    </div>
+                  );
+                })()}
+
+                {/* Chain-aware Action Buttons */}
+                <div className="flex gap-2">
+                  {(() => {
+                    const results = currentItem.results.filter((r: TestResult) => r.resultid);
+                    const statuses = results.map((r: TestResult) => r.status);
+                    const allDraft = statuses.every((s: string) => s === 'draft' || s === 'pending');
+                    const allValidated = statuses.every((s: string) => s === 'validated');
+                    const allApproved = statuses.every((s: string) => s === 'approved');
+                    const allReleased = statuses.every((s: string) => s === 'released');
+                    const anyPending = techValidateMutation.isPending || medicalValidateMutation.isPending || releaseMutation.isPending;
+
+                    return (
+                      <>
+                        {/* Technical Validate - shown when draft */}
+                        {allDraft && (
+                          <Button
+                            variant="default"
+                            className="bg-blue-600 hover:bg-blue-700"
+                            onClick={() => {
+                              results.forEach((result: TestResult) => {
+                                if (result.resultid) techValidateMutation.mutate(result.resultid);
+                              });
+                            }}
+                            disabled={anyPending}
+                            title="Technical validation (Step 1 of 3)"
+                          >
+                            {techValidateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                            Tech Validate
+                          </Button>
+                        )}
+
+                        {/* Medical Validate - shown when tech validated */}
+                        {allValidated && (
+                          <Button
+                            variant="default"
+                            className="bg-purple-600 hover:bg-purple-700"
+                            onClick={() => {
+                              results.forEach((result: TestResult) => {
+                                if (result.resultid) medicalValidateMutation.mutate(result.resultid);
+                              });
+                            }}
+                            disabled={anyPending}
+                            title="Medical/Clinical validation (Step 2 of 3)"
+                          >
+                            {medicalValidateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                            Medical Validate
+                          </Button>
+                        )}
+
+                        {/* Release - shown when medically approved */}
+                        {allApproved && (
+                          <Button
+                            variant="default"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => {
+                              results.forEach((result: TestResult) => {
+                                if (result.resultid) releaseMutation.mutate(result.resultid);
+                              });
+                            }}
+                            disabled={anyPending}
+                            title="Release to doctor (Step 3 of 3)"
+                          >
+                            {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                            Release
+                          </Button>
+                        )}
+
+                        {/* Already released indicator */}
+                        {allReleased && (
+                          <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Released
+                          </Badge>
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {/* Reject and Rerun - always available unless released */}
+                  {!currentItem.results.every((r: TestResult) => r.status === 'released') && (
+                    <>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setShowRejectDialog(true)}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowRerunDialog(true)}
+                      >
+                        Rerun
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             </DialogFooter>
           )}
@@ -760,8 +924,12 @@ export default function WorklistValidationModal({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedResultId) {
-                  rejectMutation.mutate(selectedResultId);
+                if (currentItem) {
+                  currentItem.results.forEach((result: TestResult) => {
+                    if (result.resultid && result.status !== 'released') {
+                      rejectMutation.mutate({ resultid: result.resultid, reason: 'Rejected by lab technician' });
+                    }
+                  });
                 }
               }}
               className="bg-red-600 hover:bg-red-700"
@@ -785,8 +953,12 @@ export default function WorklistValidationModal({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedResultId) {
-                  rerunMutation.mutate(selectedResultId);
+                if (currentItem) {
+                  currentItem.results.forEach((result: TestResult) => {
+                    if (result.resultid && result.status !== 'released') {
+                      rerunMutation.mutate(result.resultid);
+                    }
+                  });
                 }
               }}
               className="bg-blue-600 hover:bg-blue-700"

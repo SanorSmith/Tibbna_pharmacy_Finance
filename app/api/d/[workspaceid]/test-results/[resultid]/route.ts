@@ -9,7 +9,8 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
-import { createWorkspaceNotification } from "@/lib/notifications";
+import { createWorkspaceNotification, notifyDoctorOnResultRelease, notifyDoctorOnResultApproval } from "@/lib/notifications";
+import { autoFlagResult } from "@/lib/lims/auto-flag";
 import { z } from "zod";
 
 const testResultUpdateSchema = z.object({
@@ -122,10 +123,21 @@ export async function PATCH(
 
     // Handle result value update with change comment
     if (resultvalue !== undefined && changeComment) {
+      // Re-compute flags based on the new result value
+      const flags = autoFlagResult({
+        resultvalue,
+        referencemin: currentResult[0].referencemin,
+        referencemax: currentResult[0].referencemax,
+        referencerange: currentResult[0].referencerange,
+      });
+
       const updatedResult = await db
         .update(testResults)
         .set({
           resultvalue: resultvalue,
+          flag: flags.flag,
+          isabormal: flags.isabormal,
+          iscritical: flags.iscritical,
           updatedby: user.userid,
           updatedat: new Date(),
         })
@@ -153,6 +165,32 @@ export async function PATCH(
 
     // Handle status change
     if (status) {
+      // ── Enforce multi-level validation chain ──
+      if (status === 'released' && previousStatus !== 'approved') {
+        return NextResponse.json(
+          { error: `Cannot release: result is currently "${previousStatus}". Release requires medical validation first (status "approved"). Chain: draft → validated → approved → released.` },
+          { status: 400 }
+        );
+      }
+      if (status === 'validated' && previousStatus !== 'draft' && previousStatus !== 'pending') {
+        return NextResponse.json(
+          { error: `Cannot perform technical validation: result is currently "${previousStatus}". Technical validation requires status "draft".` },
+          { status: 400 }
+        );
+      }
+      if (status === 'approved' && previousStatus !== 'validated') {
+        return NextResponse.json(
+          { error: `Cannot perform medical validation: result is currently "${previousStatus}". Medical validation requires technical validation first (status "validated").` },
+          { status: 400 }
+        );
+      }
+      if ((status === 'rejected' || status === 'rerun_requested') && previousStatus === 'released') {
+        return NextResponse.json(
+          { error: "Cannot reject or rerun: result has already been released." },
+          { status: 400 }
+        );
+      }
+
       // Update test result status
       const updatedResult = await db
         .update(testResults)
@@ -176,14 +214,45 @@ export async function PATCH(
         workspaceid: workspaceid,
       });
 
-      // Create notification for test validation/release
-      if (['released', 'validated'].includes(status.toLowerCase())) {
+      // Notify doctor when results are released
+      if (status.toLowerCase() === 'released') {
+        try {
+          await notifyDoctorOnResultRelease({
+            workspaceid,
+            sampleid: updatedResult[0].sampleid,
+            testname: updatedResult[0].testname,
+            testcode: updatedResult[0].testcode,
+            resultvalue: updatedResult[0].resultvalue,
+            resultid,
+          });
+        } catch (notificationError) {
+          // Don't fail the request if notification fails
+        }
+      }
+
+      // Notify the ordering doctor when results are approved (medical validation)
+      if (status.toLowerCase() === 'approved') {
+        try {
+          await notifyDoctorOnResultApproval({
+            workspaceid,
+            sampleid: updatedResult[0].sampleid,
+            testname: updatedResult[0].testname,
+            testcode: updatedResult[0].testcode,
+            resultid,
+          });
+        } catch (notificationError) {
+          // Don't fail the request if notification fails
+        }
+      }
+
+      // Notify lab staff when results are validated
+      if (status.toLowerCase() === 'validated') {
         try {
           await createWorkspaceNotification({
             workspaceid,
             type: "TEST_VALIDATED",
-            title: `Test Result ${status.toUpperCase()}`,
-            message: `Test result for ${updatedResult[0].testname} (${updatedResult[0].testcode}) has been ${status.toLowerCase()}.`,
+            title: "Test Result Validated",
+            message: `Test result for ${updatedResult[0].testname} (${updatedResult[0].testcode}) has been validated.`,
             relatedentityid: resultid,
             relatedentitytype: "test_result",
             metadata: {
@@ -194,11 +263,19 @@ export async function PATCH(
               validationStatus: status,
               validatedBy: user.userid,
             },
-            priority: status === 'released' ? "high" : "medium",
+            priority: "medium",
           });
         } catch (notificationError) {
           // Don't fail the request if notification fails
         }
+      }
+
+      // Check TAT thresholds after status change
+      try {
+        const { checkAndAlertTAT } = await import("@/lib/lims/tat-service");
+        await checkAndAlertTAT(workspaceid, updatedResult[0].sampleid);
+      } catch (tatError) {
+        // Don't fail the request if TAT check fails
       }
 
       return NextResponse.json({ 

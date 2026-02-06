@@ -562,7 +562,7 @@ export default function EnhancedLabOrderForm({
                     {formState.selectedPackages.length} test group{formState.selectedPackages.length > 1 ? 's' : ''} selected
                   </p>
                   <p className="text-xs text-blue-700 mt-1">
-                    ℹ️ All tests in selected packages are included. Go to Step 3 to deselect individual tests.
+                    ℹ️ All tests in selected packages are included. Go to Step 3 to deselect single tests.
                   </p>
                   {shouldExpandModal && (
                     <p className="text-xs text-blue-600 mt-1 italic">
@@ -580,7 +580,7 @@ export default function EnhancedLabOrderForm({
             <div className="flex items-center gap-2 mb-3">
               <TestTube className="h-5 w-5" />
               <Label className="text-base font-semibold">
-                Step 3: Select Individual Tests
+                Step 3: Select Single Tests
               </Label>
             </div>
             

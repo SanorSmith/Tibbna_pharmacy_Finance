@@ -8,6 +8,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testResults, resultValidationHistory } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
+import { notifyDoctorOnResultRelease, notifyDoctorOnResultApproval } from "@/lib/notifications";
 import { z } from "zod";
 
 const statusChangeSchema = z.object({
@@ -41,14 +42,27 @@ export async function POST(
       return NextResponse.json({ error: "Result not found" }, { status: 404 });
     }
 
-    let newStatus = existingResult[0].status;
+    const currentStatus = existingResult[0].status;
+    let newStatus = currentStatus;
     const updateData: any = {
       updatedby: user.userid,
       updatedat: new Date(),
     };
 
+    // ── Enforce multi-level validation chain ──
+    // Valid transitions:
+    //   draft → validated (technical validation)
+    //   validated → approved (medical/clinical validation)
+    //   approved → released (final release to doctor)
+    //   any non-released → rejected / rerun
     switch (validatedData.action) {
       case "validate_technical":
+        if (currentStatus !== "draft" && currentStatus !== "pending") {
+          return NextResponse.json(
+            { error: `Cannot perform technical validation: result is currently "${currentStatus}". Technical validation requires status "draft".` },
+            { status: 400 }
+          );
+        }
         newStatus = "validated";
         updateData.technicalvalidatedby = user.userid;
         updateData.technicalvalidateddate = new Date();
@@ -57,6 +71,12 @@ export async function POST(
         break;
 
       case "validate_medical":
+        if (currentStatus !== "validated") {
+          return NextResponse.json(
+            { error: `Cannot perform medical validation: result is currently "${currentStatus}". Medical validation requires technical validation first (status "validated").` },
+            { status: 400 }
+          );
+        }
         newStatus = "approved";
         updateData.medicalvalidatedby = user.userid;
         updateData.medicalvalidateddate = new Date();
@@ -65,6 +85,12 @@ export async function POST(
         break;
 
       case "release":
+        if (currentStatus !== "approved") {
+          return NextResponse.json(
+            { error: `Cannot release: result is currently "${currentStatus}". Release requires medical validation first (status "approved").` },
+            { status: 400 }
+          );
+        }
         newStatus = "released";
         updateData.releasedby = user.userid;
         updateData.releaseddate = new Date();
@@ -72,6 +98,12 @@ export async function POST(
         break;
 
       case "reject":
+        if (currentStatus === "released") {
+          return NextResponse.json(
+            { error: "Cannot reject: result has already been released." },
+            { status: 400 }
+          );
+        }
         newStatus = "rejected";
         updateData.status = newStatus;
         updateData.markedforrerun = true;
@@ -96,6 +128,45 @@ export async function POST(
       rejectionreason: validatedData.rejectionreason,
       workspaceid,
     });
+
+    // Notify the ordering doctor when results are approved (medical validation)
+    if (newStatus === "approved") {
+      try {
+        await notifyDoctorOnResultApproval({
+          workspaceid,
+          sampleid: updatedResult[0].sampleid,
+          testname: updatedResult[0].testname,
+          testcode: updatedResult[0].testcode,
+          resultid,
+        });
+      } catch (notificationError) {
+        // Don't fail the request if notification fails
+      }
+    }
+
+    // Notify the ordering doctor when results are released
+    if (newStatus === "released") {
+      try {
+        await notifyDoctorOnResultRelease({
+          workspaceid,
+          sampleid: updatedResult[0].sampleid,
+          testname: updatedResult[0].testname,
+          testcode: updatedResult[0].testcode,
+          resultvalue: updatedResult[0].resultvalue,
+          resultid,
+        });
+      } catch (notificationError) {
+        // Don't fail the request if notification fails
+      }
+    }
+
+    // Check TAT thresholds after validation state change
+    try {
+      const { checkAndAlertTAT } = await import("@/lib/lims/tat-service");
+      await checkAndAlertTAT(workspaceid, updatedResult[0].sampleid);
+    } catch (tatError) {
+      // Don't fail the request if TAT check fails
+    }
 
     return NextResponse.json({ result: updatedResult[0] });
   } catch (error) {

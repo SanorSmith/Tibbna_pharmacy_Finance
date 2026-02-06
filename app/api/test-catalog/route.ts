@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
         const packageId = `${labType.toLowerCase().replace(/\s+/g, "-")}-standalone-tests`;
         testPackages[packageId] = {
           id: packageId,
-          name: "Standalone Tests",
+          name: `${labType} — Individual Tests`,
           category: labType,
           description: `${testCodes.length} test${testCodes.length > 1 ? 's' : ''}`,
           tests: testCodes,
