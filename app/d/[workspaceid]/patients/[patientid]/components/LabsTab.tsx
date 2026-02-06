@@ -157,61 +157,6 @@ const getResultStatus = (analyte: LabTestAnalyte) => {
   return 'normal';
 };
 
-// Helper function to generate lab report content for download
-const generateLabReport = (test: LabTestResult, patientId: string, workspaceId: string): string => {
-  const report = [
-    'LABORATORY TEST REPORT',
-    '=====================',
-    '',
-    `Test Name: ${test.test_name}`,
-    `Laboratory: ${test.laboratory_name}`,
-    `Report Date: ${new Date(test.report_date).toLocaleDateString()}`,
-    `Status: ${test.overall_test_status}`,
-    '',
-    'PATIENT INFORMATION',
-    '-------------------',
-    `Patient ID: ${patientId}`,
-    `Workspace ID: ${workspaceId}`,
-    '',
-    'SPECIMEN INFORMATION',
-    '--------------------',
-    test.specimen_type ? `Specimen Type: ${test.specimen_type}` : '',
-    test.specimen_collection_time ? `Collection Time: ${new Date(test.specimen_collection_time).toLocaleString()}` : '',
-    test.specimen_received_time ? `Received Time: ${new Date(test.specimen_received_time).toLocaleString()}` : '',
-    '',
-    'TEST RESULTS',
-    '------------',
-  ].filter(Boolean).join('\n');
-
-  const resultsTable = test.test_results.map((analyte) => {
-    return `${analyte.analyte_name.padEnd(30)} | ${String(analyte.result_value).padEnd(10)} ${analyte.result_unit || ''} | ${analyte.reference_range || 'N/A'} | ${getResultStatus(analyte)}`;
-  }).join('\n');
-
-  const additionalInfo = [
-    '',
-    'CLINICAL INFORMATION',
-    '--------------------',
-    test.clinical_information_provided || 'Not provided',
-    '',
-    'CONCLUSION',
-    '----------',
-    test.conclusion || 'Not provided',
-    '',
-    'TEST DIAGNOSIS',
-    '-------------',
-    test.test_diagnosis || 'Not provided',
-    '',
-    'REPORTING INFORMATION',
-    '---------------------',
-    test.reported_by ? `Reported by: ${test.reported_by}` : '',
-    test.verified_by ? `Verified by: ${test.verified_by}` : '',
-    '',
-    `Report generated on: ${new Date().toLocaleString()}`,
-    `Source: ${(test as any).source === 'openEHR' ? 'OpenEHR System' : 'Local LIMS'}`,
-  ].filter(Boolean).join('\n');
-
-  return report + '\n' + resultsTable + '\n' + additionalInfo;
-};
 
 export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);

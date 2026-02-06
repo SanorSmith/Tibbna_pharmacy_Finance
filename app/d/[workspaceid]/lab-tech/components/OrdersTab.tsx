@@ -1879,11 +1879,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             
                             return (
                               <div>
-                                <Label htmlFor="specimenTypeDetail" className="text-xs font-semibold">
+                                <Label htmlFor="specimenTypeOpenEHR" className="text-xs font-semibold">
                                   Specimen Type *
                                 </Label>
                                 <select
-                                  id="specimenTypeDetail"
+                                  id="specimenTypeOpenEHR"
                                   title="Select specimen type for sample collection"
                                   value={sampleCollectionData.specimenType}
                                   onChange={(e) =>
