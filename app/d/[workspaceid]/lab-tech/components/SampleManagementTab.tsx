@@ -13,9 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, Package, Thermometer, Archive, Plus, Edit, Trash2, MapPin, ArrowRight, Clock, AlertTriangle } from "lucide-react";
+import { Search, Loader2, Package, Plus, Edit, Trash2, MapPin, ArrowRight, Clock, AlertTriangle, History, Ban, RotateCcw } from "lucide-react";
 
 interface FinishedSample {
   sampleid: string;
@@ -100,6 +101,13 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
   const [storageLocationId, setStorageLocationId] = useState<string>('');
   const [retentionDays, setRetentionDays] = useState<number>(3);
   const [storageNotes, setStorageNotes] = useState<string>('');
+  const [deleteLocationTarget, setDeleteLocationTarget] = useState<StorageLocation | null>(null);
+  const [disposeTarget, setDisposeTarget] = useState<StoredSample | null>(null);
+  const [disposeMethod, setDisposeMethod] = useState('autoclave');
+  const [disposeNotes, setDisposeNotes] = useState('');
+  const [retrieveTarget, setRetrieveTarget] = useState<StoredSample | null>(null);
+  const [retrieveReason, setRetrieveReason] = useState('');
+  const [historyTarget, setHistoryTarget] = useState<StoredSample | null>(null);
   const queryClient = useQueryClient();
 
   // Form state for new/edit location
@@ -222,9 +230,7 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
   };
 
   const handleDeleteLocation = (location: StorageLocation) => {
-    if (confirm(`Are you sure you want to delete "${location.name}"?`)) {
-      deleteLocationMutation.mutate(location.locationid);
-    }
+    setDeleteLocationTarget(location);
   };
 
   const openEditDialog = (location: StorageLocation) => {
@@ -253,14 +259,59 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
     setIsEditLocationDialogOpen(true);
   };
 
-  // Fetch finished samples ready for storage
+  // Dispose sample mutation
+  const disposeMutation = useMutation({
+    mutationFn: async ({ storageid, method, notes }: { storageid: string; method: string; notes: string }) => {
+      const response = await fetch('/api/lims/sample-storage', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storageid, action: 'dispose', disposalmethod: method, disposalnotes: notes }),
+      });
+      if (!response.ok) { const d = await response.json(); throw new Error(d.error || 'Failed to dispose'); }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stored-samples", workspaceid] });
+      queryClient.invalidateQueries({ queryKey: ["finished-samples", workspaceid] });
+      setDisposeTarget(null);
+      setDisposeMethod('autoclave');
+      setDisposeNotes('');
+    },
+  });
+
+  // Retrieve sample mutation
+  const retrieveMutation = useMutation({
+    mutationFn: async ({ storageid, reason }: { storageid: string; reason: string }) => {
+      const response = await fetch('/api/lims/sample-storage', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storageid, action: 'retrieve', retrievalreason: reason }),
+      });
+      if (!response.ok) { const d = await response.json(); throw new Error(d.error || 'Failed to retrieve'); }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stored-samples", workspaceid] });
+      queryClient.invalidateQueries({ queryKey: ["finished-samples", workspaceid] });
+      setRetrieveTarget(null);
+      setRetrieveReason('');
+    },
+  });
+
+  // Fetch finished samples ready for storage (VALIDATED, ANALYZED, or RELEASED)
   const { data: finishedSamples, isLoading: finishedLoading } = useQuery<FinishedSample[]>({
     queryKey: ["finished-samples", workspaceid],
     queryFn: async () => {
-      const response = await fetch(`/api/lims/accession?workspaceid=${workspaceid}&status=VALIDATED&limit=500`);
-      if (!response.ok) throw new Error("Failed to fetch finished samples");
-      const data = await response.json();
-      return data.samples;
+      const [r1, r2, r3] = await Promise.all([
+        fetch(`/api/lims/accession?workspaceid=${workspaceid}&status=VALIDATED&limit=500`),
+        fetch(`/api/lims/accession?workspaceid=${workspaceid}&status=ANALYZED&limit=500`),
+        fetch(`/api/lims/accession?workspaceid=${workspaceid}&status=RELEASED&limit=500`),
+      ]);
+      const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
+      const all = [...(d1.samples || []), ...(d2.samples || []), ...(d3.samples || [])];
+      // Deduplicate by sampleid
+      const seen = new Set<string>();
+      return all.filter((s: FinishedSample) => { if (seen.has(s.sampleid)) return false; seen.add(s.sampleid); return true; });
     },
   });
 
@@ -334,40 +385,6 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
 
   const isExpired = (expiryDate: string) => {
     return new Date(expiryDate) < new Date();
-  };
-
-  const getLocationIcon = (location: string) => {
-    const loc = location.toLowerCase();
-    if (loc.includes('refrigerator') || loc.includes('freezer')) {
-      return <Thermometer className="h-4 w-4 text-blue-500" />;
-    }
-    if (loc.includes('rack')) {
-      return <Archive className="h-4 w-4 text-gray-500" />;
-    }
-    return <Package className="h-4 w-4 text-green-500" />;
-  };
-
-  const getLocationBadge = (location: string) => {
-    const loc = location.toLowerCase();
-    if (loc.includes('refrigerator')) {
-      return <Badge className="bg-blue-500 text-white">Refrigerator</Badge>;
-    }
-    if (loc.includes('freezer_minus_80')) {
-      return <Badge className="bg-indigo-600 text-white">-80°C Freezer</Badge>;
-    }
-    if (loc.includes('freezer_minus_20')) {
-      return <Badge className="bg-blue-600 text-white">-20°C Freezer</Badge>;
-    }
-    if (loc.includes('room_temp')) {
-      return <Badge className="bg-green-500 text-white">Room Temp</Badge>;
-    }
-    if (loc.includes('incubator')) {
-      return <Badge className="bg-orange-500 text-white">Incubator</Badge>;
-    }
-    if (loc.includes('rack')) {
-      return <Badge className="bg-gray-500 text-white">{location}</Badge>;
-    }
-    return <Badge className="bg-gray-400 text-white">{location}</Badge>;
   };
 
   return (
@@ -895,6 +912,7 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
                     <TableHead>Expiry Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Stored By</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -938,6 +956,37 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
                         <Badge className="bg-blue-500 text-white capitalize">{sample.status}</Badge>
                       </TableCell>
                       <TableCell className="text-sm">{sample.storedbyname}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            title="Retrieve from storage"
+                            onClick={() => setRetrieveTarget(sample)}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                            title="Dispose sample"
+                            onClick={() => setDisposeTarget(sample)}
+                          >
+                            <Ban className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            title="View history"
+                            onClick={() => setHistoryTarget(sample)}
+                          >
+                            <History className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -953,43 +1002,188 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
         </CardContent>
       </Card>
 
-      {/* Storage Overview - Removed as per requirements */}
-      {false && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Storage Overview</CardTitle>
-            <CardDescription>Samples grouped by storage location</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(samplesByLocation).map(([location, locationSamples]) => (
-                <div key={location} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {getLocationIcon(location)}
-                      <h3 className="font-semibold">{location}</h3>
-                    </div>
-                    <Badge variant="outline">{locationSamples.length} samples</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                    {locationSamples.slice(0, 8).map((sample) => (
-                      <div key={sample.sampleid} className="p-2 bg-gray-50 rounded border">
-                        <div className="font-mono text-xs font-medium">{sample.samplenumber}</div>
-                        <div className="text-xs text-gray-600 truncate">{sample.patientName || 'Unknown'}</div>
-                      </div>
-                    ))}
-                    {locationSamples.length > 8 && (
-                      <div className="p-2 bg-gray-100 rounded border flex items-center justify-center">
-                        <span className="text-xs text-gray-600">+{locationSamples.length - 8} more</span>
-                      </div>
-                    )}
+      {/* Delete Location Confirmation */}
+      <AlertDialog open={!!deleteLocationTarget} onOpenChange={(open) => !open && setDeleteLocationTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Storage Location</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{deleteLocationTarget?.name}&quot;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteLocationTarget) {
+                  deleteLocationMutation.mutate(deleteLocationTarget.locationid);
+                  setDeleteLocationTarget(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dispose Sample Dialog */}
+      <Dialog open={!!disposeTarget} onOpenChange={(open) => { if (!open) { setDisposeTarget(null); setDisposeMethod('autoclave'); setDisposeNotes(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dispose Sample</DialogTitle>
+            <DialogDescription>
+              Permanently dispose of sample {disposeTarget?.samplenumber}. This marks the sample as disposed and cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Disposal Method *</Label>
+              <Select value={disposeMethod} onValueChange={setDisposeMethod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="autoclave">Autoclave</SelectItem>
+                  <SelectItem value="incineration">Incineration</SelectItem>
+                  <SelectItem value="chemical">Chemical Disinfection</SelectItem>
+                  <SelectItem value="biohazard">Biohazard Waste</SelectItem>
+                  <SelectItem value="standard">Standard Waste</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Disposal Notes (optional)</Label>
+              <Textarea
+                value={disposeNotes}
+                onChange={(e) => setDisposeNotes(e.target.value)}
+                placeholder="Reason for disposal, special handling notes..."
+                rows={3}
+              />
+            </div>
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+              <strong>Warning:</strong> Disposing a sample will update its status to DISPOSED. This cannot be reversed.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDisposeTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (disposeTarget) {
+                  disposeMutation.mutate({ storageid: disposeTarget.storageid, method: disposeMethod, notes: disposeNotes });
+                }
+              }}
+              disabled={disposeMutation.isPending}
+            >
+              {disposeMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Ban className="h-4 w-4 mr-2" />}
+              Dispose Sample
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Retrieve Sample Dialog */}
+      <Dialog open={!!retrieveTarget} onOpenChange={(open) => { if (!open) { setRetrieveTarget(null); setRetrieveReason(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Retrieve Sample from Storage</DialogTitle>
+            <DialogDescription>
+              Retrieve sample {retrieveTarget?.samplenumber} from {retrieveTarget?.locationname}. The sample will be moved back to the laboratory.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Retrieval Reason *</Label>
+              <Textarea
+                value={retrieveReason}
+                onChange={(e) => setRetrieveReason(e.target.value)}
+                placeholder="e.g., Re-testing required, additional analysis needed..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRetrieveTarget(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (retrieveTarget && retrieveReason.trim()) {
+                  retrieveMutation.mutate({ storageid: retrieveTarget.storageid, reason: retrieveReason });
+                }
+              }}
+              disabled={retrieveMutation.isPending || !retrieveReason.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {retrieveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+              Retrieve Sample
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sample History Dialog */}
+      <Dialog open={!!historyTarget} onOpenChange={(open) => !open && setHistoryTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Sample Lifecycle</DialogTitle>
+            <DialogDescription>
+              Tracking history for sample {historyTarget?.samplenumber}
+            </DialogDescription>
+          </DialogHeader>
+          {historyTarget && (
+            <div className="space-y-3 py-2">
+              <div className="relative pl-6 space-y-4">
+                {/* Collection */}
+                <div className="relative">
+                  <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />
+                  <div className="absolute -left-[13px] top-4 w-0.5 h-full bg-gray-200" />
+                  <div className="text-sm">
+                    <p className="font-medium text-green-700">Collected</p>
+                    <p className="text-xs text-gray-500">{new Date(historyTarget.collectiondate).toLocaleString()}</p>
                   </div>
                 </div>
-              ))}
+
+                {/* Stored */}
+                <div className="relative">
+                  <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+                  <div className="absolute -left-[13px] top-4 w-0.5 h-full bg-gray-200" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-700">Moved to Storage</p>
+                    <p className="text-xs text-gray-500">{new Date(historyTarget.storagedate).toLocaleString()}</p>
+                    <p className="text-xs text-gray-600">Location: {historyTarget.locationname} ({historyTarget.locationcode})</p>
+                    <p className="text-xs text-gray-600">Stored by: {historyTarget.storedbyname}</p>
+                    <p className="text-xs text-gray-600">Retention: {historyTarget.retentiondays} days</p>
+                    {historyTarget.storagenotes && <p className="text-xs text-gray-600">Notes: {historyTarget.storagenotes}</p>}
+                  </div>
+                </div>
+
+                {/* Expiry */}
+                <div className="relative">
+                  <div className={`absolute -left-6 top-1 w-3 h-3 rounded-full border-2 border-white ${isExpired(historyTarget.expirydate) ? 'bg-red-500' : isExpiringSoon(historyTarget.expirydate) ? 'bg-orange-500' : 'bg-gray-300'}`} />
+                  <div className="text-sm">
+                    <p className={`font-medium ${isExpired(historyTarget.expirydate) ? 'text-red-700' : isExpiringSoon(historyTarget.expirydate) ? 'text-orange-700' : 'text-gray-500'}`}>
+                      {isExpired(historyTarget.expirydate) ? 'Expired' : isExpiringSoon(historyTarget.expirydate) ? 'Expiring Soon' : 'Expires'}
+                    </p>
+                    <p className="text-xs text-gray-500">{new Date(historyTarget.expirydate).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Status */}
+              <div className="mt-4 p-3 bg-gray-50 rounded-md border">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Current Status</span>
+                  <Badge className="bg-blue-500 text-white capitalize">{historyTarget.status}</Badge>
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryTarget(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

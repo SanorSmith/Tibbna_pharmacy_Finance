@@ -219,3 +219,112 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// PATCH: Dispose or retrieve a stored sample
+const storagePatchSchema = z.object({
+  storageid: z.string().uuid(),
+  action: z.enum(["dispose", "retrieve"]),
+  disposalmethod: z.string().optional(),
+  disposalnotes: z.string().optional(),
+  retrievalreason: z.string().optional(),
+});
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getUser();
+    if (!user?.userid) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const validatedData = storagePatchSchema.parse(body);
+
+    // Check storage record exists and is currently stored
+    const existing = await db
+      .select()
+      .from(sampleStorage)
+      .where(eq(sampleStorage.storageid, validatedData.storageid))
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      return NextResponse.json({ error: "Storage record not found" }, { status: 404 });
+    }
+
+    if (existing[0].status !== "stored") {
+      return NextResponse.json(
+        { error: `Sample is already ${existing[0].status}, cannot ${validatedData.action}` },
+        { status: 400 }
+      );
+    }
+
+    const now = new Date();
+
+    if (validatedData.action === "dispose") {
+      await db
+        .update(sampleStorage)
+        .set({
+          status: "disposed",
+          disposeddate: now,
+          disposedby: user.userid,
+          disposalmethod: validatedData.disposalmethod || "standard",
+          disposalnotes: validatedData.disposalnotes || null,
+        })
+        .where(eq(sampleStorage.storageid, validatedData.storageid));
+
+      // Update sample status
+      await db
+        .update(accessionSamples)
+        .set({
+          currentstatus: "DISPOSED",
+          updatedat: now,
+        })
+        .where(eq(accessionSamples.sampleid, existing[0].sampleid));
+
+      return NextResponse.json({
+        success: true,
+        message: "Sample disposed successfully",
+      });
+    }
+
+    if (validatedData.action === "retrieve") {
+      await db
+        .update(sampleStorage)
+        .set({
+          status: "retrieved",
+          retrieveddate: now,
+          retrievedby: user.userid,
+          retrievalreason: validatedData.retrievalreason || null,
+        })
+        .where(eq(sampleStorage.storageid, validatedData.storageid));
+
+      // Update sample status
+      await db
+        .update(accessionSamples)
+        .set({
+          currentstatus: "RETRIEVED",
+          currentlocation: "Laboratory",
+          updatedat: now,
+        })
+        .where(eq(accessionSamples.sampleid, existing[0].sampleid));
+
+      return NextResponse.json({
+        success: true,
+        message: "Sample retrieved from storage",
+      });
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid request data", details: error.issues },
+        { status: 400 }
+      );
+    }
+    console.error("Error updating storage record:", error);
+    return NextResponse.json(
+      { error: "Failed to update storage record" },
+      { status: 500 }
+    );
+  }
+}
