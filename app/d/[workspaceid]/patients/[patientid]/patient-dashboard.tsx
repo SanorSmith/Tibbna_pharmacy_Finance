@@ -6,6 +6,7 @@
  */
 "use client";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePatientData } from "./hooks/usePatientData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,8 @@ export default function PatientDashboard({
   workspaceid: string;
   patient: Patient;
 }) {
+  const queryClient = useQueryClient();
+
   // Use centralized data fetching hook - prefetches all tab data in parallel
   const {
     appointments,
@@ -567,7 +570,7 @@ export default function PatientDashboard({
                 patientid={patient.patientid}
                 prescriptions={prescriptions}
                 loadingPrescriptions={loadingPrescriptions}
-                loadPrescriptions={() => console.log("Prescriptions already cached")}
+                loadPrescriptions={() => queryClient.invalidateQueries({ queryKey: ["prescriptions", workspaceid, patient.patientid] })}
               />
             )}
           </TabsContent>
