@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload, ChevronDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload, ChevronDown, History } from "lucide-react";
 import { LAB_TYPES, TEST_GROUPS, getAllTestGroupNames } from "@/lib/test-groups-and-lab-types";
 import {
   Dialog,
@@ -52,6 +52,12 @@ interface TestReferenceRange {
   additionalinformation?: string;
   notes?: string;
   isactive: string;
+  createdby?: string;
+  createdat?: string;
+  updatedby?: string;
+  updatedat?: string;
+  createdbyname?: string;
+  updatedbyname?: string;
 }
 
 interface TestReferenceManagerProps {
@@ -92,6 +98,11 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
   const [viewingRange, setViewingRange] = useState<TestReferenceRange | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState<string>("");
+  const [updateReason, setUpdateReason] = useState("");
+  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+  const [auditRangeId, setAuditRangeId] = useState<string | null>(null);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -220,7 +231,25 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
         notes: "",
       });
     }
+    setUpdateReason("");
     setShowDialog(true);
+  };
+
+  const fetchAuditLogs = async (rangeid: string) => {
+    setLoadingAuditLogs(true);
+    setAuditRangeId(rangeid);
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/test-reference-ranges/audit-log?rangeid=${rangeid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs || []);
+      }
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+    } finally {
+      setLoadingAuditLogs(false);
+      setShowAuditLog(true);
+    }
   };
 
   const handleSave = async () => {
@@ -238,7 +267,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
         const response = await fetch(`/api/d/${workspaceid}/test-reference-ranges`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rangeid: editingRange.rangeid, ...payload }),
+          body: JSON.stringify({ rangeid: editingRange.rangeid, updateReason, ...payload }),
         });
 
         if (response.ok) {
@@ -498,6 +527,15 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
+                            onClick={() => fetchAuditLogs(range.rangeid)}
+                            title="Change History"
+                          >
+                            <History className="h-3 w-3 text-orange-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
                             onClick={() => {
                               setDeleteRangeId(range.rangeid);
                               setShowDeleteDialog(true);
@@ -675,11 +713,28 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
               </div>
             </div>
 
+            {editingRange && (
+              <div className="col-span-6 mt-1 border-t pt-1">
+                <Label className="text-[10px] font-semibold text-orange-700">Reason for Update *</Label>
+                <Textarea
+                  className="mt-0.5 text-[11px] min-h-[40px]"
+                  value={updateReason}
+                  onChange={(e) => setUpdateReason(e.target.value)}
+                  placeholder="e.g., Updated reference range per new WHO guidelines, Corrected unit from mg/dL to mmol/L"
+                  rows={2}
+                />
+              </div>
+            )}
+
             <DialogFooter className="pt-1">
               <Button variant="outline" onClick={() => setShowDialog(false)} className="h-7 text-xs">
                 <X className="h-3 w-3 mr-1" /> Cancel
               </Button>
-              <Button onClick={handleSave} className="h-7 text-xs">
+              <Button
+                onClick={handleSave}
+                className="h-7 text-xs"
+                disabled={editingRange ? !updateReason.trim() : false}
+              >
                 <Save className="h-3 w-3 mr-1" /> {editingRange ? "Update" : "Create"}
               </Button>
             </DialogFooter>
@@ -688,170 +743,161 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
 
         {/* Details View Dialog */}
         <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-          <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="pb-1">
-              <DialogTitle className="text-base">Test Reference Details</DialogTitle>
-              <DialogDescription className="text-xs">
-                Complete information for {viewingRange?.testcode} - {viewingRange?.testname}
-              </DialogDescription>
+          <DialogContent className="max-w-[60vw] max-h-[80vh] overflow-y-auto p-4">
+            <DialogHeader className="pb-0 mb-1">
+              <DialogTitle className="text-sm">{viewingRange?.testcode} — {viewingRange?.testname}</DialogTitle>
             </DialogHeader>
 
             {viewingRange && (
-              <div className="space-y-3 py-2">
-                {/* Test Information */}
-                <div>
-                  <h3 className="font-semibold text-xs mb-1 text-gray-700 border-b pb-0.5">Test Information</h3>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Test Code:</span>
-                      <p className="mt-0.5">{viewingRange.testcode}</p>
+              <div className="space-y-2 text-[11px]">
+                {/* Row 1: Core info */}
+                <div className="grid grid-cols-6 gap-x-3 gap-y-1">
+                  <div><span className="text-[10px] text-gray-500">Code</span><p className="font-medium">{viewingRange.testcode}</p></div>
+                  <div><span className="text-[10px] text-gray-500">Name</span><p className="font-medium">{viewingRange.testname}</p></div>
+                  <div><span className="text-[10px] text-gray-500">Unit</span><p className="font-mono">{viewingRange.unit}</p></div>
+                  <div><span className="text-[10px] text-gray-500">Lab Type</span><p><Badge variant="outline" className="text-[10px] px-1 py-0">{viewingRange.labtype || "—"}</Badge></p></div>
+                  <div><span className="text-[10px] text-gray-500">Age</span><p><Badge variant="secondary" className="text-[10px] px-1 py-0">{viewingRange.agegroup}</Badge></p></div>
+                  <div><span className="text-[10px] text-gray-500">Sex</span><p><Badge variant="secondary" className="text-[10px] px-1 py-0">{SEX_OPTIONS.find(s => s.value === viewingRange.sex)?.label || viewingRange.sex}</Badge></p></div>
+                </div>
+
+                {/* Row 2: Specimen */}
+                <div className="grid grid-cols-5 gap-x-3 gap-y-1 border-t pt-1">
+                  <div><span className="text-[10px] text-gray-500">Group</span><p>{viewingRange.grouptests || "—"}</p></div>
+                  <div><span className="text-[10px] text-gray-500">Sample</span><p>{viewingRange.sampletype || "—"}</p></div>
+                  <div><span className="text-[10px] text-gray-500">Container</span><p>{viewingRange.containertype || "—"}</p></div>
+                  <div><span className="text-[10px] text-gray-500">Body Site</span><p>{viewingRange.bodysite || "—"}</p></div>
+                  <div><span className="text-[10px] text-gray-500">Status</span><p><Badge variant={viewingRange.isactive === "Y" ? "default" : "destructive"} className="text-[10px] px-1 py-0">{viewingRange.isactive === "Y" ? "Active" : "Inactive"}</Badge></p></div>
+                </div>
+
+                {/* Row 3: Reference + Panic */}
+                <div className="grid grid-cols-2 gap-3 border-t pt-1">
+                  <div>
+                    <span className="text-[10px] text-gray-500 font-semibold">Reference Range</span>
+                    <p className="font-medium text-blue-600">{getReferenceDisplay(viewingRange)}</p>
+                    <div className="flex gap-3 mt-0.5 text-[10px] text-gray-500">
+                      <span>Min: <span className="font-mono text-gray-800">{viewingRange.referencemin || "—"}</span></span>
+                      <span>Max: <span className="font-mono text-gray-800">{viewingRange.referencemax || "—"}</span></span>
+                      {viewingRange.referencetext && <span>Text: <span className="text-gray-800">{viewingRange.referencetext}</span></span>}
                     </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Test Name:</span>
-                      <p className="mt-0.5">{viewingRange.testname}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Unit:</span>
-                      <p className="mt-0.5 font-mono">{viewingRange.unit || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Lab Type:</span>
-                      <p className="mt-0.5">
-                        <Badge variant="outline" className="text-[10px] h-4 px-1">{viewingRange.labtype || "—"}</Badge>
-                      </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-red-600 font-semibold">Panic / Critical</span>
+                    <p className="font-medium text-red-600">{getPanicDisplay(viewingRange)}</p>
+                    <div className="flex gap-3 mt-0.5 text-[10px] text-gray-500">
+                      <span>Low: <span className="font-mono text-red-600">{viewingRange.paniclow || "—"}</span></span>
+                      <span>High: <span className="font-mono text-red-600">{viewingRange.panichigh || "—"}</span></span>
+                      {viewingRange.panictext && <span>Text: <span className="text-red-600">{viewingRange.panictext}</span></span>}
                     </div>
                   </div>
                 </div>
 
-                {/* Demographics */}
-                <div>
-                  <h3 className="font-semibold text-xs mb-1 text-gray-700 border-b pb-0.5">Demographics</h3>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Age Group:</span>
-                      <p className="mt-0.5">
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                          {AGE_GROUPS.find(ag => ag.value === viewingRange.agegroup)?.label || viewingRange.agegroup}
-                        </Badge>
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Sex:</span>
-                      <p className="mt-0.5">
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                          {SEX_OPTIONS.find(s => s.value === viewingRange.sex)?.label || viewingRange.sex}
-                        </Badge>
-                      </p>
+                {/* Row 4: Clinical */}
+                {(viewingRange.clinicalindication || viewingRange.additionalinformation || viewingRange.notes) && (
+                  <div className="border-t pt-1">
+                    <span className="text-[10px] text-gray-500 font-semibold">Clinical</span>
+                    <div className="grid grid-cols-3 gap-2 mt-0.5">
+                      {viewingRange.clinicalindication && <div><span className="text-[10px] text-gray-500">Indication:</span><p>{viewingRange.clinicalindication}</p></div>}
+                      {viewingRange.additionalinformation && <div><span className="text-[10px] text-gray-500">Additional:</span><p>{viewingRange.additionalinformation}</p></div>}
+                      {viewingRange.notes && <div><span className="text-[10px] text-gray-500">Notes:</span><p>{viewingRange.notes}</p></div>}
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Laboratory & Specimen Information */}
-                <div>
-                  <h3 className="font-semibold text-xs mb-1 text-gray-700 border-b pb-0.5">Laboratory & Specimen</h3>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Group Tests:</span>
-                      <p className="mt-0.5">{viewingRange.grouptests || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Sample Type:</span>
-                      <p className="mt-0.5">{viewingRange.sampletype || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Container:</span>
-                      <p className="mt-0.5">{viewingRange.containertype || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Body Site:</span>
-                      <p className="mt-0.5">{viewingRange.bodysite || "—"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Reference Range */}
-                <div>
-                  <h3 className="font-semibold text-xs mb-1 text-gray-700 border-b pb-0.5">Reference Range</h3>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Ref Min:</span>
-                      <p className="mt-0.5 font-mono">{viewingRange.referencemin || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Ref Max:</span>
-                      <p className="mt-0.5 font-mono">{viewingRange.referencemax || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Ref Text:</span>
-                      <p className="mt-0.5">{viewingRange.referencetext || "—"}</p>
-                    </div>
-                    <div className="col-span-3">
-                      <span className="font-medium text-gray-600 text-[10px]">Full Display:</span>
-                      <p className="mt-0.5 font-medium text-blue-600">{getReferenceDisplay(viewingRange)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Panic/Critical Values */}
-                <div>
-                  <h3 className="font-semibold text-xs mb-1 text-red-700 border-b border-red-200 pb-0.5">Panic/Critical Values</h3>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Panic Low:</span>
-                      <p className="mt-0.5 font-mono text-red-600">{viewingRange.paniclow || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Panic High:</span>
-                      <p className="mt-0.5 font-mono text-red-600">{viewingRange.panichigh || "—"}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Panic Text:</span>
-                      <p className="mt-0.5 text-red-600">{viewingRange.panictext || "—"}</p>
-                    </div>
-                    <div className="col-span-3">
-                      <span className="font-medium text-gray-600 text-[10px]">Full Display:</span>
-                      <p className="mt-0.5 font-medium text-red-600">{getPanicDisplay(viewingRange)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Clinical Information */}
-                <div>
-                  <h3 className="font-semibold text-xs mb-1 text-gray-700 border-b pb-0.5">Clinical Information</h3>
-                  <div className="space-y-2 text-xs">
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Clinical Indication:</span>
-                      <p className="mt-0.5 text-gray-800 leading-snug">
-                        {viewingRange.clinicalindication || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600 text-[10px]">Additional Info:</span>
-                      <p className="mt-0.5 text-gray-800 leading-snug">
-                        {viewingRange.additionalinformation || "—"}
-                      </p>
-                    </div>
-                    {viewingRange.notes && (
-                      <div>
-                        <span className="font-medium text-gray-600 text-[10px]">Notes:</span>
-                        <p className="mt-0.5 text-gray-800 leading-snug">{viewingRange.notes}</p>
-                      </div>
-                    )}
-                  </div>
+                {/* Row 5: Audit info */}
+                <div className="border-t pt-1 flex items-center gap-4 text-[10px] text-gray-400">
+                  {viewingRange.createdat && (
+                    <span>Created: {new Date(viewingRange.createdat).toLocaleDateString()}{viewingRange.createdbyname ? ` by ${viewingRange.createdbyname}` : ""}</span>
+                  )}
+                  {viewingRange.updatedat && (
+                    <span>Updated: {new Date(viewingRange.updatedat).toLocaleDateString()}{viewingRange.updatedbyname ? ` by ${viewingRange.updatedbyname}` : ""}</span>
+                  )}
                 </div>
               </div>
             )}
 
-            <DialogFooter className="pt-2">
-              <Button variant="outline" onClick={() => setShowDetailsDialog(false)} className="h-7 text-xs">
+            <DialogFooter className="pt-1">
+              <Button variant="outline" onClick={() => setShowDetailsDialog(false)} className="h-6 text-[11px] px-3">
                 Close
               </Button>
-              <Button onClick={() => {
-                setShowDetailsDialog(false);
-                handleOpenDialog(viewingRange!);
-              }} className="h-7 text-xs">
-                <Edit2 className="h-3 w-3 mr-1" />
-                Edit
+              <Button variant="outline" onClick={() => { if (viewingRange) fetchAuditLogs(viewingRange.rangeid); }} className="h-6 text-[11px] px-3">
+                <History className="h-3 w-3 mr-1 text-orange-600" /> History
+              </Button>
+              <Button onClick={() => { setShowDetailsDialog(false); handleOpenDialog(viewingRange!); }} className="h-6 text-[11px] px-3">
+                <Edit2 className="h-3 w-3 mr-1" /> Edit
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Audit Log Dialog */}
+        <Dialog open={showAuditLog} onOpenChange={setShowAuditLog}>
+          <DialogContent className="max-w-[70vw] max-h-[80vh] overflow-y-auto p-4">
+            <DialogHeader className="pb-1">
+              <DialogTitle className="text-sm flex items-center gap-2">
+                <History className="h-4 w-4 text-orange-600" />
+                Change History
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Audit trail of all changes made to this test reference range
+              </DialogDescription>
+            </DialogHeader>
+
+            {loadingAuditLogs ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">Loading audit logs...</div>
+            ) : auditLogs.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">No change history found.</div>
+            ) : (
+              <div className="space-y-3">
+                {auditLogs.map((log: any) => (
+                  <div key={log.logid} className="border rounded-lg p-3 text-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={log.action === "CREATE" ? "default" : log.action === "DELETE" ? "destructive" : "secondary"}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {log.action}
+                        </Badge>
+                        <span className="font-medium">{log.username || "Unknown"}</span>
+                      </div>
+                      <span className="text-muted-foreground text-[10px]">
+                        {new Date(log.createdat).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {log.reason && (
+                      <div className="mb-2 bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                        <span className="font-medium text-orange-700">Reason: </span>
+                        <span className="text-orange-900">{log.reason}</span>
+                      </div>
+                    )}
+
+                    {log.action === "UPDATE" && log.changes && Object.keys(log.changes).length > 0 && (
+                      <div className="mt-1">
+                        <span className="font-semibold text-[10px] text-gray-600 uppercase">Changed Fields:</span>
+                        <div className="mt-1 space-y-1">
+                          {Object.entries(log.changes as Record<string, { old: any; new: any }>).map(([field, diff]) => (
+                            <div key={field} className="grid grid-cols-[120px_1fr_1fr] gap-1 items-start">
+                              <span className="font-medium text-gray-700 capitalize">{field.replace(/([A-Z])/g, " $1")}</span>
+                              <div className="bg-red-50 rounded px-1.5 py-0.5 line-through text-red-700 truncate" title={String(diff.old || "—")}>
+                                {String(diff.old || "—")}
+                              </div>
+                              <div className="bg-green-50 rounded px-1.5 py-0.5 text-green-700 truncate" title={String(diff.new || "—")}>
+                                {String(diff.new || "—")}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button variant="outline" onClick={() => setShowAuditLog(false)} className="h-7 text-xs">
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>

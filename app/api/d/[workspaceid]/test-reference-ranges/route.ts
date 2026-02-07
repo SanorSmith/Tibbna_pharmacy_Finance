@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { testReferenceRanges } from "@/lib/db/schema";
+import { testReferenceRanges, testReferenceAuditLog, users } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
+
+// Fields to track for audit diffs
+const AUDITABLE_FIELDS = [
+  "testcode", "testname", "unit", "agegroup", "sex",
+  "referencemin", "referencemax", "referencetext",
+  "paniclow", "panichigh", "panictext",
+  "labtype", "grouptests", "sampletype", "containertype", "bodysite",
+  "clinicalindication", "additionalinformation", "notes", "isactive",
+] as const;
+
+function computeChanges(oldRecord: any, newData: any): Record<string, { old: any; new: any }> {
+  const changes: Record<string, { old: any; new: any }> = {};
+  for (const field of AUDITABLE_FIELDS) {
+    const oldVal = oldRecord[field] ?? "";
+    const newVal = newData[field] ?? "";
+    if (String(oldVal) !== String(newVal)) {
+      changes[field] = { old: oldVal, new: newVal };
+    }
+  }
+  return changes;
+}
 
 // Validation schema
 const testReferenceRangeSchema = z.object({
@@ -67,7 +88,7 @@ export async function GET(
       whereConditions.push(eq(testReferenceRanges.sex, sex));
     }
 
-    const ranges = await db
+    const rawRanges = await db
       .select()
       .from(testReferenceRanges)
       .where(and(...whereConditions))
@@ -76,6 +97,29 @@ export async function GET(
         testReferenceRanges.agegroup,
         testReferenceRanges.sex
       );
+
+    // Collect unique user IDs for name lookup
+    const userIds = [...new Set([
+      ...rawRanges.map(r => r.createdby).filter(Boolean),
+      ...rawRanges.map(r => r.updatedby).filter(Boolean),
+    ])] as string[];
+
+    let userMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const userRows = await db
+        .select({ userid: users.userid, name: users.name, email: users.email })
+        .from(users)
+        .where(sql`${users.userid} = ANY(${userIds})`);
+      for (const u of userRows) {
+        userMap[u.userid] = u.name || u.email || "Unknown";
+      }
+    }
+
+    const ranges = rawRanges.map(r => ({
+      ...r,
+      createdbyname: r.createdby ? userMap[r.createdby] || undefined : undefined,
+      updatedbyname: r.updatedby ? userMap[r.updatedby] || undefined : undefined,
+    }));
 
     return NextResponse.json({ ranges });
   } catch (error) {
@@ -131,6 +175,17 @@ export async function POST(
       })
       .returning();
 
+    // Audit log: CREATE
+    await db.insert(testReferenceAuditLog).values({
+      rangeid: newRange[0].rangeid,
+      workspaceid,
+      action: "CREATE",
+      userid: user.userid,
+      username: user.name || user.email || "Unknown",
+      reason: "Initial creation",
+      snapshot: newRange[0] as any,
+    });
+
     return NextResponse.json({ range: newRange[0] }, { status: 201 });
   } catch (error) {
     console.error("Error creating test reference range:", error);
@@ -161,12 +216,31 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { rangeid, ...updateData } = body;
+    const { rangeid, updateReason, ...updateData } = body;
 
     if (!rangeid) {
       return NextResponse.json(
         { error: "rangeid is required" },
         { status: 400 }
+      );
+    }
+
+    // Fetch the old record for diff comparison
+    const [oldRecord] = await db
+      .select()
+      .from(testReferenceRanges)
+      .where(
+        and(
+          eq(testReferenceRanges.rangeid, rangeid),
+          eq(testReferenceRanges.workspaceid, workspaceid)
+        )
+      )
+      .limit(1);
+
+    if (!oldRecord) {
+      return NextResponse.json(
+        { error: "Reference range not found" },
+        { status: 404 }
       );
     }
 
@@ -196,6 +270,21 @@ export async function PUT(
         { error: "Reference range not found" },
         { status: 404 }
       );
+    }
+
+    // Audit log: UPDATE with field-level diffs
+    const changes = computeChanges(oldRecord, updated[0]);
+    if (Object.keys(changes).length > 0) {
+      await db.insert(testReferenceAuditLog).values({
+        rangeid,
+        workspaceid,
+        action: "UPDATE",
+        userid: user.userid,
+        username: user.name || user.email || "Unknown",
+        reason: updateReason || "No reason provided",
+        changes: changes as any,
+        snapshot: updated[0] as any,
+      });
     }
 
     return NextResponse.json({ range: updated[0] });
@@ -258,6 +347,18 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    // Audit log: DELETE (soft)
+    const reason = searchParams.get("reason") || "Deleted by user";
+    await db.insert(testReferenceAuditLog).values({
+      rangeid,
+      workspaceid,
+      action: "DELETE",
+      userid: user.userid,
+      username: user.name || user.email || "Unknown",
+      reason,
+      snapshot: deleted[0] as any,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
