@@ -57,9 +57,9 @@ export async function GET(
         patientName: sql<string>`CONCAT(${patients.firstname}, ' ', ${patients.lastname})`.as('patientName'),
       })
       .from(worklistItems)
-      .leftJoin(accessionSamples, sql`${worklistItems.sampleid}::uuid = ${accessionSamples.sampleid}`)
-      .leftJoin(limsOrders, sql`${worklistItems.orderid}::uuid = ${limsOrders.orderid}`)
-      .leftJoin(patients, sql`${accessionSamples.patientid}::uuid = ${patients.patientid}`)
+      .leftJoin(accessionSamples, sql`${worklistItems.sampleid}::text = ${accessionSamples.sampleid}::text`)
+      .leftJoin(limsOrders, sql`${worklistItems.orderid}::text = ${limsOrders.orderid}::text`)
+      .leftJoin(patients, sql`${accessionSamples.patientid}::text = ${patients.patientid}::text`)
       .where(eq(worklistItems.worklistid, worklistid))
       .orderBy(desc(worklistItems.addedat));
 

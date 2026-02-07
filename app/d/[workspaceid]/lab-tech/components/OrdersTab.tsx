@@ -9,7 +9,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSampleRecommendations } from "@/lib/lims/test-recommendations";
+import { getSampleRecommendations, getRecommendationsByServiceName, resolveServiceToTestCodes } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1236,7 +1236,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     <TableHead className="font-semibold w-32">Order ID</TableHead>
                     <TableHead className="font-semibold w-40">Patient</TableHead>
                     <TableHead className="font-semibold w-48">
-                      Test/Service
+                      Test
                     </TableHead>
                     <TableHead className="font-semibold w-24">Priority</TableHead>
                     <TableHead className="font-semibold w-28">Status</TableHead>
@@ -1265,13 +1265,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredOrders.map((order: LimsOrder) => {
+                    filteredOrders.map((order: LimsOrder, idx: number) => {
                       const isOpenEHR = order.source === "openEHR";
                       const orderId =
                         order.orderid ||
                         order.composition_uid ||
                         order.request_id ||
                         "";
+                      const rowKey = `${orderId}-${idx}`;
                       const displayId =
                         orderId.length > 12
                           ? orderId.substring(0, 12) + "..."
@@ -1300,7 +1301,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                       return (
                         <TableRow
-                          key={orderId}
+                          key={rowKey}
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => {
                             setSelectedOrder(order);
@@ -1480,20 +1481,27 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 const testCodes = selectedOrder.tests.map(
                   (t: any) => t.testCode || t.testcode || t.code
                 );
-                console.log(
-                  "Computing recommendations for test codes:",
-                  testCodes
-                );
                 computedRecommendations = getSampleRecommendations(testCodes);
-                console.log(
-                  "Computed recommendations:",
-                  computedRecommendations
-                );
+              } else if (selectedOrder.source === "openEHR" && selectedOrder.service_name) {
+                // For openEHR orders, resolve service name to test codes
+                computedRecommendations = getRecommendationsByServiceName(selectedOrder.service_name);
               }
 
               // Use stored data or computed recommendations
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
+              
+              // For openEHR orders, resolve individual tests from service name for display
+              const resolvedTests = selectedOrder.tests && selectedOrder.tests.length > 0
+                ? selectedOrder.tests
+                : displayRecommendations?.recommendations?.map((r: any) => ({
+                    testCode: r.testCode,
+                    testName: r.testName,
+                    specimenType: r.sampleType,
+                    containerType: r.containerType,
+                    specimenvolume: `${r.volume} ${r.volumeUnit}`,
+                    fastingRequired: r.fastingRequired,
+                  })) || [];
 
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
@@ -1597,63 +1605,10 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                         Requested Tests
                       </h3>
 
-                      {selectedOrder.source === "openEHR" ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 bg-gray-50 px-3 py-1 rounded text-left"
-                              >
-                                <FlaskConical className="h-4 w-4 text-gray-600" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium truncate">
-                                    {selectedOrder.service_name}
-                                  </div>
-                                  {selectedOrder.test_category && (
-                                    <div className="text-xs text-gray-600 truncate">
-                                      Category: {selectedOrder.test_category}
-                                    </div>
-                                  )}
-                                  {selectedOrder.clinical_indication && (
-                                    <div className="text-xs text-gray-600 truncate">
-                                      Indication: {selectedOrder.clinical_indication}
-                                    </div>
-                                  )}
-                                </div>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>
-                              <div className="space-y-0.5">
-                                <div className="font-medium">
-                                  {selectedOrder.service_name}
-                                </div>
-                                {selectedOrder.test_category && (
-                                  <div>
-                                    <span className="font-medium">Category:</span>{" "}
-                                    {selectedOrder.test_category}
-                                  </div>
-                                )}
-                                {selectedOrder.clinical_indication && (
-                                  <div>
-                                    <span className="font-medium">Indication:</span>{" "}
-                                    {selectedOrder.clinical_indication}
-                                  </div>
-                                )}
-                                {(selectedOrder as any).request_id && (
-                                  <div>
-                                    <span className="font-medium">Request ID:</span>{" "}
-                                    {(selectedOrder as any).request_id}
-                                  </div>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : (
+                      {resolvedTests.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto">
                           <TooltipProvider>
-                            {selectedOrder.tests?.map(
+                            {resolvedTests.map(
                               (test: any, idx: number) => (
                                 <Tooltip key={idx}>
                                   <TooltipTrigger asChild>
@@ -1703,15 +1658,31 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             )}
                           </TooltipProvider>
                         </div>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded text-left">
+                          <FlaskConical className="h-4 w-4 text-gray-600" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {selectedOrder.service_name || "Unknown Service"}
+                            </div>
+                            {selectedOrder.test_category && (
+                              <div className="text-xs text-gray-600 truncate">
+                                Category: {selectedOrder.test_category}
+                              </div>
+                            )}
+                            {(selectedOrder.clinical_indication || selectedOrder.clinicalindication) && (
+                              <div className="text-xs text-gray-600 truncate">
+                                Indication: {selectedOrder.clinical_indication || selectedOrder.clinicalindication}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
 
                     {/* Required Specimen Types */}
-                    {selectedOrder.tests && selectedOrder.tests.length > 0 && (() => {
-                      console.log('[OrdersTab] Order tests:', selectedOrder.tests);
-                      console.log('[OrdersTab] First test:', selectedOrder.tests[0]);
-                      
-                      const specimenGroups = selectedOrder.tests.reduce((acc: any, test: any) => {
+                    {resolvedTests.length > 0 && (() => {
+                      const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
                         const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
                         if (!acc[specimen]) {
                           acc[specimen] = {
@@ -1759,7 +1730,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     })()}
 
                     {/* Fasting Requirements Alert */}
-                    {selectedOrder.tests?.some(
+                    {resolvedTests.some(
                       (t: any) => t.fastingRequired
                     ) && (
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -1790,15 +1761,29 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           Recommended Collection:
                         </div>
                         <div className="text-[10px] text-green-700">
-                          {(selectedOrder.sampletype || selectedOrder.sampleType || displayRecommendations?.primarySampleType) && (
-                            <span><strong>Sample:</strong> {selectedOrder.sampletype || selectedOrder.sampleType || displayRecommendations?.primarySampleType} • </span>
-                          )}
-                          {(selectedOrder.containertype || selectedOrder.containerType || displayRecommendations?.primaryContainer) && (
-                            <span><strong>Container:</strong> {selectedOrder.containertype || selectedOrder.containerType || displayRecommendations?.primaryContainer} • </span>
-                          )}
-                          {(selectedOrder.volume || displayRecommendations?.totalVolume) && (
-                            <span><strong>Volume:</strong> {selectedOrder.volume || displayRecommendations?.totalVolume} {selectedOrder.volumeunit || displayRecommendations?.volumeUnit || 'mL'}</span>
-                          )}
+                          {(() => {
+                            const sampleType = displayRecommendations?.primarySampleType
+                              || (resolvedTests[0] as any)?.specimenType
+                              || (resolvedTests[0] as any)?.specimentype
+                              || "";
+                            const container = displayRecommendations?.primaryContainer
+                              || (resolvedTests[0] as any)?.containerType
+                              || (resolvedTests[0] as any)?.containertype
+                              || "";
+                            const vol = displayRecommendations?.totalVolume || 0;
+                            const volUnit = displayRecommendations?.volumeUnit || "mL";
+                            const hasInfo = sampleType || container || vol > 0;
+                            
+                            if (!hasInfo) return <span className="text-gray-400">No specific recommendations available for this test</span>;
+                            
+                            return (
+                              <>
+                                {sampleType && <span><strong>Sample:</strong> {sampleType} • </span>}
+                                {container && <span><strong>Container:</strong> {container} • </span>}
+                                {vol > 0 && <span><strong>Volume:</strong> {vol} {volUnit}</span>}
+                              </>
+                            );
+                          })()}
                           {displayRecommendations?.fastingRequired && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 ml-2">
                               ⚠️ Fasting
@@ -1814,11 +1799,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       <div className="space-y-2">
                         {/* Specimen Type Selection */}
                         {(() => {
-                          // For local orders with tests array
-                          if (selectedOrder.tests && selectedOrder.tests.length > 0) {
-                            const specimenTypes = Array.from(new Set(
-                              selectedOrder.tests.map((t: any) => 
-                                t.specimenType || t.specimentype || t.material || "Not specified"
+                          // Use resolvedTests (works for both local and openEHR orders)
+                          if (resolvedTests.length > 0) {
+                            const specimenTypes: string[] = Array.from(new Set(
+                              resolvedTests.map((t: any) => 
+                                String(t.specimenType || t.specimentype || t.material || "Not specified")
                               )
                             ));
                             
@@ -1848,7 +1833,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 </select>
                                 {sampleCollectionData.specimenType && (
                                   <p className="text-[10px] text-blue-600 mt-1">
-                                    Tests for this specimen: {selectedOrder.tests
+                                    Tests for this specimen: {resolvedTests
                                       .filter((t: any) => 
                                         (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
                                       )
@@ -1860,8 +1845,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             );
                           }
                           
-                          // For openEHR orders without tests array - provide common specimen types
-                          if (selectedOrder.source === "openEHR") {
+                          // Fallback: provide common specimen types when no tests could be resolved
+                          if (selectedOrder.source === "openEHR" || !selectedOrder.tests?.length) {
                             const commonSpecimenTypes = [
                               "Blood",
                               "Venous blood",
@@ -1913,7 +1898,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           return null;
                         })()}
 
-                        {/* Sample ID and Accession ID on one line */}
+                        {/* Sample ID and Collection Date on one line */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label
@@ -1936,47 +1921,26 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                               className="h-8 text-xs font-mono"
                             />
                           </div>
-
                           <div>
-                            <Label htmlFor="accessionNumberDetail" className="text-xs">
-                              Accession ID
+                            <Label
+                              htmlFor="collectionDateDetail"
+                              className="text-xs"
+                            >
+                              Collection Date *
                             </Label>
                             <Input
-                              id="accessionNumberDetail"
-                              type="text"
-                              placeholder="Scan or type"
-                              value={sampleCollectionData.accessionNumber || ""}
+                              id="collectionDateDetail"
+                              type="datetime-local"
+                              value={sampleCollectionData.collectionDate}
                               onChange={(e) =>
                                 setSampleCollectionData((prev) => ({
                                   ...prev,
-                                  accessionNumber: e.target.value,
+                                  collectionDate: e.target.value,
                                 }))
                               }
-                              className="h-8 text-xs font-mono"
+                              className="h-8 text-xs"
                             />
                           </div>
-                        </div>
-
-                        
-                        <div>
-                          <Label
-                            htmlFor="collectionDateDetail"
-                            className="text-xs"
-                          >
-                            Collection Date *
-                          </Label>
-                          <Input
-                            id="collectionDateDetail"
-                            type="datetime-local"
-                            value={sampleCollectionData.collectionDate}
-                            onChange={(e) =>
-                              setSampleCollectionData((prev) => ({
-                                ...prev,
-                                collectionDate: e.target.value,
-                              }))
-                            }
-                            className="h-8 text-xs"
-                          />
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
@@ -2038,10 +2002,13 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             if (!selectedOrder || !sampleCollectionData.specimenType) return;
 
                             // Filter tests that match the selected specimen type
-                            const testsForSpecimen = selectedOrder.tests?.filter(
+                            // Use resolvedTests (works for both local and openEHR orders)
+                            const testsForSpecimen = resolvedTests.filter(
                               (t: any) => 
                                 (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
-                            ) || [];
+                            );
+                            // If no match by specimen type, use all resolved tests
+                            const testsToSend = testsForSpecimen.length > 0 ? testsForSpecimen : resolvedTests;
 
                             const sampleData: SampleData = {
                               sampleNumber:
@@ -2067,7 +2034,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                               currentLocation:
                                 sampleCollectionData.currentLocation,
                               tests:
-                                testsForSpecimen.map(
+                                testsToSend.map(
                                   (t: any) =>
                                     t.testCode || t.testcode || t.testName || t
                                 ) || [],
@@ -2145,11 +2112,25 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   (t: any) => t.testCode || t.testcode || t.code
                 );
                 computedRecommendations = getSampleRecommendations(testCodes);
+              } else if (selectedOrder.source === "openEHR" && selectedOrder.service_name) {
+                computedRecommendations = getRecommendationsByServiceName(selectedOrder.service_name);
               }
 
               // Use stored data or computed recommendations
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
+              
+              // Resolve tests for display
+              const resolvedTests2 = selectedOrder.tests && selectedOrder.tests.length > 0
+                ? selectedOrder.tests
+                : displayRecommendations?.recommendations?.map((r: any) => ({
+                    testCode: r.testCode,
+                    testName: r.testName,
+                    specimenType: r.sampleType,
+                    containerType: r.containerType,
+                    specimenvolume: `${r.volume} ${r.volumeUnit}`,
+                    fastingRequired: r.fastingRequired,
+                  })) || [];
 
               return (
                 <div className="space-y-4 py-4">
@@ -2170,11 +2151,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </div>
                       <div>
                         Tests:{" "}
-                        {selectedOrder.source === "openEHR"
-                          ? selectedOrder.service_name
-                          : selectedOrder.tests
-                              ?.map((t: any) => t.testName)
-                              .join(", ")}
+                        {resolvedTests2.length > 0
+                          ? resolvedTests2.map((t: any) => t.testName).join(", ")
+                          : selectedOrder.service_name || "N/A"}
                       </div>
                     </div>
                   </div>

@@ -66,7 +66,7 @@ export async function GET(
       .from(worklistItems)
       .leftJoin(
         accessionSamples,
-        sql`${worklistItems.sampleid}::uuid = ${accessionSamples.sampleid}`
+        sql`${worklistItems.sampleid}::text = ${accessionSamples.sampleid}::text`
       )
       .where(eq(worklistItems.worklistid, worklistid));
 
@@ -121,17 +121,88 @@ export async function GET(
             .from(limsOrderTests)
             .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
             .where(sql`${limsOrderTests.orderid}::text = ${item.sample.orderid}::text`);
-        } else if (item.testcode && item.testname) {
-          // Fallback: Use test from worklist item itself
+        }
+        
+        // Fallback 1: Use sample's tests JSON field (populated for openEHR orders)
+        if (orderTests.length === 0 && item.sample && (item.sample as any).tests) {
+          const sampleTests = (item.sample as any).tests;
+          if (Array.isArray(sampleTests) && sampleTests.length > 0) {
+            // Tests can be strings (test codes) or objects with testcode/testname
+            orderTests = sampleTests.map((t: any) => {
+              if (typeof t === 'string') {
+                return { testcode: t, testname: t, testcategory: null };
+              }
+              return {
+                testcode: t.testCode || t.testcode || t.code || t,
+                testname: t.testName || t.testname || t.name || t.testCode || t.testcode || t,
+                testcategory: t.testCategory || t.testcategory || t.category || null,
+              };
+            });
+          }
+        }
+        
+        // Fallback 2: Use test from worklist item itself
+        if (orderTests.length === 0 && item.testcode && item.testname) {
           orderTests = [{
             testcode: item.testcode,
             testname: item.testname,
             testcategory: null,
           }];
-        } else {
-          // No order and no test in worklist item - this sample has no tests assigned
-          // Log this for debugging
-          console.log(`Sample ${item.sample.samplenumber} has no order and no tests in worklist item`);
+        }
+        
+        // Fallback 3: Look up tests from labTestCatalog by sample's labcategory or worklist department
+        if (orderTests.length === 0) {
+          const category = (item.sample as any).labcategory || worklist.department;
+          if (category) {
+            // Try labTestCatalog first
+            const catalogTests = await db
+              .select({
+                testcode: labTestCatalog.testcode,
+                testname: labTestCatalog.testname,
+                testcategory: labTestCatalog.testcategory,
+              })
+              .from(labTestCatalog)
+              .where(
+                and(
+                  sql`LOWER(${labTestCatalog.testcategory}) = LOWER(${category})`,
+                  eq(labTestCatalog.workspaceid, workspaceid)
+                )
+              );
+            if (catalogTests.length > 0) {
+              orderTests = catalogTests;
+              console.log(`Fallback 3a: Found ${catalogTests.length} tests from catalog for category "${category}"`);
+            } else {
+              // Try testReferenceRanges by labtype
+              const refTests = await db
+                .select({
+                  testcode: testReferenceRanges.testcode,
+                  testname: testReferenceRanges.testname,
+                })
+                .from(testReferenceRanges)
+                .where(
+                  and(
+                    sql`LOWER(${testReferenceRanges.labtype}) = LOWER(${category})`,
+                    eq(testReferenceRanges.workspaceid, workspaceid),
+                    eq(testReferenceRanges.isactive, 'Y')
+                  )
+                );
+              // Deduplicate by testcode
+              const seen = new Set<string>();
+              const uniqueRefTests = refTests.filter(t => {
+                if (seen.has(t.testcode)) return false;
+                seen.add(t.testcode);
+                return true;
+              });
+              if (uniqueRefTests.length > 0) {
+                orderTests = uniqueRefTests.map(t => ({ ...t, testcategory: category }));
+                console.log(`Fallback 3b: Found ${uniqueRefTests.length} tests from reference ranges for labtype "${category}"`);
+              }
+            }
+          }
+        }
+        
+        if (orderTests.length === 0) {
+          console.log(`Sample ${item.sample.samplenumber} (orderid: ${item.sample.orderid}, labcategory: ${(item.sample as any).labcategory}, worklist dept: ${worklist.department}) has no tests from any source`);
         }
         
         if (orderTests.length > 0) {

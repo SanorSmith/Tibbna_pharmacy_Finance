@@ -378,6 +378,7 @@ export async function GET(request: NextRequest) {
           const patient = await db
             .select({
               firstname: patients.firstname,
+              middlename: patients.middlename,
               lastname: patients.lastname,
               dateofbirth: patients.dateofbirth,
               gender: patients.gender,
@@ -387,7 +388,7 @@ export async function GET(request: NextRequest) {
             .limit(1);
           
           if (patient.length > 0) {
-            patientName = `${patient[0].firstname} ${patient[0].lastname}`;
+            patientName = [patient[0].firstname, patient[0].middlename, patient[0].lastname].filter(Boolean).join(' ');
             
             // Calculate age from date of birth
             if (patient[0].dateofbirth) {
@@ -467,7 +468,7 @@ export async function GET(request: NextRequest) {
                 ...order,
                 source: "openEHR",
                 patientId: patient.patientid,
-                patientName: `${patient.firstname} ${patient.lastname}`,
+                patientName: [patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' '),
                 subjectidentifier: patient.patientid,
                 patientage: patientAge,
                 patientsex: patient.gender,
@@ -484,11 +485,18 @@ export async function GET(request: NextRequest) {
       // Don't throw - continue with local orders only
     }
 
-    // Combine and return
-    const allOrders = [
+    // Combine and deduplicate by order ID
+    const combined = [
       ...localOrders.map(o => ({ ...o, source: "local" })),
       ...openEHROrders,
     ];
+    const seen = new Set<string>();
+    const allOrders = combined.filter(o => {
+      const key = o.orderid || o.composition_uid || o.request_id || '';
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
     return NextResponse.json({
       orders: allOrders,

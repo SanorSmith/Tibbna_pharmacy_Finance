@@ -216,6 +216,128 @@ export function getSampleRecommendations(testCodes: string[]): OrderRecommendati
   };
 }
 
+/**
+ * Map common service/package names (used by openEHR orders) to their constituent test codes
+ * so we can derive specimen types, containers, and volumes for orders that only carry a service_name.
+ */
+const SERVICE_NAME_TO_TEST_CODES: Record<string, string[]> = {
+  // Hematology
+  'Complete Blood Count': ['RBC', 'WBC', 'HGB', 'HCT', 'PLT'],
+  'CBC': ['RBC', 'WBC', 'HGB', 'HCT', 'PLT'],
+  'ESR': ['ESR'],
+  'PT/aPTT': ['PT-APTT'],
+  'Reticulocyte Count': ['RETIC'],
+  'Bleeding Time': ['BT'],
+  'Clotting Time': ['CT'],
+  'PT & INR': ['PT-INR'],
+  'APTT': ['APTT'],
+  'Malaria Parasite': ['MALARIA'],
+  'Microfilaria': ['MICROF'],
+  'Iron Studies & Hb Electrophoresis': ['IRON-HB'],
+  'Bone Marrow Examination': ['BM-EXAM'],
+  'Blood Smear': ['SICKLE', 'BLAST', 'PARA'],
+  'Anemia Workup': ['FERR', 'IRON', 'B12', 'FOLATE'],
+
+  // Biochemistry - Organ Function
+  'Liver Function Tests (LFT)': ['ALT', 'AST', 'ALP', 'GGT', 'LDH', 'BILI', 'ALB'],
+  'Liver Function Tests': ['ALT', 'AST', 'ALP', 'GGT', 'LDH', 'BILI', 'ALB'],
+  'LFT': ['ALT', 'AST', 'ALP', 'GGT', 'LDH', 'BILI', 'ALB'],
+  'Kidney Function Tests (KFT)': ['CREAT', 'UREA', 'EGFR'],
+  'Kidney Function Tests': ['CREAT', 'UREA', 'EGFR'],
+  'KFT': ['CREAT', 'UREA', 'EGFR'],
+  'Renal Function Tests': ['CREAT', 'UREA', 'EGFR'],
+
+  // Biochemistry - Lipid & Glucose
+  'Lipid Profile': ['HDL', 'LDL', 'TRIG', 'VLDL'],
+  'Fasting Blood Sugar': ['FPG'],
+  'Random Blood Sugar': ['GLU'],
+  'HbA1c': ['HBA1C'],
+  'Oral Glucose Tolerance Test': ['OGTT'],
+
+  // Biochemistry - Electrolytes
+  'Electrolytes': ['NA', 'K', 'CA', 'CL', 'HCO3'],
+  'Uric Acid': ['URIC'],
+  'Protein Electrophoresis': ['PROT-ELEC'],
+
+  // Biochemistry - Urinalysis
+  'Urinalysis': ['U-PROT', 'U-GLU', 'U-KET', 'U-BLOOD', 'U-BILI', 'U-NIT-LE'],
+  'Urine Routine': ['U-PROT', 'U-GLU', 'U-KET', 'U-BLOOD', 'U-BILI', 'U-NIT-LE'],
+  '24-Hour Urine': ['U-24H-CR'],
+
+  // Microbiology
+  'Blood Culture': ['BACT'],
+  'Urine Culture': ['UTI'],
+  'Sputum Culture': ['SPUTUM'],
+  'Stool Examination': ['PARA-ST', 'OB'],
+  'C. difficile': ['C-DIFF'],
+  'PCR/NAAT': ['PCR'],
+
+  // Immunology - Hepatitis
+  'Hepatitis B Panel': ['HBSAG', 'ANTI-HBS', 'ANTI-HBC'],
+  'HBsAg': ['HBSAG'],
+  'Anti-HCV': ['ANTI-HCV'],
+  'HIV': ['HIV'],
+
+  // Immunology - Autoimmune
+  'ANA': ['ANA'],
+  'Rheumatoid Factor': ['RF'],
+  'Anti-CCP': ['CCP'],
+  'CRP': ['CRP'],
+  'Autoimmune Panel': ['ANA', 'DSDNA', 'SMITH', 'RNP', 'SSA-SSB'],
+  'TORCH Panel': ['TOXO', 'RUBELLA', 'CMV', 'HERPES'],
+  'Syphilis Screening': ['VDRL', 'TPHA'],
+  'ANCA': ['ANCA'],
+  'Tumor Markers': ['CEA', 'CA125', 'CA199'],
+  'Thyroid Antibodies': ['TPO-TG'],
+  'Antiphospholipid Panel': ['B2GP-ACL'],
+
+  // Histopathology
+  'Biopsy': ['BIOPSY'],
+  'Pap Smear': ['PAP'],
+  'FNAC': ['FNAC'],
+  'Special Stains': ['PAS', 'ZN', 'SILVER'],
+  'Immunohistochemistry': ['IHC'],
+  'FISH': ['FISH'],
+  'Genetic Sequencing': ['SEQ'],
+  'Urine Cytology': ['URINE-CYTO'],
+  'Sputum Cytology': ['SPUTUM-CYTO'],
+};
+
+/**
+ * Resolve test codes from a service/package name (case-insensitive, partial match)
+ */
+export function resolveServiceToTestCodes(serviceName: string): string[] {
+  if (!serviceName) return [];
+  
+  // Exact match first
+  if (SERVICE_NAME_TO_TEST_CODES[serviceName]) {
+    return SERVICE_NAME_TO_TEST_CODES[serviceName];
+  }
+  
+  // Case-insensitive match
+  const lowerService = serviceName.toLowerCase().trim();
+  for (const [key, codes] of Object.entries(SERVICE_NAME_TO_TEST_CODES)) {
+    if (key.toLowerCase() === lowerService) return codes;
+  }
+  
+  // Partial match - check if service name contains a known key or vice versa
+  for (const [key, codes] of Object.entries(SERVICE_NAME_TO_TEST_CODES)) {
+    if (lowerService.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerService)) {
+      return codes;
+    }
+  }
+  
+  return [];
+}
+
+/**
+ * Get sample recommendations by service name (for openEHR orders)
+ */
+export function getRecommendationsByServiceName(serviceName: string): OrderRecommendations {
+  const testCodes = resolveServiceToTestCodes(serviceName);
+  return getSampleRecommendations(testCodes);
+}
+
 export function getContainerOptions(sampleType: string): string[] {
   const containers = Object.values(TEST_REQUIREMENTS)
     .filter(test => test.sampleType === sampleType)

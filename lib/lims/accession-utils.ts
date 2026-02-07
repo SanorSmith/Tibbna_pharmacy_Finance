@@ -99,7 +99,7 @@ export interface AccessionValidationError {
 
 export function validateAccessionData(data: {
   sampleType: string;
-  containerType: string;
+  containerType?: string;
   volume?: number;
   volumeUnit?: string;
   collectionDate: Date;
@@ -114,9 +114,10 @@ export function validateAccessionData(data: {
     errors.push({ field: 'sampleType', message: 'Sample type is required' });
   }
 
-  if (!data.containerType || data.containerType.trim() === '') {
-    errors.push({ field: 'containerType', message: 'Container type is required' });
-  }
+  // containerType is optional — not all collection workflows capture it
+  // if (!data.containerType || data.containerType.trim() === '') {
+  //   errors.push({ field: 'containerType', message: 'Container type is required' });
+  // }
 
   if (!data.orderId || data.orderId.trim() === '') {
     errors.push({ field: 'orderId', message: 'Order ID is required' });

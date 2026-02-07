@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         const ordersWithPatient = orders.map(order => ({
           ...order,
           patientId: patient.patientid,
-          patientName: `${patient.firstname} ${patient.lastname}`,
+          patientName: [patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' '),
         }));
         
         allOrders.push(...ordersWithPatient);
