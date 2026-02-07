@@ -182,17 +182,20 @@ export async function POST(request: NextRequest) {
     console.log(`[LIMS Order] Order created with EHR ID: ${result.order.ehrid || 'NONE'}`);
     
     if (result.order.ehrid) {
-      // Extract test names for OpenEHR submission
+      // Extract test names and categories for OpenEHR submission
       const testNames = result.tests.map((test: any) => test.testname);
+      const categories = [...new Set(result.tests.map((t: any) => t.category).filter(Boolean))];
+      const category = categories[0] || "";
       
-      console.log(`[LIMS Order] Submitting to OpenEHR - Tests: ${testNames.join(', ')}`);
+      console.log(`[LIMS Order] Submitting to OpenEHR - Tests: ${testNames.join(', ')}, Category: ${category}`);
       
-      // Submit lab order to OpenEHR
+      // Submit lab order to OpenEHR with category metadata
       createAndSubmitLabOrder(
         result.order,
         testNames,
         orderData.orderingProviderName || user.name || "Unknown",
-        result.order.ehrid
+        result.order.ehrid,
+        { category, labName: category || "Laboratory" }
       )
         .then((openEHRResult) => {
           if (openEHRResult) {
@@ -378,6 +381,7 @@ export async function GET(request: NextRequest) {
           const patient = await db
             .select({
               firstname: patients.firstname,
+              middlename: patients.middlename,
               lastname: patients.lastname,
               dateofbirth: patients.dateofbirth,
               gender: patients.gender,
@@ -387,7 +391,7 @@ export async function GET(request: NextRequest) {
             .limit(1);
           
           if (patient.length > 0) {
-            patientName = `${patient[0].firstname} ${patient[0].lastname}`;
+            patientName = [patient[0].firstname, patient[0].middlename, patient[0].lastname].filter(Boolean).join(' ');
             
             // Calculate age from date of birth
             if (patient[0].dateofbirth) {
@@ -467,7 +471,7 @@ export async function GET(request: NextRequest) {
                 ...order,
                 source: "openEHR",
                 patientId: patient.patientid,
-                patientName: `${patient.firstname} ${patient.lastname}`,
+                patientName: [patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' '),
                 subjectidentifier: patient.patientid,
                 patientage: patientAge,
                 patientsex: patient.gender,
@@ -484,11 +488,22 @@ export async function GET(request: NextRequest) {
       // Don't throw - continue with local orders only
     }
 
-    // Combine and return
-    const allOrders = [
+    // Combine and deduplicate by order ID + composition UID
+    const combined = [
       ...localOrders.map(o => ({ ...o, source: "local" })),
       ...openEHROrders,
     ];
+    const seen = new Set<string>();
+    // Pre-populate seen set with compositionuid from local orders to prevent openEHR duplicates
+    for (const o of localOrders) {
+      if (o.compositionuid) seen.add(o.compositionuid);
+    }
+    const allOrders = combined.filter(o => {
+      const key = o.orderid || o.composition_uid || o.request_id || '';
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
     return NextResponse.json({
       orders: allOrders,
@@ -516,7 +531,7 @@ async function validateTestsInCatalog(
   valid: boolean;
   message?: string;
   invalidTests?: string[];
-  validTests?: Array<{ testid: string | null; testcode: string; testname: string }>;
+  validTests?: Array<{ testid: string | null; testcode: string; testname: string; category?: string }>;
 }> {
   // First try labTestCatalog
   const catalogTests = await db
@@ -573,11 +588,13 @@ async function validateTestsInCatalog(
       testid: t.testid, // UUID from labTestCatalog
       testcode: t.testcode,
       testname: t.testname,
+      category: t.testcategory || undefined,
     })),
     ...referenceTests.map((t) => ({
       testid: null, // No UUID for tests from testReferenceRanges
       testcode: t.testcode,
       testname: t.testname,
+      category: t.labtype || undefined,
     })),
   ];
 

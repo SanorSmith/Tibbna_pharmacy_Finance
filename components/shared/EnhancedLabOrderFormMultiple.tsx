@@ -25,9 +25,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Package, TestTube, Building2, X, ChevronsUpDown } from "lucide-react";
+import { Package, TestTube, Building2, X, ChevronsUpDown, Loader2 } from "lucide-react";
 
-// Import test catalog from a separate file
+// Import test catalog from a separate file (fallback)
 import { TEST_PACKAGES, INDIVIDUAL_TESTS, LABORATORIES } from "@/lib/test-catalog";
 import { getSampleRecommendations, getContainerOptions, getVolumeUnits } from "@/lib/lims/test-recommendations";
 
@@ -39,6 +39,7 @@ interface EnhancedLabOrderFormProps {
   patientName?: string;
   editMode?: boolean;
   initialData?: any;
+  workspaceid?: string;
 }
 
 interface TestOrderForm {
@@ -72,7 +73,7 @@ const DEFAULT_FORM: TestOrderForm = {
 type FormAction =
   | { type: "SET_FIELD"; field: keyof TestOrderForm; value: any }
   | { type: "TOGGLE_TEST"; testId: string }
-  | { type: "TOGGLE_PACKAGE"; packageId: string }
+  | { type: "TOGGLE_PACKAGE"; packageId: string; packageTests?: string[] }
   | { type: "LOAD_DATA"; data: TestOrderForm }
   | { type: "RESET"; keepRequester?: string };
 
@@ -88,26 +89,22 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
           : [...state.selectedTests, action.testId],
       };
     case "TOGGLE_PACKAGE": {
-      const pkg = TEST_PACKAGES[action.packageId];
+      const pkgTests = action.packageTests || [];
       const currentPackages = state.selectedPackages || [];
       const currentTests = state.selectedTests || [];
       const isCurrentlySelected = currentPackages.includes(action.packageId);
       
       if (isCurrentlySelected) {
-        // Remove package and its tests
-        const testsToRemove = pkg ? pkg.tests : [];
         return {
           ...state,
           selectedPackages: currentPackages.filter(id => id !== action.packageId),
-          selectedTests: currentTests.filter(testId => !testsToRemove.includes(testId)),
+          selectedTests: currentTests.filter(testId => !pkgTests.includes(testId)),
         };
       } else {
-        // Add package and its tests
-        const testsToAdd = pkg ? pkg.tests : [];
         return {
           ...state,
           selectedPackages: [...currentPackages, action.packageId],
-          selectedTests: [...new Set([...currentTests, ...testsToAdd])],
+          selectedTests: [...new Set([...currentTests, ...pkgTests])],
         };
       }
     }
@@ -131,10 +128,37 @@ export default function EnhancedLabOrderFormMultiple({
   patientName,
   editMode = false,
   initialData,
+  workspaceid,
 }: EnhancedLabOrderFormProps) {
   const [formState, dispatch] = useReducer(formReducer, DEFAULT_FORM);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
+  const [testCatalog, setTestCatalog] = useState<{
+    testPackages: Record<string, any>;
+    individualTests: Record<string, any>;
+    laboratories: Record<string, any>;
+  }>({ testPackages: TEST_PACKAGES, individualTests: INDIVIDUAL_TESTS, laboratories: LABORATORIES });
+
+  // Fetch dynamic test catalog from DB when dialog opens
+  useEffect(() => {
+    if (open && workspaceid) {
+      setIsLoadingCatalog(true);
+      fetch(`/api/test-catalog?workspaceid=${workspaceid}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.totalTests > 0) {
+            setTestCatalog({
+              testPackages: data.testPackages,
+              individualTests: data.individualTests,
+              laboratories: data.laboratories,
+            });
+          }
+        })
+        .catch(err => console.error("Failed to fetch test catalog, using fallback:", err))
+        .finally(() => setIsLoadingCatalog(false));
+    }
+  }, [open, workspaceid]);
 
   // Load initial data in edit mode
   useEffect(() => {
@@ -187,6 +211,8 @@ export default function EnhancedLabOrderFormMultiple({
 
   // Get lab category mapping
   const getLabCategory = (labId: string): string => {
+    const lab = testCatalog.laboratories[labId];
+    if (lab) return lab.name;
     const labMap: Record<string, string> = {
       "hematology-lab": "Hematology",
       "biochemistry-lab": "Biochemistry",
@@ -201,23 +227,23 @@ export default function EnhancedLabOrderFormMultiple({
   const availablePackages = useMemo(() => {
     if (!formState.target_lab) return [];
     const category = getLabCategory(formState.target_lab);
-    return Object.values(TEST_PACKAGES).filter(
-      (pkg) => pkg.category === category
+    return Object.values(testCatalog.testPackages).filter(
+      (pkg: any) => pkg.category === category
     );
-  }, [formState.target_lab]);
+  }, [formState.target_lab, testCatalog.testPackages, testCatalog.laboratories]);
 
   // Get all tests from selected packages
   const allSelectedTests = useMemo(() => {
     if (!formState.selectedPackages || formState.selectedPackages.length === 0) return [];
     const testIds = new Set<string>();
     formState.selectedPackages.forEach(pkgId => {
-      const pkg = TEST_PACKAGES[pkgId];
+      const pkg = testCatalog.testPackages[pkgId];
       if (pkg) {
-        pkg.tests.forEach(testId => testIds.add(testId));
+        pkg.tests.forEach((testId: string) => testIds.add(testId));
       }
     });
-    return Array.from(testIds).map(id => INDIVIDUAL_TESTS[id]).filter(Boolean);
-  }, [formState.selectedPackages]);
+    return Array.from(testIds).map(id => testCatalog.individualTests[id]).filter(Boolean);
+  }, [formState.selectedPackages, testCatalog.testPackages, testCatalog.individualTests]);
 
   const handleSubmit = async () => {
     if (!formState.clinical_indication) {
@@ -234,7 +260,7 @@ export default function EnhancedLabOrderFormMultiple({
     try {
       // Build the submission data
       const selectedPackageObjects = (formState.selectedPackages || [])
-        .map(pkgId => TEST_PACKAGES[pkgId])
+        .map(pkgId => testCatalog.testPackages[pkgId])
         .filter(Boolean);
       
       const packageNames = selectedPackageObjects
@@ -247,11 +273,11 @@ export default function EnhancedLabOrderFormMultiple({
         : "";
       
       const labCategory = getLabCategory(formState.target_lab);
-      const selectedLab = LABORATORIES[formState.target_lab];
+      const selectedLab = testCatalog.laboratories[formState.target_lab];
       
       // Build detailed description with test information
       const selectedTestDetails = (formState.selectedTests || [])
-        .map(testId => INDIVIDUAL_TESTS[testId])
+        .map(testId => testCatalog.individualTests[testId])
         .filter(Boolean);
       
       const testNames = selectedTestDetails.map(test => test.name).join(", ");
@@ -294,8 +320,14 @@ export default function EnhancedLabOrderFormMultiple({
   };
 
   const selectedLab = formState.target_lab
-    ? LABORATORIES[formState.target_lab]
+    ? testCatalog.laboratories[formState.target_lab]
     : null;
+
+  // Helper to dispatch TOGGLE_PACKAGE with package tests
+  const togglePackage = (packageId: string) => {
+    const pkg = testCatalog.testPackages[packageId];
+    dispatch({ type: "TOGGLE_PACKAGE", packageId, packageTests: pkg?.tests || [] });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -330,7 +362,11 @@ export default function EnhancedLabOrderFormMultiple({
                 <SelectValue placeholder="Choose a laboratory department" />
               </SelectTrigger>
               <SelectContent>
-                {Object.values(LABORATORIES).map((lab) => (
+                {isLoadingCatalog ? (
+                  <SelectItem value="_loading" disabled>
+                    <span className="flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Loading...</span>
+                  </SelectItem>
+                ) : Object.values(testCatalog.laboratories).map((lab: any) => (
                   <SelectItem key={lab.id} value={lab.id}>
                     {lab.name}
                   </SelectItem>
@@ -376,7 +412,7 @@ export default function EnhancedLabOrderFormMultiple({
                         <span className="text-muted-foreground">Select test groups...</span>
                       ) : (
                         (formState.selectedPackages || []).map((packageId) => {
-                          const pkg = TEST_PACKAGES[packageId];
+                          const pkg = testCatalog.testPackages[packageId];
                           return pkg ? (
                             <Badge
                               key={packageId}
@@ -392,7 +428,7 @@ export default function EnhancedLabOrderFormMultiple({
                                   if (e.key === "Enter" || e.key === " ") {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    dispatch({ type: "TOGGLE_PACKAGE", packageId });
+                                    togglePackage(packageId);
                                   }
                                 }}
                                 onMouseDown={(e) => {
@@ -402,7 +438,7 @@ export default function EnhancedLabOrderFormMultiple({
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  dispatch({ type: "TOGGLE_PACKAGE", packageId });
+                                  togglePackage(packageId);
                                 }}
                                 aria-label={`Remove ${pkg.name}`}
                                 title={`Remove ${pkg.name}`}
@@ -425,12 +461,12 @@ export default function EnhancedLabOrderFormMultiple({
                         className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
                           (formState.selectedPackages || []).includes(pkg.id) ? 'bg-accent' : ''
                         }`}
-                        onClick={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
+                        onClick={() => togglePackage(pkg.id)}
                       >
                         <div className="flex h-5 items-center">
                           <Checkbox
                             checked={(formState.selectedPackages || []).includes(pkg.id)}
-                            onCheckedChange={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
+                            onCheckedChange={() => togglePackage(pkg.id)}
                           />
                         </div>
                         <div className="flex-1 space-y-1">

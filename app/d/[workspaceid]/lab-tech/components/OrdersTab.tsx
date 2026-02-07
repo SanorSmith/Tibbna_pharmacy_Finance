@@ -9,7 +9,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSampleRecommendations } from "@/lib/lims/test-recommendations";
+import { getSampleRecommendations, getRecommendationsByServiceName, resolveServiceToTestCodes, findRecommendation } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -225,6 +225,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     specimenType: "", // Selected specimen type for this sample
   });
   const [sampleComments, setSampleComments] = useState("");
+  const [collectedSpecimenTypes, setCollectedSpecimenTypes] = useState<Record<string, { sampleNumber: string; accessionNumber: string }>>({});
+  const [currentCollectingSpecimen, setCurrentCollectingSpecimen] = useState<string>("");
 
   const [currentPatientId, setCurrentPatientId] = useState("");
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
@@ -405,15 +407,30 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
         queryKey: ["lims-accession", workspaceid],
       });
       queryClient.invalidateQueries({ queryKey: ["lims-orders", workspaceid] });
-      setShowSampleCollection(false);
-      setShowOrderDetail(false);
-      // Show success message
-      setAlertDialog({
-        show: true,
-        title: "Sample Collected Successfully",
-        message: `Sample Number: ${data.sample.sampleNumber}\nAccession Number: ${data.sample.accessionNumber || "-"}\nBarcode: ${data.sample.barcode}\n\nOrder status updated to IN PROGRESS`,
-        type: "success",
-      });
+
+      if (currentCollectingSpecimen) {
+        // Multi-specimen mode: track collected specimen, don't close modal yet
+        setCollectedSpecimenTypes(prev => ({
+          ...prev,
+          [currentCollectingSpecimen]: {
+            sampleNumber: data.sample.sampleNumber,
+            accessionNumber: data.sample.accessionNumber || "-",
+          }
+        }));
+        setCurrentCollectingSpecimen("");
+        // Reset sample number for next specimen
+        setSampleCollectionData(prev => ({ ...prev, sampleNumber: "" }));
+      } else {
+        // Legacy mode (from separate Sample Collection modal): close both modals
+        setShowSampleCollection(false);
+        setShowOrderDetail(false);
+        setAlertDialog({
+          show: true,
+          title: "Sample Collected Successfully",
+          message: `Sample Number: ${data.sample.sampleNumber}\nAccession Number: ${data.sample.accessionNumber || "-"}\nBarcode: ${data.sample.barcode}\n\nOrder status updated to IN PROGRESS`,
+          type: "success",
+        });
+      }
     },
     onError: (error: Error) => {
       console.error("Sample creation error:", error);
@@ -1236,7 +1253,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     <TableHead className="font-semibold w-32">Order ID</TableHead>
                     <TableHead className="font-semibold w-40">Patient</TableHead>
                     <TableHead className="font-semibold w-48">
-                      Test/Service
+                      Test
                     </TableHead>
                     <TableHead className="font-semibold w-24">Priority</TableHead>
                     <TableHead className="font-semibold w-28">Status</TableHead>
@@ -1265,13 +1282,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredOrders.map((order: LimsOrder) => {
+                    filteredOrders.map((order: LimsOrder, idx: number) => {
                       const isOpenEHR = order.source === "openEHR";
                       const orderId =
                         order.orderid ||
                         order.composition_uid ||
                         order.request_id ||
                         "";
+                      const rowKey = `${orderId}-${idx}`;
                       const displayId =
                         orderId.length > 12
                           ? orderId.substring(0, 12) + "..."
@@ -1300,10 +1318,25 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                       return (
                         <TableRow
-                          key={orderId}
+                          key={rowKey}
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => {
-                            setSelectedOrder(order);
+                            let orderToOpen = order;
+                            // If openEHR order has no tests, find matching local order with tests
+                            if (isOpenEHR && (!order.tests || order.tests.length === 0)) {
+                              const matchingLocal = orders.find((o: LimsOrder) =>
+                                o.source === "local" &&
+                                o.subjectidentifier === order.subjectidentifier &&
+                                o.tests && o.tests.length > 0
+                              );
+                              if (matchingLocal) {
+                                // Merge: use local order's tests with openEHR order's metadata
+                                orderToOpen = { ...order, tests: matchingLocal.tests };
+                              }
+                            }
+                            setSelectedOrder(orderToOpen);
+                            setCollectedSpecimenTypes({});
+                            setCurrentCollectingSpecimen("");
                             setShowOrderDetail(true);
                           }}
                         >
@@ -1480,25 +1513,71 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 const testCodes = selectedOrder.tests.map(
                   (t: any) => t.testCode || t.testcode || t.code
                 );
-                console.log(
-                  "Computing recommendations for test codes:",
-                  testCodes
-                );
                 computedRecommendations = getSampleRecommendations(testCodes);
-                console.log(
-                  "Computed recommendations:",
-                  computedRecommendations
-                );
+              } else if (selectedOrder.source === "openEHR" && selectedOrder.service_name) {
+                // For openEHR orders, resolve service name to test codes (also parses Selected Tests from description)
+                computedRecommendations = getRecommendationsByServiceName(selectedOrder.service_name, selectedOrder.description);
               }
 
               // Use stored data or computed recommendations
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
+              
+              // Resolve individual tests for display - enrich with recommendation data if missing
+              let resolvedTests: any[] = [];
+              if (selectedOrder.tests && selectedOrder.tests.length > 0) {
+                // LIMS orders have tests but may lack specimen/container info
+                // Enrich using fuzzy matching (findRecommendation) which handles DB codes like "Toxoplasmosis-IgG" → TOXO
+                resolvedTests = selectedOrder.tests.map((t: any) => {
+                  const code = t.testCode || t.testcode || t.code;
+                  const name = t.testName || t.testname;
+                  const existing = t.specimenType || t.specimentype || t.material;
+                  const rec = existing ? null : findRecommendation(code, name);
+                  return {
+                    ...t,
+                    specimenType: existing || (rec ? rec.sampleType : undefined),
+                    containerType: t.containerType || t.containertype || t.specimencontainer || (rec ? rec.containerType : undefined),
+                    specimenvolume: t.specimenvolume || t.volume || (rec ? `${rec.volume} ${rec.volumeUnit}` : undefined),
+                    fastingRequired: t.fastingRequired ?? (rec ? rec.fastingRequired : false),
+                  };
+                });
+              } else if (displayRecommendations?.recommendations?.length > 0) {
+                // openEHR orders with matched recommendations - build from them
+                resolvedTests = displayRecommendations.recommendations.map((r: any) => ({
+                    testCode: r.testCode,
+                    testName: r.testName,
+                    specimenType: r.sampleType,
+                    containerType: r.containerType,
+                    specimenvolume: `${r.volume} ${r.volumeUnit}`,
+                    fastingRequired: r.fastingRequired,
+                  }));
+              } else if (selectedOrder.service_name || selectedOrder.description) {
+                // Fallback: parse comma-separated test names from service_name or description
+                // This handles openEHR orders where service_name contains test names like "Toxoplasmosis-IgG, CMV-IgM, ..."
+                const nameSource = selectedOrder.description || selectedOrder.service_name || "";
+                // Try parsing "Selected Tests (N): test1, test2" format first
+                const selectedTestsMatch = nameSource.match(/Selected Tests \(\d+\): (.*)/);
+                const testNames = selectedTestsMatch
+                  ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
+                  : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+                
+                resolvedTests = testNames.map((name: string) => {
+                  const rec = findRecommendation(undefined, name);
+                  return {
+                    testCode: rec?.testCode || name,
+                    testName: name,
+                    specimenType: rec?.sampleType,
+                    containerType: rec?.containerType,
+                    specimenvolume: rec ? `${rec.volume} ${rec.volumeUnit}` : undefined,
+                    fastingRequired: rec?.fastingRequired || false,
+                  };
+                });
+              }
 
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
                   {/* Left Column - Order Information */}
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                    {/* Combined Patient & Order Info Card - Compact */}
 <div className="border rounded-lg p-2.5">
   {/* Header with badges */}
@@ -1592,89 +1671,35 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
 
                     {/* Requested Tests */}
-                    <div className="border rounded-lg p-3">
-                      <h3 className="font-semibold text-sm mb-2">
+                    <div className="border rounded-lg p-2">
+                      <h3 className="font-semibold text-xs mb-1.5">
                         Requested Tests
                       </h3>
 
-                      {selectedOrder.source === "openEHR" ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 bg-gray-50 px-3 py-1 rounded text-left"
-                              >
-                                <FlaskConical className="h-4 w-4 text-gray-600" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium truncate">
-                                    {selectedOrder.service_name}
-                                  </div>
-                                  {selectedOrder.test_category && (
-                                    <div className="text-xs text-gray-600 truncate">
-                                      Category: {selectedOrder.test_category}
-                                    </div>
-                                  )}
-                                  {selectedOrder.clinical_indication && (
-                                    <div className="text-xs text-gray-600 truncate">
-                                      Indication: {selectedOrder.clinical_indication}
-                                    </div>
-                                  )}
-                                </div>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>
-                              <div className="space-y-0.5">
-                                <div className="font-medium">
-                                  {selectedOrder.service_name}
-                                </div>
-                                {selectedOrder.test_category && (
-                                  <div>
-                                    <span className="font-medium">Category:</span>{" "}
-                                    {selectedOrder.test_category}
-                                  </div>
-                                )}
-                                {selectedOrder.clinical_indication && (
-                                  <div>
-                                    <span className="font-medium">Indication:</span>{" "}
-                                    {selectedOrder.clinical_indication}
-                                  </div>
-                                )}
-                                {(selectedOrder as any).request_id && (
-                                  <div>
-                                    <span className="font-medium">Request ID:</span>{" "}
-                                    {(selectedOrder as any).request_id}
-                                  </div>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto">
+                      {resolvedTests.length > 0 ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1">
                           <TooltipProvider>
-                            {selectedOrder.tests?.map(
+                            {resolvedTests.map(
                               (test: any, idx: number) => (
                                 <Tooltip key={idx}>
                                   <TooltipTrigger asChild>
                                     <button
                                       type="button"
-                                      className="flex w-full items-center gap-1 bg-gray-50 px-2 py-1.5 rounded border border-gray-200 hover:bg-gray-100 transition-colors text-left"
+                                      className="flex w-full items-center gap-0.5 bg-gray-50 px-1.5 py-1 rounded border border-gray-200 hover:bg-gray-100 transition-colors text-left"
                                     >
-                                      <FlaskConical className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                      <FlaskConical className="h-2.5 w-2.5 text-blue-500 flex-shrink-0" />
                                       <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-medium truncate leading-tight">
+                                        <div className="text-[10px] font-medium truncate leading-tight">
                                           {test.testName}
                                         </div>
-                                        <div className="text-[10px] text-gray-500 truncate">
+                                        <div className="text-[9px] text-gray-500 truncate leading-tight">
                                           {test.testCode}
+                                          {test.fastingRequired && (
+                                            <span className="inline-block ml-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-0.5">
+                                              F
+                                            </span>
+                                          )}
                                         </div>
-
-                                        {test.fastingRequired && (
-                                          <span className="inline-block mt-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-1 py-0.5">
-                                            F
-                                          </span>
-                                        )}
                                       </div>
                                     </button>
                                   </TooltipTrigger>
@@ -1703,15 +1728,31 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             )}
                           </TooltipProvider>
                         </div>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded text-left">
+                          <FlaskConical className="h-4 w-4 text-gray-600" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {selectedOrder.service_name || "Unknown Service"}
+                            </div>
+                            {selectedOrder.test_category && (
+                              <div className="text-xs text-gray-600 truncate">
+                                Category: {selectedOrder.test_category}
+                              </div>
+                            )}
+                            {(selectedOrder.clinical_indication || selectedOrder.clinicalindication) && (
+                              <div className="text-xs text-gray-600 truncate">
+                                Indication: {selectedOrder.clinical_indication || selectedOrder.clinicalindication}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
 
                     {/* Required Specimen Types */}
-                    {selectedOrder.tests && selectedOrder.tests.length > 0 && (() => {
-                      console.log('[OrdersTab] Order tests:', selectedOrder.tests);
-                      console.log('[OrdersTab] First test:', selectedOrder.tests[0]);
-                      
-                      const specimenGroups = selectedOrder.tests.reduce((acc: any, test: any) => {
+                    {resolvedTests.length > 0 && (() => {
+                      const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
                         const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
                         if (!acc[specimen]) {
                           acc[specimen] = {
@@ -1721,35 +1762,28 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           };
                         }
                         acc[specimen].tests.push(test);
-                        
-                        // Collect container types
                         const container = test.containerType || test.containertype || test.specimencontainer;
                         if (container) acc[specimen].containers.add(container);
-                        
-                        // Collect volume requirements
                         const volume = test.specimenvolume || test.volume;
                         if (volume) acc[specimen].volumes.add(volume);
-                        
                         return acc;
                       }, {});
                       
                       return (
-                        <div className="border rounded-lg p-3">
-                          <h3 className="font-semibold text-sm mb-2">Required Specimen Types</h3>
-                          <div className="space-y-2">
+                        <div className="border rounded-lg p-2">
+                          <h3 className="font-semibold text-xs mb-1">Required Specimen Types</h3>
+                          <div className="space-y-1">
                             {Object.entries(specimenGroups).map(([specimen, data]: [string, any]) => (
-                              <div key={specimen} className="bg-blue-50 border border-blue-200 rounded p-2">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <FlaskConical className="h-4 w-4 text-blue-600" />
-                                  <span className="font-medium text-sm text-blue-900">{specimen}</span>
-                                  <span className="text-xs text-blue-600">({data.tests.length} test{data.tests.length > 1 ? 's' : ''})</span>
-                                </div>
-                                
-                                {/* Container and Volume Info - Single Line */}
-                                <div className="ml-6 text-xs text-gray-700">
-                                  {data.containers.size > 0 && <span><strong>Container:</strong> {Array.from(data.containers).join(', ')} • </span>}
-                                  {data.volumes.size > 0 && <span><strong>Volume:</strong> {Array.from(data.volumes).join(', ')} • </span>}
-                                  <span><strong>Tests:</strong> {data.tests.map((t: any) => t.testName).join(", ")}</span>
+                              <div key={specimen} className="bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <FlaskConical className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                  <span className="font-medium text-xs text-blue-900">{specimen}</span>
+                                  <span className="text-[10px] text-blue-600">({data.tests.length})</span>
+                                  <span className="text-[10px] text-gray-600 truncate">
+                                    {data.containers.size > 0 && <>{Array.from(data.containers).join(', ')} • </>}
+                                    {data.volumes.size > 0 && <>{Array.from(data.volumes).join(', ')} • </>}
+                                    {data.tests.map((t: any) => t.testName).join(", ")}
+                                  </span>
                                 </div>
                               </div>
                             ))}
@@ -1759,19 +1793,12 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     })()}
 
                     {/* Fasting Requirements Alert */}
-                    {selectedOrder.tests?.some(
+                    {resolvedTests.some(
                       (t: any) => t.fastingRequired
                     ) && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <div className="flex items-start gap-2">
-                          <span className="text-amber-600 font-semibold text-sm">
-                            ⚠️ Fasting Required
-                          </span>
-                        </div>
-                        <p className="text-sm text-amber-800 mt-1">
-                          Some tests in this order require fasting (8-12 hours).
-                          Ensure patient has fasted before sample collection.
-                        </p>
+                      <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1.5 flex items-center gap-1.5">
+                        <span className="text-amber-600 font-semibold text-xs">⚠️ Fasting Required</span>
+                        <span className="text-[10px] text-amber-800">Some tests require 8-12 hours fasting.</span>
                       </div>
                     )}
                   </div>
@@ -1781,240 +1808,182 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     <div className="bg-gray-50 border border-green-200 rounded-lg p-2.5">
                       <h3 className="font-semibold text-xs mb-2 flex items-center gap-1.5 text-green-900">
                         <FlaskConical className="h-3.5 w-3.5" />
-                        Collect Sample
-                      </h3>
-
-                      {/* Sample Collection Requirements from Order - Single Line */}
-                      <div className="mb-2.5 p-2 bg-white rounded border border-green-300">
-                        <div className="text-[10px] font-medium text-green-800 mb-1">
-                          Recommended Collection:
-                        </div>
-                        <div className="text-[10px] text-green-700">
-                          {(selectedOrder.sampletype || selectedOrder.sampleType || displayRecommendations?.primarySampleType) && (
-                            <span><strong>Sample:</strong> {selectedOrder.sampletype || selectedOrder.sampleType || displayRecommendations?.primarySampleType} • </span>
-                          )}
-                          {(selectedOrder.containertype || selectedOrder.containerType || displayRecommendations?.primaryContainer) && (
-                            <span><strong>Container:</strong> {selectedOrder.containertype || selectedOrder.containerType || displayRecommendations?.primaryContainer} • </span>
-                          )}
-                          {(selectedOrder.volume || displayRecommendations?.totalVolume) && (
-                            <span><strong>Volume:</strong> {selectedOrder.volume || displayRecommendations?.totalVolume} {selectedOrder.volumeunit || displayRecommendations?.volumeUnit || 'mL'}</span>
-                          )}
-                          {displayRecommendations?.fastingRequired && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 ml-2">
-                              ⚠️ Fasting
-                            </span>
-                          )}
-                          {displayRecommendations?.specialInstructions?.length > 0 && (
-                            <span className="block mt-1"><strong>Method:</strong> {displayRecommendations.specialInstructions[0]}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Sample Collection Form */}
-                      <div className="space-y-2">
-                        {/* Specimen Type Selection */}
+                        Sample Collection
+                        {/* Progress indicator */}
                         {(() => {
-                          // For local orders with tests array
-                          if (selectedOrder.tests && selectedOrder.tests.length > 0) {
-                            const specimenTypes = Array.from(new Set(
-                              selectedOrder.tests.map((t: any) => 
-                                t.specimenType || t.specimentype || t.material || "Not specified"
-                              )
-                            ));
-                            
+                          const specimenGroupsForProgress = resolvedTests.reduce((acc: any, test: any) => {
+                            const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
+                            if (!acc[specimen]) acc[specimen] = true;
+                            return acc;
+                          }, {} as Record<string, boolean>);
+                          const totalGroups = Object.keys(specimenGroupsForProgress).length;
+                          const collectedCount = Object.keys(collectedSpecimenTypes).filter(s => specimenGroupsForProgress[s]).length;
+                          if (totalGroups > 1) {
                             return (
-                              <div>
-                                <Label htmlFor="specimenTypeDetail" className="text-xs font-semibold">
-                                  Specimen Type *
-                                </Label>
-                                <select
-                                  id="specimenTypeDetail"
-                                  title="Select specimen type for sample collection"
-                                  value={sampleCollectionData.specimenType}
-                                  onChange={(e) =>
-                                    setSampleCollectionData((prev) => ({
-                                      ...prev,
-                                      specimenType: e.target.value,
-                                    }))
-                                  }
-                                  className="w-full h-8 text-xs border border-gray-300 rounded px-2 bg-white"
-                                >
-                                  <option value="">Select specimen type...</option>
-                                  {specimenTypes.map((type) => (
-                                    <option key={type} value={type}>
-                                      {type}
-                                    </option>
-                                  ))}
-                                </select>
-                                {sampleCollectionData.specimenType && (
-                                  <p className="text-[10px] text-blue-600 mt-1">
-                                    Tests for this specimen: {selectedOrder.tests
-                                      .filter((t: any) => 
-                                        (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
-                                      )
-                                      .map((t: any) => t.testName)
-                                      .join(", ")}
-                                  </p>
-                                )}
-                              </div>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${collectedCount === totalGroups ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {collectedCount}/{totalGroups} collected
+                              </span>
                             );
                           }
-                          
-                          // For openEHR orders without tests array - provide common specimen types
-                          if (selectedOrder.source === "openEHR") {
-                            const commonSpecimenTypes = [
-                              "Blood",
-                              "Venous blood",
-                              "Arterial blood",
-                              "Capillary blood",
-                              "Urine",
-                              "Serum",
-                              "Plasma",
-                              "Tissue",
-                              "Saliva",
-                              "Stool",
-                              "Cerebrospinal fluid",
-                              "Other"
-                            ];
-                            
-                            return (
-                              <div>
-                                <Label htmlFor="specimenTypeOpenEHR" className="text-xs font-semibold">
-                                  Specimen Type *
-                                </Label>
-                                <select
-                                  id="specimenTypeOpenEHR"
-                                  title="Select specimen type for sample collection"
-                                  value={sampleCollectionData.specimenType}
-                                  onChange={(e) =>
-                                    setSampleCollectionData((prev) => ({
-                                      ...prev,
-                                      specimenType: e.target.value,
-                                    }))
-                                  }
-                                  className="w-full h-8 text-xs border border-gray-300 rounded px-2 bg-white"
-                                >
-                                  <option value="">Select specimen type...</option>
-                                  {commonSpecimenTypes.map((type) => (
-                                    <option key={type} value={type}>
-                                      {type}
-                                    </option>
-                                  ))}
-                                </select>
-                                {sampleCollectionData.specimenType && (
-                                  <p className="text-[10px] text-blue-600 mt-1">
-                                    Service: {selectedOrder.service_name}
-                                  </p>
-                                )}
-                              </div>
-                            );
-                          }
-                          
                           return null;
                         })()}
+                      </h3>
 
-                        {/* Sample ID and Accession ID on one line */}
+                      {/* Specimen type groups with individual collect buttons */}
+                      {(() => {
+                        const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
+                          const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
+                          if (!acc[specimen]) {
+                            acc[specimen] = { tests: [] as any[], containers: new Set<string>(), volumes: [] as string[] };
+                          }
+                          acc[specimen].tests.push(test);
+                          const container = test.containerType || test.containertype || test.specimencontainer;
+                          if (container) acc[specimen].containers.add(container);
+                          const volume = test.specimenvolume || test.volume;
+                          if (volume) acc[specimen].volumes.push(String(volume));
+                          return acc;
+                        }, {} as Record<string, { tests: any[]; containers: Set<string>; volumes: string[] }>);
+
+                        const groupEntries = Object.entries(specimenGroups);
+
+                        if (groupEntries.length === 0) {
+                          return (
+                            <div className="text-xs text-gray-500 p-2">
+                              No specimen type information available for this order.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-2">
+                            {groupEntries.map(([specimen, data]: [string, any]) => {
+                              const isCollected = !!collectedSpecimenTypes[specimen];
+                              const isCollecting = createSampleMutation.isPending && currentCollectingSpecimen === specimen;
+                              const isCancelled = openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED";
+
+                              return (
+                                <div key={specimen} className={`rounded border p-2.5 transition-colors ${isCollected ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200 hover:border-green-300'}`}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <FlaskConical className={`h-3.5 w-3.5 ${isCollected ? 'text-green-600' : 'text-blue-500'}`} />
+                                      <span className="text-xs font-semibold">{specimen}</span>
+                                      <span className="text-[10px] text-gray-500">({data.tests.length} test{data.tests.length > 1 ? 's' : ''})</span>
+                                    </div>
+                                    {isCollected && (
+                                      <span className="text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" /> Collected
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Container & Volume info */}
+                                  <div className="text-[10px] text-gray-600 ml-5 mb-1">
+                                    {data.containers.size > 0 && <span><strong>Container:</strong> {Array.from(data.containers).join(', ')} </span>}
+                                    {data.volumes.length > 0 && <span>• <strong>Volume:</strong> {data.volumes[0]} </span>}
+                                    {data.tests.some((t: any) => t.fastingRequired) && (
+                                      <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium bg-amber-100 text-amber-800 ml-1">
+                                        ⚠️ Fasting
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Tests in this group */}
+                                  <div className="text-[10px] text-gray-700 ml-5 mb-1.5">
+                                    <strong>Tests:</strong> {data.tests.map((t: any) => t.testName).join(", ")}
+                                  </div>
+
+                                  {/* Collected sample info or Collect button */}
+                                  {isCollected ? (
+                                    <div className="text-[10px] text-green-700 ml-5 bg-green-100 rounded px-2 py-1">
+                                      Sample: <span className="font-mono font-medium">{collectedSpecimenTypes[specimen].sampleNumber}</span>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="w-full h-7 text-[11px] bg-green-600 hover:bg-green-700 text-white mt-1"
+                                      disabled={isCollecting || (createSampleMutation.isPending && currentCollectingSpecimen !== specimen) || isCancelled}
+                                      onClick={() => {
+                                        if (!selectedOrder) return;
+                                        setCurrentCollectingSpecimen(specimen);
+                                        const testsForSpecimen = data.tests;
+                                        const sampleData: SampleData = {
+                                          sampleNumber: sampleCollectionData.sampleNumber || undefined,
+                                          accessionNumber: sampleCollectionData.accessionNumber || undefined,
+                                          collectionDate: new Date(sampleCollectionData.collectionDate).toISOString(),
+                                          collectorName: sampleCollectionData.collectorName || undefined,
+                                          orderId: selectedOrder.orderid || selectedOrder.request_id || selectedOrder.composition_uid,
+                                          patientId: selectedOrder.subjectidentifier || undefined,
+                                          ehrId: selectedOrder.ehrid || undefined,
+                                          sampleType: specimen,
+                                          subjectIdentifier: selectedOrder.subjectidentifier || undefined,
+                                          workspaceId: workspaceid,
+                                          currentLocation: sampleCollectionData.currentLocation,
+                                          tests: testsForSpecimen.map((t: any) => t.testCode || t.testcode || t.testName || t) || [],
+                                          comments: sampleComments || undefined,
+                                        };
+                                        createSampleMutation.mutate(sampleData);
+                                      }}
+                                    >
+                                      {isCollecting ? (
+                                        <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Collecting...</>
+                                      ) : (
+                                        <><FlaskConical className="h-3 w-3 mr-1" /> Collect {specimen} Sample</>
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* All collected success message */}
+                            {groupEntries.length > 0 && groupEntries.every(([specimen]) => !!collectedSpecimenTypes[specimen]) && (
+                              <div className="p-2 bg-green-100 border border-green-300 rounded text-xs text-green-800 text-center font-medium">
+                                <CheckCircle2 className="h-4 w-4 inline mr-1" />
+                                All specimen types collected successfully!
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Shared collection fields */}
+                      <div className="space-y-2 mt-3 pt-2 border-t border-gray-200">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <Label
-                              htmlFor="sampleNumberDetail"
-                              className="text-xs"
-                            >
-                              Sample ID
-                            </Label>
+                            <Label htmlFor="sampleNumberDetail" className="text-xs">Sample ID</Label>
                             <Input
                               id="sampleNumberDetail"
                               type="text"
                               placeholder="Auto-generated"
                               value={sampleCollectionData.sampleNumber || ""}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  sampleNumber: e.target.value,
-                                }))
-                              }
+                              onChange={(e) => setSampleCollectionData((prev) => ({ ...prev, sampleNumber: e.target.value }))}
                               className="h-8 text-xs font-mono"
                             />
                           </div>
-
                           <div>
-                            <Label htmlFor="accessionNumberDetail" className="text-xs">
-                              Accession ID
-                            </Label>
+                            <Label htmlFor="collectionDateDetail" className="text-xs">Collection Date *</Label>
                             <Input
-                              id="accessionNumberDetail"
-                              type="text"
-                              placeholder="Scan or type"
-                              value={sampleCollectionData.accessionNumber || ""}
-                              onChange={(e) =>
-                                setSampleCollectionData((prev) => ({
-                                  ...prev,
-                                  accessionNumber: e.target.value,
-                                }))
-                              }
-                              className="h-8 text-xs font-mono"
+                              id="collectionDateDetail"
+                              type="datetime-local"
+                              value={sampleCollectionData.collectionDate}
+                              onChange={(e) => setSampleCollectionData((prev) => ({ ...prev, collectionDate: e.target.value }))}
+                              className="h-8 text-xs"
                             />
                           </div>
                         </div>
-
-                        
-                        <div>
-                          <Label
-                            htmlFor="collectionDateDetail"
-                            className="text-xs"
-                          >
-                            Collection Date *
-                          </Label>
-                          <Input
-                            id="collectionDateDetail"
-                            type="datetime-local"
-                            value={sampleCollectionData.collectionDate}
-                            onChange={(e) =>
-                              setSampleCollectionData((prev) => ({
-                                ...prev,
-                                collectionDate: e.target.value,
-                              }))
-                            }
-                            className="h-8 text-xs"
-                          />
-                        </div>
-
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <Label
-                              htmlFor="collectorNameDetail"
-                              className="text-xs"
-                            >
-                              Collector
-                            </Label>
-                            <Input
-                              id="collectorNameDetail"
-                              type="text"
-                              value={sampleCollectionData.collectorName}
-                              readOnly
-                              className="h-8 text-xs bg-gray-50"
-                            />
+                            <Label htmlFor="collectorNameDetail" className="text-xs">Collector</Label>
+                            <Input id="collectorNameDetail" type="text" value={sampleCollectionData.collectorName} readOnly className="h-8 text-xs bg-gray-50" />
                           </div>
-
                           <div>
-                            <Label htmlFor="locationDetail" className="text-xs">
-                              Location
-                            </Label>
-                            <Input
-                              id="locationDetail"
-                              type="text"
-                              value={sampleCollectionData.currentLocation}
-                              readOnly
-                              className="h-8 text-xs bg-gray-50"
-                            />
+                            <Label htmlFor="locationDetail" className="text-xs">Location</Label>
+                            <Input id="locationDetail" type="text" value={sampleCollectionData.currentLocation} readOnly className="h-8 text-xs bg-gray-50" />
                           </div>
                         </div>
-
-                        {/* Comments Section */}
                         <div>
-                          <Label htmlFor="sampleCommentsDetail" className="text-xs">
-                            Comments (Optional)
-                          </Label>
+                          <Label htmlFor="sampleCommentsDetail" className="text-xs">Comments (Optional)</Label>
                           <textarea
                             id="sampleCommentsDetail"
                             placeholder="Add notes about sample collection..."
@@ -2024,81 +1993,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             className="w-full mt-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                           />
                         </div>
-
-                        <Button
-                          type="button"
-                          className="w-full h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-                          disabled={
-                            !sampleCollectionData.specimenType ||
-                            createSampleMutation.isPending ||
-                            openEHROrderStatus === "CANCELLED" ||
-                            (selectedOrder?.status === "CANCELLED")
-                          }
-                          onClick={() => {
-                            if (!selectedOrder || !sampleCollectionData.specimenType) return;
-
-                            // Filter tests that match the selected specimen type
-                            const testsForSpecimen = selectedOrder.tests?.filter(
-                              (t: any) => 
-                                (t.specimenType || t.specimentype || t.material || "Not specified") === sampleCollectionData.specimenType
-                            ) || [];
-
-                            const sampleData: SampleData = {
-                              sampleNumber:
-                                sampleCollectionData.sampleNumber || undefined,
-                              accessionNumber:
-                                sampleCollectionData.accessionNumber || undefined,
-                              collectionDate: new Date(
-                                sampleCollectionData.collectionDate
-                              ).toISOString(),
-                              collectorName:
-                                sampleCollectionData.collectorName || undefined,
-                              orderId:
-                                selectedOrder.orderid ||
-                                selectedOrder.request_id ||
-                                selectedOrder.composition_uid,
-                              patientId:
-                                selectedOrder.subjectidentifier || undefined,
-                              ehrId: selectedOrder.ehrid || undefined,
-                              sampleType: sampleCollectionData.specimenType,
-                              subjectIdentifier:
-                                selectedOrder.subjectidentifier || undefined,
-                              workspaceId: workspaceid,
-                              currentLocation:
-                                sampleCollectionData.currentLocation,
-                              tests:
-                                testsForSpecimen.map(
-                                  (t: any) =>
-                                    t.testCode || t.testcode || t.testName || t
-                                ) || [],
-                              comments: sampleComments || undefined,
-                            };
-
-                            createSampleMutation.mutate(sampleData);
-                          }}
-                        >
-                          {createSampleMutation.isPending ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Collecting...
-                            </>
-                          ) : (
-                            <>
-                              <FlaskConical className="h-3 w-3 mr-1" />
-                              {!sampleCollectionData.specimenType 
-                                ? "Select Specimen Type" 
-                                : `Collect ${sampleCollectionData.specimenType} Sample`}
-                            </>
-                          )}
-                        </Button>
-                        
-                        {/* Show message if order is cancelled */}
-                        {(openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED") && (
-                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                            <strong>Cannot collect sample:</strong> This order has been cancelled.
-                          </div>
-                        )}
                       </div>
+
+                      {/* Show message if order is cancelled */}
+                      {(openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED") && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                          <strong>Cannot collect sample:</strong> This order has been cancelled.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2106,12 +2008,30 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
             })()}
 
           <DialogFooter className="gap-2">
+            {Object.keys(collectedSpecimenTypes).length > 0 && (
+              <div className="flex-1 text-xs text-green-700">
+                {Object.keys(collectedSpecimenTypes).length} specimen type(s) collected
+              </div>
+            )}
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowOrderDetail(false)}
+              onClick={() => {
+                setShowOrderDetail(false);
+                if (Object.keys(collectedSpecimenTypes).length > 0) {
+                  const collected = Object.entries(collectedSpecimenTypes)
+                    .map(([type, info]) => `${type}: ${info.sampleNumber}`)
+                    .join("\n");
+                  setAlertDialog({
+                    show: true,
+                    title: "Samples Collected Successfully",
+                    message: `Collected specimens:\n${collected}\n\nOrder status updated to IN PROGRESS`,
+                    type: "success",
+                  });
+                }
+              }}
             >
-              Close
+              {Object.keys(collectedSpecimenTypes).length > 0 ? "Done" : "Close"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2145,11 +2065,25 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   (t: any) => t.testCode || t.testcode || t.code
                 );
                 computedRecommendations = getSampleRecommendations(testCodes);
+              } else if (selectedOrder.source === "openEHR" && selectedOrder.service_name) {
+                computedRecommendations = getRecommendationsByServiceName(selectedOrder.service_name, selectedOrder.description);
               }
 
               // Use stored data or computed recommendations
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
+              
+              // Resolve tests for display
+              const resolvedTests2 = selectedOrder.tests && selectedOrder.tests.length > 0
+                ? selectedOrder.tests
+                : displayRecommendations?.recommendations?.map((r: any) => ({
+                    testCode: r.testCode,
+                    testName: r.testName,
+                    specimenType: r.sampleType,
+                    containerType: r.containerType,
+                    specimenvolume: `${r.volume} ${r.volumeUnit}`,
+                    fastingRequired: r.fastingRequired,
+                  })) || [];
 
               return (
                 <div className="space-y-4 py-4">
@@ -2170,11 +2104,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </div>
                       <div>
                         Tests:{" "}
-                        {selectedOrder.source === "openEHR"
-                          ? selectedOrder.service_name
-                          : selectedOrder.tests
-                              ?.map((t: any) => t.testName)
-                              .join(", ")}
+                        {resolvedTests2.length > 0
+                          ? resolvedTests2.map((t: any) => t.testName).join(", ")
+                          : selectedOrder.service_name || "N/A"}
                       </div>
                     </div>
                   </div>

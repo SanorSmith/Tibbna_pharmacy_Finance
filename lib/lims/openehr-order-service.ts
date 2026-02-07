@@ -103,11 +103,15 @@ export interface OpenEHRLabOrderComposition {
 export function createLabOrderComposition(
   order: LimsOrder,
   testNames: string[],
-  providerName: string
+  providerName: string,
+  metadata?: { category?: string; labName?: string }
 ): any {
   const eventTime = order.createdat.toISOString();
   const serviceName = testNames.join(", ");
-  const description = order.clinicalnotes || `Laboratory test order: ${serviceName}`;
+  const category = metadata?.category || "";
+  const labName = metadata?.labName || "Laboratory";
+  // Build structured description matching Patient Dashboard format so the parser can extract Category/Laboratory
+  const description = `Status: REQUESTED | Category: ${category || "General"} | Laboratory: ${labName} | Selected Tests (${testNames.length}): ${serviceName}${order.clinicalnotes ? ` | Notes: ${order.clinicalnotes}` : ''} | Urgency: ${order.priority || 'routine'}`;
   const clinicalIndication = order.clinicalindication || "";
   const narrative = `${serviceName} ordered${clinicalIndication ? ` due to ${clinicalIndication}` : ''}`;
 
@@ -131,7 +135,7 @@ export function createLabOrderComposition(
     "template_clinical_encounter_v1/service_request/request/clinical_indication": clinicalIndication,
     "template_clinical_encounter_v1/service_request/request/requested_date": eventTime,
     "template_clinical_encounter_v1/service_request/request/requesting_provider": providerName || "Unknown",
-    "template_clinical_encounter_v1/service_request/request/receiving_provider": "Laboratory",
+    "template_clinical_encounter_v1/service_request/request/receiving_provider": labName,
     "template_clinical_encounter_v1/service_request/request/timing": eventTime,
     "template_clinical_encounter_v1/service_request/request_id": order.orderid,
     "template_clinical_encounter_v1/service_request/narrative": narrative,
@@ -196,7 +200,8 @@ export async function createAndSubmitLabOrder(
   order: LimsOrder,
   testNames: string[],
   providerName: string,
-  ehrId?: string
+  ehrId?: string,
+  metadata?: { category?: string; labName?: string }
 ): Promise<{ compositionUid: string; timeCommitted: Date } | null> {
   // If no EHR ID provided, skip openEHR integration
   if (!ehrId) {
@@ -206,7 +211,7 @@ export async function createAndSubmitLabOrder(
   
   try {
     // Create composition
-    const composition = createLabOrderComposition(order, testNames, providerName);
+    const composition = createLabOrderComposition(order, testNames, providerName, metadata);
     
     // Submit to openEHR
     const result = await submitCompositionToOpenEHR(ehrId, composition);

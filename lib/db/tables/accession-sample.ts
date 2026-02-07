@@ -35,7 +35,7 @@ export const accessionSamples = pgTable(
     
     // Sample metadata
     sampletype: text("sampletype").notNull(), // blood, tissue, urine, etc.
-    containertype: text("containertype").notNull(), // vacutainer, jar, tube, etc.
+    containertype: text("containertype"), // vacutainer, jar, tube, etc. (optional — not all workflows capture this)
     volume: numeric("volume", { precision: 10, scale: 2 }), // numeric value
     volumeunit: text("volumeunit"), // mL, L, etc.
     

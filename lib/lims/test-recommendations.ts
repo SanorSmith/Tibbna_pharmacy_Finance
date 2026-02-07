@@ -151,6 +151,87 @@ const TEST_REQUIREMENTS: Record<string, TestRecommendation> = {
   'SPUTUM-CYTO': { testCode: 'SPUTUM-CYTO', testName: 'Sputum Cytology', sampleType: 'sputum', containerType: 'Sterile Sputum Container', volume: 5, volumeUnit: 'mL', fastingRequired: false, specialInstructions: 'Early morning collection' },
 };
 
+/**
+ * Find a test recommendation by code or name (fuzzy matching).
+ * Tries: exact code → uppercase code → keyword matching on test name.
+ */
+export function findRecommendation(testCode?: string, testName?: string): TestRecommendation | null {
+  if (!testCode && !testName) return null;
+
+  // 1. Exact code match
+  if (testCode && TEST_REQUIREMENTS[testCode]) return TEST_REQUIREMENTS[testCode];
+
+  // 2. Uppercase code match
+  if (testCode && TEST_REQUIREMENTS[testCode.toUpperCase()]) return TEST_REQUIREMENTS[testCode.toUpperCase()];
+
+  // 3. Keyword matching against TEST_REQUIREMENTS entries using code or name
+  const searchTerms = [testCode, testName].filter(Boolean).map(s => s!.toLowerCase());
+  const entries = Object.values(TEST_REQUIREMENTS);
+
+  for (const entry of entries) {
+    const entryName = entry.testName.toLowerCase();
+    const entryCode = entry.testCode.toLowerCase();
+    for (const term of searchTerms) {
+      // Check if the search term contains the entry name or code, or vice versa
+      if (
+        term.includes(entryName) || entryName.includes(term) ||
+        term.includes(entryCode) || entryCode.includes(term)
+      ) {
+        return entry;
+      }
+    }
+  }
+
+  // 4. Partial keyword match (e.g. "Cytomegalovirus-IgM" → "CMV" via common abbreviation mapping)
+  const KEYWORD_MAP: Record<string, string> = {
+    'cytomegalovirus': 'CMV',
+    'toxoplasmosis': 'TOXO',
+    'toxoplasma': 'TOXO',
+    'herpes': 'HERPES',
+    'hsv': 'HERPES',
+    'rubella': 'RUBELLA',
+    'hepatitis b': 'HBSAG',
+    'hbsag': 'HBSAG',
+    'hepatitis c': 'ANTI-HCV',
+    'hiv': 'HIV',
+    'syphilis': 'VDRL',
+    'glucose': 'FBS',
+    'blood sugar': 'FBS',
+    'hemoglobin': 'HGB',
+    'haemoglobin': 'HGB',
+    'platelet': 'PLT',
+    'creatinine': 'CREAT',
+    'urea': 'UREA',
+    'cholesterol': 'CHOL',
+    'triglyceride': 'TG',
+    'thyroid': 'TSH',
+    'ferritin': 'FERRITIN',
+    'iron': 'IRON',
+    'calcium': 'CA',
+    'potassium': 'K',
+    'sodium': 'NA',
+    'magnesium': 'MG',
+    'phosphorus': 'PO4',
+    'bilirubin': 'TBIL',
+    'albumin': 'ALB',
+    'protein': 'TP',
+    'uric acid': 'UA',
+    'bacteremia': 'BACT',
+    'fungemia': 'FUNG',
+    'culture': 'UTI',
+  };
+
+  for (const term of searchTerms) {
+    for (const [keyword, code] of Object.entries(KEYWORD_MAP)) {
+      if (term.includes(keyword)) {
+        if (TEST_REQUIREMENTS[code]) return TEST_REQUIREMENTS[code];
+      }
+    }
+  }
+
+  return null;
+}
+
 export function getSampleRecommendations(testCodes: string[]): OrderRecommendations {
   if (!testCodes || testCodes.length === 0) {
     return {
@@ -214,6 +295,171 @@ export function getSampleRecommendations(testCodes: string[]): OrderRecommendati
     recommendations,
     specialInstructions,
   };
+}
+
+/**
+ * Map common service/package names (used by openEHR orders) to their constituent test codes
+ * so we can derive specimen types, containers, and volumes for orders that only carry a service_name.
+ */
+const SERVICE_NAME_TO_TEST_CODES: Record<string, string[]> = {
+  // Hematology
+  'Complete Blood Count': ['RBC', 'WBC', 'HGB', 'HCT', 'PLT'],
+  'CBC': ['RBC', 'WBC', 'HGB', 'HCT', 'PLT'],
+  'ESR': ['ESR'],
+  'PT/aPTT': ['PT-APTT'],
+  'Reticulocyte Count': ['RETIC'],
+  'Bleeding Time': ['BT'],
+  'Clotting Time': ['CT'],
+  'PT & INR': ['PT-INR'],
+  'APTT': ['APTT'],
+  'Malaria Parasite': ['MALARIA'],
+  'Microfilaria': ['MICROF'],
+  'Iron Studies & Hb Electrophoresis': ['IRON-HB'],
+  'Bone Marrow Examination': ['BM-EXAM'],
+  'Blood Smear': ['SICKLE', 'BLAST', 'PARA'],
+  'Anemia Workup': ['FERR', 'IRON', 'B12', 'FOLATE'],
+
+  // Biochemistry - Organ Function
+  'Liver Function Tests (LFT)': ['ALT', 'AST', 'ALP', 'GGT', 'LDH', 'BILI', 'ALB'],
+  'Liver Function Tests': ['ALT', 'AST', 'ALP', 'GGT', 'LDH', 'BILI', 'ALB'],
+  'LFT': ['ALT', 'AST', 'ALP', 'GGT', 'LDH', 'BILI', 'ALB'],
+  'Kidney Function Tests (KFT)': ['CREAT', 'UREA', 'EGFR'],
+  'Kidney Function Tests': ['CREAT', 'UREA', 'EGFR'],
+  'KFT': ['CREAT', 'UREA', 'EGFR'],
+  'Renal Function Tests': ['CREAT', 'UREA', 'EGFR'],
+
+  // Biochemistry - Lipid & Glucose
+  'Lipid Profile': ['HDL', 'LDL', 'TRIG', 'VLDL'],
+  'Fasting Blood Sugar': ['FPG'],
+  'Random Blood Sugar': ['GLU'],
+  'HbA1c': ['HBA1C'],
+  'Oral Glucose Tolerance Test': ['OGTT'],
+
+  // Biochemistry - Electrolytes
+  'Electrolytes': ['NA', 'K', 'CA', 'CL', 'HCO3'],
+  'Uric Acid': ['URIC'],
+  'Protein Electrophoresis': ['PROT-ELEC'],
+
+  // Biochemistry - Urinalysis
+  'Urinalysis': ['U-PROT', 'U-GLU', 'U-KET', 'U-BLOOD', 'U-BILI', 'U-NIT-LE'],
+  'Urine Routine': ['U-PROT', 'U-GLU', 'U-KET', 'U-BLOOD', 'U-BILI', 'U-NIT-LE'],
+  '24-Hour Urine': ['U-24H-CR'],
+
+  // Microbiology
+  'Blood Culture': ['BACT', 'FUNG'],
+  'Urine Culture': ['UTI'],
+  'Sputum Culture': ['SPUTUM'],
+  'Stool Examination': ['PARA-ST', 'OB'],
+  'C. difficile': ['C-DIFF'],
+  'PCR/NAAT': ['PCR'],
+
+  // Immunology - Hepatitis
+  'Hepatitis B Panel': ['HBSAG', 'ANTI-HBS', 'ANTI-HBC'],
+  'HBsAg': ['HBSAG'],
+  'Anti-HCV': ['ANTI-HCV'],
+  'HIV': ['HIV'],
+
+  // Immunology - Autoimmune
+  'ANA': ['ANA'],
+  'Rheumatoid Factor': ['RF'],
+  'Anti-CCP': ['CCP'],
+  'CRP': ['CRP'],
+  'Autoimmune Panel': ['ANA', 'DSDNA', 'SMITH', 'RNP', 'SSA-SSB'],
+  'TORCH Panel': ['TOXO', 'RUBELLA', 'CMV', 'HERPES'],
+  'Syphilis Screening': ['VDRL', 'TPHA'],
+  'ANCA': ['ANCA'],
+  'Tumor Markers': ['CEA', 'CA125', 'CA199'],
+  'Thyroid Antibodies': ['TPO-TG'],
+  'Antiphospholipid Panel': ['B2GP-ACL'],
+
+  // Histopathology
+  'Biopsy': ['BIOPSY'],
+  'Pap Smear': ['PAP'],
+  'FNAC': ['FNAC'],
+  'Special Stains': ['PAS', 'ZN', 'SILVER'],
+  'Immunohistochemistry': ['IHC'],
+  'FISH': ['FISH'],
+  'Genetic Sequencing': ['SEQ'],
+  'Urine Cytology': ['URINE-CYTO'],
+  'Sputum Cytology': ['SPUTUM-CYTO'],
+};
+
+// Reverse mapping: test name (lowercase) -> test code
+const TEST_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.values(TEST_REQUIREMENTS).map(t => [t.testName.toLowerCase(), t.testCode])
+);
+
+/**
+ * Parse "Selected Tests (N): test1, test2" from a pipe-delimited description string
+ * and resolve test names to test codes.
+ */
+export function resolveTestsFromDescription(description: string | undefined | null): string[] {
+  if (!description) return [];
+  
+  // Parse pipe-delimited parts
+  const parts = description.split('|').map(p => p.trim());
+  for (const part of parts) {
+    const match = part.match(/Selected Tests\s*\(\d+\)\s*:\s*(.+)/i);
+    if (match) {
+      const testNames = match[1].split(',').map(n => n.trim()).filter(Boolean);
+      const codes: string[] = [];
+      for (const name of testNames) {
+        const lowerName = name.toLowerCase();
+        // Direct name match
+        if (TEST_NAME_TO_CODE[lowerName]) {
+          codes.push(TEST_NAME_TO_CODE[lowerName]);
+        } else {
+          // Partial match
+          const found = Object.entries(TEST_NAME_TO_CODE).find(
+            ([tName]) => tName.includes(lowerName) || lowerName.includes(tName)
+          );
+          if (found) codes.push(found[1]);
+        }
+      }
+      if (codes.length > 0) return codes;
+    }
+  }
+  return [];
+}
+
+/**
+ * Resolve test codes from a service/package name (case-insensitive, partial match)
+ * Optionally also parses the description field for "Selected Tests" to get exact selections.
+ */
+export function resolveServiceToTestCodes(serviceName: string, description?: string | null): string[] {
+  if (!serviceName) return [];
+  
+  // First try to parse specific selected tests from the description
+  const fromDescription = resolveTestsFromDescription(description);
+  if (fromDescription.length > 0) return fromDescription;
+  
+  // Exact match first
+  if (SERVICE_NAME_TO_TEST_CODES[serviceName]) {
+    return SERVICE_NAME_TO_TEST_CODES[serviceName];
+  }
+  
+  // Case-insensitive match
+  const lowerService = serviceName.toLowerCase().trim();
+  for (const [key, codes] of Object.entries(SERVICE_NAME_TO_TEST_CODES)) {
+    if (key.toLowerCase() === lowerService) return codes;
+  }
+  
+  // Partial match - check if service name contains a known key or vice versa
+  for (const [key, codes] of Object.entries(SERVICE_NAME_TO_TEST_CODES)) {
+    if (lowerService.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerService)) {
+      return codes;
+    }
+  }
+  
+  return [];
+}
+
+/**
+ * Get sample recommendations by service name (for openEHR orders)
+ */
+export function getRecommendationsByServiceName(serviceName: string, description?: string | null): OrderRecommendations {
+  const testCodes = resolveServiceToTestCodes(serviceName, description);
+  return getSampleRecommendations(testCodes);
 }
 
 export function getContainerOptions(sampleType: string): string[] {
