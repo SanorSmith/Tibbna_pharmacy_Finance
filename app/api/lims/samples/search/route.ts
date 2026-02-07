@@ -86,7 +86,8 @@ export async function GET(request: NextRequest) {
             orderTests.map(async (test) => {
               if (!test.testcode) return null;
 
-              const [refRange] = await db
+              // Try matching by testcode first, then fall back to testname
+              let [refRange] = await db
                 .select()
                 .from(testReferenceRanges)
                 .where(
@@ -96,6 +97,19 @@ export async function GET(request: NextRequest) {
                   )
                 )
                 .limit(1);
+
+              if (!refRange && test.testname) {
+                [refRange] = await db
+                  .select()
+                  .from(testReferenceRanges)
+                  .where(
+                    and(
+                      ilike(testReferenceRanges.testname, test.testname),
+                      eq(testReferenceRanges.isactive, 'Y')
+                    )
+                  )
+                  .limit(1);
+              }
 
               let unit = refRange?.unit || null;
               let referencerange = refRange?.referencetext || null;
@@ -133,7 +147,7 @@ export async function GET(request: NextRequest) {
               testcode: existingResult.testcode,
               testname: existingResult.testname,
               resultvalue: existingResult.resultvalue,
-              unit: existingResult.unit,
+              unit: existingResult.unit || requestedTest.unit,
               referencemin: requestedTest.referencemin,
               referencemax: requestedTest.referencemax,
               referencerange: requestedTest.referencerange,
@@ -161,6 +175,73 @@ export async function GET(request: NextRequest) {
             };
           }
         });
+
+        // Include existing results not matched to any requested test (e.g. no order)
+        const matchedTestCodes = new Set(allTests.map(t => t.testcode));
+        const unmatchedResults = results.filter(r => !matchedTestCodes.has(r.testcode));
+
+        // Fetch reference ranges for unmatched results
+        const extraTests = await Promise.all(
+          unmatchedResults.map(async (r) => {
+            let refMin: number | null = r.referencemin;
+            let refMax: number | null = r.referencemax;
+            let refRange: string | null = r.referencerange;
+            let unit = r.unit;
+
+            // Look up reference range from testReferenceRanges if not on the result
+            if (refMin === null && refMax === null && !refRange && r.testcode) {
+              // Try by testcode first, then by testname
+              let [ref] = await db
+                .select()
+                .from(testReferenceRanges)
+                .where(
+                  and(
+                    eq(testReferenceRanges.testcode, r.testcode),
+                    eq(testReferenceRanges.isactive, 'Y')
+                  )
+                )
+                .limit(1);
+
+              if (!ref && r.testname) {
+                [ref] = await db
+                  .select()
+                  .from(testReferenceRanges)
+                  .where(
+                    and(
+                      ilike(testReferenceRanges.testname, r.testname),
+                      eq(testReferenceRanges.isactive, 'Y')
+                    )
+                  )
+                  .limit(1);
+              }
+
+              if (ref) {
+                refMin = ref.referencemin ? parseFloat(ref.referencemin) : null;
+                refMax = ref.referencemax ? parseFloat(ref.referencemax) : null;
+                refRange = ref.referencetext || null;
+                unit = unit || ref.unit;
+              }
+            }
+
+            return {
+              resultid: r.resultid,
+              testcode: r.testcode,
+              testname: r.testname,
+              resultvalue: r.resultvalue,
+              unit: unit,
+              referencemin: refMin,
+              referencemax: refMax,
+              referencerange: refRange,
+              flag: r.flag,
+              isabormal: r.isabormal,
+              iscritical: r.iscritical,
+              status: r.status,
+              hasResult: true,
+            };
+          })
+        );
+
+        allTests.push(...extraTests);
 
         // Calculate patient age
         let age = 0;

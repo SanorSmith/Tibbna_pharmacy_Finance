@@ -89,8 +89,22 @@ export default function WorklistValidationModal({
   const { data: worklistData, isLoading, error } = useQuery({
     queryKey: ["worklist-detail", worklistid, workspaceid, selectedSample?.sampleid],
     queryFn: async () => {
-      // If individual sample is provided, use it directly
+      // If individual sample is provided
       if (selectedSample) {
+        // If results are empty, fetch from search API to get requested tests
+        if (!selectedSample.results || selectedSample.results.length === 0) {
+          const sampleNumber = selectedSample.sample?.samplenumber || "";
+          if (sampleNumber) {
+            const response = await fetch(`/api/lims/samples/search?workspaceid=${workspaceid}&query=${encodeURIComponent(sampleNumber)}`);
+            if (response.ok) {
+              const data = await response.json();
+              const match = data.samples?.find((s: any) => s.sampleid === selectedSample.sampleid);
+              if (match) {
+                return { items: [{ ...selectedSample, results: match.results }] };
+              }
+            }
+          }
+        }
         return { items: [selectedSample] };
       }
       
@@ -658,11 +672,6 @@ export default function WorklistValidationModal({
                                             return '';
                                           })()}`}
                                         />
-                                        {result.unit && result.unit !== 'N/A' && (
-                                          <span className="text-sm text-muted-foreground">
-                                            {result.unit}
-                                          </span>
-                                        )}
                                       </>
                                     )}
                                   </div>

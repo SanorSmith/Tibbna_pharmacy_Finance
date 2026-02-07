@@ -143,8 +143,8 @@ export async function GET(
               
               console.log(`Looking up reference range for test code: ${test.testcode}, test name: ${test.testname}`);
               
-              // Try to get reference range
-              const [refRange] = await db
+              // Try matching by testcode first, then fall back to testname
+              let [refRange] = await db
                 .select()
                 .from(testReferenceRanges)
                 .where(
@@ -154,15 +154,23 @@ export async function GET(
                   )
                 )
                 .limit(1);
-              
-              console.log(`Reference range found for ${test.testcode}:`, refRange ? `${refRange.unit} | ${refRange.referencetext || `${refRange.referencemin}-${refRange.referencemax}`}` : 'NOT FOUND');
 
-              // If no reference range found, check if it's a qualitative test
-              // For qualitative tests, set appropriate defaults
+              if (!refRange && test.testname) {
+                [refRange] = await db
+                  .select()
+                  .from(testReferenceRanges)
+                  .where(
+                    and(
+                      sql`LOWER(${testReferenceRanges.testname}) = LOWER(${test.testname})`,
+                      eq(testReferenceRanges.isactive, 'Y')
+                    )
+                  )
+                  .limit(1);
+              }
+
               let unit = refRange?.unit || null;
               let referencerange = refRange?.referencetext || null;
               
-              // For tests without reference ranges (qualitative/descriptive tests)
               if (!refRange && test.testcategory) {
                 const category = test.testcategory.toLowerCase();
                 if (category.includes('pathology') || category.includes('cytology') || 
@@ -192,16 +200,16 @@ export async function GET(
           const existingResult = results.find(r => r.testcode === requestedTest.testcode);
           
           if (existingResult) {
-            // Return existing result
+            // Return existing result with reference ranges from requestedTest
             return {
               resultid: existingResult.resultid,
               testcode: existingResult.testcode,
               testname: existingResult.testname,
               resultvalue: existingResult.resultvalue,
-              unit: existingResult.unit,
-              referencemin: existingResult.referencemin,
-              referencemax: existingResult.referencemax,
-              referencerange: existingResult.referencerange,
+              unit: existingResult.unit || requestedTest.unit,
+              referencemin: requestedTest.referencemin ?? existingResult.referencemin,
+              referencemax: requestedTest.referencemax ?? existingResult.referencemax,
+              referencerange: requestedTest.referencerange ?? existingResult.referencerange,
               flag: existingResult.flag,
               isabormal: existingResult.isabormal,
               iscritical: existingResult.iscritical,
@@ -227,6 +235,71 @@ export async function GET(
             };
           }
         });
+
+        // Include existing results not matched to any requested test
+        const matchedTestCodes = new Set(allTests.map(t => t.testcode));
+        const unmatchedResults = results.filter(r => !matchedTestCodes.has(r.testcode));
+
+        const extraTests = await Promise.all(
+          unmatchedResults.map(async (r) => {
+            let refMin: number | null = r.referencemin;
+            let refMax: number | null = r.referencemax;
+            let refRange: string | null = r.referencerange;
+            let unit = r.unit;
+
+            if (refMin === null && refMax === null && !refRange && r.testcode) {
+              // Try by testcode first, then by testname
+              let [ref] = await db
+                .select()
+                .from(testReferenceRanges)
+                .where(
+                  and(
+                    eq(testReferenceRanges.testcode, r.testcode),
+                    eq(testReferenceRanges.isactive, 'Y')
+                  )
+                )
+                .limit(1);
+
+              if (!ref && r.testname) {
+                [ref] = await db
+                  .select()
+                  .from(testReferenceRanges)
+                  .where(
+                    and(
+                      sql`LOWER(${testReferenceRanges.testname}) = LOWER(${r.testname})`,
+                      eq(testReferenceRanges.isactive, 'Y')
+                    )
+                  )
+                  .limit(1);
+              }
+
+              if (ref) {
+                refMin = ref.referencemin ? parseFloat(ref.referencemin) : null;
+                refMax = ref.referencemax ? parseFloat(ref.referencemax) : null;
+                refRange = ref.referencetext || null;
+                unit = unit || ref.unit;
+              }
+            }
+
+            return {
+              resultid: r.resultid,
+              testcode: r.testcode,
+              testname: r.testname,
+              resultvalue: r.resultvalue,
+              unit: unit,
+              referencemin: refMin,
+              referencemax: refMax,
+              referencerange: refRange,
+              flag: r.flag,
+              isabormal: r.isabormal,
+              iscritical: r.iscritical,
+              status: r.status,
+              hasResult: true,
+            };
+          })
+        );
+
+        allTests.push(...extraTests);
 
         return {
           worklistitemid: item.worklistitemid,
