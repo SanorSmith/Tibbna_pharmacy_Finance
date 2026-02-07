@@ -388,180 +388,178 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-2 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-bold">Sample Management</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-bold leading-tight">Sample Management</h2>
+          <p className="text-xs text-muted-foreground">
             Manage and track samples in storage
           </p>
         </div>
+        <Dialog open={isAddLocationDialogOpen} onOpenChange={setIsAddLocationDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-blue-600 hover:bg-blue-700" size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Location
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Storage Location</DialogTitle>
+              <DialogDescription>
+                Create a new storage location for sample management
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Location Name *</Label>
+                <Input
+                  id="name"
+                  value={locationForm.name}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Main Lab Freezer -80°C"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="code">Location Code *</Label>
+                <Input
+                  id="code"
+                  value={locationForm.code}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                  placeholder="e.g., FREEZER_MAIN_80"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="type">Storage Type *</Label>
+                <Select value={locationForm.type} onValueChange={(value) => setLocationForm(prev => ({ ...prev, type: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="refrigerator">Refrigerator (2-8°C)</SelectItem>
+                    <SelectItem value="freezer_minus_80">Ultra-Low Freezer (-80°C)</SelectItem>
+                    <SelectItem value="freezer_minus_20">Standard Freezer (-20°C)</SelectItem>
+                    <SelectItem value="room_temp">Room Temperature</SelectItem>
+                    <SelectItem value="incubator">Incubator</SelectItem>
+                    <SelectItem value="rack">Storage Rack</SelectItem>
+                    <SelectItem value="shelf">Storage Shelf</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category *</Label>
+                <Select value={locationForm.category} onValueChange={(value) => setLocationForm(prev => ({ ...prev, category: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="storage">Storage</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="quarantine">Quarantine</SelectItem>
+                    <SelectItem value="disposal">Disposal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="building">Building</Label>
+                <Input
+                  id="building"
+                  value={locationForm.building}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, building: e.target.value }))}
+                  placeholder="e.g., Main Building"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room">Room</Label>
+                <Input
+                  id="room"
+                  value={locationForm.room}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, room: e.target.value }))}
+                  placeholder="e.g., Lab 101"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="equipment">Equipment</Label>
+                <Input
+                  id="equipment"
+                  value={locationForm.equipment}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, equipment: e.target.value }))}
+                  placeholder="e.g., Freezer Model X-2000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="capacity">Capacity</Label>
+                <Input
+                  id="capacity"
+                  type="number"
+                  value={locationForm.capacity}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, capacity: e.target.value }))}
+                  placeholder="Maximum sample capacity"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tempMin">Min Temperature (°C)</Label>
+                <Input
+                  id="tempMin"
+                  type="number"
+                  step="0.1"
+                  value={locationForm.temperaturemin}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, temperaturemin: e.target.value }))}
+                  placeholder="e.g., -86"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tempMax">Max Temperature (°C)</Label>
+                <Input
+                  id="tempMax"
+                  type="number"
+                  step="0.1"
+                  value={locationForm.temperaturemax}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, temperaturemax: e.target.value }))}
+                  placeholder="e.g., -74"
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={locationForm.description}
+                  onChange={(e) => setLocationForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Optional description of the storage location"
+                  rows={2}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddLocationDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAddLocation} 
+                disabled={createLocationMutation.isPending || !locationForm.name || !locationForm.code}
+              >
+                {createLocationMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Add Location
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      <div className="flex-1 min-h-0 overflow-auto space-y-4">
 
 
       {/* Storage Locations Management */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Storage Locations
-              </CardTitle>
-              <CardDescription>Manage laboratory storage locations and capacity</CardDescription>
-            </div>
-            <Dialog open={isAddLocationDialogOpen} onOpenChange={setIsAddLocationDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Location
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add New Storage Location</DialogTitle>
-                  <DialogDescription>
-                    Create a new storage location for sample management
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Location Name *</Label>
-                    <Input
-                      id="name"
-                      value={locationForm.name}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Main Lab Freezer -80°C"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="code">Location Code *</Label>
-                    <Input
-                      id="code"
-                      value={locationForm.code}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                      placeholder="e.g., FREEZER_MAIN_80"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Storage Type *</Label>
-                    <Select value={locationForm.type} onValueChange={(value) => setLocationForm(prev => ({ ...prev, type: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="refrigerator">Refrigerator (2-8°C)</SelectItem>
-                        <SelectItem value="freezer_minus_80">Ultra-Low Freezer (-80°C)</SelectItem>
-                        <SelectItem value="freezer_minus_20">Standard Freezer (-20°C)</SelectItem>
-                        <SelectItem value="room_temp">Room Temperature</SelectItem>
-                        <SelectItem value="incubator">Incubator</SelectItem>
-                        <SelectItem value="rack">Storage Rack</SelectItem>
-                        <SelectItem value="shelf">Storage Shelf</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category *</Label>
-                    <Select value={locationForm.category} onValueChange={(value) => setLocationForm(prev => ({ ...prev, category: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="storage">Storage</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="quarantine">Quarantine</SelectItem>
-                        <SelectItem value="disposal">Disposal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="building">Building</Label>
-                    <Input
-                      id="building"
-                      value={locationForm.building}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, building: e.target.value }))}
-                      placeholder="e.g., Main Building"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="room">Room</Label>
-                    <Input
-                      id="room"
-                      value={locationForm.room}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, room: e.target.value }))}
-                      placeholder="e.g., Lab 101"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="equipment">Equipment</Label>
-                    <Input
-                      id="equipment"
-                      value={locationForm.equipment}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, equipment: e.target.value }))}
-                      placeholder="e.g., Freezer Model X-2000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="capacity">Capacity</Label>
-                    <Input
-                      id="capacity"
-                      type="number"
-                      value={locationForm.capacity}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, capacity: e.target.value }))}
-                      placeholder="Maximum sample capacity"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tempMin">Min Temperature (°C)</Label>
-                    <Input
-                      id="tempMin"
-                      type="number"
-                      step="0.1"
-                      value={locationForm.temperaturemin}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, temperaturemin: e.target.value }))}
-                      placeholder="e.g., -86"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tempMax">Max Temperature (°C)</Label>
-                    <Input
-                      id="tempMax"
-                      type="number"
-                      step="0.1"
-                      value={locationForm.temperaturemax}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, temperaturemax: e.target.value }))}
-                      placeholder="e.g., -74"
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={locationForm.description}
-                      onChange={(e) => setLocationForm(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Optional description of the storage location"
-                      rows={2}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddLocationDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleAddLocation} 
-                    disabled={createLocationMutation.isPending || !locationForm.name || !locationForm.code}
-                  >
-                    {createLocationMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : null}
-                    Add Location
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Storage Locations
+          </CardTitle>
+          <CardDescription>Manage laboratory storage locations and capacity</CardDescription>
         </CardHeader>
         <CardContent>
           {locationsLoading ? (
@@ -1184,6 +1182,7 @@ export default function SampleManagementTab({ workspaceid }: { workspaceid: stri
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

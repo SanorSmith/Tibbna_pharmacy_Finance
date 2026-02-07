@@ -802,12 +802,12 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const filteredOrders = Array.from(latestOrdersByTest.values());
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full gap-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-bold">Lab Orders</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="text-lg font-bold leading-tight">Lab Orders</h2>
+          <p className="text-xs text-muted-foreground">
             View and manage incoming lab test orders
           </p>
         </div>
@@ -1165,9 +1165,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       </div>
 
       {/* Filters and Search */}
-      <Card className="border-gray-200">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+      <Card className="border-gray-200 flex-shrink-0">
+        <CardContent className="px-3 py-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {/* Search Input */}
             <div className="flex-1">
               <div className="relative">
@@ -1213,21 +1213,21 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       </Card>
 
       {/* Orders Table */}
-      <Card className="border-gray-200">
-        <CardHeader className="pb-3">
+      <Card className="border-gray-200 flex-1 min-h-0 flex flex-col">
+        <CardHeader className="py-2 px-3 flex-shrink-0 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">
+            <CardTitle className="text-sm font-semibold">
               Orders ({filteredOrders.length})
             </CardTitle>
             {filteredOrders.length > 0 && (
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+              <Badge variant="secondary" className="bg-blue-50 text-blue-700 text-xs">
                 {filteredOrders.length}{" "}
                 {filteredOrders.length === 1 ? "order" : "orders"}
               </Badge>
             )}
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-2" />
@@ -1252,20 +1252,20 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="h-full overflow-auto [&_[data-slot=table-container]]:overflow-visible">
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="font-semibold w-32">Order ID</TableHead>
-                    <TableHead className="font-semibold w-40">Patient</TableHead>
-                    <TableHead className="font-semibold w-48">
+                    <TableHead className="font-semibold w-32 sticky top-0 z-10 bg-gray-50">Order ID</TableHead>
+                    <TableHead className="font-semibold w-40 sticky top-0 z-10 bg-gray-50">Patient</TableHead>
+                    <TableHead className="font-semibold w-48 sticky top-0 z-10 bg-gray-50">
                       Test
                     </TableHead>
-                    <TableHead className="font-semibold w-24">Priority</TableHead>
-                    <TableHead className="font-semibold w-28">Status</TableHead>
-                    <TableHead className="font-semibold w-36">Provider</TableHead>
-                    <TableHead className="font-semibold w-28">TAT</TableHead>
-                    <TableHead className="font-semibold w-32">Order Date</TableHead>
+                    <TableHead className="font-semibold w-24 sticky top-0 z-10 bg-gray-50">Priority</TableHead>
+                    <TableHead className="font-semibold w-28 sticky top-0 z-10 bg-gray-50">Status</TableHead>
+                    <TableHead className="font-semibold w-36 sticky top-0 z-10 bg-gray-50">Provider</TableHead>
+                    <TableHead className="font-semibold w-28 sticky top-0 z-10 bg-gray-50">TAT</TableHead>
+                    <TableHead className="font-semibold w-32 sticky top-0 z-10 bg-gray-50">Order Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
