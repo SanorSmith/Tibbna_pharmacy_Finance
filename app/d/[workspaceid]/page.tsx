@@ -45,7 +45,7 @@ export default async function Dashboard({ params }: CompanyDashboardProps) {
       redirect(`/d/${workspaceid}/reception`);
       break;
     case "pharmacist":
-      redirect(`/d/${workspaceid}/pharmacy/orders`);
+      redirect(`/d/${workspaceid}/pharmacy/dashboard`);
       break;
     case "lab_technician":
       redirect(`/d/${workspaceid}/lab-tech`);

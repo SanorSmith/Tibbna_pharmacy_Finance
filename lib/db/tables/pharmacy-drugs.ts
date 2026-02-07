@@ -13,6 +13,7 @@ import {
   boolean,
   index,
   date,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { workspaces } from "./workspace";
 
@@ -32,6 +33,19 @@ export const drugs = pgTable(
     unit: text("unit").notNull().default("tablet"), // tablet, ml, vial …
     barcode: text("barcode"),
     manufacturer: text("manufacturer"),
+    nationalcode: text("nationalcode"),
+    category: text("category"),
+    description: text("description"),
+    interaction: text("interaction"),
+    warning: text("warning"),
+    pregnancy: text("pregnancy"),
+    sideeffect: text("sideeffect"),
+    storagetype: text("storagetype"),
+    indication: text("indication"),
+    traffic: text("traffic"),
+    notes: text("notes"),
+    insuranceapproved: boolean("insuranceapproved").default(false),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
     requiresprescription: boolean("requiresprescription").notNull().default(true),
     isactive: boolean("isactive").notNull().default(true),
     createdat: timestamp("createdat", { withTimezone: true }).notNull().defaultNow(),

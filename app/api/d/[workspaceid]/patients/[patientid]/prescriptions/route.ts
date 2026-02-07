@@ -37,8 +37,8 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Only doctors can view prescriptions
-    if (membership.role !== "doctor") {
+    // Only doctors and pharmacists can view prescriptions
+    if (membership.role !== "doctor" && membership.role !== "pharmacist" && membership.role !== "administrator") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
