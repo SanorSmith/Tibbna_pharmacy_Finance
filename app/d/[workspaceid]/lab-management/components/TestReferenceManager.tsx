@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload, ChevronDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload, ChevronDown, History } from "lucide-react";
 import { LAB_TYPES, TEST_GROUPS, getAllTestGroupNames } from "@/lib/test-groups-and-lab-types";
 import {
   Dialog,
@@ -92,6 +92,11 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
   const [viewingRange, setViewingRange] = useState<TestReferenceRange | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState<string>("");
+  const [updateReason, setUpdateReason] = useState("");
+  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+  const [auditRangeId, setAuditRangeId] = useState<string | null>(null);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -220,7 +225,25 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
         notes: "",
       });
     }
+    setUpdateReason("");
     setShowDialog(true);
+  };
+
+  const fetchAuditLogs = async (rangeid: string) => {
+    setLoadingAuditLogs(true);
+    setAuditRangeId(rangeid);
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/test-reference-ranges/audit-log?rangeid=${rangeid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs || []);
+      }
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+    } finally {
+      setLoadingAuditLogs(false);
+      setShowAuditLog(true);
+    }
   };
 
   const handleSave = async () => {
@@ -238,7 +261,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
         const response = await fetch(`/api/d/${workspaceid}/test-reference-ranges`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rangeid: editingRange.rangeid, ...payload }),
+          body: JSON.stringify({ rangeid: editingRange.rangeid, updateReason, ...payload }),
         });
 
         if (response.ok) {
@@ -498,6 +521,15 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
+                            onClick={() => fetchAuditLogs(range.rangeid)}
+                            title="Change History"
+                          >
+                            <History className="h-3 w-3 text-orange-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
                             onClick={() => {
                               setDeleteRangeId(range.rangeid);
                               setShowDeleteDialog(true);
@@ -675,11 +707,28 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
               </div>
             </div>
 
+            {editingRange && (
+              <div className="col-span-6 mt-1 border-t pt-1">
+                <Label className="text-[10px] font-semibold text-orange-700">Reason for Update *</Label>
+                <Textarea
+                  className="mt-0.5 text-[11px] min-h-[40px]"
+                  value={updateReason}
+                  onChange={(e) => setUpdateReason(e.target.value)}
+                  placeholder="e.g., Updated reference range per new WHO guidelines, Corrected unit from mg/dL to mmol/L"
+                  rows={2}
+                />
+              </div>
+            )}
+
             <DialogFooter className="pt-1">
               <Button variant="outline" onClick={() => setShowDialog(false)} className="h-7 text-xs">
                 <X className="h-3 w-3 mr-1" /> Cancel
               </Button>
-              <Button onClick={handleSave} className="h-7 text-xs">
+              <Button
+                onClick={handleSave}
+                className="h-7 text-xs"
+                disabled={editingRange ? !updateReason.trim() : false}
+              >
                 <Save className="h-3 w-3 mr-1" /> {editingRange ? "Update" : "Create"}
               </Button>
             </DialogFooter>
@@ -852,6 +901,80 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
               }} className="h-7 text-xs">
                 <Edit2 className="h-3 w-3 mr-1" />
                 Edit
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Audit Log Dialog */}
+        <Dialog open={showAuditLog} onOpenChange={setShowAuditLog}>
+          <DialogContent className="max-w-[70vw] max-h-[80vh] overflow-y-auto p-4">
+            <DialogHeader className="pb-1">
+              <DialogTitle className="text-sm flex items-center gap-2">
+                <History className="h-4 w-4 text-orange-600" />
+                Change History
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Audit trail of all changes made to this test reference range
+              </DialogDescription>
+            </DialogHeader>
+
+            {loadingAuditLogs ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">Loading audit logs...</div>
+            ) : auditLogs.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">No change history found.</div>
+            ) : (
+              <div className="space-y-3">
+                {auditLogs.map((log: any) => (
+                  <div key={log.logid} className="border rounded-lg p-3 text-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={log.action === "CREATE" ? "default" : log.action === "DELETE" ? "destructive" : "secondary"}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {log.action}
+                        </Badge>
+                        <span className="font-medium">{log.username || "Unknown"}</span>
+                      </div>
+                      <span className="text-muted-foreground text-[10px]">
+                        {new Date(log.createdat).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {log.reason && (
+                      <div className="mb-2 bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                        <span className="font-medium text-orange-700">Reason: </span>
+                        <span className="text-orange-900">{log.reason}</span>
+                      </div>
+                    )}
+
+                    {log.action === "UPDATE" && log.changes && Object.keys(log.changes).length > 0 && (
+                      <div className="mt-1">
+                        <span className="font-semibold text-[10px] text-gray-600 uppercase">Changed Fields:</span>
+                        <div className="mt-1 space-y-1">
+                          {Object.entries(log.changes as Record<string, { old: any; new: any }>).map(([field, diff]) => (
+                            <div key={field} className="grid grid-cols-[120px_1fr_1fr] gap-1 items-start">
+                              <span className="font-medium text-gray-700 capitalize">{field.replace(/([A-Z])/g, " $1")}</span>
+                              <div className="bg-red-50 rounded px-1.5 py-0.5 line-through text-red-700 truncate" title={String(diff.old || "—")}>
+                                {String(diff.old || "—")}
+                              </div>
+                              <div className="bg-green-50 rounded px-1.5 py-0.5 text-green-700 truncate" title={String(diff.new || "—")}>
+                                {String(diff.new || "—")}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button variant="outline" onClick={() => setShowAuditLog(false)} className="h-7 text-xs">
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -31,3 +31,4 @@ export * from "./tables/pharmacy-insurance";
 export * from "./tables/pharmacy-invoices";
 export * from "./tables/pharmacy-substitutions";
 export * from "./schema/test-reference-ranges";
+export * from "./schema/test-reference-audit-log";
