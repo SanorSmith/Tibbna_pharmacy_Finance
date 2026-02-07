@@ -111,7 +111,14 @@ export function computeSampleTAT(sample: {
   currentstatus?: string;
   releaseddate?: string | null;
   priority?: string;
+  orderStatus?: string;
+  orderCancelledAt?: string | null;
 }): TATInfo | null {
+  // Exclude cancelled orders from TAT and workload KPIs
+  if (sample.orderStatus === "CANCELLED" || sample.orderCancelledAt) {
+    return null;
+  }
+
   const startStr = sample.collectiondate || sample.accessionedat;
   if (!startStr) return null;
 
