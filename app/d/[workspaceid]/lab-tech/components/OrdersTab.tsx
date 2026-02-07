@@ -178,6 +178,12 @@ interface LimsOrder {
   narrative?: string;
   is_package?: boolean;
   target_lab?: string;
+
+  // Cancellation details (local LIMS orders)
+  cancelledat?: string | null;
+  cancelledby?: string | null;
+  cancelledbyname?: string | null;
+  cancellationreason?: string | null;
 }
 
 interface ValidationError {
@@ -1996,11 +2002,34 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </div>
 
                       {/* Show message if order is cancelled */}
-                      {(openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED") && (
-                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                          <strong>Cannot collect sample:</strong> This order has been cancelled.
-                        </div>
-                      )}
+                      {(openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED") && (() => {
+                        // Extract cancellation details from local order or openEHR narrative
+                        let cancelledBy = selectedOrder?.cancelledbyname || null;
+                        let cancelReason = selectedOrder?.cancellationreason || null;
+
+                        // For openEHR orders, parse narrative: "[CANCELLED] Reason: ... | Cancelled by: ... | Cancelled at: ..."
+                        if (!cancelledBy && selectedOrder?.narrative?.includes("[CANCELLED]")) {
+                          const byMatch = selectedOrder.narrative.match(/Cancelled by:\s*([^|]+)/);
+                          const reasonMatch = selectedOrder.narrative.match(/Reason:\s*([^|]+)/);
+                          if (byMatch) cancelledBy = byMatch[1].trim();
+                          if (reasonMatch) cancelReason = reasonMatch[1].trim();
+                        }
+
+                        return (
+                          <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded text-xs text-red-700 space-y-1">
+                            <div className="font-semibold flex items-center gap-1">
+                              ❌ Cannot collect sample: This order has been cancelled.
+                            </div>
+                            {(cancelledBy || cancelReason) && (
+                              <div className="text-red-600">
+                                {cancelledBy && <>Cancelled by <strong>{cancelledBy}</strong></>}
+                                {cancelledBy && cancelReason && <> — </>}
+                                {cancelReason && <>Reason: <em>{cancelReason}</em></>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -2287,6 +2316,32 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       </p>
                     </div>
                   )}
+
+                  {/* Show message if order is cancelled */}
+                  {(openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED") && (() => {
+                    let cancelledBy = selectedOrder?.cancelledbyname || null;
+                    let cancelReason = selectedOrder?.cancellationreason || null;
+                    if (!cancelledBy && selectedOrder?.narrative?.includes("[CANCELLED]")) {
+                      const byMatch = selectedOrder.narrative.match(/Cancelled by:\s*([^|]+)/);
+                      const reasonMatch = selectedOrder.narrative.match(/Reason:\s*([^|]+)/);
+                      if (byMatch) cancelledBy = byMatch[1].trim();
+                      if (reasonMatch) cancelReason = reasonMatch[1].trim();
+                    }
+                    return (
+                      <div className="p-2.5 bg-red-50 border border-red-200 rounded text-xs text-red-700 space-y-1">
+                        <div className="font-semibold flex items-center gap-1">
+                          ❌ Cannot collect sample: This order has been cancelled.
+                        </div>
+                        {(cancelledBy || cancelReason) && (
+                          <div className="text-red-600">
+                            {cancelledBy && <>Cancelled by <strong>{cancelledBy}</strong></>}
+                            {cancelledBy && cancelReason && <> — </>}
+                            {cancelReason && <>Reason: <em>{cancelReason}</em></>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
@@ -2303,7 +2358,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
             <Button
               type="button"
               className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={createSampleMutation.isPending}
+              disabled={createSampleMutation.isPending || openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED"}
               onClick={() => {
                 if (!selectedOrder) return;
 
