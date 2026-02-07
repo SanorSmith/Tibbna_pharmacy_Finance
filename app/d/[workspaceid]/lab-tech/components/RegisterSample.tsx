@@ -436,12 +436,12 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-bold">Collected Samples</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-bold leading-tight">Collected Samples</h2>
+          <p className="text-xs text-muted-foreground">
             Register and track physical samples received in the laboratory
           </p>
         </div>
@@ -449,9 +449,9 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       
       {/* Filters and Search */}
-      <Card className="border-gray-200">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+      <Card className="border-gray-200 flex-shrink-0">
+        <CardContent className="px-3 py-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {/* Search Input */}
             <div className="flex-1">
               <div className="relative">
@@ -524,12 +524,11 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
       </Card>
 
       {/* Samples List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Accessioned Samples ({filteredSamples.length})</CardTitle>
-          <CardDescription>Recently registered samples in the laboratory</CardDescription>
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <CardHeader className="py-2 px-3 flex-shrink-0 border-b">
+          <CardTitle className="text-sm">Accessioned Samples ({filteredSamples.length})</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0 overflow-auto p-3">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />

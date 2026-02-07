@@ -12,7 +12,7 @@
 
 import { db } from "@/lib/db";
 import { accessionSamples, limsOrders, testResults } from "@/lib/db/schema";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, isNull, ne, or } from "drizzle-orm";
 import { createWorkspaceNotification } from "@/lib/notifications";
 
 // ── Default TAT thresholds (minutes) ──────────────────────────────────
@@ -111,11 +111,15 @@ export async function calculateSampleTAT(sampleid: string): Promise<TATBreakdown
   let priority = "ROUTINE";
   if (sample.orderid) {
     const [order] = await db
-      .select({ createdat: limsOrders.createdat, priority: limsOrders.priority })
+      .select({ createdat: limsOrders.createdat, priority: limsOrders.priority, cancelledat: limsOrders.cancelledat, status: limsOrders.status })
       .from(limsOrders)
       .where(eq(limsOrders.orderid, sample.orderid))
       .limit(1);
     if (order) {
+      // Exclude cancelled orders from TAT calculations
+      if (order.cancelledat || order.status === "CANCELLED") {
+        return null;
+      }
       orderPlaced = order.createdat?.toISOString() ?? null;
       priority = order.priority || "ROUTINE";
     }
@@ -208,10 +212,22 @@ export async function getWorkspaceTATSummary(
   if (from) conditions.push(gte(accessionSamples.accessionedat, from));
   if (to) conditions.push(lte(accessionSamples.accessionedat, to));
 
+  // Exclude samples linked to cancelled orders
   const samples = await db
     .select({ sampleid: accessionSamples.sampleid })
     .from(accessionSamples)
-    .where(and(...conditions))
+    .leftJoin(limsOrders, eq(accessionSamples.orderid, limsOrders.orderid))
+    .where(and(
+      ...conditions,
+      or(
+        isNull(accessionSamples.orderid),              // samples without linked orders
+        isNull(limsOrders.cancelledat),                 // orders that aren't cancelled (by timestamp)
+      ),
+      or(
+        isNull(accessionSamples.orderid),
+        ne(limsOrders.status, "CANCELLED"),             // orders that aren't cancelled (by status)
+      ),
+    ))
     .orderBy(desc(accessionSamples.accessionedat))
     .limit(500);
 

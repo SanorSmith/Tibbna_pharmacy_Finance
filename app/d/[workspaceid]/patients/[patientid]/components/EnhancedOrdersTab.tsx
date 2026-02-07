@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, Package, TestTube, Edit, Trash2, Printer } from "lucide-react";
+import { Plus, History, Package, TestTube, Edit, Trash2, Printer, ShieldAlert, Ban } from "lucide-react";
 import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -83,10 +83,25 @@ export default function EnhancedOrdersTab({
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
   const [showEditNotSupportedDialog, setShowEditNotSupportedDialog] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+  const [showNotAuthorizedDialog, setShowNotAuthorizedDialog] = useState(false);
+  const [notAuthorizedCreator, setNotAuthorizedCreator] = useState<string>("");
+  const [showAlreadyCancelledDialog, setShowAlreadyCancelledDialog] = useState(false);
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
   const CACHE_KEY = `test_orders_enhanced_${patientid}`;
+
+  // Fetch current user on mount
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then(res => res.json())
+      .then(data => {
+        const u = data.user;
+        setCurrentUserName(u?.name || u?.email || null);
+      })
+      .catch(() => {});
+  }, []);
 
   // Use React Query for caching test orders
   const { data: testOrdersData, isLoading: loadingTestOrders, refetch } = useQuery({
@@ -275,6 +290,28 @@ export default function EnhancedOrdersTab({
     }
   }, [editingOrder, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
+  // Check if current user is authorized to cancel
+  const handleCancelClick = useCallback((order: TestOrderRecord) => {
+    // Check if order is already cancelled
+    if (order.narrative && order.narrative.includes("[CANCELLED]")) {
+      setShowAlreadyCancelledDialog(true);
+      return;
+    }
+
+    const creator = (order.requesting_provider || "").toLowerCase().trim();
+    const sessionName = (currentUserName || "").toLowerCase().trim();
+    const isOwner = creator && sessionName && creator === sessionName;
+
+    if (!isOwner) {
+      setNotAuthorizedCreator(creator || "another provider");
+      setShowNotAuthorizedDialog(true);
+      return;
+    }
+
+    setOrderToCancel(order);
+    setShowCancelDialog(true);
+  }, [currentUserName]);
+
   // Handle cancel order
   const handleCancelOrder = useCallback(async () => {
     if (!orderToCancel) return;
@@ -294,6 +331,13 @@ export default function EnhancedOrdersTab({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // If server says not authorized, show the proper dialog
+        if (response.status === 403 && errorData.error?.includes("Cancellation not permitted")) {
+          setShowCancelDialog(false);
+          setNotAuthorizedCreator(orderToCancel.requesting_provider || "another provider");
+          setShowNotAuthorizedDialog(true);
+          return;
+        }
         throw new Error(errorData.error || "Failed to cancel order");
       }
 
@@ -459,10 +503,7 @@ export default function EnhancedOrdersTab({
                             size="sm"
                             variant="outline"
                             className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-                            onClick={() => {
-                              setOrderToCancel(order);
-                              setShowCancelDialog(true);
-                            }}
+                            onClick={() => handleCancelClick(order)}
                           >
                             <Trash2 className="h-3 w-3 mr-1" />
                             Cancel
@@ -605,6 +646,46 @@ export default function EnhancedOrdersTab({
         initialData={editingOrder}
         workspaceid={workspaceid}
       />
+
+      {/* Already Cancelled Dialog */}
+      <AlertDialog open={showAlreadyCancelledDialog} onOpenChange={setShowAlreadyCancelledDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+              <Ban className="h-5 w-5" />
+              Order Already Cancelled
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              This test order has already been cancelled and cannot be cancelled again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Not Authorized to Cancel Dialog */}
+      <AlertDialog open={showNotAuthorizedDialog} onOpenChange={setShowNotAuthorizedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-700">
+              <ShieldAlert className="h-5 w-5" />
+              Cancellation Not Permitted
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              You cannot cancel this order because it was created by <strong className="text-foreground">{notAuthorizedCreator}</strong>.
+              Only the ordering provider can discontinue this request.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            Please contact the ordering provider or the lab to request cancellation.
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>

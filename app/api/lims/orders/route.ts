@@ -21,6 +21,7 @@ import {
   NewLimsOrder,
   NewLimsOrderTest,
   patients,
+  users,
 } from "@/lib/db/schema";
 import { testReferenceRanges } from "@/lib/db/schema/test-reference-ranges";
 import {
@@ -412,6 +413,19 @@ export async function GET(request: NextRequest) {
           console.error("Error fetching patient details:", error);
         }
 
+        // Resolve canceller name if order was cancelled
+        let cancelledbyname: string | null = null;
+        if (order.cancelledby) {
+          try {
+            const [canceller] = await db
+              .select({ name: users.name })
+              .from(users)
+              .where(eq(users.userid, order.cancelledby))
+              .limit(1);
+            cancelledbyname = canceller?.name || null;
+          } catch { /* ignore */ }
+        }
+
         const orderData = {
           ...order,
           tests: orderTests,
@@ -419,6 +433,7 @@ export async function GET(request: NextRequest) {
           patientName,
           patientage: patientAge,
           patientsex: patientSex,
+          cancelledbyname,
         };
         
         // Debug log for order data

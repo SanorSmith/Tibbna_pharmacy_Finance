@@ -136,11 +136,12 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="flex flex-col h-full gap-2 overflow-hidden">
+    <Card className="flex-1 min-h-0 flex flex-col">
+      <CardHeader className="flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Bell className="h-5 w-5" />
               Notifications
               {unreadCount > 0 && (
@@ -173,7 +174,7 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 min-h-0 overflow-auto">
         {notifications.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Bell className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -242,5 +243,6 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }

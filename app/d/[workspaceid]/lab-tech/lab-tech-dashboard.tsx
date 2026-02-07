@@ -60,12 +60,12 @@ export default function LabTechDashboard({
   };
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="flex flex-col h-full overflow-hidden pt-3">
     
 
       <Tabs
         defaultValue="orders"
-        className="w-full"
+        className="w-full flex-1 flex flex-col min-h-0"
         onValueChange={handleTabChange}
       >
         <TabsList className="flex w-full flex-wrap gap-1 h-auto bg-transparent p-0">
@@ -149,53 +149,53 @@ export default function LabTechDashboard({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="orders" className="mt-4">
+        <TabsContent value="orders" className="mt-2 flex-1 min-h-0">
           <OrdersTab workspaceid={workspaceid} />
         </TabsContent>
 
-        <TabsContent value="accessioning" className="mt-4">
+        <TabsContent value="accessioning" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("accessioning") && (
             <RegisterSample workspaceid={workspaceid} />
           )}
         </TabsContent>
 
-        <TabsContent value="worklist" className="mt-4">
+        <TabsContent value="worklist" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("worklist") && (
             <WorklistsTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
-        <TabsContent value="qc" className="mt-4">
+        <TabsContent value="qc" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("qc") && (
             <QCCalibrationTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
-        <TabsContent value="validation" className="mt-4">
+        <TabsContent value="validation" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("validation") && (
             <ValidationTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
-        <TabsContent value="samplestore" className="mt-4">
+        <TabsContent value="samplestore" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("samplestore") && (
             <SampleManagementTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
-        <TabsContent value="notification" className="mt-4">
+        <TabsContent value="notification" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("notification") && (
             <NotificationTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
-        <TabsContent value="contacts" className="mt-4">
+        <TabsContent value="contacts" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("contacts") && (
             <ContactsTab workspaceid={workspaceid} />
           )}
         </TabsContent>
 
-        <TabsContent value="todo" className="mt-4">
+        <TabsContent value="todo" className="mt-2 flex-1 min-h-0">
           {loadedTabs.has("todo") && (
             <ToDoTab workspaceid={workspaceid} />
           )}

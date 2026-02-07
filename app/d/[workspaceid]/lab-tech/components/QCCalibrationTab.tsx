@@ -173,15 +173,17 @@ export default function QCCalibrationTab({ workspaceid }: { workspaceid: string 
   }, [form.expectedmin, form.expectedmax, form.resultvalue]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full gap-2 overflow-hidden">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-bold">QC &amp; Calibration</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-bold leading-tight">QC &amp; Calibration</h2>
+          <p className="text-xs text-muted-foreground">
             Record analyzer QC checks and calibration events before daily routine.
           </p>
         </div>
       </div>
+
+      <div className="flex-1 min-h-0 overflow-auto space-y-4">
 
       <Card className="border-gray-200">
         <CardHeader>
@@ -455,6 +457,7 @@ export default function QCCalibrationTab({ workspaceid }: { workspaceid: string 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }

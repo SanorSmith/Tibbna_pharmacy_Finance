@@ -176,6 +176,23 @@ export async function DELETE(
     const { getOpenEHRComposition } = await import("@/lib/openehr/openehr");
     const existingComposition = await getOpenEHRComposition(ehrId, orderid) as Record<string, unknown>;
 
+    // Server-side authorization: only the ordering provider can cancel
+    // Check both composer|name (set server-side from DB) and requesting_provider (set client-side from session)
+    const composerName = (existingComposition["template_clinical_encounter_v1/composer|name"] as string) || "";
+    const requestingProvider = (existingComposition["template_clinical_encounter_v1/service_request/request/requesting_provider"] as string) || "";
+    const currentUserName = (user.name || user.email || "").toLowerCase().trim();
+
+    const isComposer = composerName && composerName.toLowerCase().trim() === currentUserName;
+    const isRequester = requestingProvider && requestingProvider.toLowerCase().trim() === currentUserName;
+    const displayCreator = requestingProvider || composerName || "another provider";
+
+    if (!isComposer && !isRequester && (composerName || requestingProvider)) {
+      return NextResponse.json(
+        { error: `Cancellation not permitted. This order was created by ${displayCreator}. Only the ordering provider can cancel.` },
+        { status: 403 }
+      );
+    }
+
     // Update the narrative field with cancellation information
     const cancellationNarrative = `[CANCELLED] Reason: ${cancellationReason} | Cancelled by: ${user.name || user.email || "Unknown"} | Cancelled at: ${new Date().toISOString()}`;
     

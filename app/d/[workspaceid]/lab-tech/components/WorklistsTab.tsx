@@ -559,12 +559,12 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-bold">Worklists</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-bold leading-tight">Worklists</h2>
+          <p className="text-xs text-muted-foreground">
             Manage and organize samples for batch processing
           </p>
         </div>
@@ -579,9 +579,9 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
 
       
       {/* Filters and Search */}
-      <Card className="border-gray-200">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+      <Card className="border-gray-200 flex-shrink-0">
+        <CardContent className="px-3 py-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {/* Search Input */}
             <div className="flex-1">
               <div className="relative">
@@ -657,14 +657,11 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
       </Card>
 
       {/* Worklists */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Worklists</CardTitle>
-          <CardDescription>
-            Active worklists are shown first, followed by done worklists
-          </CardDescription>
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <CardHeader className="py-2 px-3 flex-shrink-0 border-b">
+          <CardTitle className="text-sm">Worklists</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0 overflow-auto p-3 [&_[data-slot=table-container]]:overflow-visible">
           {worklistsLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -677,19 +674,19 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                     <h3 className="text-lg font-semibold">Active ({activeWorklists.length})</h3>
                   </div>
                   {activeWorklists.length > 0 ? (
-                    <div className="overflow-x-auto">
+                    <div>
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead>Worklist Name</TableHead>
-                            <TableHead>Laboratory</TableHead>
-                            <TableHead>Priority</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Created By</TableHead>
-                            <TableHead>Assigned To</TableHead>
-                            <TableHead>Items</TableHead>
-                            <TableHead>Created</TableHead>
-                            <TableHead>Actions</TableHead>
+                          <TableRow className="bg-gray-50 hover:bg-gray-50">
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Worklist Name</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Laboratory</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Priority</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Status</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Created By</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Assigned To</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Items</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Created</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -745,19 +742,19 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                     <h3 className="text-lg font-semibold">Done ({doneWorklists.length})</h3>
                   </div>
                   {doneWorklists.length > 0 ? (
-                    <div className="overflow-x-auto">
+                    <div>
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead>Worklist Name</TableHead>
-                            <TableHead>Laboratory</TableHead>
-                            <TableHead>Priority</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Created By</TableHead>
-                            <TableHead>Assigned To</TableHead>
-                            <TableHead>Items</TableHead>
-                            <TableHead>Created</TableHead>
-                            <TableHead>Actions</TableHead>
+                          <TableRow className="bg-gray-50 hover:bg-gray-50">
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Worklist Name</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Laboratory</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Priority</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Status</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Created By</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Assigned To</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Items</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Created</TableHead>
+                            <TableHead className="sticky top-0 z-10 bg-gray-50">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>

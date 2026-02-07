@@ -24,7 +24,7 @@ export default async function LabTechPage({ params }: PageProps) {
   if (!membership) redirect("/d/empty");
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden px-4 pb-2">
       <LabTechDashboard workspaceid={workspaceid} />
     </div>
   );
