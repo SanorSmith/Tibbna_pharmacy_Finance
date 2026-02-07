@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { testReferenceRanges, testReferenceAuditLog } from "@/lib/db/schema";
+import { testReferenceRanges, testReferenceAuditLog, users } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
 
@@ -88,7 +88,7 @@ export async function GET(
       whereConditions.push(eq(testReferenceRanges.sex, sex));
     }
 
-    const ranges = await db
+    const rawRanges = await db
       .select()
       .from(testReferenceRanges)
       .where(and(...whereConditions))
@@ -97,6 +97,29 @@ export async function GET(
         testReferenceRanges.agegroup,
         testReferenceRanges.sex
       );
+
+    // Collect unique user IDs for name lookup
+    const userIds = [...new Set([
+      ...rawRanges.map(r => r.createdby).filter(Boolean),
+      ...rawRanges.map(r => r.updatedby).filter(Boolean),
+    ])] as string[];
+
+    let userMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const userRows = await db
+        .select({ userid: users.userid, name: users.name, email: users.email })
+        .from(users)
+        .where(sql`${users.userid} = ANY(${userIds})`);
+      for (const u of userRows) {
+        userMap[u.userid] = u.name || u.email || "Unknown";
+      }
+    }
+
+    const ranges = rawRanges.map(r => ({
+      ...r,
+      createdbyname: r.createdby ? userMap[r.createdby] || undefined : undefined,
+      updatedbyname: r.updatedby ? userMap[r.updatedby] || undefined : undefined,
+    }));
 
     return NextResponse.json({ ranges });
   } catch (error) {
