@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, Package, TestTube, Building2, Edit, Trash2 } from "lucide-react";
+import { Plus, History, Package, TestTube, Building2, Edit, Trash2, Printer } from "lucide-react";
 import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -2625,7 +2625,7 @@ export default function EnhancedOrdersTab({
         open={showTestOrderDetails}
         onOpenChange={setShowTestOrderDetails}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Test Order Details</DialogTitle>
             <DialogDescription>
@@ -2634,134 +2634,86 @@ export default function EnhancedOrdersTab({
           </DialogHeader>
 
           {selectedTestOrder && (
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium">Test Information</h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <span className="text-sm text-gray-500">Test Name:</span>
-                    <p className="font-medium">
-                      {selectedTestOrder.service_name}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-500">Category:</span>
-                    <p className="font-medium">
-                      {selectedTestOrder.test_category ? (
-                        <Badge variant="outline">
-                          {selectedTestOrder.test_category}
-                        </Badge>
-                      ) : (
-                        "Not specified"
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-500">Target Lab:</span>
-                    <p className="font-medium">
-                      {selectedTestOrder.target_lab || "Not specified"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-500">Urgency:</span>
-                    <p className="font-medium capitalize">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          selectedTestOrder.urgency === "urgent"
-                            ? "bg-red-200 text-red-800"
-                            : "bg-green-200 text-green-800"
-                        }`}
-                      >
-                        {selectedTestOrder.urgency || "routine"}
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-500">Date Ordered:</span>
-                    <p className="text-sm">
-                      {new Date(
-                        selectedTestOrder.recorded_time
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+            <div id="printable-order-details-enhanced" className="space-y-3">
+              <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                <div><span className="text-xs text-gray-500">Test Name</span><p className="font-medium">{selectedTestOrder.service_name}</p></div>
+                <div><span className="text-xs text-gray-500">Category</span><p className="font-medium">{selectedTestOrder.test_category ? <Badge variant="outline" className="text-xs">{selectedTestOrder.test_category}</Badge> : "—"}</p></div>
+                <div><span className="text-xs text-gray-500">Target Lab</span><p className="font-medium">{selectedTestOrder.target_lab || "—"}</p></div>
+                <div><span className="text-xs text-gray-500">Urgency</span><p><span className={`px-2 py-0.5 text-xs rounded-full capitalize ${selectedTestOrder.urgency === "urgent" ? "bg-red-200 text-red-800" : "bg-green-200 text-green-800"}`}>{selectedTestOrder.urgency || "routine"}</span></p></div>
+                <div><span className="text-xs text-gray-500">Date Ordered</span><p>{new Date(selectedTestOrder.recorded_time).toLocaleString()}</p></div>
+                <div><span className="text-xs text-gray-500">Request ID</span><p className="truncate">{selectedTestOrder.request_id || "—"}</p></div>
               </div>
 
-              {selectedTestOrder.description && (
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">
-                    Test Details
-                  </h4>
-                  <p className="text-sm text-blue-800 whitespace-pre-wrap">
-                    {selectedTestOrder.description}
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <h4 className="font-medium">Clinical Information</h4>
-                <div className="mt-2">
-                  <span className="text-sm text-gray-500">
-                    Clinical Indication:
-                  </span>
-                  <p className="text-sm mt-1">
-                    {selectedTestOrder.clinical_indication || "Not specified"}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium">Provider Information</h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <span className="text-sm text-gray-500">
-                      Requesting Provider:
-                    </span>
-                    <p className="font-medium">
-                      {selectedTestOrder.requesting_provider || "Not specified"}
-                    </p>
+              {selectedTestOrder.description && (() => {
+                const parts: Record<string, string> = {};
+                selectedTestOrder.description.split('|').forEach((part: string) => {
+                  const trimmed = part.trim();
+                  const colonIdx = trimmed.indexOf(':');
+                  if (colonIdx > 0) {
+                    parts[trimmed.slice(0, colonIdx).trim()] = trimmed.slice(colonIdx + 1).trim();
+                  }
+                });
+                const entries = Object.entries(parts);
+                return entries.length > 1 ? (
+                  <div className="bg-blue-50 px-3 py-2.5 rounded">
+                    <span className="text-xs font-medium text-blue-900">Test Details</span>
+                    <div className="grid grid-cols-3 gap-x-4 gap-y-1 mt-1">
+                      {entries.map(([key, val]) => (
+                        <div key={key}><span className="text-xs text-blue-700">{key}</span><p className="text-sm font-medium text-blue-900">{val}</p></div>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-sm text-gray-500">
-                      Receiving Laboratory:
-                    </span>
-                    <p className="font-medium">
-                      {selectedTestOrder.receiving_provider || "Not specified"}
-                    </p>
+                ) : (
+                  <div className="bg-blue-50 px-3 py-2.5 rounded text-sm">
+                    <span className="text-xs font-medium text-blue-900">Test Details:</span>
+                    <p className="text-blue-800 mt-1 whitespace-pre-wrap">{selectedTestOrder.description}</p>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
-              {selectedTestOrder.narrative && (
-                <div>
-                  <h4 className="font-medium">Narrative</h4>
-                  <p className="text-sm mt-1">{selectedTestOrder.narrative}</p>
-                </div>
-              )}
-
-              <div>
-                <h4 className="font-medium">Timestamps</h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <span className="text-sm text-gray-500">Date Ordered:</span>
-                    <p className="text-sm">
-                      {new Date(
-                        selectedTestOrder.recorded_time
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-500">Request ID:</span>
-                    <p className="text-sm">
-                      {selectedTestOrder.request_id || "Not specified"}
-                    </p>
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div><span className="text-xs text-gray-500">Clinical Indication</span><p>{selectedTestOrder.clinical_indication || "—"}</p></div>
+                {selectedTestOrder.narrative && <div className="col-span-2"><span className="text-xs text-gray-500">Narrative</span><p>{selectedTestOrder.narrative}</p></div>}
+                <div><span className="text-xs text-gray-500">Requesting Provider</span><p className="font-medium">{selectedTestOrder.requesting_provider || "—"}</p></div>
+                <div><span className="text-xs text-gray-500">Receiving Laboratory</span><p className="font-medium">{selectedTestOrder.receiving_provider || "—"}</p></div>
               </div>
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!selectedTestOrder) return;
+                const { generateLabOrderHTML } = await import('@/lib/lims/lab-order-html');
+                const html = generateLabOrderHTML({
+                  facilityName: selectedTestOrder.receiving_provider || 'Laboratory',
+                  serviceName: selectedTestOrder.service_name,
+                  serviceTypeValue: selectedTestOrder.service_type_value,
+                  serviceTypeCode: selectedTestOrder.service_type_code,
+                  testCategory: selectedTestOrder.test_category,
+                  targetLab: selectedTestOrder.target_lab,
+                  urgency: selectedTestOrder.urgency,
+                  clinicalIndication: selectedTestOrder.clinical_indication,
+                  narrative: selectedTestOrder.narrative,
+                  description: selectedTestOrder.description,
+                  requestingProvider: selectedTestOrder.requesting_provider,
+                  receivingProvider: selectedTestOrder.receiving_provider,
+                  recordedTime: selectedTestOrder.recorded_time,
+                  requestId: selectedTestOrder.request_id,
+                  requestStatus: selectedTestOrder.request_status,
+                });
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                  printWindow.document.write(html);
+                  printWindow.document.close();
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print Order
+            </Button>
             <Button
               variant="outline"
               onClick={() => setShowTestOrderDetails(false)}

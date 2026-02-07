@@ -265,7 +265,7 @@ const SERVICE_NAME_TO_TEST_CODES: Record<string, string[]> = {
   '24-Hour Urine': ['U-24H-CR'],
 
   // Microbiology
-  'Blood Culture': ['BACT'],
+  'Blood Culture': ['BACT', 'FUNG'],
   'Urine Culture': ['UTI'],
   'Sputum Culture': ['SPUTUM'],
   'Stool Examination': ['PARA-ST', 'OB'],
@@ -303,11 +303,54 @@ const SERVICE_NAME_TO_TEST_CODES: Record<string, string[]> = {
   'Sputum Cytology': ['SPUTUM-CYTO'],
 };
 
+// Reverse mapping: test name (lowercase) -> test code
+const TEST_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.values(TEST_REQUIREMENTS).map(t => [t.testName.toLowerCase(), t.testCode])
+);
+
+/**
+ * Parse "Selected Tests (N): test1, test2" from a pipe-delimited description string
+ * and resolve test names to test codes.
+ */
+export function resolveTestsFromDescription(description: string | undefined | null): string[] {
+  if (!description) return [];
+  
+  // Parse pipe-delimited parts
+  const parts = description.split('|').map(p => p.trim());
+  for (const part of parts) {
+    const match = part.match(/Selected Tests\s*\(\d+\)\s*:\s*(.+)/i);
+    if (match) {
+      const testNames = match[1].split(',').map(n => n.trim()).filter(Boolean);
+      const codes: string[] = [];
+      for (const name of testNames) {
+        const lowerName = name.toLowerCase();
+        // Direct name match
+        if (TEST_NAME_TO_CODE[lowerName]) {
+          codes.push(TEST_NAME_TO_CODE[lowerName]);
+        } else {
+          // Partial match
+          const found = Object.entries(TEST_NAME_TO_CODE).find(
+            ([tName]) => tName.includes(lowerName) || lowerName.includes(tName)
+          );
+          if (found) codes.push(found[1]);
+        }
+      }
+      if (codes.length > 0) return codes;
+    }
+  }
+  return [];
+}
+
 /**
  * Resolve test codes from a service/package name (case-insensitive, partial match)
+ * Optionally also parses the description field for "Selected Tests" to get exact selections.
  */
-export function resolveServiceToTestCodes(serviceName: string): string[] {
+export function resolveServiceToTestCodes(serviceName: string, description?: string | null): string[] {
   if (!serviceName) return [];
+  
+  // First try to parse specific selected tests from the description
+  const fromDescription = resolveTestsFromDescription(description);
+  if (fromDescription.length > 0) return fromDescription;
   
   // Exact match first
   if (SERVICE_NAME_TO_TEST_CODES[serviceName]) {
@@ -333,8 +376,8 @@ export function resolveServiceToTestCodes(serviceName: string): string[] {
 /**
  * Get sample recommendations by service name (for openEHR orders)
  */
-export function getRecommendationsByServiceName(serviceName: string): OrderRecommendations {
-  const testCodes = resolveServiceToTestCodes(serviceName);
+export function getRecommendationsByServiceName(serviceName: string, description?: string | null): OrderRecommendations {
+  const testCodes = resolveServiceToTestCodes(serviceName, description);
   return getSampleRecommendations(testCodes);
 }
 

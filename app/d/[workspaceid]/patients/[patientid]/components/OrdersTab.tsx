@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, Edit, Trash2 } from "lucide-react";
+import { Plus, History, Edit, Trash2, Printer } from "lucide-react";
 import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -420,14 +420,14 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
 
       {/* Details Dialog */}
       <Dialog open={showTestOrderDetails} onOpenChange={setShowTestOrderDetails}>
-        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Test Order Details</DialogTitle>
             <DialogDescription>Complete information about this laboratory test order</DialogDescription>
           </DialogHeader>
 
           {selectedTestOrder && (
-            <div className="space-y-4">
+            <div id="printable-order-details" className="space-y-4">
               <div>
                 <h4 className="font-medium">Test Information</h4>
                 <div className="grid grid-cols-2 gap-4 mt-2">
@@ -501,7 +501,38 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!selectedTestOrder) return;
+                const { generateLabOrderHTML } = await import('@/lib/lims/lab-order-html');
+                const html = generateLabOrderHTML({
+                  facilityName: selectedTestOrder.receiving_provider || 'Laboratory',
+                  serviceName: selectedTestOrder.service_name,
+                  serviceTypeValue: selectedTestOrder.service_type_value,
+                  serviceTypeCode: selectedTestOrder.service_type_code,
+                  urgency: selectedTestOrder.urgency,
+                  clinicalIndication: selectedTestOrder.clinical_indication,
+                  narrative: selectedTestOrder.narrative,
+                  description: selectedTestOrder.description,
+                  requestingProvider: selectedTestOrder.requesting_provider,
+                  receivingProvider: selectedTestOrder.receiving_provider,
+                  recordedTime: selectedTestOrder.recorded_time,
+                  requestId: selectedTestOrder.request_id,
+                  requestStatus: selectedTestOrder.request_status,
+                });
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                  printWindow.document.write(html);
+                  printWindow.document.close();
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print Order
+            </Button>
             <Button variant="outline" onClick={() => setShowTestOrderDetails(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
