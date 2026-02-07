@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -293,87 +293,64 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
   };
 
   return (
-    <Card className="flex flex-col" style={{ height: 'calc(100vh - 20rem)' }}>
-      <CardHeader className="flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Test Reference Ranges Management</CardTitle>
-            <CardDescription>
-              Manage reference ranges, units, and critical values for all laboratory tests
-            </CardDescription>
-          </div>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Test Reference
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 flex flex-col overflow-hidden">
+    <Card className="flex flex-col" style={{ height: 'calc(100vh - 10rem)' }}>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b">
+        <span className="text-sm font-semibold">Test Reference Ranges</span>
+        <Button size="sm" className="h-7 text-xs" onClick={() => handleOpenDialog()}>
+          <Plus className="h-3 w-3 mr-1" />
+          Add Test Reference
+        </Button>
+      </div>
+      <CardContent className="flex-1 flex flex-col overflow-hidden px-3 pt-1.5 pb-1">
         {/* Filters */}
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg border space-y-4 flex-shrink-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="search" className="text-xs">Search Test</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  id="search"
-                  placeholder="Search by code or name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="labtype" className="text-xs">Lab Type</Label>
-              <Select value={labtypeFilter} onValueChange={setLabtypeFilter}>
-                <SelectTrigger id="labtype">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Lab Types</SelectItem>
-                  {LAB_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="agegroup" className="text-xs">Age Group</Label>
-              <Select value={filterAgeGroup} onValueChange={setFilterAgeGroup}>
-                <SelectTrigger id="agegroup">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Age Groups</SelectItem>
-                  {AGE_GROUPS.map((ag) => (
-                    <SelectItem key={ag.value} value={ag.value}>
-                      {ag.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="mb-1 flex items-center gap-2 flex-shrink-0">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Input
+              id="search"
+              placeholder="Search by code or name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-7 h-7 text-xs"
+            />
           </div>
-          <div className="flex justify-between items-center">
-            <Badge variant="outline" className="text-sm">
-              {filteredRanges.length} reference range{filteredRanges.length !== 1 ? "s" : ""}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchTerm("");
-                setLabtypeFilter("all");
-                setFilterAgeGroup("ALL");
-              }}
-            >
-              Clear Filters
-            </Button>
-          </div>
+          <Select value={labtypeFilter} onValueChange={setLabtypeFilter}>
+            <SelectTrigger className="h-7 text-xs w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Lab Types</SelectItem>
+              {LAB_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterAgeGroup} onValueChange={setFilterAgeGroup}>
+            <SelectTrigger className="h-7 text-xs w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Age Groups</SelectItem>
+              {AGE_GROUPS.map((ag) => (
+                <SelectItem key={ag.value} value={ag.value}>{ag.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Badge variant="outline" className="text-[11px] whitespace-nowrap">
+            {filteredRanges.length} ranges
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-[11px] px-2"
+            onClick={() => {
+              setSearchTerm("");
+              setLabtypeFilter("all");
+              setFilterAgeGroup("ALL");
+            }}
+          >
+            Clear
+          </Button>
         </div>
 
         {/* Table */}
@@ -398,8 +375,8 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                     <TableHead className="font-semibold px-1 py-2 w-20">Body Site</TableHead>
                     <TableHead className="font-semibold px-1 py-2 w-10 text-center">Age</TableHead>
                     <TableHead className="font-semibold px-1 py-2 w-10 text-center">Sex</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-12">Unit</TableHead>
                     <TableHead className="font-semibold px-1 py-2 w-24">Reference</TableHead>
+                    <TableHead className="font-semibold px-1 py-2 w-14">Unit</TableHead>
                     <TableHead className="font-semibold px-1 py-2 w-16 text-red-600">Panic</TableHead>
                     <TableHead className="font-semibold px-1 py-2 w-28">Clinical</TableHead>
                     <TableHead className="font-semibold px-1 py-2 w-20 text-center">Actions</TableHead>
@@ -449,14 +426,14 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                           {range.sex}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono px-1 py-1.5">
-                        <div className="truncate max-w-[45px]" title={range.unit}>
-                          {range.unit}
-                        </div>
-                      </TableCell>
                       <TableCell className="px-1 py-1.5">
                         <div className="truncate max-w-[90px]" title={getReferenceDisplay(range)}>
                           {getReferenceDisplay(range)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono px-1 py-1.5">
+                        <div className="truncate max-w-[50px]" title={range.unit}>
+                          {range.unit}
                         </div>
                       </TableCell>
                       <TableCell className="text-red-600 font-medium px-1 py-1.5">
@@ -516,297 +493,124 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
 
         {/* Add/Edit Dialog */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="pb-1">
-              <DialogTitle className="text-base">
+          <DialogContent className="max-w-[75vw] max-h-[85vh] overflow-y-auto p-4">
+            <DialogHeader className="pb-0 mb-1">
+              <DialogTitle className="text-sm">
                 {editingRange ? "Edit Test Reference Range" : "Add Test Reference Range"}
               </DialogTitle>
-              <DialogDescription className="text-xs">
-                Configure reference ranges, units, and critical values for laboratory tests
-              </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-3 gap-2 py-1">
-              {/* Test Information */}
-              <div className="col-span-3">
-                <h3 className="font-semibold text-xs mb-1">Test Information</h3>
-              </div>
-              
+            <div className="grid grid-cols-6 gap-x-2 gap-y-1">
+              {/* Row 1: Test Code, Test Name, Unit, Age Group, Sex */}
               <div>
-                <Label htmlFor="testcode" className="text-[11px] mb-0.5">Test Code *</Label>
-                <Input
-                  id="testcode"
-                  className="h-7 text-xs"
-                  value={formData.testcode}
-                  onChange={(e) => setFormData({ ...formData, testcode: e.target.value.toUpperCase() })}
-                  placeholder="e.g., HGB, WBC"
-                />
+                <Label className="text-[10px]">Test Code *</Label>
+                <Input className="h-6 text-[11px]" value={formData.testcode} onChange={(e) => setFormData({ ...formData, testcode: e.target.value.toUpperCase() })} placeholder="HGB" />
               </div>
-
               <div>
-                <Label htmlFor="testname" className="text-[11px] mb-0.5">Test Name *</Label>
-                <Input
-                  id="testname"
-                  className="h-7 text-xs"
-                  value={formData.testname}
-                  onChange={(e) => setFormData({ ...formData, testname: e.target.value })}
-                  placeholder="e.g., Hemoglobin"
-                />
+                <Label className="text-[10px]">Test Name *</Label>
+                <Input className="h-6 text-[11px]" value={formData.testname} onChange={(e) => setFormData({ ...formData, testname: e.target.value })} placeholder="Hemoglobin" />
               </div>
-
               <div>
-                <Label htmlFor="unit" className="text-[11px] mb-0.5">Unit *</Label>
-                <Input
-                  id="unit"
-                  className="h-7 text-xs"
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  placeholder="e.g., g/dL, cells/µL"
-                />
+                <Label className="text-[10px]">Unit *</Label>
+                <Input className="h-6 text-[11px]" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} placeholder="g/dL" />
               </div>
-
-              {/* Demographics */}
-              <div className="col-span-3 mt-1">
-                <h3 className="font-semibold text-xs mb-1">Demographics</h3>
-              </div>
-
               <div>
-                <Label htmlFor="agegroup" className="text-[11px] mb-0.5">Age Group *</Label>
-                <Select
-                  value={formData.agegroup}
-                  onValueChange={(value) => setFormData({ ...formData, agegroup: value })}
-                >
-                  <SelectTrigger id="agegroup" className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AGE_GROUPS.map((ag) => (
-                      <SelectItem key={ag.value} value={ag.value}>
-                        {ag.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Label className="text-[10px]">Age Group *</Label>
+                <Select value={formData.agegroup} onValueChange={(v) => setFormData({ ...formData, agegroup: v })}>
+                  <SelectTrigger className="h-6 text-[11px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>{AGE_GROUPS.map((ag) => <SelectItem key={ag.value} value={ag.value}>{ag.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[10px]">Sex *</Label>
+                <Select value={formData.sex} onValueChange={(v) => setFormData({ ...formData, sex: v })}>
+                  <SelectTrigger className="h-6 text-[11px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>{SEX_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[10px]">Lab Type</Label>
+                <Select value={formData.labtype} onValueChange={(v) => setFormData({ ...formData, labtype: v })}>
+                  <SelectTrigger className="h-6 text-[11px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{LAB_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
 
+              {/* Row 2: Group Tests, Sample Type, Container, Body Site */}
               <div>
-                <Label htmlFor="sex" className="text-[11px] mb-0.5">Sex *</Label>
-                <Select
-                  value={formData.sex}
-                  onValueChange={(value) => setFormData({ ...formData, sex: value })}
-                >
-                  <SelectTrigger id="sex" className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SEX_OPTIONS.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Label className="text-[10px]">Group Tests</Label>
+                <Select value={formData.grouptests} onValueChange={(v) => setFormData({ ...formData, grouptests: v })}>
+                  <SelectTrigger className="h-6 text-[11px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent className="max-h-[300px]">{getAllTestGroupNames().map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-[10px]">Sample Type</Label>
+                <Input className="h-6 text-[11px]" value={formData.sampletype} onChange={(e) => setFormData({ ...formData, sampletype: e.target.value })} placeholder="Blood, Serum" />
+              </div>
+              <div>
+                <Label className="text-[10px]">Container</Label>
+                <Input className="h-6 text-[11px]" value={formData.containertype} onChange={(e) => setFormData({ ...formData, containertype: e.target.value })} placeholder="EDTA tube" />
+              </div>
+              <div>
+                <Label className="text-[10px]">Body Site</Label>
+                <Input className="h-6 text-[11px]" value={formData.bodysite} onChange={(e) => setFormData({ ...formData, bodysite: e.target.value })} placeholder="Venous blood" />
+              </div>
+              <div className="col-span-2" />
 
-              {/* Laboratory & Specimen Information */}
+              {/* Row 3 header: Reference Range & Panic Values */}
+              <div className="col-span-6 mt-1 border-t pt-1">
+                <span className="font-semibold text-[11px]">Reference Range & Panic Values</span>
+              </div>
+
+              {/* Row 3: Ref Min, Ref Max, Unit, Ref Text, Panic Low, Panic High */}
+              <div>
+                <Label className="text-[10px]">Ref Min</Label>
+                <Input className="h-6 text-[11px]" type="number" step="any" value={formData.referencemin} onChange={(e) => setFormData({ ...formData, referencemin: e.target.value })} placeholder="13.0" />
+              </div>
+              <div>
+                <Label className="text-[10px]">Ref Max</Label>
+                <Input className="h-6 text-[11px]" type="number" step="any" value={formData.referencemax} onChange={(e) => setFormData({ ...formData, referencemax: e.target.value })} placeholder="17.0" />
+              </div>
+              <div>
+                <Label className="text-[10px]">Unit</Label>
+                <Input className="h-6 text-[11px]" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} placeholder="ng/mL" />
+              </div>
+              <div>
+                <Label className="text-[10px]">Ref Text</Label>
+                <Input className="h-6 text-[11px]" value={formData.referencetext} onChange={(e) => setFormData({ ...formData, referencetext: e.target.value })} placeholder="Negative" />
+              </div>
+              <div>
+                <Label className="text-[10px]">Panic Low</Label>
+                <Input className="h-6 text-[11px]" type="number" step="any" value={formData.paniclow} onChange={(e) => setFormData({ ...formData, paniclow: e.target.value })} placeholder="7" />
+              </div>
+              <div>
+                <Label className="text-[10px]">Panic High</Label>
+                <Input className="h-6 text-[11px]" type="number" step="any" value={formData.panichigh} onChange={(e) => setFormData({ ...formData, panichigh: e.target.value })} placeholder="20" />
+              </div>
+              {/* Row 4: Panic Text */}
+              <div>
+                <Label className="text-[10px]">Panic Text</Label>
+                <Input className="h-6 text-[11px]" value={formData.panictext} onChange={(e) => setFormData({ ...formData, panictext: e.target.value })} placeholder="Positive" />
+              </div>
+
+              {/* Row 4: Clinical Indication + Additional Info */}
               <div className="col-span-3 mt-1">
-                <h3 className="font-semibold text-xs mb-1">Laboratory & Specimen</h3>
+                <Label className="text-[10px]">Clinical Indication</Label>
+                <Input className="h-6 text-[11px]" value={formData.clinicalindication} onChange={(e) => setFormData({ ...formData, clinicalindication: e.target.value })} placeholder="Screening for anemia, Diabetes monitoring" />
               </div>
-
-              <div>
-                <Label htmlFor="labtype" className="text-[11px] mb-0.5">Lab Type</Label>
-                <Select
-                  value={formData.labtype}
-                  onValueChange={(value) => setFormData({ ...formData, labtype: value })}
-                >
-                  <SelectTrigger id="labtype" className="h-7 text-xs">
-                    <SelectValue placeholder="Select lab type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LAB_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="grouptests" className="text-[11px] mb-0.5">Group Tests</Label>
-                <Select
-                  value={formData.grouptests}
-                  onValueChange={(value) => setFormData({ ...formData, grouptests: value })}
-                >
-                  <SelectTrigger id="grouptests" className="h-7 text-xs">
-                    <SelectValue placeholder="Select test group" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {getAllTestGroupNames().map((groupName) => (
-                      <SelectItem key={groupName} value={groupName}>
-                        {groupName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="sampletype" className="text-[11px] mb-0.5">Sample Type</Label>
-                <Input
-                  id="sampletype"
-                  className="h-7 text-xs"
-                  value={formData.sampletype}
-                  onChange={(e) => setFormData({ ...formData, sampletype: e.target.value })}
-                  placeholder="e.g., Blood, Serum, Urine"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="containertype" className="text-[11px] mb-0.5">Container</Label>
-                <Input
-                  id="containertype"
-                  className="h-7 text-xs"
-                  value={formData.containertype}
-                  onChange={(e) => setFormData({ ...formData, containertype: e.target.value })}
-                  placeholder="e.g., EDTA tube (purple top), SST tube"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="bodysite" className="text-[11px] mb-0.5">Body Site</Label>
-                <Input
-                  id="bodysite"
-                  className="h-7 text-xs"
-                  value={formData.bodysite}
-                  onChange={(e) => setFormData({ ...formData, bodysite: e.target.value })}
-                  placeholder="e.g., Venous blood, Midstream urine"
-                />
-              </div>
-
-              {/* Reference Range */}
               <div className="col-span-3 mt-1">
-                <h3 className="font-semibold text-xs mb-1">Reference Range</h3>
+                <Label className="text-[10px]">Additional Info</Label>
+                <Input className="h-6 text-[11px]" value={formData.additionalinformation} onChange={(e) => setFormData({ ...formData, additionalinformation: e.target.value })} placeholder="Special handling requirements" />
               </div>
-
-              <div>
-                <Label htmlFor="referencemin" className="text-[11px] mb-0.5">Ref Min</Label>
-                <Input
-                  id="referencemin"
-                  className="h-7 text-xs"
-                  type="number"
-                  step="any"
-                  value={formData.referencemin}
-                  onChange={(e) => setFormData({ ...formData, referencemin: e.target.value })}
-                  placeholder="e.g., 13.0"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="referencemax" className="text-[11px] mb-0.5">Ref Max</Label>
-                <Input
-                  id="referencemax"
-                  className="h-7 text-xs"
-                  type="number"
-                  step="any"
-                  value={formData.referencemax}
-                  onChange={(e) => setFormData({ ...formData, referencemax: e.target.value })}
-                  placeholder="e.g., 17.0"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="referencetext" className="text-[11px] mb-0.5">Ref Text</Label>
-                <Input
-                  id="referencetext"
-                  className="h-7 text-xs"
-                  value={formData.referencetext}
-                  onChange={(e) => setFormData({ ...formData, referencetext: e.target.value })}
-                  placeholder="e.g., Negative, Absent, Non-reactive"
-                />
-              </div>
-
-              {/* Panic/Critical Values */}
-              <div className="col-span-3 mt-1">
-                <h3 className="font-semibold text-xs mb-1">Panic/Critical Values</h3>
-              </div>
-
-              <div>
-                <Label htmlFor="paniclow" className="text-[11px] mb-0.5">Panic Low</Label>
-                <Input
-                  id="paniclow"
-                  className="h-7 text-xs"
-                  type="number"
-                  step="any"
-                  value={formData.paniclow}
-                  onChange={(e) => setFormData({ ...formData, paniclow: e.target.value })}
-                  placeholder="e.g., 7"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="panichigh" className="text-[11px] mb-0.5">Panic High</Label>
-                <Input
-                  id="panichigh"
-                  className="h-7 text-xs"
-                  type="number"
-                  step="any"
-                  value={formData.panichigh}
-                  onChange={(e) => setFormData({ ...formData, panichigh: e.target.value })}
-                  placeholder="e.g., 20"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="panictext" className="text-[11px] mb-0.5">Panic Text</Label>
-                <Input
-                  id="panictext"
-                  className="h-7 text-xs"
-                  value={formData.panictext}
-                  onChange={(e) => setFormData({ ...formData, panictext: e.target.value })}
-                  placeholder="e.g., Positive, Present, Reactive"
-                />
-              </div>
-
-              {/* Clinical Information */}
-              <div className="col-span-3 mt-1">
-                <h3 className="font-semibold text-xs mb-1">Clinical Information</h3>
-              </div>
-
-              <div className="col-span-3">
-                <Label htmlFor="clinicalindication" className="text-[11px] mb-0.5">Clinical Indication</Label>
-                <Textarea
-                  id="clinicalindication"
-                  className="text-xs min-h-0 py-1"
-                  value={formData.clinicalindication}
-                  onChange={(e) => setFormData({ ...formData, clinicalindication: e.target.value })}
-                  placeholder="e.g., Screening for anemia, Diabetes monitoring"
-                  rows={1}
-                />
-              </div>
-
-              <div className="col-span-3">
-                <Label htmlFor="additionalinformation" className="text-[11px] mb-0.5">Additional Info</Label>
-                <Textarea
-                  id="additionalinformation"
-                  className="text-xs min-h-0 py-1"
-                  value={formData.additionalinformation}
-                  onChange={(e) => setFormData({ ...formData, additionalinformation: e.target.value })}
-                  placeholder="e.g., Special handling requirements"
-                  rows={1}
-                />
-              </div>
-
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-1">
               <Button variant="outline" onClick={() => setShowDialog(false)} className="h-7 text-xs">
-                <X className="h-3 w-3 mr-1" />
-                Cancel
+                <X className="h-3 w-3 mr-1" /> Cancel
               </Button>
               <Button onClick={handleSave} className="h-7 text-xs">
-                <Save className="h-3 w-3 mr-1" />
-                {editingRange ? "Update" : "Create"}
+                <Save className="h-3 w-3 mr-1" /> {editingRange ? "Update" : "Create"}
               </Button>
             </DialogFooter>
           </DialogContent>
