@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload } from "lucide-react";
-import { LAB_TYPES, getAllTestGroupNames } from "@/lib/test-groups-and-lab-types";
+import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload, ChevronDown } from "lucide-react";
+import { LAB_TYPES, TEST_GROUPS, getAllTestGroupNames } from "@/lib/test-groups-and-lab-types";
 import {
   Dialog,
   DialogContent,
@@ -97,6 +97,12 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
   const [searchTerm, setSearchTerm] = useState("");
   const [labtypeFilter, setLabtypeFilter] = useState<string>("all");
   const [filterAgeGroup, setFilterAgeGroup] = useState("ALL");
+
+  // Combo-box dropdown states
+  const [showLabTypeDropdown, setShowLabTypeDropdown] = useState(false);
+  const [showGroupTestsDropdown, setShowGroupTestsDropdown] = useState(false);
+  const [labTypeSearch, setLabTypeSearch] = useState("");
+  const [groupTestsSearch, setGroupTestsSearch] = useState("");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -276,6 +282,26 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
     }
   };
 
+  // Derive unique lab types and group names from existing data + static list
+  const existingLabTypes = Array.from(new Set([
+    ...LAB_TYPES,
+    ...ranges.map(r => r.labtype).filter(Boolean) as string[]
+  ])).sort();
+
+  // Filter group tests based on selected lab type
+  const existingGroupTests = (() => {
+    const selectedLab = formData.labtype;
+    // Get static groups matching the selected lab type
+    const staticGroups = selectedLab
+      ? Object.values(TEST_GROUPS).filter(g => g.labType === selectedLab).map(g => g.name)
+      : getAllTestGroupNames();
+    // Get DB groups matching the selected lab type
+    const dbGroups = selectedLab
+      ? ranges.filter(r => r.labtype === selectedLab && r.grouptests).map(r => r.grouptests!)
+      : ranges.map(r => r.grouptests).filter(Boolean) as string[];
+    return Array.from(new Set([...staticGroups, ...dbGroups])).sort();
+  })();
+
   const getReferenceDisplay = (range: TestReferenceRange) => {
     if (range.referencetext) return range.referencetext;
     if (range.referencemin && range.referencemax) {
@@ -361,27 +387,26 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
             No reference ranges found. Click "Add Test Reference" to create one.
           </div>
         ) : (
-          <div className="flex-1 border rounded-lg overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-y-auto">
-              <Table>
-                <TableHeader className="sticky top-0 bg-gray-50 z-10">
-                  <TableRow className="text-xs">
-                    <TableHead className="font-semibold px-1 py-2 w-14">Code</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-28">Test Name</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-16">Lab</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-20">Group</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-16">Sample</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-16">Container</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-20">Body Site</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-10 text-center">Age</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-10 text-center">Sex</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-24">Reference</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-14">Unit</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-16 text-red-600">Panic</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-28">Clinical</TableHead>
-                    <TableHead className="font-semibold px-1 py-2 w-20 text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
+          <div className="flex-1 border rounded-lg overflow-auto">
+              <table className="w-full caption-bottom text-sm">
+                <thead className="sticky top-0 z-10 [&_tr]:border-b">
+                  <tr className="text-xs border-b">
+                    <th className="font-semibold px-1 py-2 w-14 bg-gray-50 text-left text-foreground align-middle">Code</th>
+                    <th className="font-semibold px-1 py-2 w-28 bg-gray-50 text-left text-foreground align-middle">Test Name</th>
+                    <th className="font-semibold px-1 py-2 w-16 bg-gray-50 text-left text-foreground align-middle">Lab</th>
+                    <th className="font-semibold px-1 py-2 w-20 bg-gray-50 text-left text-foreground align-middle">Group</th>
+                    <th className="font-semibold px-1 py-2 w-16 bg-gray-50 text-left text-foreground align-middle">Sample</th>
+                    <th className="font-semibold px-1 py-2 w-16 bg-gray-50 text-left text-foreground align-middle">Container</th>
+                    <th className="font-semibold px-1 py-2 w-20 bg-gray-50 text-left text-foreground align-middle">Body Site</th>
+                    <th className="font-semibold px-1 py-2 w-10 bg-gray-50 text-center text-foreground align-middle">Age</th>
+                    <th className="font-semibold px-1 py-2 w-10 bg-gray-50 text-center text-foreground align-middle">Sex</th>
+                    <th className="font-semibold px-1 py-2 w-24 bg-gray-50 text-left text-foreground align-middle">Reference</th>
+                    <th className="font-semibold px-1 py-2 w-14 bg-gray-50 text-left text-foreground align-middle">Unit</th>
+                    <th className="font-semibold px-1 py-2 w-16 bg-gray-50 text-left text-red-600 align-middle">Panic</th>
+                    <th className="font-semibold px-1 py-2 w-28 bg-gray-50 text-left text-foreground align-middle">Clinical</th>
+                    <th className="font-semibold px-1 py-2 w-20 bg-gray-50 text-center text-foreground align-middle">Actions</th>
+                  </tr>
+                </thead>
                 <TableBody>
                   {filteredRanges.map((range) => (
                     <TableRow key={range.rangeid} className="hover:bg-gray-50 text-xs">
@@ -486,8 +511,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </table>
           </div>
         )}
 
@@ -528,21 +552,67 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                   <SelectContent>{SEX_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div>
+              <div className="relative">
                 <Label className="text-[10px]">Lab Type</Label>
-                <Select value={formData.labtype} onValueChange={(v) => setFormData({ ...formData, labtype: v })}>
-                  <SelectTrigger className="h-6 text-[11px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{LAB_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
+                <div className="relative">
+                  <Input
+                    className="h-6 text-[11px] pr-6"
+                    value={formData.labtype}
+                    onChange={(e) => {
+                      setFormData({ ...formData, labtype: e.target.value, grouptests: "" });
+                      setLabTypeSearch(e.target.value);
+                      setShowLabTypeDropdown(true);
+                    }}
+                    onFocus={() => { setLabTypeSearch(formData.labtype); setShowLabTypeDropdown(true); }}
+                    onBlur={() => setTimeout(() => setShowLabTypeDropdown(false), 150)}
+                    placeholder="Type or select"
+                  />
+                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+                </div>
+                {showLabTypeDropdown && (() => {
+                  const filtered = existingLabTypes.filter(t => t.toLowerCase().includes((labTypeSearch || "").toLowerCase()));
+                  return filtered.length > 0 ? (
+                    <div className="absolute z-50 mt-0.5 w-full bg-white border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+                      {filtered.map(t => (
+                        <button key={t} type="button" className="w-full text-left px-2 py-1 text-[11px] hover:bg-blue-50 truncate" onMouseDown={() => { setFormData({ ...formData, labtype: t, grouptests: "" }); setShowLabTypeDropdown(false); }}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {/* Row 2: Group Tests, Sample Type, Container, Body Site */}
-              <div>
+              <div className="relative">
                 <Label className="text-[10px]">Group Tests</Label>
-                <Select value={formData.grouptests} onValueChange={(v) => setFormData({ ...formData, grouptests: v })}>
-                  <SelectTrigger className="h-6 text-[11px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent className="max-h-[300px]">{getAllTestGroupNames().map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                </Select>
+                <div className="relative">
+                  <Input
+                    className="h-6 text-[11px] pr-6"
+                    value={formData.grouptests}
+                    onChange={(e) => {
+                      setFormData({ ...formData, grouptests: e.target.value });
+                      setGroupTestsSearch(e.target.value);
+                      setShowGroupTestsDropdown(true);
+                    }}
+                    onFocus={() => { setGroupTestsSearch(formData.grouptests); setShowGroupTestsDropdown(true); }}
+                    onBlur={() => setTimeout(() => setShowGroupTestsDropdown(false), 150)}
+                    placeholder="Type or select"
+                  />
+                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+                </div>
+                {showGroupTestsDropdown && (() => {
+                  const filtered = existingGroupTests.filter(g => g.toLowerCase().includes((groupTestsSearch || "").toLowerCase()));
+                  return filtered.length > 0 ? (
+                    <div className="absolute z-50 mt-0.5 w-full bg-white border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+                      {filtered.map(g => (
+                        <button key={g} type="button" className="w-full text-left px-2 py-1 text-[11px] hover:bg-blue-50 truncate" onMouseDown={() => { setFormData({ ...formData, grouptests: g }); setShowGroupTestsDropdown(false); }}>
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
               </div>
               <div>
                 <Label className="text-[10px]">Sample Type</Label>

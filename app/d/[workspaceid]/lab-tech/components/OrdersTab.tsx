@@ -9,7 +9,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSampleRecommendations, getRecommendationsByServiceName, resolveServiceToTestCodes } from "@/lib/lims/test-recommendations";
+import { getSampleRecommendations, getRecommendationsByServiceName, resolveServiceToTestCodes, findRecommendation } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1321,7 +1321,20 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           key={rowKey}
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => {
-                            setSelectedOrder(order);
+                            let orderToOpen = order;
+                            // If openEHR order has no tests, find matching local order with tests
+                            if (isOpenEHR && (!order.tests || order.tests.length === 0)) {
+                              const matchingLocal = orders.find((o: LimsOrder) =>
+                                o.source === "local" &&
+                                o.subjectidentifier === order.subjectidentifier &&
+                                o.tests && o.tests.length > 0
+                              );
+                              if (matchingLocal) {
+                                // Merge: use local order's tests with openEHR order's metadata
+                                orderToOpen = { ...order, tests: matchingLocal.tests };
+                              }
+                            }
+                            setSelectedOrder(orderToOpen);
                             setCollectedSpecimenTypes({});
                             setCurrentCollectingSpecimen("");
                             setShowOrderDetail(true);
@@ -1510,17 +1523,56 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
               
-              // For openEHR orders, resolve individual tests from service name for display
-              const resolvedTests = selectedOrder.tests && selectedOrder.tests.length > 0
-                ? selectedOrder.tests
-                : displayRecommendations?.recommendations?.map((r: any) => ({
+              // Resolve individual tests for display - enrich with recommendation data if missing
+              let resolvedTests: any[] = [];
+              if (selectedOrder.tests && selectedOrder.tests.length > 0) {
+                // LIMS orders have tests but may lack specimen/container info
+                // Enrich using fuzzy matching (findRecommendation) which handles DB codes like "Toxoplasmosis-IgG" → TOXO
+                resolvedTests = selectedOrder.tests.map((t: any) => {
+                  const code = t.testCode || t.testcode || t.code;
+                  const name = t.testName || t.testname;
+                  const existing = t.specimenType || t.specimentype || t.material;
+                  const rec = existing ? null : findRecommendation(code, name);
+                  return {
+                    ...t,
+                    specimenType: existing || (rec ? rec.sampleType : undefined),
+                    containerType: t.containerType || t.containertype || t.specimencontainer || (rec ? rec.containerType : undefined),
+                    specimenvolume: t.specimenvolume || t.volume || (rec ? `${rec.volume} ${rec.volumeUnit}` : undefined),
+                    fastingRequired: t.fastingRequired ?? (rec ? rec.fastingRequired : false),
+                  };
+                });
+              } else if (displayRecommendations?.recommendations?.length > 0) {
+                // openEHR orders with matched recommendations - build from them
+                resolvedTests = displayRecommendations.recommendations.map((r: any) => ({
                     testCode: r.testCode,
                     testName: r.testName,
                     specimenType: r.sampleType,
                     containerType: r.containerType,
                     specimenvolume: `${r.volume} ${r.volumeUnit}`,
                     fastingRequired: r.fastingRequired,
-                  })) || [];
+                  }));
+              } else if (selectedOrder.service_name || selectedOrder.description) {
+                // Fallback: parse comma-separated test names from service_name or description
+                // This handles openEHR orders where service_name contains test names like "Toxoplasmosis-IgG, CMV-IgM, ..."
+                const nameSource = selectedOrder.description || selectedOrder.service_name || "";
+                // Try parsing "Selected Tests (N): test1, test2" format first
+                const selectedTestsMatch = nameSource.match(/Selected Tests \(\d+\): (.*)/);
+                const testNames = selectedTestsMatch
+                  ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
+                  : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+                
+                resolvedTests = testNames.map((name: string) => {
+                  const rec = findRecommendation(undefined, name);
+                  return {
+                    testCode: rec?.testCode || name,
+                    testName: name,
+                    specimenType: rec?.sampleType,
+                    containerType: rec?.containerType,
+                    specimenvolume: rec ? `${rec.volume} ${rec.volumeUnit}` : undefined,
+                    fastingRequired: rec?.fastingRequired || false,
+                  };
+                });
+              }
 
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">

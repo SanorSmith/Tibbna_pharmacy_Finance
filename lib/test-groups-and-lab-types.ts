@@ -12,7 +12,7 @@ export const LAB_TYPES = [
   "Endocrinology",
   "Serology",
   "Molecular Biology",
-  "Special Tests",
+  "Special Test",
 ] as const;
 
 export const TEST_GROUPS = {
@@ -284,7 +284,7 @@ export const TEST_GROUPS = {
   // Special Tests
   SPECIAL_TESTS: {
     name: "Special Tests",
-    labType: "Special Tests",
+    labType: "Special Test",
     tests: [
       "Tumor Markers (CEA, CA 19-9, CA 125, PSA, AFP)",
       "Drug Levels (Digoxin, Phenytoin, Valproate)",

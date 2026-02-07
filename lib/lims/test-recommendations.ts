@@ -151,6 +151,87 @@ const TEST_REQUIREMENTS: Record<string, TestRecommendation> = {
   'SPUTUM-CYTO': { testCode: 'SPUTUM-CYTO', testName: 'Sputum Cytology', sampleType: 'sputum', containerType: 'Sterile Sputum Container', volume: 5, volumeUnit: 'mL', fastingRequired: false, specialInstructions: 'Early morning collection' },
 };
 
+/**
+ * Find a test recommendation by code or name (fuzzy matching).
+ * Tries: exact code → uppercase code → keyword matching on test name.
+ */
+export function findRecommendation(testCode?: string, testName?: string): TestRecommendation | null {
+  if (!testCode && !testName) return null;
+
+  // 1. Exact code match
+  if (testCode && TEST_REQUIREMENTS[testCode]) return TEST_REQUIREMENTS[testCode];
+
+  // 2. Uppercase code match
+  if (testCode && TEST_REQUIREMENTS[testCode.toUpperCase()]) return TEST_REQUIREMENTS[testCode.toUpperCase()];
+
+  // 3. Keyword matching against TEST_REQUIREMENTS entries using code or name
+  const searchTerms = [testCode, testName].filter(Boolean).map(s => s!.toLowerCase());
+  const entries = Object.values(TEST_REQUIREMENTS);
+
+  for (const entry of entries) {
+    const entryName = entry.testName.toLowerCase();
+    const entryCode = entry.testCode.toLowerCase();
+    for (const term of searchTerms) {
+      // Check if the search term contains the entry name or code, or vice versa
+      if (
+        term.includes(entryName) || entryName.includes(term) ||
+        term.includes(entryCode) || entryCode.includes(term)
+      ) {
+        return entry;
+      }
+    }
+  }
+
+  // 4. Partial keyword match (e.g. "Cytomegalovirus-IgM" → "CMV" via common abbreviation mapping)
+  const KEYWORD_MAP: Record<string, string> = {
+    'cytomegalovirus': 'CMV',
+    'toxoplasmosis': 'TOXO',
+    'toxoplasma': 'TOXO',
+    'herpes': 'HERPES',
+    'hsv': 'HERPES',
+    'rubella': 'RUBELLA',
+    'hepatitis b': 'HBSAG',
+    'hbsag': 'HBSAG',
+    'hepatitis c': 'ANTI-HCV',
+    'hiv': 'HIV',
+    'syphilis': 'VDRL',
+    'glucose': 'FBS',
+    'blood sugar': 'FBS',
+    'hemoglobin': 'HGB',
+    'haemoglobin': 'HGB',
+    'platelet': 'PLT',
+    'creatinine': 'CREAT',
+    'urea': 'UREA',
+    'cholesterol': 'CHOL',
+    'triglyceride': 'TG',
+    'thyroid': 'TSH',
+    'ferritin': 'FERRITIN',
+    'iron': 'IRON',
+    'calcium': 'CA',
+    'potassium': 'K',
+    'sodium': 'NA',
+    'magnesium': 'MG',
+    'phosphorus': 'PO4',
+    'bilirubin': 'TBIL',
+    'albumin': 'ALB',
+    'protein': 'TP',
+    'uric acid': 'UA',
+    'bacteremia': 'BACT',
+    'fungemia': 'FUNG',
+    'culture': 'UTI',
+  };
+
+  for (const term of searchTerms) {
+    for (const [keyword, code] of Object.entries(KEYWORD_MAP)) {
+      if (term.includes(keyword)) {
+        if (TEST_REQUIREMENTS[code]) return TEST_REQUIREMENTS[code];
+      }
+    }
+  }
+
+  return null;
+}
+
 export function getSampleRecommendations(testCodes: string[]): OrderRecommendations {
   if (!testCodes || testCodes.length === 0) {
     return {
