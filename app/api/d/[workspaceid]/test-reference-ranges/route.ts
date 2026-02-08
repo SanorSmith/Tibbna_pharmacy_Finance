@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { testReferenceRanges, testReferenceAuditLog, users } from "@/lib/db/schema";
 import { getUser } from "@/lib/user";
@@ -109,7 +109,7 @@ export async function GET(
       const userRows = await db
         .select({ userid: users.userid, name: users.name, email: users.email })
         .from(users)
-        .where(sql`${users.userid} = ANY(${userIds})`);
+        .where(inArray(users.userid, userIds));
       for (const u of userRows) {
         userMap[u.userid] = u.name || u.email || "Unknown";
       }
