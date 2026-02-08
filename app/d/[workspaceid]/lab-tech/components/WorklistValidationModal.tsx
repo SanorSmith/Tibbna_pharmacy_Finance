@@ -137,45 +137,7 @@ export default function WorklistValidationModal({
 
   const currentItem = filteredItems[currentIndex];
 
-  // Technical validation mutation (draft → validated)
-  const techValidateMutation = useMutation({
-    mutationFn: async (resultid: string) => {
-      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'validate_technical' }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to validate technically');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
-    },
-  });
-
-  // Medical/Clinical validation mutation (validated → approved)
-  const medicalValidateMutation = useMutation({
-    mutationFn: async (resultid: string) => {
-      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'validate_medical' }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to validate medically');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
-    },
-  });
-
-  // Release result mutation (approved → released)
+  // Release result mutation (any non-released → released)
   const releaseMutation = useMutation({
     mutationFn: async (resultid: string) => {
       const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
@@ -782,97 +744,27 @@ export default function WorklistValidationModal({
               </Button>
               
               <div className="flex flex-col gap-2 items-end">
-                {/* Validation Chain State Indicator */}
-                {(() => {
-                  const results = currentItem.results.filter((r: TestResult) => r.resultid);
-                  if (results.length === 0) return null;
-                  // Use the "lowest" status across all results to determine what's next
-                  const statuses = results.map((r: TestResult) => r.status);
-                  const allDraft = statuses.every((s: string) => s === 'draft' || s === 'pending');
-                  const allValidated = statuses.every((s: string) => s === 'validated');
-                  const allApproved = statuses.every((s: string) => s === 'approved');
-                  const allReleased = statuses.every((s: string) => s === 'released');
-                  const someReleased = statuses.some((s: string) => s === 'released');
-
-                  return (
-                    <div className="flex items-center gap-1 text-xs mb-1 w-full">
-                      <span className="text-muted-foreground mr-1">Chain:</span>
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${!allDraft ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500'}`}>
-                        1. Technical
-                      </Badge>
-                      <span className="text-gray-300">→</span>
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${allApproved || allReleased ? 'bg-green-100 text-green-700 border-green-300' : allValidated ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-gray-100 text-gray-500'}`}>
-                        2. Medical
-                      </Badge>
-                      <span className="text-gray-300">→</span>
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${allReleased ? 'bg-green-100 text-green-700 border-green-300' : allApproved ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-gray-100 text-gray-500'}`}>
-                        3. Release
-                      </Badge>
-                    </div>
-                  );
-                })()}
-
-                {/* Chain-aware Action Buttons */}
+                {/* Action Buttons */}
                 <div className="flex gap-2">
                   {(() => {
                     const results = currentItem.results.filter((r: TestResult) => r.resultid);
                     const statuses = results.map((r: TestResult) => r.status);
-                    const allDraft = statuses.every((s: string) => s === 'draft' || s === 'pending');
-                    const allValidated = statuses.every((s: string) => s === 'validated');
-                    const allApproved = statuses.every((s: string) => s === 'approved');
                     const allReleased = statuses.every((s: string) => s === 'released');
-                    const anyPending = techValidateMutation.isPending || medicalValidateMutation.isPending || releaseMutation.isPending;
 
                     return (
                       <>
-                        {/* Technical Validate - shown when draft */}
-                        {allDraft && (
-                          <Button
-                            variant="default"
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() => {
-                              results.forEach((result: TestResult) => {
-                                if (result.resultid) techValidateMutation.mutate(result.resultid);
-                              });
-                            }}
-                            disabled={anyPending}
-                            title="Technical validation (Step 1 of 3)"
-                          >
-                            {techValidateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                            Tech Validate
-                          </Button>
-                        )}
-
-                        {/* Medical Validate - shown when tech validated */}
-                        {allValidated && (
-                          <Button
-                            variant="default"
-                            className="bg-purple-600 hover:bg-purple-700"
-                            onClick={() => {
-                              results.forEach((result: TestResult) => {
-                                if (result.resultid) medicalValidateMutation.mutate(result.resultid);
-                              });
-                            }}
-                            disabled={anyPending}
-                            title="Medical/Clinical validation (Step 2 of 3)"
-                          >
-                            {medicalValidateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                            Medical Validate
-                          </Button>
-                        )}
-
-                        {/* Release - shown when medically approved */}
-                        {allApproved && (
+                        {/* Release - available for any non-released state */}
+                        {!allReleased && results.length > 0 && (
                           <Button
                             variant="default"
                             className="bg-green-600 hover:bg-green-700"
                             onClick={() => {
                               results.forEach((result: TestResult) => {
-                                if (result.resultid) releaseMutation.mutate(result.resultid);
+                                if (result.resultid && result.status !== 'released') releaseMutation.mutate(result.resultid);
                               });
                             }}
-                            disabled={anyPending}
-                            title="Release to doctor (Step 3 of 3)"
+                            disabled={releaseMutation.isPending}
+                            title="Release results to doctor"
                           >
                             {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                             Release
