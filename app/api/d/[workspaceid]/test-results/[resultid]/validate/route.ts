@@ -85,9 +85,9 @@ export async function POST(
         break;
 
       case "release":
-        if (currentStatus !== "approved") {
+        if (currentStatus === "released") {
           return NextResponse.json(
-            { error: `Cannot release: result is currently "${currentStatus}". Release requires medical validation first (status "approved").` },
+            { error: `Cannot release: result has already been released.` },
             { status: 400 }
           );
         }

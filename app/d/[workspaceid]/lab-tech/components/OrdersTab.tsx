@@ -233,6 +233,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const [sampleComments, setSampleComments] = useState("");
   const [collectedSpecimenTypes, setCollectedSpecimenTypes] = useState<Record<string, { sampleNumber: string; accessionNumber: string }>>({});
   const [currentCollectingSpecimen, setCurrentCollectingSpecimen] = useState<string>("");
+  const [selectedTestForCollection, setSelectedTestForCollection] = useState<string | null>(null);
 
   const [currentPatientId, setCurrentPatientId] = useState("");
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
@@ -1343,6 +1344,24 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             setSelectedOrder(orderToOpen);
                             setCollectedSpecimenTypes({});
                             setCurrentCollectingSpecimen("");
+                            // Auto-select first test
+                            let firstTestKey: string | null = null;
+                            if (orderToOpen.tests?.length > 0) {
+                              const ft = orderToOpen.tests[0];
+                              firstTestKey = ft.testCode || ft.testcode || ft.code || ft.testName || ft.testname || null;
+                            } else if (orderToOpen.service_name || orderToOpen.description) {
+                              // openEHR orders: parse first test name from description or service_name
+                              const nameSource = orderToOpen.description || orderToOpen.service_name || "";
+                              const selectedTestsMatch = nameSource.match(/Selected Tests \(\d+\): (.*)/);
+                              const testNames = selectedTestsMatch
+                                ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
+                                : (orderToOpen.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+                              if (testNames.length > 0) {
+                                const rec = findRecommendation(undefined, testNames[0]);
+                                firstTestKey = rec?.testCode || testNames[0];
+                              }
+                            }
+                            setSelectedTestForCollection(firstTestKey);
                             setShowOrderDetail(true);
                           }}
                         >
@@ -1678,20 +1697,28 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                     {/* Requested Tests */}
                     <div className="border rounded-lg p-2">
-                      <h3 className="font-semibold text-xs mb-1.5">
+                      <h3 className="font-semibold text-xs mb-0.5">
                         Requested Tests
                       </h3>
+                      <p className="text-[10px] text-muted-foreground mb-1.5">Click a test to collect its sample</p>
 
                       {resolvedTests.length > 0 ? (
                         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1">
-                          <TooltipProvider>
+                          <TooltipProvider delayDuration={300}>
                             {resolvedTests.map(
-                              (test: any, idx: number) => (
+                              (test: any, idx: number) => {
+                                const testKey = test.testCode || test.testName || `test-${idx}`;
+                                const isSelected = selectedTestForCollection === testKey;
+                                return (
                                 <Tooltip key={idx}>
                                   <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-0.5 bg-gray-50 px-1.5 py-1 rounded border border-gray-200 hover:bg-gray-100 transition-colors text-left"
+                                    <div
+                                      onClick={() => setSelectedTestForCollection(isSelected ? null : testKey)}
+                                      className={`flex w-full items-center gap-0.5 px-1.5 py-1 rounded border transition-colors text-left cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-blue-100 border-blue-400 ring-1 ring-blue-300'
+                                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                      }`}
                                     >
                                       <FlaskConical className="h-2.5 w-2.5 text-blue-500 flex-shrink-0" />
                                       <div className="flex-1 min-w-0">
@@ -1707,7 +1734,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                           )}
                                         </div>
                                       </div>
-                                    </button>
+                                    </div>
                                   </TooltipTrigger>
                                   <TooltipContent sideOffset={6}>
                                     <div className="space-y-0.5">
@@ -1730,8 +1757,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
-                              )
-                            )}
+                              );
+                            })}
                           </TooltipProvider>
                         </div>
                       ) : (
@@ -1860,9 +1887,31 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           );
                         }
 
+                        // Find which specimen type the selected test belongs to
+                        let filteredEntries = groupEntries;
+                        if (selectedTestForCollection) {
+                          const selectedTest = resolvedTests.find((t: any) =>
+                            (t.testCode || t.testName) === selectedTestForCollection
+                          );
+                          if (selectedTest) {
+                            const selectedSpecimen = selectedTest.specimenType || selectedTest.specimentype || selectedTest.material || "Not specified";
+                            filteredEntries = groupEntries.filter(([specimen]) => specimen === selectedSpecimen);
+                          }
+                        }
+
+                        if (!selectedTestForCollection) {
+                          return (
+                            <div className="flex flex-col items-center justify-center py-6 text-center text-gray-400">
+                              <FlaskConical className="h-8 w-8 mb-2 opacity-50" />
+                              <p className="text-xs font-medium">Select a test from the left panel</p>
+                              <p className="text-[10px]">Click on a requested test to collect its sample</p>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div className="space-y-2">
-                            {groupEntries.map(([specimen, data]: [string, any]) => {
+                            {filteredEntries.map(([specimen, data]: [string, any]) => {
                               const isCollected = !!collectedSpecimenTypes[specimen];
                               const isCollecting = createSampleMutation.isPending && currentCollectingSpecimen === specimen;
                               const isCancelled = openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED";
@@ -1953,8 +2002,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                         );
                       })()}
 
-                      {/* Shared collection fields */}
-                      <div className="space-y-2 mt-3 pt-2 border-t border-gray-200">
+                      {/* Shared collection fields - only show when a test is selected */}
+                      {selectedTestForCollection && <div className="space-y-2 mt-3 pt-2 border-t border-gray-200">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label htmlFor="sampleNumberDetail" className="text-xs">Sample ID</Label>
@@ -1999,7 +2048,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             className="w-full mt-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                           />
                         </div>
-                      </div>
+                      </div>}
 
                       {/* Show message if order is cancelled */}
                       {(openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED") && (() => {

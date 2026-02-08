@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, Package, TestTube, Edit, Trash2, Printer, ShieldAlert, Ban } from "lucide-react";
+import { Plus, History, Package, TestTube, Edit, Trash2, Printer, ShieldAlert, Ban, Loader2 } from "lucide-react";
 import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,11 +78,12 @@ export default function EnhancedOrdersTab({
   const [savingTestOrder, setSavingTestOrder] = useState(false);
   const [editingOrder, setEditingOrder] = useState<TestOrderRecord | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>(null);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<TestOrderRecord | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
-  const [showEditNotSupportedDialog, setShowEditNotSupportedDialog] = useState(false);
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
   const [showNotAuthorizedDialog, setShowNotAuthorizedDialog] = useState(false);
   const [notAuthorizedCreator, setNotAuthorizedCreator] = useState<string>("");
@@ -220,53 +221,70 @@ export default function EnhancedOrdersTab({
     }
   }, [workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
-  // Handle edit order
-  const handleEditOrder = useCallback((order: TestOrderRecord) => {
-    // Transform order data to match form structure
-    const formData = {
-      // Preserve original order metadata
-      composition_uid: order.composition_uid,
-      recorded_time: order.recorded_time,
-      
-      // Form fields
-      target_lab: order.target_lab || order.receiving_provider || "",
-      selectedPackages: [], // We don't have this info from the order, so empty array
-      selectedTests: [], // We don't have individual test IDs, so empty array
-      clinical_indication: order.clinical_indication || "",
-      urgency: order.urgency || "routine",
-      requesting_provider: order.requesting_provider || "",
-      narrative: order.narrative || "",
-      sampleType: "",
-      containerType: "",
-      volume: "",
-      volumeUnit: "mL",
-      sampleRecommendations: {
-        primarySampleType: "",
-        primaryContainer: "",
-        totalVolume: 0,
-        volumeUnit: "mL",
-        fastingRequired: false,
-        recommendations: [],
-        specialInstructions: [],
-      },
-    };
-    
-    setEditingOrder(formData as any);
-    setShowEditForm(true);
-  }, []);
+  // Handle edit order - fetch full details from OpenEHR and reverse-match to catalog
+  const handleEditOrder = useCallback(async (order: TestOrderRecord) => {
+    setEditingOrder(order);
+    setIsLoadingEdit(true);
 
-  // Handle update order
-  const handleUpdateOrder = useCallback(async (formData: any) => {
+    try {
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${order.composition_uid}`
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        console.error("GET order details failed:", res.status, errBody);
+        throw new Error(errBody.error || "Failed to fetch order details");
+      }
+
+      const data = await res.json();
+      const o = data.order;
+
+      // Build form data matching TestOrderForm shape for EnhancedLabOrderFormMultiple
+      setEditFormData({
+        target_lab: o.matched_lab_id || "",
+        selectedPackages: o.matched_package_ids || [],
+        selectedTests: o.matched_test_ids || [],
+        clinical_indication: o.clinical_indication || "",
+        urgency: o.urgency || "routine",
+        requesting_provider: o.requesting_provider || "",
+        narrative: o.narrative || "",
+        sampleType: "",
+        containerType: "",
+        volume: "",
+        volumeUnit: "mL",
+      });
+      // Only open form AFTER data is ready (avoids Radix Dialog conflict)
+      setShowEditForm(true);
+    } catch (err) {
+      console.error("Error loading order for edit:", err);
+      alert("Failed to load order details for editing");
+      setEditingOrder(null);
+    } finally {
+      setIsLoadingEdit(false);
+    }
+  }, [workspaceid, patientid]);
+
+  // Handle update order - receives full submission data from EnhancedLabOrderFormMultiple
+  const handleUpdateOrder = useCallback(async (submissionData: any) => {
     if (!editingOrder) return;
-    
-    setSavingTestOrder(true);
+
     try {
       const response = await fetch(
         `/api/d/${workspaceid}/patients/${patientid}/test-orders/${editingOrder.composition_uid}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ testOrder: formData }),
+          body: JSON.stringify({
+            testOrder: {
+              service_name: submissionData.service_name,
+              description: submissionData.description,
+              clinical_indication: submissionData.clinical_indication,
+              requesting_provider: submissionData.requesting_provider,
+              receiving_provider: submissionData.receiving_provider,
+              narrative: submissionData.narrative,
+            },
+          }),
         }
       );
 
@@ -277,7 +295,8 @@ export default function EnhancedOrdersTab({
 
       setShowEditForm(false);
       setEditingOrder(null);
-      
+      setEditFormData(null);
+
       // Reload list and clear cache
       hasLoadedTestOrders.current = false;
       sessionStorage.removeItem(CACHE_KEY);
@@ -285,8 +304,7 @@ export default function EnhancedOrdersTab({
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : "Failed to update order");
-    } finally {
-      setSavingTestOrder(false);
+      throw error;
     }
   }, [editingOrder, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
@@ -495,9 +513,13 @@ export default function EnhancedOrdersTab({
                             variant="outline"
                             className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
                             onClick={() => handleEditOrder(order)}
+                            disabled={isLoadingEdit && editingOrder?.composition_uid === order.composition_uid}
                           >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Edit
+                            {isLoadingEdit && editingOrder?.composition_uid === order.composition_uid ? (
+                              <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
+                            ) : (
+                              <><Edit className="h-3 w-3 mr-1" /> Edit</>
+                            )}
                           </Button>
                           <Button
                             size="sm"
@@ -630,22 +652,31 @@ export default function EnhancedOrdersTab({
         </CardContent>
       </Card>
 
-      {/* Form Dialog - Using Multiple Selection Component */}
+      {/* Create Order Form Dialog */}
       <EnhancedLabOrderFormMultiple
-        open={showEditForm || showTestOrderForm}
-        onOpenChange={(open) => {
-          if (showEditForm) {
-            setShowEditForm(open);
-            if (!open) setEditingOrder(null);
-          } else {
-            setShowTestOrderForm(open);
-          }
-        }}
-        onSubmit={showEditForm ? handleUpdateOrder : saveTestOrder}
-        editMode={showEditForm}
-        initialData={editingOrder}
+        open={showTestOrderForm}
+        onOpenChange={setShowTestOrderForm}
+        onSubmit={saveTestOrder}
         workspaceid={workspaceid}
       />
+
+      {/* Edit Order Dialog - Full form with test catalog */}
+      {editFormData && (
+        <EnhancedLabOrderFormMultiple
+          open={showEditForm}
+          onOpenChange={(open) => {
+            setShowEditForm(open);
+            if (!open) {
+              setEditingOrder(null);
+              setEditFormData(null);
+            }
+          }}
+          onSubmit={handleUpdateOrder}
+          editMode={true}
+          initialData={editFormData}
+          workspaceid={workspaceid}
+        />
+      )}
 
       {/* Already Cancelled Dialog */}
       <AlertDialog open={showAlreadyCancelledDialog} onOpenChange={setShowAlreadyCancelledDialog}>
@@ -720,39 +751,6 @@ export default function EnhancedOrdersTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Edit Not Supported Dialog */}
-      <AlertDialog open={showEditNotSupportedDialog} onOpenChange={setShowEditNotSupportedDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Order Editing Not Supported</AlertDialogTitle>
-            <AlertDialogDescription>
-              Order editing is not currently supported due to OpenEHR composition complexity.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-700 mb-3">
-              To modify this order, please follow these steps:
-            </p>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-              <li>Cancel the existing order</li>
-              <li>Create a new order with the updated information</li>
-            </ol>
-            <p className="text-sm text-gray-600 mt-4 italic">
-              This approach preserves the complete audit trail.
-            </p>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogAction 
-              onClick={() => setShowEditNotSupportedDialog(false)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
 
       {/* Enhanced Details Dialog */}
       <Dialog

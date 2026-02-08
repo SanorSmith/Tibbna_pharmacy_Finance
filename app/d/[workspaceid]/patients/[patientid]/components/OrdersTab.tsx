@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History, Edit, Trash2, Printer, ShieldAlert, Ban } from "lucide-react";
+import { Plus, History, Edit, Trash2, Printer, ShieldAlert, Ban, Loader2 } from "lucide-react";
 import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +61,8 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingOrder, setEditingOrder] = useState<TestOrderRecord | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>(null);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<TestOrderRecord | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -196,24 +198,69 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
     }
   }, [workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
-  // Handle edit order
-  const handleEditOrder = useCallback((order: TestOrderRecord) => {
+  // Handle edit order - fetch full details from OpenEHR and reverse-match to catalog
+  const handleEditOrder = useCallback(async (order: TestOrderRecord) => {
     setEditingOrder(order);
-    setShowEditForm(true);
-  }, []);
+    setIsLoadingEdit(true);
 
-  // Handle update order
-  const handleUpdateOrder = useCallback(async (formData: any) => {
+    try {
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${order.composition_uid}`
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        console.error("GET order details failed:", res.status, errBody);
+        throw new Error(errBody.error || "Failed to fetch order details");
+      }
+
+      const data = await res.json();
+      const o = data.order;
+
+      setEditFormData({
+        target_lab: o.matched_lab_id || "",
+        selectedPackages: o.matched_package_ids || [],
+        selectedTests: o.matched_test_ids || [],
+        clinical_indication: o.clinical_indication || "",
+        urgency: o.urgency || "routine",
+        requesting_provider: o.requesting_provider || "",
+        narrative: o.narrative || "",
+        sampleType: "",
+        containerType: "",
+        volume: "",
+        volumeUnit: "mL",
+      });
+      // Only open form AFTER data is ready (avoids Radix Dialog conflict)
+      setShowEditForm(true);
+    } catch (err) {
+      console.error("Error loading order for edit:", err);
+      alert("Failed to load order details for editing");
+      setEditingOrder(null);
+    } finally {
+      setIsLoadingEdit(false);
+    }
+  }, [workspaceid, patientid]);
+
+  // Handle update order - receives full submission data from EnhancedLabOrderFormMultiple
+  const handleUpdateOrder = useCallback(async (submissionData: any) => {
     if (!editingOrder) return;
-    
-    setIsSubmitting(true);
+
     try {
       const response = await fetch(
         `/api/d/${workspaceid}/patients/${patientid}/test-orders/${editingOrder.composition_uid}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ testOrder: formData }),
+          body: JSON.stringify({
+            testOrder: {
+              service_name: submissionData.service_name,
+              description: submissionData.description,
+              clinical_indication: submissionData.clinical_indication,
+              requesting_provider: submissionData.requesting_provider,
+              receiving_provider: submissionData.receiving_provider,
+              narrative: submissionData.narrative,
+            },
+          }),
         }
       );
 
@@ -224,7 +271,8 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
 
       setShowEditForm(false);
       setEditingOrder(null);
-      
+      setEditFormData(null);
+
       // Reload list and clear cache
       hasLoadedTestOrders.current = false;
       sessionStorage.removeItem(CACHE_KEY);
@@ -233,8 +281,6 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
       console.error(error);
       alert(error instanceof Error ? error.message : "Failed to update order");
       throw error;
-    } finally {
-      setIsSubmitting(false);
     }
   }, [editingOrder, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
@@ -411,21 +457,30 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
         </CardContent>
       </Card>
 
-      {/* Form Dialog - Using Multiple Selection Component */}
+      {/* Create Order Form Dialog */}
       <EnhancedLabOrderFormMultiple
-        open={showEditForm || showTestOrderForm}
-        onOpenChange={(open) => {
-          if (showEditForm) {
-            setShowEditForm(open);
-            if (!open) setEditingOrder(null);
-          } else {
-            setShowTestOrderForm(open);
-          }
-        }}
-        onSubmit={showEditForm ? handleUpdateOrder : handleSubmitOrder}
-        editMode={showEditForm}
-        initialData={editingOrder}
+        open={showTestOrderForm}
+        onOpenChange={setShowTestOrderForm}
+        onSubmit={handleSubmitOrder}
       />
+
+      {/* Edit Order Dialog - Full form with test catalog */}
+      {editFormData && (
+        <EnhancedLabOrderFormMultiple
+          open={showEditForm}
+          onOpenChange={(open) => {
+            setShowEditForm(open);
+            if (!open) {
+              setEditingOrder(null);
+              setEditFormData(null);
+            }
+          }}
+          onSubmit={handleUpdateOrder}
+          editMode={true}
+          initialData={editFormData}
+          workspaceid={workspaceid}
+        />
+      )}
 
       {/* Already Cancelled Dialog */}
       <AlertDialog open={showAlreadyCancelledDialog} onOpenChange={setShowAlreadyCancelledDialog}>

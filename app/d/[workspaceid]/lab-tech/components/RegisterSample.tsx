@@ -799,36 +799,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                     <Plus className="h-4 w-4 mr-2" />
                     Add to Worklist
                   </Button>
-                  <Button 
-                    variant="default" 
-                    className="w-full bg-blue-600 hover:bg-blue-700 col-span-2"
-                    onClick={() => {
-                      setResultEntrySample({
-                        worklistitemid: selectedSample?.sampleid,
-                        sampleid: selectedSample?.sampleid,
-                        sample: {
-                          sampleid: selectedSample?.sampleid,
-                          samplenumber: selectedSample?.samplenumber,
-                          sampletype: selectedSample?.sampletype,
-                          collectiondate: selectedSample?.collectiondate,
-                        },
-                        patient: selectedSample?.patientname ? {
-                          patientid: selectedSample?.patientid || '',
-                          firstname: selectedSample?.patientname?.split(' ')[0] || '',
-                          lastname: selectedSample?.patientname?.split(' ').slice(1).join(' ') || '',
-                          dateofbirth: '',
-                          gender: selectedSample?.patientsex || '',
-                          age: selectedSample?.patientage || 0,
-                        } : null,
-                        results: [],
-                      });
-                      setShowSampleDetail(false);
-                      setShowResultEntryModal(true);
-                    }}
-                  >
-                    <FlaskConical className="h-4 w-4 mr-2" />
-                    Enter Results
-                  </Button>
                 </div>
               </div>
             </div>
