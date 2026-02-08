@@ -130,8 +130,17 @@ export default function EnhancedLabOrderFormMultiple({
   initialData,
   workspaceid,
 }: EnhancedLabOrderFormProps) {
-  const [formState, dispatch] = useReducer(formReducer, DEFAULT_FORM);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [formState, dispatch] = useReducer(
+    formReducer,
+    editMode && initialData ? { ...DEFAULT_FORM, ...initialData } : DEFAULT_FORM
+  );
+  const [currentStep, setCurrentStep] = useState(() => {
+    if (editMode && initialData) {
+      if (initialData.target_lab && (initialData.selectedPackages?.length > 0 || initialData.selectedTests?.length > 0)) return 3;
+      if (initialData.target_lab) return 2;
+    }
+    return 1;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
   const [testCatalog, setTestCatalog] = useState<{
@@ -140,9 +149,9 @@ export default function EnhancedLabOrderFormMultiple({
     laboratories: Record<string, any>;
   }>({ testPackages: TEST_PACKAGES, individualTests: INDIVIDUAL_TESTS, laboratories: LABORATORIES });
 
-  // Fetch dynamic test catalog from DB when dialog opens
+  // Fetch dynamic test catalog from DB when dialog opens (skip in edit mode - reverse-matched IDs use static catalog)
   useEffect(() => {
-    if (open && workspaceid) {
+    if (open && workspaceid && !editMode) {
       setIsLoadingCatalog(true);
       fetch(`/api/test-catalog?workspaceid=${workspaceid}`)
         .then(res => res.json())
@@ -158,20 +167,18 @@ export default function EnhancedLabOrderFormMultiple({
         .catch(err => console.error("Failed to fetch test catalog, using fallback:", err))
         .finally(() => setIsLoadingCatalog(false));
     }
-  }, [open, workspaceid]);
+  }, [open, workspaceid, editMode]);
 
-  // Load initial data in edit mode
+  // Load initial data in edit mode (only if reducer wasn't initialized with it)
   useEffect(() => {
     if (editMode && initialData && open) {
       dispatch({ type: "LOAD_DATA", data: initialData });
-      // Start at step 1 to allow user to select laboratory and tests
-      setCurrentStep(1);
     }
   }, [editMode, initialData, open]);
 
-  // Fetch current user and populate requesting provider
+  // Fetch current user and populate requesting provider (skip in edit mode - already set from initial data)
   useEffect(() => {
-    if (open && !formState.requesting_provider) {
+    if (open && !editMode && !formState.requesting_provider) {
       fetch("/api/auth/session")
         .then(res => res.json())
         .then(data => {
@@ -185,7 +192,7 @@ export default function EnhancedLabOrderFormMultiple({
           dispatch({ type: "SET_FIELD", field: "requesting_provider", value: "Unknown Provider" });
         });
     }
-  }, [open, formState.requesting_provider]);
+  }, [open, editMode, formState.requesting_provider]);
 
   // Calculate sample recommendations based on selected tests
   const sampleRecommendations = useMemo(() => {
@@ -331,7 +338,11 @@ export default function EnhancedLabOrderFormMultiple({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-[80vw] max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => { if (editMode) e.preventDefault(); }}
+        onPointerDownOutside={(e) => { if (editMode) e.preventDefault(); }}
+      >
         <DialogHeader>
           <DialogTitle>{editMode ? "Edit Laboratory Test Order" : "Order Laboratory Tests"}</DialogTitle>
           <DialogDescription>
