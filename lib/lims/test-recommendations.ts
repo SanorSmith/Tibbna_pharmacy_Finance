@@ -413,7 +413,13 @@ export function resolveTestsFromDescription(description: string | undefined | nu
           const found = Object.entries(TEST_NAME_TO_CODE).find(
             ([tName]) => tName.includes(lowerName) || lowerName.includes(tName)
           );
-          if (found) codes.push(found[1]);
+          if (found) {
+            codes.push(found[1]);
+          } else {
+            // Use the test name itself as a pseudo-code so the actual ordered tests
+            // are preserved and the fallback to SERVICE_NAME_TO_TEST_CODES is prevented
+            codes.push(name);
+          }
         }
       }
       if (codes.length > 0) return codes;

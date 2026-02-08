@@ -1291,11 +1291,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   ) : (
                     filteredOrders.map((order: LimsOrder, idx: number) => {
                       const isOpenEHR = order.source === "openEHR";
-                      const orderId =
-                        order.orderid ||
-                        order.composition_uid ||
-                        order.request_id ||
-                        "";
+                      const orderId = isOpenEHR
+                        ? (order.request_id || order.composition_uid || "")
+                        : (order.orderid || order.composition_uid || order.request_id || "");
                       const rowKey = `${orderId}-${idx}`;
                       const displayId =
                         orderId.length > 12
@@ -1328,19 +1326,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           key={rowKey}
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => {
-                            let orderToOpen = order;
-                            // If openEHR order has no tests, find matching local order with tests
-                            if (isOpenEHR && (!order.tests || order.tests.length === 0)) {
-                              const matchingLocal = orders.find((o: LimsOrder) =>
-                                o.source === "local" &&
-                                o.subjectidentifier === order.subjectidentifier &&
-                                o.tests && o.tests.length > 0
-                              );
-                              if (matchingLocal) {
-                                // Merge: use local order's tests with openEHR order's metadata
-                                orderToOpen = { ...order, tests: matchingLocal.tests };
-                              }
-                            }
+                            const orderToOpen = order;
                             setSelectedOrder(orderToOpen);
                             setCollectedSpecimenTypes({});
                             setCurrentCollectingSpecimen("");
@@ -1352,7 +1338,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             } else if (orderToOpen.service_name || orderToOpen.description) {
                               // openEHR orders: parse first test name from description or service_name
                               const nameSource = orderToOpen.description || orderToOpen.service_name || "";
-                              const selectedTestsMatch = nameSource.match(/Selected Tests \(\d+\): (.*)/);
+                              const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/);
                               const testNames = selectedTestsMatch
                                 ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
                                 : (orderToOpen.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -1529,6 +1515,16 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
           {selectedOrder &&
             (() => {
+              // DEBUG: trace order data
+              console.log('[OrderDetail DEBUG] selectedOrder:', {
+                source: selectedOrder.source,
+                service_name: selectedOrder.service_name,
+                description: selectedOrder.description,
+                request_id: selectedOrder.request_id,
+                tests: selectedOrder.tests,
+                sampleRecommendations: selectedOrder.sampleRecommendations,
+              });
+
               // Calculate sample recommendations if not stored in order
               let computedRecommendations = null;
               if (
@@ -1543,6 +1539,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 // For openEHR orders, resolve service name to test codes (also parses Selected Tests from description)
                 computedRecommendations = getRecommendationsByServiceName(selectedOrder.service_name, selectedOrder.description);
               }
+              
+              console.log('[OrderDetail DEBUG] computedRecommendations:', computedRecommendations);
 
               // Use stored data or computed recommendations
               const displayRecommendations =
@@ -1566,8 +1564,40 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     fastingRequired: t.fastingRequired ?? (rec ? rec.fastingRequired : false),
                   };
                 });
+              } else if (selectedOrder.source === "openEHR" && (selectedOrder.description || selectedOrder.service_name)) {
+                // OpenEHR orders: parse actual ordered tests from description/service_name
+                // This ensures ALL ordered tests are shown, not just ones matching TEST_REQUIREMENTS
+                const nameSource = selectedOrder.description || selectedOrder.service_name || "";
+                const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
+                const testNames = selectedTestsMatch
+                  ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
+                  : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+                
+                if (testNames.length > 0) {
+                  resolvedTests = testNames.map((name: string) => {
+                    const rec = findRecommendation(undefined, name);
+                    return {
+                      testCode: rec?.testCode || name,
+                      testName: name, // Always show original ordered test name
+                      specimenType: rec?.sampleType,
+                      containerType: rec?.containerType,
+                      specimenvolume: rec ? `${rec.volume} ${rec.volumeUnit}` : undefined,
+                      fastingRequired: rec?.fastingRequired || false,
+                    };
+                  });
+                } else if (displayRecommendations?.recommendations?.length > 0) {
+                  // No parseable test names - fall back to matched recommendations
+                  resolvedTests = displayRecommendations.recommendations.map((r: any) => ({
+                    testCode: r.testCode,
+                    testName: r.testName,
+                    specimenType: r.sampleType,
+                    containerType: r.containerType,
+                    specimenvolume: `${r.volume} ${r.volumeUnit}`,
+                    fastingRequired: r.fastingRequired,
+                  }));
+                }
               } else if (displayRecommendations?.recommendations?.length > 0) {
-                // openEHR orders with matched recommendations - build from them
+                // Non-openEHR orders with matched recommendations
                 resolvedTests = displayRecommendations.recommendations.map((r: any) => ({
                     testCode: r.testCode,
                     testName: r.testName,
@@ -1576,27 +1606,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     specimenvolume: `${r.volume} ${r.volumeUnit}`,
                     fastingRequired: r.fastingRequired,
                   }));
-              } else if (selectedOrder.service_name || selectedOrder.description) {
-                // Fallback: parse comma-separated test names from service_name or description
-                // This handles openEHR orders where service_name contains test names like "Toxoplasmosis-IgG, CMV-IgM, ..."
-                const nameSource = selectedOrder.description || selectedOrder.service_name || "";
-                // Try parsing "Selected Tests (N): test1, test2" format first
-                const selectedTestsMatch = nameSource.match(/Selected Tests \(\d+\): (.*)/);
-                const testNames = selectedTestsMatch
-                  ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
-                  : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
-                
-                resolvedTests = testNames.map((name: string) => {
-                  const rec = findRecommendation(undefined, name);
-                  return {
-                    testCode: rec?.testCode || name,
-                    testName: name,
-                    specimenType: rec?.sampleType,
-                    containerType: rec?.containerType,
-                    specimenvolume: rec ? `${rec.volume} ${rec.volumeUnit}` : undefined,
-                    fastingRequired: rec?.fastingRequired || false,
-                  };
-                });
               }
 
               return (
@@ -1637,7 +1646,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
         <span className="text-muted-foreground">Order ID:</span>
         <div className="font-mono text-[10px]">
           {(() => {
-            const orderId = selectedOrder.orderid || selectedOrder.composition_uid || selectedOrder.request_id || "N/A";
+            const orderId = selectedOrder.source === "openEHR"
+              ? (selectedOrder.request_id || selectedOrder.composition_uid || "N/A")
+              : (selectedOrder.orderid || selectedOrder.composition_uid || selectedOrder.request_id || "N/A");
             return orderId.length > 20 ? `${orderId.substring(0, 8)}...${orderId.substring(orderId.length - 8)}` : orderId;
           })()}
         </div>
@@ -2151,17 +2162,48 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
               
-              // Resolve tests for display
-              const resolvedTests2 = selectedOrder.tests && selectedOrder.tests.length > 0
-                ? selectedOrder.tests
-                : displayRecommendations?.recommendations?.map((r: any) => ({
+              // Resolve tests for display - for openEHR, parse description to get ALL ordered tests
+              let resolvedTests2: any[] = [];
+              if (selectedOrder.tests && selectedOrder.tests.length > 0) {
+                resolvedTests2 = selectedOrder.tests;
+              } else if (selectedOrder.source === "openEHR" && (selectedOrder.description || selectedOrder.service_name)) {
+                const nameSource = selectedOrder.description || selectedOrder.service_name || "";
+                const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
+                const testNames = selectedTestsMatch
+                  ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
+                  : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (testNames.length > 0) {
+                  resolvedTests2 = testNames.map((name: string) => {
+                    const rec = findRecommendation(undefined, name);
+                    return {
+                      testCode: rec?.testCode || name,
+                      testName: name, // Always show original ordered test name
+                      specimenType: rec?.sampleType,
+                      containerType: rec?.containerType,
+                      specimenvolume: rec ? `${rec.volume} ${rec.volumeUnit}` : undefined,
+                      fastingRequired: rec?.fastingRequired || false,
+                    };
+                  });
+                } else if (displayRecommendations?.recommendations?.length > 0) {
+                  resolvedTests2 = displayRecommendations.recommendations.map((r: any) => ({
                     testCode: r.testCode,
                     testName: r.testName,
                     specimenType: r.sampleType,
                     containerType: r.containerType,
                     specimenvolume: `${r.volume} ${r.volumeUnit}`,
                     fastingRequired: r.fastingRequired,
-                  })) || [];
+                  }));
+                }
+              } else if (displayRecommendations?.recommendations?.length > 0) {
+                resolvedTests2 = displayRecommendations.recommendations.map((r: any) => ({
+                    testCode: r.testCode,
+                    testName: r.testName,
+                    specimenType: r.sampleType,
+                    containerType: r.containerType,
+                    specimenvolume: `${r.volume} ${r.volumeUnit}`,
+                    fastingRequired: r.fastingRequired,
+                  }));
+              }
 
               return (
                 <div className="space-y-4 py-4">

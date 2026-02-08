@@ -46,6 +46,7 @@ export interface TestOrderRecord {
   requesting_provider?: string;
   receiving_provider?: string;
   request_status?: string;
+  status?: string;
   timing?: string;
   request_id?: string;
   narrative?: string;
@@ -434,16 +435,17 @@ export default function EnhancedOrdersTab({
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b bg-blue-100/90 text-blue-800">
-                    <th className="text-left p-3 font-medium">Test Name</th>
-                    <th className="text-left p-3 font-medium">Category</th>
-                    <th className="text-left p-3 font-medium">Target Lab</th>
+                    <th className="text-left p-3 font-medium">Requested Tests</th>
                     <th className="text-left p-3 font-medium">Urgency</th>
                     <th className="text-left p-3 font-medium">Date Ordered</th>
                     <th className="text-left p-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {testOrderRecords.map((order, index) => (
+                  {testOrderRecords.filter(o => {
+                    const orderStatus = o.request_status || o.status || (o.description?.match(/Status:\s*(CANCELLED)/)?.[1]) || "";
+                    return orderStatus !== "CANCELLED";
+                  }).map((order, index) => (
                     <tr
                       key={`${order.composition_uid}-${index}`}
                       className={`border-b ${
@@ -453,34 +455,51 @@ export default function EnhancedOrdersTab({
                       <td className="p-3">
                         <div className="flex items-center gap-2">
                           {order.is_package ? (
-                            <Package className="h-4 w-4 text-blue-500" />
+                            <Package className="h-4 w-4 text-orange-500" />
                           ) : (
                             <TestTube className="h-4 w-4 text-green-500" />
                           )}
                           <div>
                             <div className="font-medium">
-                              {order.service_name}
+                              {(() => {
+                                const desc = order.description || "";
+                                const selectedTestsMatch = desc.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
+                                if (selectedTestsMatch) {
+                                  const testNames = selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean);
+                                  if (testNames.length > 0) return testNames.join(', ');
+                                }
+                                return order.service_name;
+                              })()}
                             </div>
-                            {order.description && order.description.trim() ? (
-                              <div className="text-xs text-muted-foreground line-clamp-1">
-                                {order.description}
-                              </div>
-                            ) : (
-                              <div className="text-xs text-muted-foreground line-clamp-1">
-                                {order.clinical_indication || "No additional details"}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span
+                                className={`px-2 py-0.5 text-[10px] rounded-full capitalize ${
+                                  (order.request_status || order.status) === "COMPLETED"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {order.request_status || order.status || "REQUESTED"}
+                              </span>
+                              {order.test_category && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  {order.test_category}
+                                </Badge>
+                              )}
+                              {order.service_name && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {order.service_name}
+                                </span>
+                              )}
+                              {order.service_type_code && (
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  {order.service_type_code}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="p-3">
-                        {order.test_category && (
-                          <Badge variant="outline" className="text-xs">
-                            {order.test_category}
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="p-3 text-sm">{order.target_lab || "-"}</td>
                       <td className="p-3">
                         <span
                           className={`px-2 py-1 text-xs rounded-full capitalize ${
@@ -567,9 +586,7 @@ export default function EnhancedOrdersTab({
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left p-3 font-medium text-sm">Test Name</th>
-                        <th className="text-left p-3 font-medium text-sm">Category</th>
-                        <th className="text-left p-3 font-medium text-sm">Target Lab</th>
+                        <th className="text-left p-3 font-medium text-sm">Requested Tests</th>
                         <th className="text-left p-3 font-medium text-sm">Urgency</th>
                         <th className="text-left p-3 font-medium text-sm">Date Ordered</th>
                         <th className="text-left p-3 font-medium text-sm">Actions</th>
@@ -586,34 +603,53 @@ export default function EnhancedOrdersTab({
                           <td className="p-3">
                             <div className="flex items-center gap-2">
                               {order.is_package ? (
-                                <Package className="h-4 w-4 text-blue-500" />
+                                <Package className="h-4 w-4 text-orange-500" />
                               ) : (
                                 <TestTube className="h-4 w-4 text-green-500" />
                               )}
                               <div>
                                 <div className="font-medium text-sm">
-                                  {order.service_name}
+                                  {(() => {
+                                    const desc = order.description || "";
+                                    const selectedTestsMatch = desc.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
+                                    if (selectedTestsMatch) {
+                                      const testNames = selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean);
+                                      if (testNames.length > 0) return testNames.join(', ');
+                                    }
+                                    return order.service_name;
+                                  })()}
                                 </div>
-                                {order.description && order.description.trim() ? (
-                                  <div className="text-xs text-muted-foreground line-clamp-1">
-                                    {order.description}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-muted-foreground line-clamp-1">
-                                    {order.clinical_indication || "No additional details"}
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span
+                                    className={`px-2 py-0.5 text-[10px] rounded-full capitalize ${
+                                      (order.request_status || order.status) === "CANCELLED"
+                                        ? "bg-red-100 text-red-800"
+                                        : (order.request_status || order.status) === "COMPLETED"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-blue-100 text-blue-800"
+                                    }`}
+                                  >
+                                    {order.request_status || order.status || "REQUESTED"}
+                                  </span>
+                                  {order.test_category && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                      {order.test_category}
+                                    </Badge>
+                                  )}
+                                  {order.service_name && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {order.service_name}
+                                    </span>
+                                  )}
+                                  {order.service_type_code && (
+                                    <span className="text-[10px] text-muted-foreground font-mono">
+                                      {order.service_type_code}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>
-                          <td className="p-3">
-                            {order.test_category && (
-                              <Badge variant="outline" className="text-xs">
-                                {order.test_category}
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="p-3 text-sm">{order.target_lab || "-"}</td>
                           <td className="p-3">
                             <span
                               className={`px-2 py-1 text-xs rounded-full capitalize ${
