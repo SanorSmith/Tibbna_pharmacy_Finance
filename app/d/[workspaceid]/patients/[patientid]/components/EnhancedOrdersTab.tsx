@@ -491,6 +491,11 @@ export default function EnhancedOrdersTab({
                                   {order.service_name}
                                 </span>
                               )}
+                              {order.service_type_code && (
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  {order.service_type_code}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -634,6 +639,11 @@ export default function EnhancedOrdersTab({
                                   {order.service_name && (
                                     <span className="text-[10px] text-muted-foreground">
                                       {order.service_name}
+                                    </span>
+                                  )}
+                                  {order.service_type_code && (
+                                    <span className="text-[10px] text-muted-foreground font-mono">
+                                      {order.service_type_code}
                                     </span>
                                   )}
                                 </div>
