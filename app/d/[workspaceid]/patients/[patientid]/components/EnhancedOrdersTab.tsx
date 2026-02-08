@@ -430,113 +430,191 @@ export default function EnhancedOrdersTab({
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b bg-blue-100/90 text-blue-800">
-                    <th className="text-left p-3 font-medium">Test Name</th>
-                    <th className="text-left p-3 font-medium">Category</th>
-                    <th className="text-left p-3 font-medium">Target Lab</th>
-                    <th className="text-left p-3 font-medium">Urgency</th>
-                    <th className="text-left p-3 font-medium">Date Ordered</th>
-                    <th className="text-left p-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {testOrderRecords.map((order, index) => (
-                    <tr
-                      key={`${order.composition_uid}-${index}`}
-                      className={`border-b ${
-                        index % 2 === 0 ? "bg-background" : "bg-muted/25"
-                      } hover:bg-muted/50 transition-colors`}
-                    >
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          {order.is_package ? (
-                            <Package className="h-4 w-4 text-blue-500" />
-                          ) : (
-                            <TestTube className="h-4 w-4 text-green-500" />
-                          )}
-                          <div>
-                            <div className="font-medium">
-                              {order.service_name}
-                            </div>
-                            {order.description && order.description.trim() ? (
-                              <div className="text-xs text-muted-foreground line-clamp-1">
-                                {order.description}
+            <>
+            {/* Active Orders */}
+            {(() => {
+              const activeOrders = testOrderRecords.filter(o => o.request_status !== "CANCELLED");
+              const cancelledOrders = testOrderRecords.filter(o => o.request_status === "CANCELLED");
+              return (
+                <>
+                {activeOrders.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b bg-blue-100/90 text-blue-800">
+                          <th className="text-left p-3 font-medium">Requested Tests</th>
+                          <th className="text-left p-3 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeOrders.map((order, index) => (
+                          <tr
+                            key={`${order.composition_uid}-${index}`}
+                            className={`border-b ${
+                              index % 2 === 0 ? "bg-background" : "bg-muted/25"
+                            } hover:bg-muted/50 transition-colors`}
+                          >
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                {order.is_package ? (
+                                  <Package className="h-4 w-4 text-orange-500" />
+                                ) : (
+                                  <TestTube className="h-4 w-4 text-green-500" />
+                                )}
+                                <div>
+                                  <div className="font-medium">
+                                    {(() => {
+                                      const desc = order.description || "";
+                                      const selectedTestsMatch = desc.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
+                                      if (selectedTestsMatch) {
+                                        const testNames = selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean);
+                                        if (testNames.length > 0) return testNames.join(', ');
+                                      }
+                                      return order.service_name;
+                                    })()}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span
+                                      className={`px-2 py-0.5 text-[10px] rounded-full capitalize ${
+                                        order.request_status === "COMPLETED"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-blue-100 text-blue-800"
+                                      }`}
+                                    >
+                                      {order.request_status || "REQUESTED"}
+                                    </span>
+                                    {order.test_category && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                        {order.test_category}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            ) : (
-                              <div className="text-xs text-muted-foreground line-clamp-1">
-                                {order.clinical_indication || "No additional details"}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedTestOrder(order);
+                                    setShowTestOrderDetails(true);
+                                  }}
+                                  className="bg-blue-100/90 hover:bg-blue-200"
+                                >
+                                  Details
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                                  onClick={() => handleEditOrder(order)}
+                                  disabled={isLoadingEdit && editingOrder?.composition_uid === order.composition_uid}
+                                >
+                                  {isLoadingEdit && editingOrder?.composition_uid === order.composition_uid ? (
+                                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
+                                  ) : (
+                                    <><Edit className="h-3 w-3 mr-1" /> Edit</>
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                                  onClick={() => handleCancelClick(order)}
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Cancel
+                                </Button>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        {order.test_category && (
-                          <Badge variant="outline" className="text-xs">
-                            {order.test_category}
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="p-3 text-sm">{order.target_lab || "-"}</td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full capitalize ${
-                            order.urgency === "urgent"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {order.urgency || "routine"}
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm">
-                        {new Date(order.recorded_time).toLocaleDateString()}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedTestOrder(order);
-                              setShowTestOrderDetails(true);
-                            }}
-                            className="bg-blue-100/90 hover:bg-blue-200"
-                          >
-                            Details
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                            onClick={() => handleEditOrder(order)}
-                            disabled={isLoadingEdit && editingOrder?.composition_uid === order.composition_uid}
-                          >
-                            {isLoadingEdit && editingOrder?.composition_uid === order.composition_uid ? (
-                              <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
-                            ) : (
-                              <><Edit className="h-3 w-3 mr-1" /> Edit</>
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-                            onClick={() => handleCancelClick(order)}
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Cancel
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground text-sm">
+                    No active test orders
+                  </div>
+                )}
+
+                {/* Cancelled Orders Section */}
+                {cancelledOrders.length > 0 && (
+                  <div className="mt-4">
+                    <div className="overflow-x-auto border border-red-200 rounded-lg">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b bg-red-50 text-red-800">
+                            <th className="text-left p-3 font-medium">Cancelled Tests ({cancelledOrders.length})</th>
+                            <th className="text-left p-3 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {cancelledOrders.map((order, index) => (
+                            <tr
+                              key={`cancelled-${order.composition_uid}-${index}`}
+                              className={`border-b ${
+                                index % 2 === 0 ? "bg-red-50/30" : "bg-red-50/50"
+                              } hover:bg-red-50/70 transition-colors`}
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  {order.is_package ? (
+                                    <Package className="h-4 w-4 text-red-400" />
+                                  ) : (
+                                    <TestTube className="h-4 w-4 text-red-400" />
+                                  )}
+                                  <div>
+                                    <div className="font-medium text-muted-foreground line-through">
+                                      {(() => {
+                                        const desc = order.description || "";
+                                        const selectedTestsMatch = desc.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
+                                        if (selectedTestsMatch) {
+                                          const testNames = selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean);
+                                          if (testNames.length > 0) return testNames.join(', ');
+                                        }
+                                        return order.service_name;
+                                      })()}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="px-2 py-0.5 text-[10px] rounded-full bg-red-100 text-red-800">
+                                        CANCELLED
+                                      </span>
+                                      {order.test_category && (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                          {order.test_category}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedTestOrder(order);
+                                    setShowTestOrderDetails(true);
+                                  }}
+                                  className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                                >
+                                  Details
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                </>
+              );
+            })()}
+            </>
           )}
 
           {/* History Section - Collapsible */}
