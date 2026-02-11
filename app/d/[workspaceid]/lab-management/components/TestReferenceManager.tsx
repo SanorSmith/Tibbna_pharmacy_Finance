@@ -107,6 +107,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [labtypeFilter, setLabtypeFilter] = useState<string>("all");
+  const [groupFilter, setGroupFilter] = useState<string>("all");
   const [filterAgeGroup, setFilterAgeGroup] = useState("ALL");
 
   // Combo-box dropdown states
@@ -144,7 +145,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
 
   useEffect(() => {
     applyFilters();
-  }, [ranges, searchTerm, labtypeFilter, filterAgeGroup]);
+  }, [ranges, searchTerm, labtypeFilter, groupFilter, filterAgeGroup]);
 
   const fetchRanges = async () => {
     try {
@@ -161,19 +162,64 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
     }
   };
 
+  // Derive unique group options from data, qualified by lab type when "All Lab Types" is selected
+  const availableGroupOptions: { value: string; label: string }[] = (() => {
+    if (labtypeFilter !== "all") {
+      // Single lab type selected — plain group names, no ambiguity
+      const source = ranges.filter(r => r.labtype === labtypeFilter);
+      const groups = Array.from(new Set(source.map(r => r.grouptests).filter(Boolean) as string[])).sort();
+      return groups.map(g => ({ value: g, label: g }));
+    }
+    // All lab types — build "labtype::group" compound keys to disambiguate duplicates
+    const pairs = new Set<string>();
+    for (const r of ranges) {
+      if (r.grouptests && r.labtype) pairs.add(`${r.labtype}::${r.grouptests}`);
+      else if (r.grouptests) pairs.add(`::${r.grouptests}`);
+    }
+    // Check which group names appear under multiple lab types
+    const groupToLabTypes = new Map<string, Set<string>>();
+    for (const p of pairs) {
+      const [lab, grp] = p.split("::");
+      if (!groupToLabTypes.has(grp)) groupToLabTypes.set(grp, new Set());
+      groupToLabTypes.get(grp)!.add(lab);
+    }
+    const result: { value: string; label: string }[] = [];
+    for (const p of Array.from(pairs).sort()) {
+      const [lab, grp] = p.split("::");
+      const isDuplicate = (groupToLabTypes.get(grp)?.size || 0) > 1;
+      result.push({
+        value: p, // compound key "labtype::group"
+        label: isDuplicate ? `${lab} → ${grp}` : grp,
+      });
+    }
+    return result;
+  })();
+
   const applyFilters = () => {
     let filtered = [...ranges];
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (r) =>
-          r.testcode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          r.testname.toLowerCase().includes(searchTerm.toLowerCase())
+          r.testcode.toLowerCase().includes(term) ||
+          r.testname.toLowerCase().includes(term) ||
+          (r.grouptests && r.grouptests.toLowerCase().includes(term))
       );
     }
 
     if (labtypeFilter !== "all") {
       filtered = filtered.filter((r) => r.labtype === labtypeFilter);
+    }
+
+    if (groupFilter !== "all") {
+      if (groupFilter.includes("::")) {
+        // Compound key: "labtype::group"
+        const [lab, grp] = groupFilter.split("::");
+        filtered = filtered.filter((r) => r.labtype === lab && r.grouptests === grp);
+      } else {
+        filtered = filtered.filter((r) => r.grouptests === groupFilter);
+      }
     }
 
     if (filterAgeGroup !== "ALL") {
@@ -363,13 +409,13 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <Input
               id="search"
-              placeholder="Search by code or name..."
+              placeholder="Search by code, name or group..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-7 h-7 text-xs"
             />
           </div>
-          <Select value={labtypeFilter} onValueChange={setLabtypeFilter}>
+          <Select value={labtypeFilter} onValueChange={(v) => { setLabtypeFilter(v); setGroupFilter("all"); }}>
             <SelectTrigger className="h-7 text-xs w-[140px]">
               <SelectValue />
             </SelectTrigger>
@@ -377,6 +423,17 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
               <SelectItem value="all">All Lab Types</SelectItem>
               {LAB_TYPES.map((type) => (
                 <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={groupFilter} onValueChange={setGroupFilter}>
+            <SelectTrigger className="h-7 text-xs w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Test Groups</SelectItem>
+              {availableGroupOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -401,6 +458,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
             onClick={() => {
               setSearchTerm("");
               setLabtypeFilter("all");
+              setGroupFilter("all");
               setFilterAgeGroup("ALL");
             }}
           >
