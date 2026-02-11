@@ -594,9 +594,6 @@ export default function EnhancedLabOrderFormMultiple({
                                   </span>
                                 )}
                               </p>
-                              <p className="text-xs text-muted-foreground">
-                                {pkg.description}
-                              </p>
                               <p className="text-xs text-blue-600">
                                 {pkg.category} • {isVirtualTest ? "1 test" : `${pkg.tests.length} tests`}
                                 {isVirtualTest && pkg.originalTest?.code && (
