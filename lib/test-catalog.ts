@@ -101,7 +101,7 @@ export const TEST_PACKAGES: Record<string, TestPackage> = {
     name: "Hormone",
     category: "Biochemistry",
     description: "Thyroid, reproductive, adrenal and metabolic hormones",
-    tests: ["tsh", "t3", "t4", "ft3", "ft4", "lh", "fsh", "prl", "e2", "prg", "test", "amh", "cortisol", "pth", "gh", "ins"],
+    tests: ["tsh", "t3", "t4", "ft3", "ft4", "lh", "fsh", "prl", "e2", "prg", "test", "amh", "gastrin", "dhea-s", "renin", "17-ohp", "cortisol", "pth", "gh", "ins"],
   },
   // BIOCHEMISTRY - General
   "general-biochemistry": {
@@ -358,6 +358,11 @@ export const INDIVIDUAL_TESTS: Record<string, TestItem> = {
   chloride: { id: "chloride", name: "Chloride (Cl-)", code: "CL", category: "Biochemistry", material: "Blood", snomedCode: "165768006" },
   bicarbonate: { id: "bicarbonate", name: "Bicarbonate (HCO3-)", code: "HCO3", category: "Biochemistry", material: "Blood", snomedCode: "165769003" },
   "uric-acid": { id: "uric-acid", name: "Uric Acid", code: "URIC", category: "Biochemistry", material: "Blood", snomedCode: "165770002" },
+  amh: { id: "amh", name: "Anti Mullerian Hormone", code: "AMH", category: "Biochemistry", material: "Blood", snomedCode: "413073001" },
+  gastrin: { id: "gastrin", name: "Gastrin", code: "Gastrin", category: "Biochemistry", material: "Blood", snomedCode: "269876001" },
+  "dhea-s": { id: "dhea-s", name: "Dehydroepiandrosterone Sulfate", code: "DHEA-S", category: "Biochemistry", material: "Blood", snomedCode: "412808005" },
+  renin: { id: "renin", name: "Renin", code: "Renin", category: "Biochemistry", material: "Blood", snomedCode: "104589008" },
+  "17-ohp": { id: "17-ohp", name: "17-Hydroxy Progesterone", code: "17-OHP", category: "Biochemistry", material: "Blood", snomedCode: "104590004" },
   "protein-electrophoresis": { id: "protein-electrophoresis", name: "Protein Electrophoresis", code: "PROT-ELEC", category: "Biochemistry", material: "Blood", snomedCode: "165771003" },
   
   // MICROBIOLOGY
