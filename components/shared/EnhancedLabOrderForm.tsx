@@ -110,10 +110,9 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
         const packageTests = pkg?.tests || [];
         newSelectedTests = state.selectedTests.filter(testId => !packageTests.includes(testId));
       } else {
-        // Add package and its tests
+        // Add package but don't auto-select tests
         newSelectedPackages = [...state.selectedPackages, action.packageId];
-        const packageTests = pkg?.tests || [];
-        newSelectedTests = [...new Set([...state.selectedTests, ...packageTests])];
+        newSelectedTests = [...state.selectedTests];
       }
       
       return {
@@ -255,11 +254,9 @@ export default function EnhancedLabOrderForm({
     
     // Fallback to hardcoded mapping
     const labMap: Record<string, string> = {
-      "hematology-lab": "Hematology",
-      "biochemistry-lab": "Biochemistry",
-      "microbiology-lab": "Microbiology",
-      "immunology-lab": "Immunology",
-      "histopathology-lab": "Histopathology",
+      "biochemistry": "Biochemistry",
+      "microbiology": "Microbiology",
+      "histopathology": "Histopathology",
     };
     return labMap[labId] || "";
   };
@@ -400,9 +397,11 @@ export default function EnhancedLabOrderForm({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-4 py-4">
+        <div className="grid grid-cols-2 gap-4 py-4">
+          {/* Column 1: Step 1 + Step 2 */}
+          <div className="border-r pr-4 space-y-6">
           {/* Step 1: Select Laboratory */}
-          <div className="border-r pr-4">
+          <div>
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="h-5 w-5" />
               <Label className="text-base font-semibold">
@@ -452,7 +451,7 @@ export default function EnhancedLabOrderForm({
           </div>
 
           {/* Step 2: Select Test Group */}
-          <div className="border-r pr-4">
+          <div>
             <div className="flex items-center gap-2 mb-3">
               <Package className="h-5 w-5" />
               <Label className="text-base font-semibold">
@@ -574,8 +573,9 @@ export default function EnhancedLabOrderForm({
               </>
             )}
           </div>
+          </div>
 
-          {/* Step 3: Review and Customize Tests */}
+          {/* Column 2: Step 3 - Review and Customize Tests */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <TestTube className="h-5 w-5" />

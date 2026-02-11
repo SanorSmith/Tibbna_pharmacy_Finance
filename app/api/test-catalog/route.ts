@@ -63,27 +63,29 @@ export async function GET(request: NextRequest) {
 
     // Create test packages based on group tests
     const testPackages: Record<string, any> = {};
-    const groupedTests: Record<string, string[]> = {};
+    // Key by "labtype::groupName" to avoid collisions (e.g. "General" exists in both Biochemistry and Histopathology)
+    const groupedTests: Record<string, { labtype: string; groupName: string; testCodes: string[] }> = {};
 
     tests.forEach((test) => {
       if (test.grouptests) {
-        const groupName = test.grouptests;
-        if (!groupedTests[groupName]) {
-          groupedTests[groupName] = [];
+        const labType = test.labtype || "General";
+        const compositeKey = `${labType}::${test.grouptests}`;
+        if (!groupedTests[compositeKey]) {
+          groupedTests[compositeKey] = { labtype: labType, groupName: test.grouptests, testCodes: [] };
         }
-        groupedTests[groupName].push(test.testcode.toLowerCase().replace(/\s+/g, "-"));
+        groupedTests[compositeKey].testCodes.push(test.testcode.toLowerCase().replace(/\s+/g, "-"));
       }
     });
 
     // Create packages from grouped tests
-    Object.entries(groupedTests).forEach(([groupName, testCodes]) => {
-      const packageId = groupName.toLowerCase().replace(/\s+/g, "-");
-      const firstTest = tests.find(t => t.grouptests === groupName);
+    Object.values(groupedTests).forEach(({ labtype, groupName, testCodes }) => {
+      // Include labtype in the ID to avoid collisions between departments
+      const packageId = `${labtype.toLowerCase().replace(/\s+/g, "-")}-${groupName.toLowerCase().replace(/\s+/g, "-")}`;
       
       testPackages[packageId] = {
         id: packageId,
         name: groupName,
-        category: firstTest?.labtype || "General",
+        category: labtype,
         description: `${testCodes.length} test${testCodes.length > 1 ? 's' : ''}`,
         tests: testCodes,
       };
