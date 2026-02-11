@@ -434,11 +434,11 @@ export default function EnhancedOrdersTab({
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b bg-blue-100/90 text-blue-800">
-                    <th className="text-left p-3 font-medium">Requested Tests</th>
-                    <th className="text-left p-3 font-medium">Urgency</th>
-                    <th className="text-left p-3 font-medium">Date Ordered</th>
-                    <th className="text-left p-3 font-medium">Actions</th>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 font-medium text-sm">Requested Tests</th>
+                    <th className="text-left p-3 font-medium text-sm w-32">Urgency</th>
+                    <th className="text-left p-3 font-medium text-sm w-32">Date Ordered</th>
+                    <th className="text-right p-3 font-medium text-sm w-48">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -514,8 +514,8 @@ export default function EnhancedOrdersTab({
                       <td className="p-3 text-sm">
                         {new Date(order.recorded_time).toLocaleDateString()}
                       </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Button
                             size="sm"
                             variant="outline"
@@ -587,9 +587,9 @@ export default function EnhancedOrdersTab({
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-3 font-medium text-sm">Requested Tests</th>
-                        <th className="text-left p-3 font-medium text-sm">Urgency</th>
-                        <th className="text-left p-3 font-medium text-sm">Date Ordered</th>
-                        <th className="text-left p-3 font-medium text-sm">Actions</th>
+                        <th className="text-left p-3 font-medium text-sm w-32">Urgency</th>
+                        <th className="text-left p-3 font-medium text-sm w-32">Date Ordered</th>
+                        <th className="text-right p-3 font-medium text-sm w-48">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -664,7 +664,7 @@ export default function EnhancedOrdersTab({
                           <td className="p-3 text-sm">
                             {new Date(order.recorded_time).toLocaleDateString()}
                           </td>
-                          <td className="p-3">
+                          <td className="p-3 text-right">
                             <Button
                               size="sm"
                               variant="outline"

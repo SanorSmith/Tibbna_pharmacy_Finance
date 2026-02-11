@@ -69,7 +69,7 @@ import {
   FlaskConical,
   RefreshCw,
 } from "lucide-react";
-import EnhancedLabOrderForm from "@/components/shared/EnhancedLabOrderForm";
+import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
 import { calculateTAT, getTATStatusColor } from "@/lib/lims/tat-tracking";
 import { useSession } from "next-auth/react";
 
@@ -121,7 +121,7 @@ interface OrderFormData {
 interface Patient {
   patientid: string;
   firstname: string;
-  middletname: string;
+  middlename: string;
   lastname: string;
   dateofbirth: string;
   mrn?: string;
@@ -923,8 +923,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             }}
                           >
                             <div className="font-medium text-sm uppercase tracking-wide">
-                              {patient.name ||
-                                patient.firstname + " " + patient.lastname ||
+                              {[patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(" ") ||
+                                patient.name ||
                                 "Unknown Patient"}
                             </div>
                             <div className="text-xs text-gray-500 mt-1">
@@ -947,8 +947,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     </div>
                     <div className="mt-1">
                       <div className="font-semibold">
-                        {selectedPatient.name ||
-                          `${selectedPatient.firstname || ""} ${selectedPatient.lastname || ""}`.trim() ||
+                        {[selectedPatient.firstname, selectedPatient.middlename, selectedPatient.lastname].filter(Boolean).join(" ") ||
+                          selectedPatient.name ||
                           "Unknown Patient"}
                       </div>
                       <div className="text-sm text-gray-600">
@@ -1151,7 +1151,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
           </Dialog>
 
           {/* Enhanced Order Form Modal */}
-          <EnhancedLabOrderForm
+          <EnhancedLabOrderFormMultiple
             open={showOrderForm}
             onOpenChange={setShowOrderForm}
             onSubmit={handleSubmitOrder}
@@ -1161,6 +1161,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 ? `${selectedPatient.firstname} ${selectedPatient.lastname}`
                 : undefined
             }
+            workspaceid={workspaceid}
           />
         </div>
       </div>

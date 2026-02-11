@@ -108,7 +108,7 @@ function findValueByName(
         Array.isArray(activity.description.items)
       ) {
         for (const item of activity.description.items) {
-          if (item.name?.value === fieldName || item.name?.value?.toLowerCase() === fieldName.toLowerCase()) {
+          if (item.name?.value === fieldName) {
             // Handle DV_CODED_TEXT (coded values like urgency)
             if (item.value?.value) {
               // For coded text, convert to lowercase for consistency
@@ -146,7 +146,7 @@ function findValueByName(
   ) {
     for (const item of protocol.items) {
       const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
-      if ((typedItem.name?.value === fieldName || typedItem.name?.value?.toLowerCase() === fieldName.toLowerCase()) && typedItem.value?.value) {
+      if (typedItem.name?.value === fieldName && typedItem.value?.value) {
         return typedItem.value.value;
       }
     }
@@ -224,7 +224,6 @@ export async function getOpenEHRTestOrders(
               findValueByName(instruction, "Service Name") || "";
             const description =
               findValueByName(instruction, "Description") || "";
-            console.log(`[OpenEHR Extract] serviceName: "${serviceName}", description (first 200): "${description.substring(0, 200)}"`);
             const clinicalIndication =
               findValueByName(instruction, "Clinical Indication") || "";
             const requestingProvider =

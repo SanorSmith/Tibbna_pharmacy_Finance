@@ -25,7 +25,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Package, TestTube, Building2, X, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Package, TestTube, Building2, X, ChevronsUpDown, Loader2, Plus, ClipboardList, Trash2 } from "lucide-react";
 
 // Import test catalog from a separate file (fallback)
 import { TEST_PACKAGES, INDIVIDUAL_TESTS, LABORATORIES } from "@/lib/test-catalog";
@@ -104,7 +104,7 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
         return {
           ...state,
           selectedPackages: [...currentPackages, action.packageId],
-          selectedTests: [...new Set([...currentTests, ...pkgTests])],
+          selectedTests: currentTests,
         };
       }
     }
@@ -142,6 +142,7 @@ export default function EnhancedLabOrderFormMultiple({
     return 1;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addedTests, setAddedTests] = useState<string[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
   const [packageSearchTerm, setPackageSearchTerm] = useState("");
   const [testCatalog, setTestCatalog] = useState<{
@@ -218,10 +219,11 @@ export default function EnhancedLabOrderFormMultiple({
     }
   }, [formState.selectedPackages, formState.selectedTests, currentStep]);
 
-  // Clear search term when form is reset
+  // Clear search term and added tests when form is reset
   useEffect(() => {
     if (!open) {
       setPackageSearchTerm("");
+      setAddedTests([]);
     }
   }, [open]);
 
@@ -230,11 +232,9 @@ export default function EnhancedLabOrderFormMultiple({
     const lab = testCatalog.laboratories[labId];
     if (lab) return lab.name;
     const labMap: Record<string, string> = {
-      "hematology-lab": "Hematology",
-      "biochemistry-lab": "Biochemistry",
-      "microbiology-lab": "Microbiology",
-      "immunology-lab": "Immunology",
-      "histopathology-lab": "Histopathology",
+      "biochemistry": "Biochemistry",
+      "microbiology": "Microbiology",
+      "histopathology": "Histopathology",
     };
     return labMap[labId] || "";
   };
@@ -305,14 +305,33 @@ export default function EnhancedLabOrderFormMultiple({
     return Array.from(testIds).map(id => testCatalog.individualTests[id]).filter(Boolean);
   }, [formState.selectedPackages, formState.selectedTests, testCatalog.testPackages, testCatalog.individualTests]);
 
+  // Handle adding selected tests to the added list
+  const handleAddTests = () => {
+    const newTests = formState.selectedTests.filter(id => !addedTests.includes(id));
+    if (newTests.length === 0) return;
+    setAddedTests(prev => [...prev, ...newTests]);
+    // Clear selections after adding
+    dispatch({ type: "SET_FIELD", field: "selectedTests", value: [] });
+  };
+
+  // Remove a test from the added list
+  const handleRemoveAddedTest = (testId: string) => {
+    setAddedTests(prev => prev.filter(id => id !== testId));
+  };
+
+  // Get added test objects
+  const addedTestObjects = useMemo(() => {
+    return addedTests.map(id => testCatalog.individualTests[id]).filter(Boolean);
+  }, [addedTests, testCatalog.individualTests]);
+
   const handleSubmit = async () => {
     if (!formState.clinical_indication) {
       alert("Please fill in clinical indication");
       return;
     }
 
-    if (formState.selectedTests.length === 0) {
-      alert("Please select at least one test");
+    if (addedTests.length === 0) {
+      alert("Please add at least one test");
       return;
     }
 
@@ -336,7 +355,7 @@ export default function EnhancedLabOrderFormMultiple({
       const selectedLab = testCatalog.laboratories[formState.target_lab];
       
       // Build detailed description with test information
-      const selectedTestDetails = (formState.selectedTests || [])
+      const selectedTestDetails = addedTests
         .map(testId => testCatalog.individualTests[testId])
         .filter(Boolean);
       
@@ -357,7 +376,7 @@ export default function EnhancedLabOrderFormMultiple({
         test_category: testCategory,
         is_package: true,
         selected_packages: formState.selectedPackages || [],
-        selected_tests: formState.selectedTests,
+        selected_tests: addedTests,
         // Sample collection information
         sampleType: formState.sampleType,
         containerType: formState.containerType,
@@ -372,6 +391,7 @@ export default function EnhancedLabOrderFormMultiple({
       const currentProvider = formState.requesting_provider;
       dispatch({ type: "RESET", keepRequester: currentProvider });
       setCurrentStep(1);
+      setAddedTests([]);
     } catch (error) {
       console.error("Failed to submit order:", error);
     } finally {
@@ -412,9 +432,11 @@ export default function EnhancedLabOrderFormMultiple({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-4 py-4">
+        <div className="grid gap-4 py-4" style={{ gridTemplateColumns: '1fr 2fr 1fr' }}>
+          {/* Column 1: Step 1 + Step 2 */}
+          <div className="border-r pr-4 space-y-6">
           {/* Step 1: Select Laboratory */}
-          <div className="border-r pr-3 col-span-1">
+          <div>
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="h-5 w-5" />
               <Label className="text-base font-semibold">
@@ -427,6 +449,7 @@ export default function EnhancedLabOrderFormMultiple({
                 dispatch({ type: "SET_FIELD", field: "target_lab", value });
                 dispatch({ type: "SET_FIELD", field: "selectedPackages", value: [] });
                 dispatch({ type: "SET_FIELD", field: "selectedTests", value: [] });
+                setAddedTests([]);
                 setCurrentStep(2);
               }}
             >
@@ -460,7 +483,7 @@ export default function EnhancedLabOrderFormMultiple({
           </div>
 
           {/* Step 2: Select Test Groups (Multiple Selection) */}
-          <div className="border-r pr-3 col-span-1">
+          <div>
             <div className="flex items-center gap-2 mb-3">
               <Package className="h-5 w-5" />
               <Label className="text-base font-semibold">
@@ -599,9 +622,10 @@ export default function EnhancedLabOrderFormMultiple({
               </>
             )}
           </div>
+          </div>
 
-          {/* Step 3: Review and Customize Tests */}
-          <div className="col-span-2">
+          {/* Column 2: Step 3 */}
+          <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <TestTube className="h-5 w-5" />
@@ -645,7 +669,7 @@ export default function EnhancedLabOrderFormMultiple({
                   {formState.selectedTests.length} of {allSelectedTests.length} tests selected
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto border rounded-md p-3">
+              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto border rounded-md p-3">
                 {allSelectedTests.map((test) => (
                   <div
                     key={test.id}
@@ -658,7 +682,7 @@ export default function EnhancedLabOrderFormMultiple({
                       }
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-xs" title={test.name}>{test.name}</p>
+                      <p className="font-medium text-[11px] leading-tight break-words" title={test.name}>{test.name}</p>
                       {test.fastingRequired && (
                         <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 mt-1">
                           Fasting
@@ -671,6 +695,75 @@ export default function EnhancedLabOrderFormMultiple({
                   </div>
                 ))}
               </div>
+
+              {/* ADD Button */}
+              <Button
+                type="button"
+                onClick={handleAddTests}
+                disabled={formState.selectedTests.length === 0}
+                className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add {formState.selectedTests.length} Test{formState.selectedTests.length !== 1 ? 's' : ''}
+              </Button>
+              </>
+            )}
+          </div>
+
+          {/* Column 3: Added Tests */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                <Label className="text-base font-semibold">
+                  Order Summary
+                </Label>
+              </div>
+              {addedTests.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAddedTests([])}
+                  className="text-xs h-7 px-2 text-red-600 hover:text-red-700"
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+
+            {addedTests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Select tests in Step 3 and click Add</p>
+            ) : (
+              <>
+              <div className="mb-3">
+                <p className="text-sm font-medium text-green-700">
+                  {addedTests.length} test{addedTests.length !== 1 ? 's' : ''} added to order
+                </p>
+              </div>
+              <div className="space-y-1 max-h-80 overflow-y-auto border rounded-md p-3">
+                {addedTestObjects.map((test, index) => (
+                  <div
+                    key={test.id}
+                    className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-xs" title={test.name}>{index + 1}. {test.name}</p>
+                      <p className="text-[10px] text-gray-500" title={`Code: ${test.code}`}>
+                        {test.code}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAddedTest(test.id)}
+                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
               </>
             )}
           </div>
@@ -679,7 +772,7 @@ export default function EnhancedLabOrderFormMultiple({
         {/* Full-width sections below the 3-column layout */}
         <div className="space-y-4 mt-6">
           {/* Fasting Requirements Alert */}
-          {currentStep >= 3 && allSelectedTests.some(t => t.fastingRequired && formState.selectedTests.includes(t.id)) && (
+          {addedTests.length > 0 && addedTestObjects.some(t => t.fastingRequired) && (
             <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
               <div className="flex items-start gap-2">
                 <span className="text-amber-600 font-semibold text-sm">⚠️ Fasting Required</span>
@@ -691,7 +784,7 @@ export default function EnhancedLabOrderFormMultiple({
           )}
 
           {/* Clinical Information */}
-          {currentStep >= 3 && (
+          {addedTests.length > 0 && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="clinical_indication" className="text-sm">
@@ -767,14 +860,14 @@ export default function EnhancedLabOrderFormMultiple({
           >
             Cancel
           </Button>
-          {currentStep >= 3 && (
+          {addedTests.length > 0 && (
             <Button
               type="button"
               onClick={handleSubmit}
               disabled={
                 isSubmitting ||
                 !formState.clinical_indication ||
-                !formState.selectedTests?.length
+                addedTests.length === 0
               }
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
