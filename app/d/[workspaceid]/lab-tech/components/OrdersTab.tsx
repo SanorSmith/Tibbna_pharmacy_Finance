@@ -1742,73 +1742,78 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 </div>
 
 
-                    {/* Requested Tests */}
+                    {/* Requested Tests - List format grouped by specimen */}
                     <div className="border rounded-lg p-2">
-                      <h3 className="font-semibold text-xs mb-0.5">
+                      <h3 className="font-semibold text-xs mb-1.5">
                         Requested Tests
                       </h3>
-                      <p className="text-[10px] text-muted-foreground mb-1.5">Click a test to collect its sample</p>
 
-                      {resolvedTests.length > 0 ? (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1">
-                          <TooltipProvider delayDuration={300}>
-                            {resolvedTests.map(
-                              (test: any, idx: number) => {
-                                const testKey = test.testCode || test.testName || `test-${idx}`;
-                                const isSelected = effectiveSelection === testKey;
-                                return (
-                                <Tooltip key={idx}>
-                                  <TooltipTrigger asChild>
-                                    <div
-                                      onClick={() => setSelectedTestForCollection(testKey)}
-                                      className={`flex w-full items-center gap-0.5 px-1.5 py-1 rounded border transition-colors text-left cursor-pointer ${
-                                        isSelected
-                                          ? 'bg-blue-100 border-blue-400 ring-1 ring-blue-300'
-                                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                      }`}
-                                    >
-                                      <FlaskConical className="h-2.5 w-2.5 text-blue-500 flex-shrink-0" />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-[10px] font-medium truncate leading-tight">
-                                          {test.testName}
-                                        </div>
-                                        <div className="text-[9px] text-gray-500 truncate leading-tight">
-                                          {test.testCode}
-                                          {test.fastingRequired && (
-                                            <span className="inline-block ml-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-0.5">
-                                              F
+                      {resolvedTests.length > 0 ? (() => {
+                        // Group tests by specimen type and container
+                        const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
+                          const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
+                          const container = test.containerType || test.containertype || test.specimencontainer || "-";
+                          const groupKey = `${specimen}|${container}`;
+                          if (!acc[groupKey]) {
+                            acc[groupKey] = {
+                              specimen,
+                              container,
+                              tests: []
+                            };
+                          }
+                          acc[groupKey].tests.push(test);
+                          return acc;
+                        }, {});
+                        
+                        return (
+                          <div className="space-y-2">
+                            {Object.entries(specimenGroups).map(([groupKey, data]: [string, any]) => (
+                              <div key={groupKey} className="border rounded p-2">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <FlaskConical className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                  <span className="font-semibold text-xs text-blue-900">{data.specimen}</span>
+                                  <span className="text-[10px] text-gray-600">({data.tests.length})</span>
+                                  <span className="text-[10px] text-gray-500">• {data.container}</span>
+                                </div>
+                                <div className="space-y-0.5">
+                                  {data.tests.map((test: any, idx: number) => {
+                                    const testKey = test.testCode || test.testName || `test-${idx}`;
+                                    const isSelected = effectiveSelection === testKey;
+                                    // Get test category from catalog or order
+                                    const testCategory = test.testcategory || selectedOrder.test_category || "";
+                                    return (
+                                      <div
+                                        key={idx}
+                                        onClick={() => setSelectedTestForCollection(testKey)}
+                                        className={`flex items-center justify-between px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+                                          isSelected
+                                            ? 'bg-blue-100 border border-blue-300'
+                                            : 'bg-gray-50 hover:bg-gray-100'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-1.5 flex-1">
+                                          <div className="font-medium">{test.testName}</div>
+                                          <div className="text-[10px] text-gray-500 font-mono">{test.testCode}</div>
+                                          {testCategory && (
+                                            <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded">
+                                              {testCategory}
                                             </span>
                                           )}
                                         </div>
+                                        {test.fastingRequired && (
+                                          <span className="text-[9px] font-medium bg-amber-100 text-amber-700 rounded px-1 py-0.5">
+                                            Fasting
+                                          </span>
+                                        )}
                                       </div>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent sideOffset={6}>
-                                    <div className="space-y-0.5">
-                                      <div className="font-medium">{test.testName}</div>
-                                      <div>
-                                        <span className="font-medium">Code:</span> {test.testCode}
-                                      </div>
-                                      {(test.specimenType || test.specimentype || test.material) && (
-                                        <div>
-                                          <span className="font-medium">Specimen:</span>{" "}
-                                          {test.specimenType || test.specimentype || test.material}
-                                        </div>
-                                      )}
-                                      {typeof test.fastingRequired === "boolean" && (
-                                        <div>
-                                          <span className="font-medium">Fasting:</span>{" "}
-                                          {test.fastingRequired ? "Required" : "Not required"}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            })}
-                          </TooltipProvider>
-                        </div>
-                      ) : (
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })() : (
                         <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded text-left">
                           <FlaskConical className="h-4 w-4 text-gray-600" />
                           <div className="flex-1 min-w-0">
@@ -1830,47 +1835,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       )}
                     </div>
 
-                    {/* Required Specimen Types */}
-                    {resolvedTests.length > 0 && (() => {
-                      const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
-                        const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
-                        if (!acc[specimen]) {
-                          acc[specimen] = {
-                            tests: [],
-                            containers: new Set(),
-                            volumes: new Set()
-                          };
-                        }
-                        acc[specimen].tests.push(test);
-                        const container = test.containerType || test.containertype || test.specimencontainer;
-                        if (container) acc[specimen].containers.add(container);
-                        const volume = test.specimenvolume || test.volume;
-                        if (volume) acc[specimen].volumes.add(volume);
-                        return acc;
-                      }, {});
-                      
-                      return (
-                        <div className="border rounded-lg p-2">
-                          <h3 className="font-semibold text-xs mb-1">Required Specimen Types</h3>
-                          <div className="space-y-1">
-                            {Object.entries(specimenGroups).map(([specimen, data]: [string, any]) => (
-                              <div key={specimen} className="bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
-                                <div className="flex items-center gap-1.5">
-                                  <FlaskConical className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                  <span className="font-medium text-xs text-blue-900">{specimen}</span>
-                                  <span className="text-[10px] text-blue-600">({data.tests.length})</span>
-                                  <span className="text-[10px] text-gray-600 truncate">
-                                    {data.containers.size > 0 && <>{Array.from(data.containers).join(', ')} • </>}
-                                    {data.volumes.size > 0 && <>{Array.from(data.volumes).join(', ')} • </>}
-                                    {data.tests.map((t: any) => t.testName).join(", ")}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
 
                     {/* Fasting Requirements Alert */}
                     {resolvedTests.some(
