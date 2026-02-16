@@ -314,55 +314,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     }
   }, [session]);
 
-  // Pre-select first test when Order Detail modal opens
-  useEffect(() => {
-    if (showOrderDetail && selectedOrder && !selectedTestForCollection) {
-      let firstTestKey: string | null = null;
-      if (selectedOrder.tests?.length > 0) {
-        const ft = selectedOrder.tests[0];
-        firstTestKey = ft.testCode || ft.testcode || ft.code || ft.testName || ft.testname || null;
-      } else if (selectedOrder.service_name || selectedOrder.description) {
-        // openEHR orders: parse first test name from description or service_name
-        const nameSource = selectedOrder.description || selectedOrder.service_name || "";
-        const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/);
-        const testNames = selectedTestsMatch
-          ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
-          : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
-        if (testNames.length > 0) {
-          const rec = findRecommendation(undefined, testNames[0]);
-          firstTestKey = rec?.testCode || testNames[0];
-        }
-      }
-      if (firstTestKey) {
-        setSelectedTestForCollection(firstTestKey);
-      }
-    }
-  }, [showOrderDetail, selectedOrder, selectedTestForCollection]);
-
-  // Pre-select first test when Sample Collection modal opens
-  useEffect(() => {
-    if (showSampleCollection && selectedOrder && !selectedTestForCollection) {
-      let firstTestKey: string | null = null;
-      if (selectedOrder.tests?.length > 0) {
-        const ft = selectedOrder.tests[0];
-        firstTestKey = ft.testCode || ft.testcode || ft.code || ft.testName || ft.testname || null;
-      } else if (selectedOrder.service_name || selectedOrder.description) {
-        // openEHR orders: parse first test name from description or service_name
-        const nameSource = selectedOrder.description || selectedOrder.service_name || "";
-        const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/);
-        const testNames = selectedTestsMatch
-          ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
-          : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
-        if (testNames.length > 0) {
-          const rec = findRecommendation(undefined, testNames[0]);
-          firstTestKey = rec?.testCode || testNames[0];
-        }
-      }
-      if (firstTestKey) {
-        setSelectedTestForCollection(firstTestKey);
-      }
-    }
-  }, [showSampleCollection, selectedOrder, selectedTestForCollection]);
 
   // Debounce search term
   useEffect(() => {
@@ -1425,29 +1376,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           key={rowKey}
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => {
-                            const orderToOpen = order;
-                            setSelectedOrder(orderToOpen);
+                            setSelectedOrder(order);
                             setCollectedSpecimenTypes({});
                             setCurrentCollectingSpecimen("");
-                            // Auto-select first test
-                            let firstTestKey: string | null = null;
-                            if (orderToOpen.tests?.length > 0) {
-                              const ft = orderToOpen.tests[0];
-                              firstTestKey = ft.testCode || ft.testcode || ft.code || ft.testName || ft.testname || null;
-                            } else if (orderToOpen.service_name || orderToOpen.description) {
-                              // openEHR orders: parse first test name from description or service_name
-                              const nameSource = orderToOpen.description || orderToOpen.service_name || "";
-                              const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/);
-                              const testNames = selectedTestsMatch
-                                ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
-                                : (orderToOpen.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
-                              if (testNames.length > 0) {
-                                const rec = findRecommendation(undefined, testNames[0]);
-                                firstTestKey = rec?.testCode || testNames[0];
-                              }
-                            }
-                            // Always set first test as selected when opening modal
-                            setSelectedTestForCollection(firstTestKey);
+                            // Reset selection - effectiveSelection in render will auto-select first test
+                            setSelectedTestForCollection(null);
                             setShowOrderDetail(true);
                           }}
                         >
@@ -1615,16 +1548,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
           {selectedOrder &&
             (() => {
-              // DEBUG: trace order data
-              console.log('[OrderDetail DEBUG] selectedOrder:', {
-                source: selectedOrder.source,
-                service_name: selectedOrder.service_name,
-                description: selectedOrder.description,
-                request_id: selectedOrder.request_id,
-                tests: selectedOrder.tests,
-                sampleRecommendations: selectedOrder.sampleRecommendations,
-              });
-
               // Calculate sample recommendations if not stored in order
               let computedRecommendations = null;
               if (
@@ -1639,9 +1562,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 // For openEHR orders, resolve service name to test codes (also parses Selected Tests from description)
                 computedRecommendations = getRecommendationsByServiceName(selectedOrder.service_name, selectedOrder.description);
               }
-              
-              console.log('[OrderDetail DEBUG] computedRecommendations:', computedRecommendations);
-
               // Use stored data or computed recommendations
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
@@ -1657,7 +1577,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   const existing = t.specimenType || t.specimentype || t.material;
                   const cat = existing ? null : resolveSpecimenFromCatalog(code, name);
                   return {
-                    ...t,
+                    testCode: code || name,
+                    testName: name || code,
                     specimenType: existing || (cat ? cat.sampleType : undefined),
                     containerType: t.containerType || t.containertype || t.specimencontainer || (cat ? cat.containerType : undefined),
                     specimenvolume: t.specimenvolume || t.volume,
@@ -1703,6 +1624,27 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     fastingRequired: r.fastingRequired,
                   }));
               }
+
+              // Auto-select first test if nothing is selected
+              if (resolvedTests.length > 0 && !selectedTestForCollection) {
+                const firstTest = resolvedTests[0];
+                const firstKey = firstTest.testCode || firstTest.testName || "test-0";
+                // Use setTimeout to avoid setState during render
+                setTimeout(() => setSelectedTestForCollection(firstKey), 0);
+              }
+
+              // Compute effective selection: use selectedTestForCollection if it matches a resolved test, otherwise use first test
+              const effectiveSelection = (() => {
+                if (resolvedTests.length === 0) return null;
+                const firstKey = resolvedTests[0].testCode || resolvedTests[0].testName || "test-0";
+                if (!selectedTestForCollection) return firstKey;
+                // Check if selectedTestForCollection matches any resolved test
+                const match = resolvedTests.find((t: any) => {
+                  const key = t.testCode || t.testName;
+                  return key === selectedTestForCollection;
+                });
+                return match ? selectedTestForCollection : firstKey;
+              })();
 
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
@@ -1815,12 +1757,12 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             {resolvedTests.map(
                               (test: any, idx: number) => {
                                 const testKey = test.testCode || test.testName || `test-${idx}`;
-                                const isSelected = selectedTestForCollection === testKey;
+                                const isSelected = effectiveSelection === testKey;
                                 return (
                                 <Tooltip key={idx}>
                                   <TooltipTrigger asChild>
                                     <div
-                                      onClick={() => setSelectedTestForCollection(isSelected ? null : testKey)}
+                                      onClick={() => setSelectedTestForCollection(testKey)}
                                       className={`flex w-full items-center gap-0.5 px-1.5 py-1 rounded border transition-colors text-left cursor-pointer ${
                                         isSelected
                                           ? 'bg-blue-100 border-blue-400 ring-1 ring-blue-300'
@@ -1996,9 +1938,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                         // Find which specimen type the selected test belongs to
                         let filteredEntries = groupEntries;
-                        if (selectedTestForCollection) {
+                        if (effectiveSelection) {
                           const selectedTest = resolvedTests.find((t: any) =>
-                            (t.testCode || t.testName) === selectedTestForCollection
+                            (t.testCode || t.testName) === effectiveSelection
                           );
                           if (selectedTest) {
                             const selectedSpecimen = selectedTest.specimenType || selectedTest.specimentype || selectedTest.material || "Not specified";
@@ -2006,7 +1948,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           }
                         }
 
-                        if (!selectedTestForCollection) {
+                        if (!effectiveSelection) {
                           return (
                             <div className="flex flex-col items-center justify-center py-6 text-center text-gray-400">
                               <FlaskConical className="h-8 w-8 mb-2 opacity-50" />
@@ -2077,7 +2019,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       })()}
 
                       {/* Shared collection fields - only show when a test is selected */}
-                      {selectedTestForCollection && <div className="space-y-2 mt-3 pt-2 border-t border-gray-200">
+                      {effectiveSelection && <div className="space-y-2 mt-3 pt-2 border-t border-gray-200">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label htmlFor="sampleNumberDetail" className="text-xs">Sample ID</Label>
@@ -2134,8 +2076,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             return acc;
                           }, {} as Record<string, { tests: any[]; containers: Set<string>; volumes: string[] }>);
                           let entries = Object.entries(specimenGroups);
-                          if (selectedTestForCollection) {
-                            const selectedTest = resolvedTests.find((t: any) => (t.testCode || t.testName) === selectedTestForCollection);
+                          if (effectiveSelection) {
+                            const selectedTest = resolvedTests.find((t: any) => (t.testCode || t.testName) === effectiveSelection);
                             if (selectedTest) {
                               const selectedSpecimen = selectedTest.specimenType || selectedTest.specimentype || selectedTest.material || "Not specified";
                               entries = entries.filter(([specimen]) => specimen === selectedSpecimen);
