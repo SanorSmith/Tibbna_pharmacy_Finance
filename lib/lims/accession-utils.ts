@@ -12,31 +12,35 @@ import { accessionSamples } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
 
 /**
- * Generate human-readable sample number
- * Format: SMP-YYYY-XXXX
- * Example: SMP-2025-0001
+ * Generate numeric sample number
+ * Format: YYYYMMDDNNN (numbers only)
+ * Example: 20260216001 (Feb 16, 2026, sequence 001)
  */
 export async function generateSampleNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `SMP-${year}-`;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const datePrefix = `${year}${month}${day}`;
 
-  // Get the last sample number for this year
+  // Get the last sample number for today
   const lastSample = await db
     .select({ samplenumber: accessionSamples.samplenumber })
     .from(accessionSamples)
-    .where(sql`${accessionSamples.samplenumber} LIKE ${prefix + '%'}`)
+    .where(sql`${accessionSamples.samplenumber} LIKE ${datePrefix + '%'}`)
     .orderBy(sql`${accessionSamples.samplenumber} DESC`)
     .limit(1);
 
   let nextNumber = 1;
   if (lastSample.length > 0) {
-    const lastNumber = lastSample[0].samplenumber.split('-')[2];
-    nextNumber = parseInt(lastNumber, 10) + 1;
+    // Extract the last 3 digits (sequence number)
+    const lastSequence = lastSample[0].samplenumber.slice(-3);
+    nextNumber = parseInt(lastSequence, 10) + 1;
   }
 
-  // Pad with zeros to 4 digits
-  const paddedNumber = nextNumber.toString().padStart(4, '0');
-  return `${prefix}${paddedNumber}`;
+  // Pad sequence with zeros to 3 digits
+  const paddedSequence = nextNumber.toString().padStart(3, '0');
+  return `${datePrefix}${paddedSequence}`;
 }
 
 /**
