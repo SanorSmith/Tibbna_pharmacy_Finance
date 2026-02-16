@@ -9,11 +9,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSampleRecommendations, getRecommendationsByServiceName, resolveServiceToTestCodes, findRecommendation } from "@/lib/lims/test-recommendations";
+import { getSampleRecommendations, getRecommendationsByServiceName, findRecommendation } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { limsOrders } from "@/lib/db/tables/lims-order";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -59,7 +58,6 @@ import {
 import { getDialogClasses } from "@/lib/ui-constants";
 import {
   Search,
-  Download,
   CheckCircle2,
   Clock,
   AlertCircle,
