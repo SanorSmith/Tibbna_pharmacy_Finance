@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { accessionSamples, testResults, validationStates, patients } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { accessionSamples, testResults, validationStates, patients, limsOrderTests, labTestCatalog, testReferenceRanges } from "@/lib/db/schema";
+import { eq, and, or, ilike, sql, inArray } from "drizzle-orm";
 
 /**
  * GET /api/lims/samples/[sampleid]
@@ -59,6 +59,127 @@ export async function GET(
       orderBy: (testResults, { asc }) => [asc(testResults.testname)],
     });
 
+    // If no results exist yet, build requested tests from order or sample's tests array
+    let requestedTests: any[] = [];
+    if (results.length === 0) {
+      // 1) Try from limsOrderTests (LIMS orders)
+      if (sampleData.orderid) {
+        const orderTests = await db
+          .select({
+            testcode: labTestCatalog.testcode,
+            testname: labTestCatalog.testname,
+            testcategory: labTestCatalog.testcategory,
+          })
+          .from(limsOrderTests)
+          .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
+          .where(sql`${limsOrderTests.orderid}::text = ${sampleData.orderid}::text`);
+
+        for (const test of orderTests) {
+          if (!test.testcode) continue;
+          let refRange = null;
+          try {
+            [refRange] = await db
+              .select()
+              .from(testReferenceRanges)
+              .where(and(ilike(testReferenceRanges.testcode, test.testcode), eq(testReferenceRanges.isactive, 'Y')))
+              .limit(1);
+            if (!refRange && test.testname) {
+              [refRange] = await db
+                .select()
+                .from(testReferenceRanges)
+                .where(and(ilike(testReferenceRanges.testname, test.testname), eq(testReferenceRanges.isactive, 'Y')))
+                .limit(1);
+            }
+          } catch { /* ignore */ }
+
+          requestedTests.push({
+            resultid: null,
+            testcode: test.testcode,
+            testname: test.testname,
+            resultvalue: null,
+            unit: refRange?.unit || null,
+            referencemin: refRange?.referencemin ? parseFloat(refRange.referencemin) : null,
+            referencemax: refRange?.referencemax ? parseFloat(refRange.referencemax) : null,
+            referencerange: refRange?.referencetext || null,
+            flag: null,
+            isabormal: false,
+            iscritical: false,
+            status: 'pending',
+            hasResult: false,
+          });
+        }
+      }
+
+      // 2) If still empty, try from sample's tests JSONB array (OpenEHR orders)
+      let testsArray: string[] = [];
+      if (Array.isArray(sampleData.tests)) {
+        testsArray = sampleData.tests.map((t: unknown) => String(t || "").trim()).filter(Boolean);
+      } else if (typeof sampleData.tests === 'string') {
+        try {
+          const parsed = JSON.parse(sampleData.tests);
+          if (Array.isArray(parsed)) {
+            testsArray = parsed.map((t: unknown) => String(t || "").trim()).filter(Boolean);
+          }
+        } catch { /* not valid JSON */ }
+      }
+      if (requestedTests.length === 0 && testsArray.length > 0) {
+        const testTokens = testsArray;
+        if (testTokens.length > 0) {
+          const catalogTests = await db
+            .select({
+              testcode: labTestCatalog.testcode,
+              testname: labTestCatalog.testname,
+              testcategory: labTestCatalog.testcategory,
+            })
+            .from(labTestCatalog)
+            .where(
+              and(
+                eq(labTestCatalog.workspaceid, sampleData.workspaceid),
+                or(
+                  inArray(labTestCatalog.testcode, testTokens),
+                  inArray(labTestCatalog.testname, testTokens)
+                )
+              )
+            );
+
+          for (const test of catalogTests) {
+            if (!test.testcode) continue;
+            let refRange = null;
+            try {
+              [refRange] = await db
+                .select()
+                .from(testReferenceRanges)
+                .where(and(ilike(testReferenceRanges.testcode, test.testcode), eq(testReferenceRanges.isactive, 'Y')))
+                .limit(1);
+              if (!refRange && test.testname) {
+                [refRange] = await db
+                  .select()
+                  .from(testReferenceRanges)
+                  .where(and(ilike(testReferenceRanges.testname, test.testname), eq(testReferenceRanges.isactive, 'Y')))
+                  .limit(1);
+              }
+            } catch { /* ignore */ }
+
+            requestedTests.push({
+              resultid: null,
+              testcode: test.testcode,
+              testname: test.testname,
+              resultvalue: null,
+              unit: refRange?.unit || null,
+              referencemin: refRange?.referencemin ? parseFloat(refRange.referencemin) : null,
+              referencemax: refRange?.referencemax ? parseFloat(refRange.referencemax) : null,
+              referencerange: refRange?.referencetext || null,
+              flag: null,
+              isabormal: false,
+              iscritical: false,
+              status: 'pending',
+              hasResult: false,
+            });
+          }
+        }
+      }
+    }
+
     // Fetch validation state
     const validationState = await db.query.validationStates.findFirst({
       where: eq(validationStates.sampleid, sampleid),
@@ -86,7 +207,7 @@ export async function GET(
         ...sampleData,
         patient: patientData,
       },
-      results,
+      results: results.length > 0 ? results : requestedTests,
       validationState,
       hasPreviousResults,
     });

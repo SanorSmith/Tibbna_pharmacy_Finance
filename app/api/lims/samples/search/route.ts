@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
                 .from(testReferenceRanges)
                 .where(
                   and(
-                    eq(testReferenceRanges.testcode, test.testcode),
+                    ilike(testReferenceRanges.testcode, test.testcode),
                     eq(testReferenceRanges.isactive, 'Y')
                   )
                 )
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
                 .from(testReferenceRanges)
                 .where(
                   and(
-                    eq(testReferenceRanges.testcode, r.testcode),
+                    ilike(testReferenceRanges.testcode, r.testcode),
                     eq(testReferenceRanges.isactive, 'Y')
                   )
                 )
