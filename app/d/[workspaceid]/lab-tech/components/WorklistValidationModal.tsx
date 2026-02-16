@@ -91,16 +91,51 @@ export default function WorklistValidationModal({
     queryFn: async () => {
       // If individual sample is provided
       if (selectedSample) {
-        // If results are empty, fetch from search API to get requested tests
+        // If results are empty, fetch tests for this sample
         if (!selectedSample.results || selectedSample.results.length === 0) {
+          const sampleId = selectedSample.sampleid;
           const sampleNumber = selectedSample.sample?.samplenumber || "";
+          // Try direct sample API first (fetches existing results)
+          if (sampleId) {
+            try {
+              const directResponse = await fetch(`/api/lims/samples/${sampleId}`);
+              if (directResponse.ok) {
+                const directData = await directResponse.json();
+                if (directData.results && directData.results.length > 0) {
+                  const mappedResults = directData.results.map((r: any) => ({
+                    resultid: r.resultid || null,
+                    testcode: r.testcode,
+                    testname: r.testname,
+                    resultvalue: r.resultvalue,
+                    unit: r.unit,
+                    referencemin: r.referencemin,
+                    referencemax: r.referencemax,
+                    referencerange: r.referencerange,
+                    flag: r.flag,
+                    isabormal: r.isabormal ?? false,
+                    iscritical: r.iscritical ?? false,
+                    status: r.status || 'pending',
+                    hasResult: r.hasResult !== undefined ? r.hasResult : !!r.resultid,
+                  }));
+                  const merged = {
+                    ...selectedSample,
+                    results: mappedResults,
+                    patient: directData.sample?.patient || selectedSample.patient,
+                  };
+                  return { items: [merged] };
+                }
+              }
+            } catch { /* fall through to search API */ }
+          }
+
+          // Fall back to search API (fetches requested tests from order)
           if (sampleNumber) {
             const response = await fetch(`/api/lims/samples/search?workspaceid=${workspaceid}&query=${encodeURIComponent(sampleNumber)}`);
             if (response.ok) {
               const data = await response.json();
-              const match = data.samples?.find((s: any) => s.sampleid === selectedSample.sampleid);
-              if (match) {
-                return { items: [{ ...selectedSample, results: match.results }] };
+              const match = data.samples?.find((s: any) => s.sampleid === sampleId);
+              if (match && match.results && match.results.length > 0) {
+                return { items: [{ ...selectedSample, results: match.results, patient: match.patient || selectedSample.patient }] };
               }
             }
           }
@@ -222,7 +257,7 @@ export default function WorklistValidationModal({
     mutationFn: async () => {
       if (!currentItem) return;
       
-      const resultsToSave = currentItem.results
+      const resultsToSave = (currentItem.results || [])
         .filter(result => !result.hasResult && result.testcode)
         .map(result => {
           const resultKey = `${currentItem.sampleid}-${result.testcode}`;
@@ -422,8 +457,8 @@ export default function WorklistValidationModal({
 
               {/* Batch Entry Summary */}
               {(() => {
-                const totalTests = currentItem.results.length;
-                const withResults = currentItem.results.filter((r: TestResult) => r.hasResult !== false).length;
+                const totalTests = (currentItem.results || []).length;
+                const withResults = (currentItem.results || []).filter((r: TestResult) => r.hasResult !== false).length;
                 const pendingEntry = totalTests - withResults;
                 const enteredCount = Object.keys(editedResults).filter(key => 
                   key.startsWith(currentItem.sampleid) && editedResults[key]?.trim()
@@ -747,7 +782,7 @@ export default function WorklistValidationModal({
                 {/* Action Buttons */}
                 <div className="flex gap-2">
                   {(() => {
-                    const results = currentItem.results.filter((r: TestResult) => r.resultid);
+                    const results = (currentItem.results || []).filter((r: TestResult) => r.resultid);
                     const statuses = results.map((r: TestResult) => r.status);
                     const allReleased = statuses.every((s: string) => s === 'released');
 
@@ -783,7 +818,7 @@ export default function WorklistValidationModal({
                   })()}
 
                   {/* Reject and Rerun - always available unless released */}
-                  {!currentItem.results.every((r: TestResult) => r.status === 'released') && (
+                  {!(currentItem.results || []).every((r: TestResult) => r.status === 'released') && (
                     <>
                       <Button
                         variant="destructive"
@@ -826,7 +861,7 @@ export default function WorklistValidationModal({
             <AlertDialogAction
               onClick={() => {
                 if (currentItem) {
-                  currentItem.results.forEach((result: TestResult) => {
+                  (currentItem.results || []).forEach((result: TestResult) => {
                     if (result.resultid && result.status !== 'released') {
                       rejectMutation.mutate({ resultid: result.resultid, reason: 'Rejected by lab technician' });
                     }
@@ -855,7 +890,7 @@ export default function WorklistValidationModal({
             <AlertDialogAction
               onClick={() => {
                 if (currentItem) {
-                  currentItem.results.forEach((result: TestResult) => {
+                  (currentItem.results || []).forEach((result: TestResult) => {
                     if (result.resultid && result.status !== 'released') {
                       rerunMutation.mutate(result.resultid);
                     }

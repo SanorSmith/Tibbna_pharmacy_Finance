@@ -114,6 +114,7 @@ interface AccessionedSample {
   openehrrequestid?: string | null;
   patientage?: number;
   patientsex?: string;
+  nationalid?: string | null;
   accessionnumber?: string | null;
   tests?: unknown;
   labcategory?: string | null;
@@ -678,135 +679,135 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Sample Detail Dialog */}
       <Dialog open={showSampleDetail} onOpenChange={setShowSampleDetail}>
-        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[80vw] max-w-[80vw]">
           <DialogHeader>
-            <DialogTitle>Sample Details</DialogTitle>
-            <DialogDescription>
-              Complete information about the accessioned sample
-            </DialogDescription>
+            <DialogTitle className="text-base font-bold">Sample Details</DialogTitle>
+            <p className="text-sm text-muted-foreground font-mono">{selectedSample?.samplenumber}</p>
           </DialogHeader>
 
           {selectedSample && (
-            <div className="space-y-6">
-              {/* Sample Information */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-4">
+            <div className="space-y-4 py-2">
+              {/* Patient & Sample Card - matches Order Details format */}
+              <div className="border rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Left: Patient Info */}
                   <div>
-                    <h3 className="font-semibold text-sm mb-3">Sample Information</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Sample Number:</span>
-                        <span className="font-mono font-medium">{selectedSample.samplenumber}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Sample Type:</span>
-                        <span className="capitalize">{selectedSample.sampletype}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Container:</span>
-                        <span>{selectedSample.containertype}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Status:</span>
-                        {getStatusBadge(selectedSample.currentstatus)}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">TAT Elapsed:</span>
-                        {(() => {
-                          const completedStatuses = ["ANALYZED", "DISPOSED"];
-                          const isComplete = completedStatuses.includes(selectedSample.currentstatus);
-                          const tat = calculateTAT(
-                            selectedSample.collectiondate,
-                            isComplete ? selectedSample.accessionedat : null,
-                            "ROUTINE"
-                          );
-                          return (
-                            <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
-                              <Clock className="h-3 w-3 mr-1" />
-                              {tat.elapsedDisplay}
-                              {tat.status !== "completed" && ` (${tat.percentUsed}% of ${tat.expectedDisplay})`}
-                            </Badge>
-                          );
-                        })()}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Barcode:</span>
-                        <span className="font-mono text-xs">{selectedSample.barcode}</span>
-                      </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm">{selectedSample.patientname || "Unknown Patient"}</span>
+                      {getStatusBadge(selectedSample.currentstatus)}
+                      {(() => {
+                        const completedStatuses = ["ANALYZED", "DISPOSED"];
+                        const isComplete = completedStatuses.includes(selectedSample.currentstatus);
+                        const tat = calculateTAT(
+                          selectedSample.collectiondate,
+                          isComplete ? selectedSample.accessionedat : null,
+                          "ROUTINE"
+                        );
+                        return (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-medium ${getTATStatusColor(tat.status)}`}>
+                            <Clock className="h-2.5 w-2.5 mr-0.5" />
+                            {tat.elapsedDisplay}
+                          </Badge>
+                        );
+                      })()}
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      {selectedSample.patientage && selectedSample.patientsex && (
+                        <div>{selectedSample.patientage} yrs / {selectedSample.patientsex}</div>
+                      )}
+                      <div>NID: {selectedSample.nationalid || "-"}</div>
+                      <div>Order: {selectedSample.orderid || selectedSample.openehrrequestid || "-"}</div>
+                      <div>COLLECTED: {new Date(selectedSample.collectiondate).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-sm mb-3">Patient & Order</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Patient Name:</span>
-                        <span className="font-medium">{selectedSample.patientname || "-"}</span>
+                  {/* Right: Sample & Order Info */}
+                  <div className="border-l pl-6">
+                    <div className="grid grid-cols-2 gap-x-4 text-xs">
+                      <div>
+                        <span className="text-muted-foreground uppercase text-[10px] font-semibold">Sample Type</span>
+                        <div className="font-medium capitalize">{selectedSample.sampletype}</div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Patient ID:</span>
-                        <span className="font-mono text-xs">{selectedSample.patientid || "-"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Order ID:</span>
-                        <span className="font-mono text-xs">{selectedSample.orderid}</span>
+                      <div>
+                        <span className="text-muted-foreground uppercase text-[10px] font-semibold">Container</span>
+                        <div className="font-medium">{selectedSample.containertype || "-"}</div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Collection Information */}
-              <div>
-                <h3 className="font-semibold text-sm mb-3">Collection Information</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Collection Date:</span>
-                    <span>{new Date(selectedSample.collectiondate).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Accessioned:</span>
-                    <span>{new Date(selectedSample.accessionedat).toLocaleString()}</span>
-                  </div>
+              {/* Sample Information Card */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Sample Information</h3>
+                <div className="text-sm space-y-1">
+                  <div className="font-mono text-xs">{selectedSample.barcode}</div>
+                  {selectedSample.accessionnumber && (
+                    <div className="text-xs text-muted-foreground">Accession: {selectedSample.accessionnumber}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground">Accessioned: {new Date(selectedSample.accessionedat).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="border-t pt-4">
-                <h3 className="font-semibold text-sm mb-3">Actions</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => {
-                      setShowStorageDialog(true);
-                      setShowSampleDetail(false);
-                    }}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Move to Storage
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => {
-                      setShowSampleDetail(false);
-                      setShowWorklistDialog(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add to Worklist
-                  </Button>
-                </div>
+
+              {/* Action Buttons - right aligned like Image 2 */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setShowStorageDialog(true);
+                    setShowSampleDetail(false);
+                  }}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Storage
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setShowSampleDetail(false);
+                    setShowWorklistDialog(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Worklist
+                </Button>
+                <Button 
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => {
+                    setResultEntrySample({
+                      worklistitemid: `direct-${selectedSample.sampleid}`,
+                      sampleid: selectedSample.sampleid,
+                      sample: {
+                        sampleid: selectedSample.sampleid,
+                        samplenumber: selectedSample.samplenumber,
+                        sampletype: selectedSample.sampletype,
+                        collectiondate: selectedSample.collectiondate,
+                      },
+                      patient: selectedSample.patientid ? {
+                        patientid: selectedSample.patientid,
+                        firstname: selectedSample.patientname?.split(" ")[0] || "",
+                        lastname: selectedSample.patientname?.split(" ").slice(1).join(" ") || "",
+                        dateofbirth: "",
+                        gender: selectedSample.patientsex || "",
+                        age: selectedSample.patientage || 0,
+                      } : null,
+                      results: [],
+                    });
+                    setShowSampleDetail(false);
+                    setShowResultEntryModal(true);
+                  }}
+                >
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                  Add Results
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowSampleDetail(false)}>Close</Button>
               </div>
             </div>
           )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSampleDetail(false)}>Close</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

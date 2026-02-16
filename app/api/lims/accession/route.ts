@@ -356,6 +356,7 @@ export async function GET(request: NextRequest) {
         patientname: sql<string>`COALESCE(${patients.firstname} || ' ' || ${patients.lastname}, null)`.as('patientname'),
         patientage: sql<number>`COALESCE(EXTRACT(YEAR FROM AGE(${patients.dateofbirth})), null)`.as('patientage'),
         patientsex: sql<string>`COALESCE(${patients.gender}, null)`.as('patientsex'),
+        nationalid: sql<string>`${patients.nationalid}`.as('nationalid'),
       })
       .from(accessionSamples)
       .leftJoin(patients, sql`${accessionSamples.patientid}::uuid = ${patients.patientid}`)
