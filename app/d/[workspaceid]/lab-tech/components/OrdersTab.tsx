@@ -1421,10 +1421,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 firstTestKey = rec?.testCode || testNames[0];
                               }
                             }
-                            // Only set selected test if not already set (to preserve user selection)
-                            if (!selectedTestForCollection) {
-                              setSelectedTestForCollection(firstTestKey);
-                            }
+                            // Always set first test as selected when opening modal
+                            setSelectedTestForCollection(firstTestKey);
                             setShowOrderDetail(true);
                           }}
                         >
@@ -1787,7 +1785,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       <p className="text-[10px] text-muted-foreground mb-1.5">Click a test to collect its sample</p>
 
                       {resolvedTests.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1">
                           <TooltipProvider delayDuration={300}>
                             {resolvedTests.map(
                               (test: any, idx: number) => {
@@ -1798,22 +1796,22 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                   <TooltipTrigger asChild>
                                     <div
                                       onClick={() => setSelectedTestForCollection(isSelected ? null : testKey)}
-                                      className={`flex w-full items-center gap-2 px-2 py-1.5 rounded border transition-colors text-left cursor-pointer ${
+                                      className={`flex w-full items-center gap-0.5 px-1.5 py-1 rounded border transition-colors text-left cursor-pointer ${
                                         isSelected
                                           ? 'bg-blue-100 border-blue-400 ring-1 ring-blue-300'
                                           : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                       }`}
                                     >
-                                      <FlaskConical className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                      <FlaskConical className="h-2.5 w-2.5 text-blue-500 flex-shrink-0" />
                                       <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-medium truncate">
+                                        <div className="text-[10px] font-medium truncate leading-tight">
                                           {test.testName}
                                         </div>
-                                        <div className="text-[10px] text-gray-500 truncate">
+                                        <div className="text-[9px] text-gray-500 truncate leading-tight">
                                           {test.testCode}
                                           {test.fastingRequired && (
-                                            <span className="inline-block ml-1 text-[9px] font-medium bg-amber-100 text-amber-700 rounded px-1">
-                                              Fasting
+                                            <span className="inline-block ml-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-0.5">
+                                              F
                                             </span>
                                           )}
                                         </div>
@@ -2121,7 +2119,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           const uncollected = entries.filter(([specimen]) => !collectedSpecimenTypes[specimen]);
                           if (uncollected.length === 0) return null;
                           return (
-                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="mt-3 space-y-2">
                               {uncollected.map(([specimen, data]: [string, any]) => {
                                 const isCollecting = createSampleMutation.isPending && currentCollectingSpecimen === specimen;
                                 return (
@@ -2129,7 +2127,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                     key={specimen}
                                     type="button"
                                     size="sm"
-                                    className="h-8 text-[11px] bg-green-600 hover:bg-green-700 text-white"
+                                    className="w-full h-8 text-[11px] bg-green-600 hover:bg-green-700 text-white"
                                     disabled={isCollecting || createSampleMutation.isPending}
                                     onClick={() => {
                                       if (!selectedOrder) return;
