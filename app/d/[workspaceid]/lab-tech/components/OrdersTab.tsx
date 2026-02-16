@@ -314,6 +314,31 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     }
   }, [session]);
 
+  // Pre-select first test when Order Detail modal opens
+  useEffect(() => {
+    if (showOrderDetail && selectedOrder && !selectedTestForCollection) {
+      let firstTestKey: string | null = null;
+      if (selectedOrder.tests?.length > 0) {
+        const ft = selectedOrder.tests[0];
+        firstTestKey = ft.testCode || ft.testcode || ft.code || ft.testName || ft.testname || null;
+      } else if (selectedOrder.service_name || selectedOrder.description) {
+        // openEHR orders: parse first test name from description or service_name
+        const nameSource = selectedOrder.description || selectedOrder.service_name || "";
+        const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/);
+        const testNames = selectedTestsMatch
+          ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
+          : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+        if (testNames.length > 0) {
+          const rec = findRecommendation(undefined, testNames[0]);
+          firstTestKey = rec?.testCode || testNames[0];
+        }
+      }
+      if (firstTestKey) {
+        setSelectedTestForCollection(firstTestKey);
+      }
+    }
+  }, [showOrderDetail, selectedOrder, selectedTestForCollection]);
+
   // Pre-select first test when Sample Collection modal opens
   useEffect(() => {
     if (showSampleCollection && selectedOrder && !selectedTestForCollection) {
