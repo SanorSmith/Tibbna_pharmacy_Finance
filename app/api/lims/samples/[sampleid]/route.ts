@@ -116,7 +116,11 @@ export async function GET(
         testsArray = sampleData.tests.map((t: unknown) => String(t || "").trim()).filter(Boolean);
       } else if (typeof sampleData.tests === 'string') {
         try {
-          const parsed = JSON.parse(sampleData.tests);
+          let parsed = JSON.parse(sampleData.tests);
+          // Handle double-encoded JSON
+          if (typeof parsed === 'string') {
+            parsed = JSON.parse(parsed);
+          }
           if (Array.isArray(parsed)) {
             testsArray = parsed.map((t: unknown) => String(t || "").trim()).filter(Boolean);
           }
@@ -164,6 +168,7 @@ export async function GET(
               resultid: null,
               testcode: test.testcode,
               testname: test.testname,
+              testcategory: test.testcategory,
               resultvalue: null,
               unit: refRange?.unit || null,
               referencemin: refRange?.referencemin ? parseFloat(refRange.referencemin) : null,

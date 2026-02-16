@@ -17,10 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock, FlaskConical } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock } from "lucide-react";
 import { calculateTAT, getTATStatusColor, getTATStatusLabel, formatDuration } from "@/lib/lims/tat-tracking";
 import BarcodePrint from "./BarcodePrint";
-import WorklistValidationModal from "./WorklistValidationModal";
 import { getDialogClasses } from "@/lib/ui-constants";
 
 // Storage Location interface
@@ -120,6 +119,55 @@ interface AccessionedSample {
   labcategory?: string | null;
 }
 
+// Component to display tests for a sample
+function SampleTestsDisplay({ sampleId }: { sampleId: string }) {
+  const { data: sampleData, isLoading } = useQuery({
+    queryKey: ["sample-tests", sampleId],
+    queryFn: async () => {
+      const response = await fetch(`/api/lims/samples/${sampleId}`);
+      if (!response.ok) throw new Error("Failed to fetch sample");
+      return response.json();
+    },
+  });
+
+  if (isLoading) {
+    return <div className="text-xs text-muted-foreground">Loading tests...</div>;
+  }
+
+  const tests = sampleData?.results || [];
+  if (!tests || tests.length === 0) {
+    return <div className="text-xs text-muted-foreground">No tests found</div>;
+  }
+
+  // Group tests by category
+  const testsByCategory = (tests as any[]).reduce((acc: Record<string, any[]>, test: any) => {
+    const category = test.testcategory || "Uncategorized";
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(test);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-3">
+      {Object.entries(testsByCategory).map(([category, tests]) => (
+        <div key={category} className="border rounded p-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">{category}</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {tests.map((test: any, index: number) => (
+              <div key={index} className="text-xs p-1.5 bg-gray-50 rounded">
+                <div className="font-medium">{test.testname}</div>
+                {test.testcode && (
+                  <div className="text-[10px] text-muted-foreground font-mono">{test.testcode}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const queryClient = useQueryClient();
   const [_showAccessionForm, setShowAccessionForm] = useState(false);
@@ -131,8 +179,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const [showWorklistDialog, setShowWorklistDialog] = useState(false);
   const [showCreateWorklistDialog, setShowCreateWorklistDialog] = useState(false);
   const [showBarcodePrintDialog, setShowBarcodePrintDialog] = useState(false);
-  const [showResultEntryModal, setShowResultEntryModal] = useState(false);
-  const [resultEntrySample, setResultEntrySample] = useState<any>(null);
   
   // Alert dialog states
   const [alertDialog, setAlertDialog] = useState<{
@@ -723,18 +769,18 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
                   {/* Right: Sample & Order Info */}
                   <div className="border-l pl-6">
-                    <div className="grid grid-cols-2 gap-x-4 text-xs">
-                      <div>
-                        <span className="text-muted-foreground uppercase text-[10px] font-semibold">Sample Type</span>
-                        <div className="font-medium capitalize">{selectedSample.sampletype}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground uppercase text-[10px] font-semibold">Container</span>
-                        <div className="font-medium">{selectedSample.containertype || "-"}</div>
-                      </div>
+                    <div className="text-xs">
+                      <span className="text-muted-foreground uppercase text-[10px] font-semibold">Sample Type/Container</span>
+                      <div className="font-medium capitalize">{selectedSample.sampletype}{selectedSample.containertype ? ` / ${selectedSample.containertype}` : ""}</div>
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Tests Card */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Tests</h3>
+                <SampleTestsDisplay sampleId={selectedSample.sampleid} />
               </div>
 
               {/* Sample Information Card */}
@@ -773,36 +819,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Worklist
-                </Button>
-                <Button 
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => {
-                    setResultEntrySample({
-                      worklistitemid: `direct-${selectedSample.sampleid}`,
-                      sampleid: selectedSample.sampleid,
-                      sample: {
-                        sampleid: selectedSample.sampleid,
-                        samplenumber: selectedSample.samplenumber,
-                        sampletype: selectedSample.sampletype,
-                        collectiondate: selectedSample.collectiondate,
-                      },
-                      patient: selectedSample.patientid ? {
-                        patientid: selectedSample.patientid,
-                        firstname: selectedSample.patientname?.split(" ")[0] || "",
-                        lastname: selectedSample.patientname?.split(" ").slice(1).join(" ") || "",
-                        dateofbirth: "",
-                        gender: selectedSample.patientsex || "",
-                        age: selectedSample.patientage || 0,
-                      } : null,
-                      results: [],
-                    });
-                    setShowSampleDetail(false);
-                    setShowResultEntryModal(true);
-                  }}
-                >
-                  <FlaskConical className="h-4 w-4 mr-2" />
-                  Add Results
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowSampleDetail(false)}>Close</Button>
               </div>
@@ -1109,15 +1125,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Result Entry Modal - opens WorklistValidationModal for direct result entry from sample list */}
-      <WorklistValidationModal
-        workspaceid={workspaceid}
-        worklistid={null}
-        selectedSample={resultEntrySample}
-        open={showResultEntryModal}
-        onOpenChange={setShowResultEntryModal}
-      />
     </div>
   );
 }
