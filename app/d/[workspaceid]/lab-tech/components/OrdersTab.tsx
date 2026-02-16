@@ -314,6 +314,31 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     }
   }, [session]);
 
+  // Pre-select first test when Sample Collection modal opens
+  useEffect(() => {
+    if (showSampleCollection && selectedOrder && !selectedTestForCollection) {
+      let firstTestKey: string | null = null;
+      if (selectedOrder.tests?.length > 0) {
+        const ft = selectedOrder.tests[0];
+        firstTestKey = ft.testCode || ft.testcode || ft.code || ft.testName || ft.testname || null;
+      } else if (selectedOrder.service_name || selectedOrder.description) {
+        // openEHR orders: parse first test name from description or service_name
+        const nameSource = selectedOrder.description || selectedOrder.service_name || "";
+        const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/);
+        const testNames = selectedTestsMatch
+          ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
+          : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+        if (testNames.length > 0) {
+          const rec = findRecommendation(undefined, testNames[0]);
+          firstTestKey = rec?.testCode || testNames[0];
+        }
+      }
+      if (firstTestKey) {
+        setSelectedTestForCollection(firstTestKey);
+      }
+    }
+  }, [showSampleCollection, selectedOrder, selectedTestForCollection]);
+
   // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1396,7 +1421,10 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 firstTestKey = rec?.testCode || testNames[0];
                               }
                             }
-                            setSelectedTestForCollection(firstTestKey);
+                            // Only set selected test if not already set (to preserve user selection)
+                            if (!selectedTestForCollection) {
+                              setSelectedTestForCollection(firstTestKey);
+                            }
                             setShowOrderDetail(true);
                           }}
                         >
@@ -1759,7 +1787,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       <p className="text-[10px] text-muted-foreground mb-1.5">Click a test to collect its sample</p>
 
                       {resolvedTests.length > 0 ? (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1">
+                        <div className="space-y-1">
                           <TooltipProvider delayDuration={300}>
                             {resolvedTests.map(
                               (test: any, idx: number) => {
@@ -1770,22 +1798,22 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                   <TooltipTrigger asChild>
                                     <div
                                       onClick={() => setSelectedTestForCollection(isSelected ? null : testKey)}
-                                      className={`flex w-full items-center gap-0.5 px-1.5 py-1 rounded border transition-colors text-left cursor-pointer ${
+                                      className={`flex w-full items-center gap-2 px-2 py-1.5 rounded border transition-colors text-left cursor-pointer ${
                                         isSelected
                                           ? 'bg-blue-100 border-blue-400 ring-1 ring-blue-300'
                                           : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                       }`}
                                     >
-                                      <FlaskConical className="h-2.5 w-2.5 text-blue-500 flex-shrink-0" />
+                                      <FlaskConical className="h-3 w-3 text-blue-500 flex-shrink-0" />
                                       <div className="flex-1 min-w-0">
-                                        <div className="text-[10px] font-medium truncate leading-tight">
+                                        <div className="text-xs font-medium truncate">
                                           {test.testName}
                                         </div>
-                                        <div className="text-[9px] text-gray-500 truncate leading-tight">
+                                        <div className="text-[10px] text-gray-500 truncate">
                                           {test.testCode}
                                           {test.fastingRequired && (
-                                            <span className="inline-block ml-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-0.5">
-                                              F
+                                            <span className="inline-block ml-1 text-[9px] font-medium bg-amber-100 text-amber-700 rounded px-1">
+                                              Fasting
                                             </span>
                                           )}
                                         </div>
