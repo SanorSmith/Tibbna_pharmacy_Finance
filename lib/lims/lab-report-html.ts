@@ -1,16 +1,8 @@
 /**
  * Lab Report HTML Generator
  * 
- * Generates a professional, print-ready HTML lab report that can be used
- * from both LIMS (lab tech) and EHR (doctor/patient) sides.
- * 
- * Features:
- * - Professional medical laboratory report layout
- * - Abnormal/critical result highlighting
- * - Reference range display
- * - Validation signatures
- * - Print-optimized CSS with @media print
- * - A4 page sizing
+ * Generates a professional, print-ready HTML lab report matching the lab order format.
+ * Uses the same Karolinska-style layout as lab orders.
  */
 
 export interface LabReportPatient {
@@ -23,6 +15,7 @@ export interface LabReportPatient {
   age?: number | null;
   nationalid?: string | null;
   phone?: string | null;
+  address?: string | null;
   bloodgroup?: string | null;
 }
 
@@ -68,6 +61,8 @@ export interface LabReportFacility {
   name: string;
   type?: string;
   description?: string | null;
+  address?: string | null;
+  phone?: string | null;
 }
 
 export interface LabReportData {
@@ -76,10 +71,11 @@ export interface LabReportData {
   sample: LabReportSample;
   results: LabReportResult[];
   generatedAt: string;
+  requestingProvider?: string | null;
 }
 
 function escapeHtml(text: string): string {
-  return text
+  return (text ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -90,9 +86,9 @@ function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
   try {
     return new Date(dateStr).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
       year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     });
   } catch {
     return "-";
@@ -103,15 +99,62 @@ function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
   try {
     return new Date(dateStr).toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
       year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
   } catch {
     return "-";
   }
+}
+
+function barcodeSvg(value: string, opts?: { width?: number; height?: number }): string {
+  const v = (value || "").trim();
+  const width = opts?.width ?? 220;
+  const height = opts?.height ?? 40;
+
+  if (!v) {
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-label="barcode"></svg>`;
+  }
+
+  const bytes = Array.from(v).map((c) => c.charCodeAt(0));
+  const bars: number[] = [];
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    bars.push(1 + (b % 3));
+    bars.push(1 + ((b >> 2) % 3));
+    bars.push(1 + ((b >> 4) % 3));
+  }
+
+  const quiet = 10;
+  const usable = width - quiet * 2;
+  const total = bars.reduce((a, n) => a + n, 0);
+  const unit = usable / total;
+
+  let x = quiet;
+  let isBlack = true;
+
+  const rects: string[] = [];
+  for (const w of bars) {
+    const rw = Math.max(0.8, w * unit);
+    if (isBlack) {
+      rects.push(`<rect x="${x.toFixed(2)}" y="0" width="${rw.toFixed(2)}" height="${height - 12}" fill="#000"/>`);
+    }
+    x += rw;
+    isBlack = !isBlack;
+  }
+
+  return `
+    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-label="barcode">
+      <rect x="0" y="0" width="${width}" height="${height}" fill="#fff"/>
+      ${rects.join("")}
+      <text x="${width / 2}" y="${height - 2}" text-anchor="middle"
+            font-family="Arial, Helvetica, sans-serif" font-size="9" fill="#000">
+        ${escapeHtml(v)}
+      </text>
+    </svg>`;
 }
 
 function getResultClass(result: LabReportResult): string {
@@ -126,7 +169,6 @@ function getResultClass(result: LabReportResult): string {
     if (max !== null && !isNaN(max) && value > max) return "abnormal-high";
   }
 
-  // Check descriptive results
   if (result.resultvalue) {
     const val = result.resultvalue.toLowerCase();
     const abnormalTerms = ["positive", "detected", "present", "abnormal", "growth", "reactive"];
@@ -163,14 +205,12 @@ export function generateLabReportHTML(data: LabReportData): string {
       )
     : "Unknown Patient";
 
-  // Group results by category/test for panel grouping
   const releasedBy = results.find((r) => r.releasedbyname)?.releasedbyname || null;
   const releasedDate = results.find((r) => r.releaseddate)?.releaseddate || null;
   const techValidator = results.find((r) => r.technicalvalidatedbyname)?.technicalvalidatedbyname || null;
-  const techValidDate = results.find((r) => r.technicalvalidateddate)?.technicalvalidateddate || null;
   const medValidator = results.find((r) => r.medicalvalidatedbyname)?.medicalvalidatedbyname || null;
-  const medValidDate = results.find((r) => r.medicalvalidateddate)?.medicalvalidateddate || null;
 
+  // Build results table rows
   const resultsRowsHTML = results
     .map((r) => {
       const cls = getResultClass(r);
@@ -192,194 +232,206 @@ export function generateLabReportHTML(data: LabReportData): string {
     })
     .join("");
 
+  // FROM/TO info (matching lab order format)
+  const fromName = facility.name || "Laboratory";
+  const fromAddress = facility.address || "";
+  const fromPhone = facility.phone || "";
+
+  const toName = data.requestingProvider || "Requesting Physician";
+
+  const rid = sample.samplenumber || sample.sampleid;
+  const savedDateTime = formatDateTime(generatedAt);
+  const collectionDate = formatDate(sample.collectiondate);
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lab Report - ${escapeHtml(sample.samplenumber)}</title>
-  <style>
-    /* Reset */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    @page {
-      size: A4;
-      margin: 12mm 15mm 15mm 15mm;
-    }
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+
+    @page { size: A4; margin: 10mm 10mm 12mm 14mm; }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       font-size: 11px;
-      line-height: 1.4;
-      color: #1a1a1a;
-      background: #fff;
+      line-height: 1.25;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    .report-container {
-      max-width: 210mm;
-      margin: 0 auto;
-      padding: 10px 20px;
+    .page { position: relative; width: 100%; min-height: 270mm; }
+
+    /* Screen-only controls */
+    @media screen {
+      .controls { display: flex; gap: 10px; justify-content: center; padding: 12px 0 16px; }
+      .btn { border: 1px solid #000; background: #fff; padding: 8px 16px; font-weight: 600; cursor: pointer; }
+    }
+    @media print {
+      .controls { display: none !important; }
     }
 
-    /* ── Header / Facility ── */
-    .facility-header {
-      text-align: center;
-      border-bottom: 3px double #1a5276;
-      padding-bottom: 10px;
-      margin-bottom: 12px;
+    /* Header */
+    .header { border: 1px solid #000; border-bottom: none; }
+
+    .header-row {
+      display: grid;
+      grid-template-columns: 58% 42%;
+      border-bottom: 1px solid #000;
+      min-height: 58px;
     }
 
-    .facility-name {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1a5276;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
+    .cell { padding: 8px 10px; }
+    .cell + .cell { border-left: 1px solid #000; }
 
-    .facility-subtitle {
-      font-size: 11px;
-      color: #555;
-      margin-top: 2px;
-    }
+    .label { font-weight: 700; display: inline-block; width: 48px; }
 
-    .report-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #fff;
-      background: #1a5276;
-      text-align: center;
-      padding: 6px 0;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-    }
+    .fromto-block .line { display: flex; gap: 8px; margin: 1px 0; }
+    .fromto-block .content { flex: 1; }
 
-    /* ── Patient & Sample Info ── */
-    .info-section {
+    .title-block { display: grid; grid-template-columns: 1fr; gap: 4px; align-content: start; }
+
+    .title-top {
       display: flex;
-      gap: 12px;
-      margin-bottom: 12px;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
     }
 
-    .info-box {
-      flex: 1;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 8px 10px;
+    .title { font-size: 16px; font-weight: 700; text-align: center; flex: 1; }
+    .page-count { font-size: 11px; white-space: nowrap; }
+    .barcode-wrap { display: flex; justify-content: center; }
+
+    /* Row 2 */
+    .header-row2 {
+      display: grid;
+      grid-template-columns: 58% 42%;
+      border-bottom: 1px solid #000;
+      min-height: 66px;
     }
 
-    .info-box-title {
+    .to-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .rid-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .rid-label {
       font-size: 10px;
       font-weight: 700;
-      color: #1a5276;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 4px;
-      margin-bottom: 6px;
     }
 
-    .info-row {
+    .patient-box {
       display: flex;
-      margin-bottom: 3px;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .info-label {
+    .patient-line {
       font-weight: 600;
-      color: #555;
-      min-width: 100px;
+      font-size: 12px;
+    }
+
+    .patient-muted {
+      font-size: 10px;
+      color: #666;
+    }
+
+    /* Meta row */
+    .meta {
+      border: 1px solid #000;
+      border-top: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 6px 10px;
       font-size: 10px;
     }
 
-    .info-value {
-      font-weight: 500;
-      color: #1a1a1a;
-      font-size: 10px;
+    .meta-left, .meta-right {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    /* ── Results Table ── */
+    .meta-k { font-weight: 700; }
+    .meta-v { font-weight: 400; }
+
+    /* Body - Results Table */
+    .body {
+      border: 1px solid #000;
+      border-top: none;
+      margin-bottom: 12px;
+    }
+
+    .body-header {
+      display: grid;
+      grid-template-columns: 1fr;
+      background: #f0f0f0;
+      border-bottom: 1px solid #000;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 6px 10px;
+    }
+
     .results-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 12px;
     }
 
     .results-table thead th {
-      background: #1a5276;
-      color: #fff;
+      background: #e8e8e8;
       font-weight: 600;
       font-size: 10px;
       padding: 6px 8px;
       text-align: left;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border: 1px solid #1a5276;
+      border-bottom: 1px solid #000;
     }
 
     .results-table tbody td {
       padding: 5px 8px;
-      border: 1px solid #ddd;
+      border-bottom: 1px solid #ddd;
       font-size: 11px;
-      vertical-align: middle;
     }
 
     .results-table tbody tr:nth-child(even) {
       background: #f8f9fa;
     }
 
-    .results-table tbody tr:hover {
-      background: #eef2f7;
-    }
-
-    .test-name {
-      font-weight: 500;
-    }
-
-    .result-value {
-      font-weight: 600;
-      text-align: center;
-    }
-
-    .flag-cell {
-      text-align: center;
-      font-weight: 700;
-      width: 30px;
-    }
-
-    .unit-cell {
-      color: #666;
-      font-size: 10px;
-    }
-
-    .ref-range {
-      color: #666;
-      font-size: 10px;
-    }
+    .test-name { font-weight: 500; }
+    .result-value { font-weight: 600; text-align: center; }
+    .flag-cell { text-align: center; font-weight: 700; width: 30px; }
+    .unit-cell { color: #666; font-size: 10px; }
+    .ref-range { color: #666; font-size: 10px; }
 
     /* Abnormal highlighting */
-    .result-value.abnormal-high,
-    .flag-cell.abnormal-high {
+    .result-value.abnormal-high, .flag-cell.abnormal-high {
       color: #c0392b;
       font-weight: 700;
     }
 
-    .result-value.abnormal-low,
-    .flag-cell.abnormal-low {
+    .result-value.abnormal-low, .flag-cell.abnormal-low {
       color: #2874a6;
       font-weight: 700;
     }
 
-    .result-value.abnormal,
-    .flag-cell.abnormal {
+    .result-value.abnormal, .flag-cell.abnormal {
       color: #d35400;
       font-weight: 700;
     }
 
-    .result-value.critical,
-    .flag-cell.critical {
+    .result-value.critical, .flag-cell.critical {
       color: #c0392b;
       font-weight: 800;
       background: #fce4e4 !important;
@@ -389,41 +441,13 @@ export function generateLabReportHTML(data: LabReportData): string {
       background: #fce4e4 !important;
     }
 
-    /* ── Legend ── */
-    .legend {
-      display: flex;
-      gap: 16px;
-      font-size: 9px;
-      color: #666;
-      margin-bottom: 12px;
-      padding: 4px 0;
-      border-top: 1px solid #e0e0e0;
-      border-bottom: 1px solid #e0e0e0;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .legend-symbol {
-      font-weight: 700;
-      font-size: 11px;
-    }
-
-    .legend-symbol.high { color: #c0392b; }
-    .legend-symbol.low { color: #2874a6; }
-    .legend-symbol.abn { color: #d35400; }
-    .legend-symbol.crit { color: #c0392b; }
-
-    /* ── Signatures ── */
-    .signatures-section {
+    /* Signatures */
+    .signatures {
       display: flex;
       gap: 20px;
       margin-top: 20px;
-      padding-top: 10px;
-      border-top: 1px solid #ccc;
+      padding: 10px;
+      border: 1px solid #ccc;
     }
 
     .signature-block {
@@ -434,14 +458,17 @@ export function generateLabReportHTML(data: LabReportData): string {
       font-size: 9px;
       color: #888;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+    }
+
+    .signature-line {
+      border-bottom: 1px solid #aaa;
+      margin-top: 20px;
+      margin-bottom: 4px;
     }
 
     .signature-name {
       font-size: 11px;
       font-weight: 600;
-      color: #1a1a1a;
-      margin-top: 2px;
     }
 
     .signature-date {
@@ -449,295 +476,136 @@ export function generateLabReportHTML(data: LabReportData): string {
       color: #666;
     }
 
-    .signature-line {
-      border-bottom: 1px solid #aaa;
-      width: 160px;
-      margin-top: 25px;
-      margin-bottom: 4px;
-    }
-
-    /* ── Footer ── */
-    .report-footer {
-      margin-top: 16px;
-      padding-top: 8px;
-      border-top: 2px solid #1a5276;
-      text-align: center;
+    /* Footer */
+    .footer {
+      display: flex;
+      justify-content: space-between;
       font-size: 9px;
-      color: #888;
-    }
-
-    .report-footer .disclaimer {
-      font-style: italic;
-      margin-bottom: 4px;
-    }
-
-    /* ── Comments ── */
-    .comments-section {
-      margin-bottom: 12px;
-      padding: 8px 10px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      background: #fafafa;
-    }
-
-    .comments-title {
-      font-size: 10px;
-      font-weight: 700;
-      color: #1a5276;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-
-    .comment-text {
-      font-size: 10px;
-      color: #333;
-    }
-
-    /* ── Print Specifics ── */
-    @media print {
-      body { background: #fff; }
-      .report-container { padding: 0; max-width: 100%; }
-      .no-print { display: none !important; }
-    }
-
-    /* ── Screen: print button ── */
-    @media screen {
-      .print-controls {
-        text-align: center;
-        padding: 12px;
-        margin-bottom: 16px;
-        background: #f0f4f8;
-        border-radius: 6px;
-      }
-
-      .print-btn {
-        background: #1a5276;
-        color: #fff;
-        border: none;
-        padding: 10px 28px;
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: 4px;
-        cursor: pointer;
-        margin: 0 6px;
-      }
-
-      .print-btn:hover {
-        background: #154360;
-      }
-
-      .close-btn {
-        background: #e74c3c;
-        color: #fff;
-        border: none;
-        padding: 10px 28px;
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: 4px;
-        cursor: pointer;
-        margin: 0 6px;
-      }
-
-      .close-btn:hover {
-        background: #c0392b;
-      }
+      color: #666;
+      padding: 8px 0;
+      border-top: 1px solid #ccc;
+      margin-top: 12px;
     }
   </style>
 </head>
 <body>
-  <div class="report-container">
-
-    <!-- Print Controls (screen only) -->
-    <div class="print-controls no-print">
-      <button class="print-btn" onclick="window.print()">Print Report</button>
-      <button class="close-btn" onclick="window.close()">Close</button>
+  <div class="page">
+    <!-- Screen controls -->
+    <div class="controls">
+      <button class="btn" onclick="window.print()">Print</button>
+      <button class="btn" onclick="window.close()">Close</button>
     </div>
 
-    <!-- Facility Header -->
-    <div class="facility-header">
-      <div class="facility-name">${escapeHtml(facility.name)}</div>
-      ${facility.description ? `<div class="facility-subtitle">${escapeHtml(facility.description)}</div>` : ""}
-      <div class="facility-subtitle">Laboratory Information Management System</div>
-    </div>
-
-    <div class="report-title">Laboratory Test Report</div>
-
-    <!-- Patient & Sample Info Side by Side -->
-    <div class="info-section">
-      <div class="info-box">
-        <div class="info-box-title">Patient Information</div>
-        <div class="info-row">
-          <span class="info-label">Name:</span>
-          <span class="info-value">${patientName}</span>
+    <!-- Header -->
+    <div class="header">
+      <!-- Row 1: FROM + Title -->
+      <div class="header-row">
+        <div class="cell">
+          <div class="fromto-block">
+            <div class="line">
+              <span class="label">FROM</span>
+              <div class="content">
+                <div><strong>${escapeHtml(fromName)}</strong></div>
+                ${fromAddress ? `<div>${escapeHtml(fromAddress)}</div>` : ``}
+                ${fromPhone ? `<div>Tel: ${escapeHtml(fromPhone)}</div>` : ``}
+              </div>
+            </div>
+          </div>
         </div>
-        ${patient?.dateofbirth ? `
-        <div class="info-row">
-          <span class="info-label">Date of Birth:</span>
-          <span class="info-value">${formatDate(patient.dateofbirth)}</span>
-        </div>` : ""}
-        ${patient?.age !== null && patient?.age !== undefined ? `
-        <div class="info-row">
-          <span class="info-label">Age:</span>
-          <span class="info-value">${patient.age} years</span>
-        </div>` : ""}
-        ${patient?.gender ? `
-        <div class="info-row">
-          <span class="info-label">Gender:</span>
-          <span class="info-value" style="text-transform:capitalize">${escapeHtml(patient.gender)}</span>
-        </div>` : ""}
-        ${patient?.nationalid ? `
-        <div class="info-row">
-          <span class="info-label">National ID:</span>
-          <span class="info-value">${escapeHtml(patient.nationalid)}</span>
-        </div>` : ""}
-        ${patient?.patientid ? `
-        <div class="info-row">
-          <span class="info-label">Patient ID:</span>
-          <span class="info-value" style="font-family:monospace">${escapeHtml(patient.patientid.substring(0, 8))}</span>
-        </div>` : ""}
+
+        <div class="cell title-block">
+          <div class="title-top">
+            <div style="width:24px;"></div>
+            <div class="title">Lab Report</div>
+            <div class="page-count">Page 1 (1)</div>
+          </div>
+        </div>
       </div>
 
-      <div class="info-box">
-        <div class="info-box-title">Specimen Information</div>
-        <div class="info-row">
-          <span class="info-label">Sample No:</span>
-          <span class="info-value" style="font-family:monospace;font-weight:700">${escapeHtml(sample.samplenumber)}</span>
+      <!-- Row 2: TO + RID + Patient -->
+      <div class="header-row2">
+        <div class="cell">
+          <div class="to-grid">
+            <div class="fromto-block">
+              <div class="line">
+                <span class="label">TO</span>
+                <div class="content">
+                  <div><strong>${escapeHtml(toName)}</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rid-block">
+              <div class="rid-label">Sample: ${escapeHtml(rid)}</div>
+            </div>
+          </div>
         </div>
-        ${sample.accessionnumber ? `
-        <div class="info-row">
-          <span class="info-label">Accession No:</span>
-          <span class="info-value" style="font-family:monospace">${escapeHtml(sample.accessionnumber)}</span>
-        </div>` : ""}
-        <div class="info-row">
-          <span class="info-label">Specimen Type:</span>
-          <span class="info-value" style="text-transform:capitalize">${escapeHtml(sample.sampletype)}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Container:</span>
-          <span class="info-value">${escapeHtml(sample.containertype)}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Collected:</span>
-          <span class="info-value">${formatDateTime(sample.collectiondate)}</span>
-        </div>
-        ${sample.collectorname ? `
-        <div class="info-row">
-          <span class="info-label">Collector:</span>
-          <span class="info-value">${escapeHtml(sample.collectorname)}</span>
-        </div>` : ""}
-        ${sample.labcategory ? `
-        <div class="info-row">
-          <span class="info-label">Department:</span>
-          <span class="info-value">${escapeHtml(sample.labcategory)}</span>
-        </div>` : ""}
-        <div class="info-row">
-          <span class="info-label">Barcode:</span>
-          <span class="info-value" style="font-family:monospace;font-size:9px">${escapeHtml(sample.barcode)}</span>
+
+        <div class="cell">
+          <div class="patient-box">
+            ${patient?.nationalid ? `<div class="patient-line">NID: ${escapeHtml(patient.nationalid)}</div>` : `<div class="patient-muted">ID no.</div>`}
+            <div class="patient-line">${patientName}</div>
+            ${patient?.address ? `<div class="patient-muted">${escapeHtml(patient.address)}</div>` : `<div class="patient-muted">Address</div>`}
+            ${patient?.phone ? `<div class="patient-muted">Tel: ${escapeHtml(patient.phone)}</div>` : ``}
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Results Table -->
-    <table class="results-table">
-      <thead>
-        <tr>
-          <th style="width:35%">Test Name</th>
-          <th style="width:15%;text-align:center">Result</th>
-          <th style="width:5%;text-align:center">Flag</th>
-          <th style="width:15%">Unit</th>
-          <th style="width:30%">Reference Interval</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${resultsRowsHTML || `
-        <tr>
-          <td colspan="5" style="text-align:center;padding:20px;color:#888">
-            No test results available for this sample
-          </td>
-        </tr>`}
-      </tbody>
-    </table>
-
-    <!-- Legend -->
-    <div class="legend">
-      <div class="legend-item">
-        <span class="legend-symbol high">H</span> <span>High</span>
+    <!-- Meta row -->
+    <div class="meta">
+      <div class="meta-left">
+        <div><span class="meta-k">Collection Date:</span> <span class="meta-v">${escapeHtml(collectionDate)}</span></div>
+        <div><span class="meta-k">Specimen:</span> <span class="meta-v">${escapeHtml(sample.sampletype)} / ${escapeHtml(sample.containertype)}</span></div>
       </div>
-      <div class="legend-item">
-        <span class="legend-symbol low">L</span> <span>Low</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-symbol abn">*</span> <span>Abnormal</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-symbol crit">!!</span> <span>Critical</span>
+      <div class="meta-right">
+        <div><span class="meta-k">Status:</span> <span class="meta-v">${escapeHtml(sample.currentstatus)}</span></div>
+        ${sample.collectorname ? `<div><span class="meta-k">Collector:</span> <span class="meta-v">${escapeHtml(sample.collectorname)}</span></div>` : ``}
       </div>
     </div>
 
-    <!-- Comments (if any result has comments/interpretation) -->
-    ${results.some((r) => r.comment || r.interpretation)
-      ? `
-    <div class="comments-section">
-      <div class="comments-title">Comments</div>
-      ${results
-        .filter((r) => r.comment || r.interpretation)
-        .map(
-          (r) =>
-            `<div class="comment-text"><strong>${escapeHtml(r.testname)}:</strong> ${escapeHtml(r.interpretation || r.comment || "")}</div>`
-        )
-        .join("")}
-    </div>`
-      : ""}
+    <!-- Body - Results -->
+    <div class="body">
+      <div class="body-header">
+        <div>Laboratory Test Results</div>
+      </div>
+
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th style="width:35%">Test Name</th>
+            <th style="width:15%;text-align:center">Result</th>
+            <th style="width:5%;text-align:center">Flag</th>
+            <th style="width:15%">Unit</th>
+            <th style="width:30%">Reference Interval</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${resultsRowsHTML || `
+          <tr>
+            <td colspan="5" style="text-align:center;padding:20px;color:#888">
+              No test results available
+            </td>
+          </tr>`}
+        </tbody>
+      </table>
+    </div>
 
     <!-- Signatures -->
-    <div class="signatures-section">
-      ${techValidator
-        ? `
+    ${techValidator ? `
+    <div class="signatures">
       <div class="signature-block">
         <div class="signature-label">Technical Validation</div>
         <div class="signature-line"></div>
         <div class="signature-name">${escapeHtml(techValidator)}</div>
-        <div class="signature-date">${formatDateTime(techValidDate)}</div>
-      </div>`
-        : ""}
-      ${medValidator
-        ? `
-      <div class="signature-block">
-        <div class="signature-label">Medical Validation</div>
-        <div class="signature-line"></div>
-        <div class="signature-name">${escapeHtml(medValidator)}</div>
-        <div class="signature-date">${formatDateTime(medValidDate)}</div>
-      </div>`
-        : ""}
-      ${releasedBy
-        ? `
-      <div class="signature-block">
-        <div class="signature-label">Authorized &amp; Released By</div>
-        <div class="signature-line"></div>
-        <div class="signature-name">${escapeHtml(releasedBy)}</div>
-        <div class="signature-date">${formatDateTime(releasedDate)}</div>
-      </div>`
-        : `
-      <div class="signature-block">
-        <div class="signature-label">Authorized By</div>
-        <div class="signature-line"></div>
-        <div class="signature-name">&nbsp;</div>
-        <div class="signature-date">&nbsp;</div>
-      </div>`}
-    </div>
-
-    <!-- Footer -->
-    <div class="report-footer">
-      <div class="disclaimer">
-        This report is intended for the requesting physician. Results should be interpreted in conjunction with clinical findings.
+        <div class="signature-date">${formatDateTime(results.find(r => r.technicalvalidateddate)?.technicalvalidateddate)}</div>
       </div>
-      <div>
-        Report generated: ${formatDateTime(generatedAt)} &nbsp;|&nbsp;
-        Sample: ${escapeHtml(sample.samplenumber)} &nbsp;|&nbsp;
-        ${escapeHtml(facility.name)}
-      </div>
-    </div>
+    </div>` : ``}
 
+    <div class="footer">
+      <div>Generated ${escapeHtml(savedDateTime)}</div>
+      <div>${escapeHtml(fromName)}</div>
+    </div>
   </div>
 </body>
 </html>`;
