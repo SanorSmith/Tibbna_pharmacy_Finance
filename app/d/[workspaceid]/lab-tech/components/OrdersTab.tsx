@@ -1767,13 +1767,40 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                         
                         return (
                           <div className="space-y-2">
-                            {Object.entries(specimenGroups).map(([groupKey, data]: [string, any]) => (
-                              <div key={groupKey} className="border rounded p-2">
-                                <div className="flex items-center gap-1.5 mb-1.5">
-                                  <FlaskConical className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                  <span className="font-semibold text-xs text-blue-900">{data.specimen}</span>
+                            {Object.entries(specimenGroups).map(([groupKey, data]: [string, any]) => {
+                              const isCollected = !!collectedSpecimenTypes[data.specimen];
+                              const isSelectedForCollection = effectiveSelection && resolvedTests.find((t: any) => (t.testCode || t.testName) === effectiveSelection)?.specimenType === data.specimen;
+                              return (
+                              <div 
+                                key={groupKey} 
+                                className={`border rounded p-2 transition-colors cursor-pointer hover:shadow-md ${
+                                  isCollected ? 'bg-green-50 border-green-300' : 'border-gray-200 hover:border-blue-300'
+                                }`}
+                                onClick={() => {
+                                  // Select first test of this specimen when card is clicked
+                                  const firstTest = data.tests[0];
+                                  if (firstTest) {
+                                    const testKey = firstTest.testCode || firstTest.testName;
+                                    setSelectedTestForCollection(testKey);
+                                  }
+                                }}
+                              >
+                                <div 
+                                  className="flex items-center gap-1.5 mb-1.5"
+                                >
+                                  <FlaskConical className={`h-3 w-3 flex-shrink-0 ${
+                                    isCollected ? 'text-green-600' : 'text-blue-600'
+                                  }`} />
+                                  <span className={`font-semibold text-xs ${
+                                    isCollected ? 'text-green-900' : 'text-blue-900'
+                                  }`}>{data.specimen}</span>
                                   <span className="text-[10px] text-gray-600">({data.tests.length})</span>
                                   <span className="text-[10px] text-gray-500">• {data.container}</span>
+                                  {isCollected && (
+                                    <span className="ml-auto text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                                      ✓ Collected
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="space-y-0.5">
                                   {data.tests.map((test: any, idx: number) => {
@@ -1784,11 +1811,10 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                     return (
                                       <div
                                         key={idx}
-                                        onClick={() => setSelectedTestForCollection(testKey)}
-                                        className={`flex items-center justify-between px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+                                        className={`flex items-center justify-between px-2 py-1 rounded text-xs transition-colors ${
                                           isSelected
                                             ? 'bg-blue-100 border border-blue-300'
-                                            : 'bg-gray-50 hover:bg-gray-100'
+                                            : isCollected ? 'bg-green-50' : 'bg-gray-50'
                                         }`}
                                       >
                                         <div className="flex items-center gap-1.5 flex-1">
@@ -1810,7 +1836,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                   })}
                                 </div>
                               </div>
-                            ))}
+                            );
+                            })}
                           </div>
                         );
                       })() : (
@@ -2082,7 +2109,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                     {isCollecting ? (
                                       <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Collecting...</>
                                     ) : (
-                                      <><FlaskConical className="h-3 w-3 mr-1" /> Collect {specimen}</>
+                                      <><FlaskConical className="h-3 w-3 mr-1" /> Collect {specimen} Sample</>
                                     )}
                                   </Button>
                                 );
