@@ -346,10 +346,9 @@ export default function EnhancedLabOrderFormMultiple({
         .map(pkg => pkg.name)
         .join(", ");
       
-      // Get the category from the first selected package (all should be same category)
-      const testCategory = selectedPackageObjects.length > 0 
-        ? selectedPackageObjects[0].category 
-        : "";
+      // Get all unique categories from selected packages
+      const allCategories = [...new Set(selectedPackageObjects.map(pkg => pkg.category).filter(Boolean))];
+      const testCategory = allCategories.join(", ") || "";
       
       const labCategory = getLabCategory(formState.target_lab);
       const selectedLab = testCatalog.laboratories[formState.target_lab];
@@ -360,15 +359,93 @@ export default function EnhancedLabOrderFormMultiple({
         .filter(Boolean);
       
       const testNames = selectedTestDetails.map(test => test.name).join(", ");
-      const description = `Test Group${selectedPackageObjects.length > 1 ? 's' : ''}: ${packageNames} | Category: ${testCategory} | Laboratory: ${selectedLab?.name || labCategory} | Selected Tests (${selectedTestDetails.length}): ${testNames} | Urgency: ${formState.urgency}`;
+      
+      // Build per-group test mapping using ALL catalog packages (not just selected ones)
+      const groupTestMap: Record<string, string[]> = {};
+      const assignedTestIds = new Set<string>();
+      
+      // Check every package in the catalog to find which group each added test belongs to
+      // Also collect specimen info (sampleType + containerType) per group from individual tests
+      const groupSpecimenMap: Record<string, string> = {};
+      Object.values(testCatalog.testPackages).forEach((pkg: any) => {
+        const groupName = pkg.name;
+        const groupTests = (pkg.tests || [])
+          .filter((tid: string) => addedTests.includes(tid))
+          .map((tid: string) => {
+            assignedTestIds.add(tid);
+            return testCatalog.individualTests[tid]?.name;
+          })
+          .filter(Boolean);
+        if (groupTests.length > 0) {
+          groupTestMap[groupName] = groupTests;
+          // Collect unique specimen info for this group
+          const specimens = new Set<string>();
+          (pkg.tests || [])
+            .filter((tid: string) => addedTests.includes(tid))
+            .forEach((tid: string) => {
+              const t = testCatalog.individualTests[tid];
+              if (t) {
+                const parts: string[] = [];
+                if (t.sampleType) parts.push(t.sampleType);
+                if (t.containerType) parts.push(t.containerType);
+                if (parts.length > 0) specimens.add(parts.join(" / "));
+              }
+            });
+          if (specimens.size > 0) {
+            groupSpecimenMap[groupName] = [...specimens].join(", ");
+          }
+        }
+      });
+      // Add tests not found in any package as "Individual Tests"
+      const individualOnly = addedTests.filter(tid => !assignedTestIds.has(tid));
+      if (individualOnly.length > 0) {
+        const indivNames = individualOnly.map(tid => testCatalog.individualTests[tid]?.name).filter(Boolean);
+        if (indivNames.length > 0) {
+          groupTestMap["Individual Tests"] = indivNames;
+          // Collect specimen info for individual tests
+          const specimens = new Set<string>();
+          individualOnly.forEach((tid: string) => {
+            const t = testCatalog.individualTests[tid];
+            if (t) {
+              const parts: string[] = [];
+              if (t.sampleType) parts.push(t.sampleType);
+              if (t.containerType) parts.push(t.containerType);
+              if (parts.length > 0) specimens.add(parts.join(" / "));
+            }
+          });
+          if (specimens.size > 0) {
+            groupSpecimenMap["Individual Tests"] = [...specimens].join(", ");
+          }
+        }
+      }
+      const groupedTestsStr = Object.entries(groupTestMap)
+        .map(([group, tests]) => `${group}[${tests.join(", ")}]`)
+        .join("; ");
+      // Encode per-group specimen info
+      const groupSpecimensStr = Object.entries(groupSpecimenMap)
+        .map(([group, spec]) => `${group}{${spec}}`)
+        .join("; ");
+      
+      // Use all group names from groupTestMap (excluding "Individual Tests") for package names
+      const allGroupNames = Object.keys(groupTestMap).filter(g => g !== "Individual Tests");
+      const allPackageNames = allGroupNames.length > 0 ? allGroupNames.join(", ") : packageNames;
+      
+      // Build specimen info string
+      const specimenParts: string[] = [];
+      if (formState.sampleType) specimenParts.push(formState.sampleType);
+      if (formState.containerType) specimenParts.push(formState.containerType);
+      if (formState.volume) specimenParts.push(`${formState.volume}${formState.volumeUnit ? ' ' + formState.volumeUnit : ''}`);
+      const specimenInfo = specimenParts.length > 0 ? specimenParts.join(" / ") : "";
+      
+      const description = `Test Group${allGroupNames.length > 1 ? 's' : ''}: ${allPackageNames} | Category: ${testCategory} | Laboratory: ${selectedLab?.name || labCategory} | Selected Tests (${selectedTestDetails.length}): ${testNames} | Grouped Tests: ${groupedTestsStr} | Group Specimens: ${groupSpecimensStr} | Specimen: ${specimenInfo} | Urgency: ${formState.urgency}`;
       
       const submissionData = {
         clinical_indication: formState.clinical_indication,
         urgency: formState.urgency,
         requesting_provider: formState.requesting_provider,
         receiving_provider: selectedLab?.name || labCategory,
-        narrative: formState.narrative || `${packageNames || "Laboratory tests"} ordered for ${formState.clinical_indication}`,
-        service_name: packageNames || "Laboratory Tests",
+        narrative: formState.narrative || `${allPackageNames || "Laboratory tests"} ordered for ${formState.clinical_indication}`,
+        service_name: allPackageNames || "Laboratory Tests",
         service_type_code: selectedPackageObjects.map(pkg => pkg.snomedCode).filter(Boolean).join(","),
         service_type_value: "Test Group",
         description: description,
@@ -593,9 +670,6 @@ export default function EnhancedLabOrderFormMultiple({
                                     Individual Test
                                   </span>
                                 )}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {pkg.description}
                               </p>
                               <p className="text-xs text-blue-600">
                                 {pkg.category} • {isVirtualTest ? "1 test" : `${pkg.tests.length} tests`}

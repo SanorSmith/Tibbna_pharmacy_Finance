@@ -659,6 +659,12 @@ export default function PatientDashboard({
               <EnhancedOrdersTab
                 workspaceid={workspaceid}
                 patientid={patient.patientid}
+                patientName={[patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' ')}
+                patientDob={patient.dateofbirth || undefined}
+                patientGender={patient.gender || undefined}
+                patientPhone={patient.phone || undefined}
+                patientNationalId={patient.nationalid || undefined}
+                patientAddress={patient.address || undefined}
               />
             )}
           </TabsContent>

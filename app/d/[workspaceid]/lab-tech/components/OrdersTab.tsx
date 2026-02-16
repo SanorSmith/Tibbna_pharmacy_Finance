@@ -9,11 +9,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSampleRecommendations, getRecommendationsByServiceName, resolveServiceToTestCodes, findRecommendation } from "@/lib/lims/test-recommendations";
+import { getSampleRecommendations, getRecommendationsByServiceName, findRecommendation } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { limsOrders } from "@/lib/db/tables/lims-order";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -59,7 +58,6 @@ import {
 import { getDialogClasses } from "@/lib/ui-constants";
 import {
   Search,
-  Download,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -314,6 +312,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     }
   }, [session]);
 
+
   // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -337,6 +336,54 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   });
 
   const patients = patientsData?.patients || [];
+
+  // Fetch test catalog from DB to get sampleType/containerType for all tests
+  const { data: testCatalogData } = useQuery({
+    queryKey: ["test-catalog", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/test-catalog?workspaceid=${workspaceid}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Build lookup: test name (lowercase) → { sampleType, containerType }
+  const testCatalogLookup = (() => {
+    const lookup: Record<string, { sampleType: string; containerType: string; testCode: string }> = {};
+    if (testCatalogData?.individualTests) {
+      Object.values(testCatalogData.individualTests).forEach((t: any) => {
+        if (t?.name) {
+          lookup[t.name.toLowerCase()] = {
+            sampleType: t.sampleType || t.material || "",
+            containerType: t.containerType || "",
+            testCode: t.code || t.id || "",
+          };
+        }
+      });
+    }
+    return lookup;
+  })();
+
+  // Resolve specimen info from DB catalog, falling back to static findRecommendation
+  const resolveSpecimenFromCatalog = (testCode?: string, testName?: string) => {
+    // Try catalog lookup by name first (most reliable for openEHR orders)
+    if (testName && testCatalogLookup[testName.toLowerCase()]) {
+      const cat = testCatalogLookup[testName.toLowerCase()];
+      return { sampleType: cat.sampleType, containerType: cat.containerType, testCode: cat.testCode };
+    }
+    // Try catalog lookup by code
+    if (testCode) {
+      const byCode = Object.values(testCatalogLookup).find(
+        (c: any) => c.testCode && c.testCode.toLowerCase() === testCode.toLowerCase()
+      );
+      if (byCode) return { sampleType: byCode.sampleType, containerType: byCode.containerType, testCode: byCode.testCode };
+    }
+    // Fallback to static recommendations
+    const rec = findRecommendation(testCode, testName);
+    if (rec) return { sampleType: rec.sampleType, containerType: rec.containerType, testCode: rec.testCode };
+    return null;
+  };
 
   // Fetch user session
   const { data: sessionData } = useQuery({
@@ -1327,28 +1374,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           key={rowKey}
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => {
-                            const orderToOpen = order;
-                            setSelectedOrder(orderToOpen);
+                            setSelectedOrder(order);
                             setCollectedSpecimenTypes({});
                             setCurrentCollectingSpecimen("");
-                            // Auto-select first test
-                            let firstTestKey: string | null = null;
-                            if (orderToOpen.tests?.length > 0) {
-                              const ft = orderToOpen.tests[0];
-                              firstTestKey = ft.testCode || ft.testcode || ft.code || ft.testName || ft.testname || null;
-                            } else if (orderToOpen.service_name || orderToOpen.description) {
-                              // openEHR orders: parse first test name from description or service_name
-                              const nameSource = orderToOpen.description || orderToOpen.service_name || "";
-                              const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/);
-                              const testNames = selectedTestsMatch
-                                ? selectedTestsMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean)
-                                : (orderToOpen.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
-                              if (testNames.length > 0) {
-                                const rec = findRecommendation(undefined, testNames[0]);
-                                firstTestKey = rec?.testCode || testNames[0];
-                              }
-                            }
-                            setSelectedTestForCollection(firstTestKey);
+                            // Reset selection - effectiveSelection in render will auto-select first test
+                            setSelectedTestForCollection(null);
                             setShowOrderDetail(true);
                           }}
                         >
@@ -1516,16 +1546,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
           {selectedOrder &&
             (() => {
-              // DEBUG: trace order data
-              console.log('[OrderDetail DEBUG] selectedOrder:', {
-                source: selectedOrder.source,
-                service_name: selectedOrder.service_name,
-                description: selectedOrder.description,
-                request_id: selectedOrder.request_id,
-                tests: selectedOrder.tests,
-                sampleRecommendations: selectedOrder.sampleRecommendations,
-              });
-
               // Calculate sample recommendations if not stored in order
               let computedRecommendations = null;
               if (
@@ -1540,34 +1560,31 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 // For openEHR orders, resolve service name to test codes (also parses Selected Tests from description)
                 computedRecommendations = getRecommendationsByServiceName(selectedOrder.service_name, selectedOrder.description);
               }
-              
-              console.log('[OrderDetail DEBUG] computedRecommendations:', computedRecommendations);
-
               // Use stored data or computed recommendations
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
               
-              // Resolve individual tests for display - enrich with recommendation data if missing
+              // Resolve individual tests for display - enrich with specimen data from DB catalog
               let resolvedTests: any[] = [];
               if (selectedOrder.tests && selectedOrder.tests.length > 0) {
                 // LIMS orders have tests but may lack specimen/container info
-                // Enrich using fuzzy matching (findRecommendation) which handles DB codes like "Toxoplasmosis-IgG" → TOXO
+                // Enrich using DB catalog lookup (covers all 427 tests), fallback to static recommendations
                 resolvedTests = selectedOrder.tests.map((t: any) => {
                   const code = t.testCode || t.testcode || t.code;
                   const name = t.testName || t.testname;
                   const existing = t.specimenType || t.specimentype || t.material;
-                  const rec = existing ? null : findRecommendation(code, name);
+                  const cat = existing ? null : resolveSpecimenFromCatalog(code, name);
                   return {
-                    ...t,
-                    specimenType: existing || (rec ? rec.sampleType : undefined),
-                    containerType: t.containerType || t.containertype || t.specimencontainer || (rec ? rec.containerType : undefined),
-                    specimenvolume: t.specimenvolume || t.volume || (rec ? `${rec.volume} ${rec.volumeUnit}` : undefined),
-                    fastingRequired: t.fastingRequired ?? (rec ? rec.fastingRequired : false),
+                    testCode: code || name,
+                    testName: name || code,
+                    specimenType: existing || (cat ? cat.sampleType : undefined),
+                    containerType: t.containerType || t.containertype || t.specimencontainer || (cat ? cat.containerType : undefined),
+                    specimenvolume: t.specimenvolume || t.volume,
+                    fastingRequired: t.fastingRequired ?? false,
                   };
                 });
               } else if (selectedOrder.source === "openEHR" && (selectedOrder.description || selectedOrder.service_name)) {
                 // OpenEHR orders: parse actual ordered tests from description/service_name
-                // This ensures ALL ordered tests are shown, not just ones matching TEST_REQUIREMENTS
                 const nameSource = selectedOrder.description || selectedOrder.service_name || "";
                 const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
                 const testNames = selectedTestsMatch
@@ -1576,18 +1593,16 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 
                 if (testNames.length > 0) {
                   resolvedTests = testNames.map((name: string) => {
-                    const rec = findRecommendation(undefined, name);
+                    const cat = resolveSpecimenFromCatalog(undefined, name);
                     return {
-                      testCode: rec?.testCode || name,
-                      testName: name, // Always show original ordered test name
-                      specimenType: rec?.sampleType,
-                      containerType: rec?.containerType,
-                      specimenvolume: rec ? `${rec.volume} ${rec.volumeUnit}` : undefined,
-                      fastingRequired: rec?.fastingRequired || false,
+                      testCode: cat?.testCode || name,
+                      testName: name,
+                      specimenType: cat?.sampleType,
+                      containerType: cat?.containerType,
+                      fastingRequired: false,
                     };
                   });
                 } else if (displayRecommendations?.recommendations?.length > 0) {
-                  // No parseable test names - fall back to matched recommendations
                   resolvedTests = displayRecommendations.recommendations.map((r: any) => ({
                     testCode: r.testCode,
                     testName: r.testName,
@@ -1598,7 +1613,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   }));
                 }
               } else if (displayRecommendations?.recommendations?.length > 0) {
-                // Non-openEHR orders with matched recommendations
                 resolvedTests = displayRecommendations.recommendations.map((r: any) => ({
                     testCode: r.testCode,
                     testName: r.testName,
@@ -1608,6 +1622,27 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     fastingRequired: r.fastingRequired,
                   }));
               }
+
+              // Auto-select first test if nothing is selected
+              if (resolvedTests.length > 0 && !selectedTestForCollection) {
+                const firstTest = resolvedTests[0];
+                const firstKey = firstTest.testCode || firstTest.testName || "test-0";
+                // Use setTimeout to avoid setState during render
+                setTimeout(() => setSelectedTestForCollection(firstKey), 0);
+              }
+
+              // Compute effective selection: use selectedTestForCollection if it matches a resolved test, otherwise use first test
+              const effectiveSelection = (() => {
+                if (resolvedTests.length === 0) return null;
+                const firstKey = resolvedTests[0].testCode || resolvedTests[0].testName || "test-0";
+                if (!selectedTestForCollection) return firstKey;
+                // Check if selectedTestForCollection matches any resolved test
+                const match = resolvedTests.find((t: any) => {
+                  const key = t.testCode || t.testName;
+                  return key === selectedTestForCollection;
+                });
+                return match ? selectedTestForCollection : firstKey;
+              })();
 
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
@@ -1720,12 +1755,12 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             {resolvedTests.map(
                               (test: any, idx: number) => {
                                 const testKey = test.testCode || test.testName || `test-${idx}`;
-                                const isSelected = selectedTestForCollection === testKey;
+                                const isSelected = effectiveSelection === testKey;
                                 return (
                                 <Tooltip key={idx}>
                                   <TooltipTrigger asChild>
                                     <div
-                                      onClick={() => setSelectedTestForCollection(isSelected ? null : testKey)}
+                                      onClick={() => setSelectedTestForCollection(testKey)}
                                       className={`flex w-full items-center gap-0.5 px-1.5 py-1 rounded border transition-colors text-left cursor-pointer ${
                                         isSelected
                                           ? 'bg-blue-100 border-blue-400 ring-1 ring-blue-300'
@@ -1901,9 +1936,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
                         // Find which specimen type the selected test belongs to
                         let filteredEntries = groupEntries;
-                        if (selectedTestForCollection) {
+                        if (effectiveSelection) {
                           const selectedTest = resolvedTests.find((t: any) =>
-                            (t.testCode || t.testName) === selectedTestForCollection
+                            (t.testCode || t.testName) === effectiveSelection
                           );
                           if (selectedTest) {
                             const selectedSpecimen = selectedTest.specimenType || selectedTest.specimentype || selectedTest.material || "Not specified";
@@ -1911,7 +1946,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           }
                         }
 
-                        if (!selectedTestForCollection) {
+                        if (!effectiveSelection) {
                           return (
                             <div className="flex flex-col items-center justify-center py-6 text-center text-gray-400">
                               <FlaskConical className="h-8 w-8 mb-2 opacity-50" />
@@ -1959,45 +1994,11 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                     <strong>Tests:</strong> {data.tests.map((t: any) => t.testName).join(", ")}
                                   </div>
 
-                                  {/* Collected sample info or Collect button */}
-                                  {isCollected ? (
+                                  {/* Collected sample info */}
+                                  {isCollected && (
                                     <div className="text-[10px] text-green-700 ml-5 bg-green-100 rounded px-2 py-1">
                                       Sample: <span className="font-mono font-medium">{collectedSpecimenTypes[specimen].sampleNumber}</span>
                                     </div>
-                                  ) : (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      className="w-full h-7 text-[11px] bg-green-600 hover:bg-green-700 text-white mt-1"
-                                      disabled={isCollecting || (createSampleMutation.isPending && currentCollectingSpecimen !== specimen) || isCancelled}
-                                      onClick={() => {
-                                        if (!selectedOrder) return;
-                                        setCurrentCollectingSpecimen(specimen);
-                                        const testsForSpecimen = data.tests;
-                                        const sampleData: SampleData = {
-                                          sampleNumber: sampleCollectionData.sampleNumber || undefined,
-                                          accessionNumber: sampleCollectionData.accessionNumber || undefined,
-                                          collectionDate: new Date(sampleCollectionData.collectionDate).toISOString(),
-                                          collectorName: sampleCollectionData.collectorName || undefined,
-                                          orderId: selectedOrder.orderid || selectedOrder.request_id || selectedOrder.composition_uid,
-                                          patientId: selectedOrder.subjectidentifier || undefined,
-                                          ehrId: selectedOrder.ehrid || undefined,
-                                          sampleType: specimen,
-                                          subjectIdentifier: selectedOrder.subjectidentifier || undefined,
-                                          workspaceId: workspaceid,
-                                          currentLocation: sampleCollectionData.currentLocation,
-                                          tests: testsForSpecimen.map((t: any) => t.testCode || t.testcode || t.testName || t) || [],
-                                          comments: sampleComments || undefined,
-                                        };
-                                        createSampleMutation.mutate(sampleData);
-                                      }}
-                                    >
-                                      {isCollecting ? (
-                                        <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Collecting...</>
-                                      ) : (
-                                        <><FlaskConical className="h-3 w-3 mr-1" /> Collect {specimen} Sample</>
-                                      )}
-                                    </Button>
                                   )}
                                 </div>
                               );
@@ -2010,12 +2011,13 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                 All specimen types collected successfully!
                               </div>
                             )}
+
                           </div>
                         );
                       })()}
 
                       {/* Shared collection fields - only show when a test is selected */}
-                      {selectedTestForCollection && <div className="space-y-2 mt-3 pt-2 border-t border-gray-200">
+                      {effectiveSelection && <div className="space-y-2 mt-3 pt-2 border-t border-gray-200">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label htmlFor="sampleNumberDetail" className="text-xs">Sample ID</Label>
@@ -2060,6 +2062,70 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             className="w-full mt-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                           />
                         </div>
+
+                        {/* Collect Sample Buttons */}
+                        {(() => {
+                          const isCancelled = openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED";
+                          if (isCancelled) return null;
+                          const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
+                            const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
+                            if (!acc[specimen]) acc[specimen] = { tests: [] as any[], containers: new Set<string>(), volumes: [] as string[] };
+                            acc[specimen].tests.push(test);
+                            return acc;
+                          }, {} as Record<string, { tests: any[]; containers: Set<string>; volumes: string[] }>);
+                          let entries = Object.entries(specimenGroups);
+                          if (effectiveSelection) {
+                            const selectedTest = resolvedTests.find((t: any) => (t.testCode || t.testName) === effectiveSelection);
+                            if (selectedTest) {
+                              const selectedSpecimen = selectedTest.specimenType || selectedTest.specimentype || selectedTest.material || "Not specified";
+                              entries = entries.filter(([specimen]) => specimen === selectedSpecimen);
+                            }
+                          }
+                          const uncollected = entries.filter(([specimen]) => !collectedSpecimenTypes[specimen]);
+                          if (uncollected.length === 0) return null;
+                          return (
+                            <div className="mt-3 space-y-2">
+                              {uncollected.map(([specimen, data]: [string, any]) => {
+                                const isCollecting = createSampleMutation.isPending && currentCollectingSpecimen === specimen;
+                                return (
+                                  <Button
+                                    key={specimen}
+                                    type="button"
+                                    size="sm"
+                                    className="w-full h-8 text-[11px] bg-green-600 hover:bg-green-700 text-white"
+                                    disabled={isCollecting || createSampleMutation.isPending}
+                                    onClick={() => {
+                                      if (!selectedOrder) return;
+                                      setCurrentCollectingSpecimen(specimen);
+                                      const sampleData: SampleData = {
+                                        sampleNumber: sampleCollectionData.sampleNumber || undefined,
+                                        accessionNumber: sampleCollectionData.accessionNumber || undefined,
+                                        collectionDate: new Date(sampleCollectionData.collectionDate).toISOString(),
+                                        collectorName: sampleCollectionData.collectorName || undefined,
+                                        orderId: selectedOrder.orderid || selectedOrder.request_id || selectedOrder.composition_uid,
+                                        patientId: selectedOrder.subjectidentifier || undefined,
+                                        ehrId: selectedOrder.ehrid || undefined,
+                                        sampleType: specimen,
+                                        subjectIdentifier: selectedOrder.subjectidentifier || undefined,
+                                        workspaceId: workspaceid,
+                                        currentLocation: sampleCollectionData.currentLocation,
+                                        tests: data.tests.map((t: any) => t.testCode || t.testcode || t.testName || t) || [],
+                                        comments: sampleComments || undefined,
+                                      };
+                                      createSampleMutation.mutate(sampleData);
+                                    }}
+                                  >
+                                    {isCollecting ? (
+                                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Collecting...</>
+                                    ) : (
+                                      <><FlaskConical className="h-3 w-3 mr-1" /> Collect {specimen}</>
+                                    )}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>}
 
                       {/* Show message if order is cancelled */}
@@ -2163,10 +2229,23 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
               const displayRecommendations =
                 selectedOrder.sampleRecommendations || computedRecommendations;
               
-              // Resolve tests for display - for openEHR, parse description to get ALL ordered tests
+              // Resolve tests for display - enrich with DB catalog specimen data
               let resolvedTests2: any[] = [];
               if (selectedOrder.tests && selectedOrder.tests.length > 0) {
-                resolvedTests2 = selectedOrder.tests;
+                // Enrich LIMS tests with specimen info from DB catalog
+                resolvedTests2 = selectedOrder.tests.map((t: any) => {
+                  const code = t.testCode || t.testcode || t.code;
+                  const name = t.testName || t.testname;
+                  const existing = t.specimenType || t.specimentype || t.material;
+                  const cat = existing ? null : resolveSpecimenFromCatalog(code, name);
+                  return {
+                    ...t,
+                    specimenType: existing || (cat ? cat.sampleType : undefined),
+                    containerType: t.containerType || t.containertype || t.specimencontainer || (cat ? cat.containerType : undefined),
+                    specimenvolume: t.specimenvolume || t.volume,
+                    fastingRequired: t.fastingRequired ?? false,
+                  };
+                });
               } else if (selectedOrder.source === "openEHR" && (selectedOrder.description || selectedOrder.service_name)) {
                 const nameSource = selectedOrder.description || selectedOrder.service_name || "";
                 const selectedTestsMatch = nameSource.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
@@ -2175,14 +2254,13 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                   : (selectedOrder.service_name || "").split(',').map((s: string) => s.trim()).filter(Boolean);
                 if (testNames.length > 0) {
                   resolvedTests2 = testNames.map((name: string) => {
-                    const rec = findRecommendation(undefined, name);
+                    const cat = resolveSpecimenFromCatalog(undefined, name);
                     return {
-                      testCode: rec?.testCode || name,
-                      testName: name, // Always show original ordered test name
-                      specimenType: rec?.sampleType,
-                      containerType: rec?.containerType,
-                      specimenvolume: rec ? `${rec.volume} ${rec.volumeUnit}` : undefined,
-                      fastingRequired: rec?.fastingRequired || false,
+                      testCode: cat?.testCode || name,
+                      testName: name,
+                      specimenType: cat?.sampleType,
+                      containerType: cat?.containerType,
+                      fastingRequired: false,
                     };
                   });
                 } else if (displayRecommendations?.recommendations?.length > 0) {
