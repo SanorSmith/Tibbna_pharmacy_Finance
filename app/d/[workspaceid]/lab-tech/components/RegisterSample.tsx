@@ -678,134 +678,143 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Sample Detail Dialog */}
       <Dialog open={showSampleDetail} onOpenChange={setShowSampleDetail}>
-        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Sample Details</DialogTitle>
-            <DialogDescription>
-              Complete information about the accessioned sample
-            </DialogDescription>
+        <DialogContent className="max-w-lg">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-blue-600" />
+              Sample Details
+            </DialogTitle>
           </DialogHeader>
 
           {selectedSample && (
-            <div className="space-y-6">
-              {/* Sample Information */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-sm mb-3">Sample Information</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Sample Number:</span>
-                        <span className="font-mono font-medium">{selectedSample.samplenumber}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Sample Type:</span>
-                        <span className="capitalize">{selectedSample.sampletype}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Container:</span>
-                        <span>{selectedSample.containertype}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Status:</span>
-                        {getStatusBadge(selectedSample.currentstatus)}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">TAT Elapsed:</span>
-                        {(() => {
-                          const completedStatuses = ["ANALYZED", "DISPOSED"];
-                          const isComplete = completedStatuses.includes(selectedSample.currentstatus);
-                          const tat = calculateTAT(
-                            selectedSample.collectiondate,
-                            isComplete ? selectedSample.accessionedat : null,
-                            "ROUTINE"
-                          );
-                          return (
-                            <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
-                              <Clock className="h-3 w-3 mr-1" />
-                              {tat.elapsedDisplay}
-                              {tat.status !== "completed" && ` (${tat.percentUsed}% of ${tat.expectedDisplay})`}
-                            </Badge>
-                          );
-                        })()}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Barcode:</span>
-                        <span className="font-mono text-xs">{selectedSample.barcode}</span>
-                      </div>
+            <div className="space-y-3">
+              {/* Compact two-column info */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Sample Info */}
+                <div className="bg-gray-50 rounded p-2.5 space-y-1.5">
+                  <h3 className="font-semibold text-[10px] text-gray-500 uppercase tracking-wide">Sample</h3>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Number:</span>
+                      <span className="font-mono font-medium">{selectedSample.samplenumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Type:</span>
+                      <span className="capitalize">{selectedSample.sampletype}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Container:</span>
+                      <span>{selectedSample.containertype || "-"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Status:</span>
+                      {getStatusBadge(selectedSample.currentstatus)}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">TAT:</span>
+                      {(() => {
+                        const completedStatuses = ["ANALYZED", "DISPOSED"];
+                        const isComplete = completedStatuses.includes(selectedSample.currentstatus);
+                        const tat = calculateTAT(
+                          selectedSample.collectiondate,
+                          isComplete ? selectedSample.accessionedat : null,
+                          "ROUTINE"
+                        );
+                        return (
+                          <Badge variant="outline" className={`text-[9px] px-1 py-0 font-medium ${getTATStatusColor(tat.status)}`}>
+                            <Clock className="h-2.5 w-2.5 mr-0.5" />
+                            {tat.elapsedDisplay}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-sm mb-3">Patient & Order</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Patient Name:</span>
-                        <span className="font-medium">{selectedSample.patientname || "-"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Patient ID:</span>
-                        <span className="font-mono text-xs">{selectedSample.patientid || "-"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Order ID:</span>
-                        <span className="font-mono text-xs">{selectedSample.orderid}</span>
-                      </div>
+                {/* Patient & Order Info */}
+                <div className="bg-gray-50 rounded p-2.5 space-y-1.5">
+                  <h3 className="font-semibold text-[10px] text-gray-500 uppercase tracking-wide">Patient & Order</h3>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Patient:</span>
+                      <span className="font-medium">{selectedSample.patientname || "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Patient ID:</span>
+                      <span className="font-mono text-[10px]">{selectedSample.patientid ? selectedSample.patientid.substring(0, 8) + "..." : "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Order ID:</span>
+                      <span className="font-mono text-[10px]">{selectedSample.orderid ? (selectedSample.orderid.length > 12 ? selectedSample.orderid.substring(0, 12) + "..." : selectedSample.orderid) : "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Collected:</span>
+                      <span className="text-[10px]">{new Date(selectedSample.collectiondate).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Accessioned:</span>
+                      <span className="text-[10px]">{new Date(selectedSample.accessionedat).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Collection Information */}
-              <div>
-                <h3 className="font-semibold text-sm mb-3">Collection Information</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Collection Date:</span>
-                    <span>{new Date(selectedSample.collectiondate).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Accessioned:</span>
-                    <span>{new Date(selectedSample.accessionedat).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
+              {/* Barcode row */}
+              <div className="text-[10px] text-gray-400 font-mono text-center">{selectedSample.barcode}</div>
 
               {/* Action Buttons */}
-              <div className="border-t pt-4">
-                <h3 className="font-semibold text-sm mb-3">Actions</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => {
-                      setShowStorageDialog(true);
-                      setShowSampleDetail(false);
-                    }}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Move to Storage
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => {
-                      setShowSampleDetail(false);
-                      setShowWorklistDialog(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add to Worklist
-                  </Button>
-                </div>
+              <div className="border-t pt-2.5 grid grid-cols-3 gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full text-xs h-8"
+                  onClick={() => {
+                    setShowStorageDialog(true);
+                    setShowSampleDetail(false);
+                  }}
+                >
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Storage
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full text-xs h-8"
+                  onClick={() => {
+                    setShowSampleDetail(false);
+                    setShowWorklistDialog(true);
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Worklist
+                </Button>
+                <Button 
+                  size="sm"
+                  className="w-full text-xs h-8 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => {
+                    setResultEntrySample({
+                      sampleid: selectedSample.sampleid,
+                      samplenumber: selectedSample.samplenumber,
+                      sampletype: selectedSample.sampletype,
+                      containertype: selectedSample.containertype,
+                      patientname: selectedSample.patientname,
+                      patientid: selectedSample.patientid,
+                      orderid: selectedSample.orderid,
+                      tests: selectedSample.tests,
+                    });
+                    setShowSampleDetail(false);
+                    setShowResultEntryModal(true);
+                  }}
+                >
+                  <FlaskConical className="h-3 w-3 mr-1" />
+                  Add Results
+                </Button>
               </div>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSampleDetail(false)}>Close</Button>
+          <DialogFooter className="pt-0">
+            <Button variant="outline" size="sm" onClick={() => setShowSampleDetail(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
