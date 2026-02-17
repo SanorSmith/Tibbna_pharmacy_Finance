@@ -603,7 +603,7 @@ export default function EnhancedOrdersTab({
                         } hover:bg-muted/50 transition-colors`}
                       >
                         <td className="p-3">
-                          <span className="text-xs font-mono font-semibold text-gray-700 break-all">
+                          <span className="text-sm font-normal text-gray-700 break-all">
                             {order.request_id ||
                               order.composition_uid?.substring(0, 20) ||
                               "—"}
@@ -612,7 +612,7 @@ export default function EnhancedOrdersTab({
                         <td className="p-3">
                           <div className="flex items-center gap-2">
                             <div>
-                              <div className="font-normal">
+                              <div className=" tex-sm font-normal">
                                 {(() => {
                                   const desc = order.description || "";
                                   const selectedTestsMatch = desc.match(
@@ -1410,12 +1410,7 @@ export default function EnhancedOrdersTab({
                   patientAddress: patientAddress,
                   patientPhone: patientPhone,
                   patientId: patientid,
-                  // Tests with specimen info from catalog
-                  tests:
-                    testsWithSpecimen.length > 0
-                      ? testsWithSpecimen
-                      : undefined,
-                });
+                                  });
                 const printWindow = window.open("", "_blank");
                 if (printWindow) {
                   printWindow.document.write(html);
