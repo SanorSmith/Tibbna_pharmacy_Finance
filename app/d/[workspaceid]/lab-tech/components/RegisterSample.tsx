@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,7 +120,7 @@ interface AccessionedSample {
 }
 
 // Component to display tests for a sample
-function SampleTestsDisplay({ sampleId }: { sampleId: string }) {
+function SampleTestsDisplay({ sampleId, onSpecimenInfo }: { sampleId: string; onSpecimenInfo?: (info: { sampletype: string | null; containertype: string | null }) => void }) {
   const { data: sampleData, isLoading } = useQuery({
     queryKey: ["sample-tests", sampleId],
     queryFn: async () => {
@@ -129,6 +129,18 @@ function SampleTestsDisplay({ sampleId }: { sampleId: string }) {
       return response.json();
     },
   });
+
+  // Report specimen info back to parent from first test that has it
+  const reportedRef = useRef(false);
+  useEffect(() => {
+    if (!sampleData?.results || reportedRef.current) return;
+    const tests = sampleData.results as any[];
+    const first = tests.find((t: any) => t.sampletype || t.containertype);
+    if (first && onSpecimenInfo) {
+      reportedRef.current = true;
+      onSpecimenInfo({ sampletype: first.sampletype || null, containertype: first.containertype || null });
+    }
+  }, [sampleData, onSpecimenInfo]);
 
   if (isLoading) {
     return <div className="text-xs text-muted-foreground">Loading tests...</div>;
@@ -147,17 +159,18 @@ function SampleTestsDisplay({ sampleId }: { sampleId: string }) {
     return acc;
   }, {});
 
+  const categories = Object.entries(testsByCategory);
   return (
-    <div className="space-y-3">
-      {Object.entries(testsByCategory).map(([category, tests]) => (
-        <div key={category} className="border rounded p-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">{category}</h4>
-          <div className="grid grid-cols-2 gap-2">
+    <div className={`grid gap-2 ${categories.length >= 3 ? 'grid-cols-3' : categories.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      {categories.map(([category, tests]) => (
+        <div key={category} className="border rounded px-2 py-1.5">
+          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{category}</h4>
+          <div className="space-y-0.5">
             {tests.map((test: any, index: number) => (
-              <div key={index} className="text-xs p-1.5 bg-gray-50 rounded">
-                <div className="font-medium">{test.testname}</div>
+              <div key={index} className="text-xs px-1.5 py-1 bg-gray-50 rounded">
+                <span className="font-medium">{test.testname}</span>
                 {test.testcode && (
-                  <div className="text-[10px] text-muted-foreground font-mono">{test.testcode}</div>
+                  <span className="text-[10px] text-muted-foreground font-mono ml-1">{test.testcode}</span>
                 )}
               </div>
             ))}
@@ -174,6 +187,8 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showSampleDetail, setShowSampleDetail] = useState(false);
   const [selectedSample, setSelectedSample] = useState<AccessionedSample | null>(null);
+  const [testSpecimenInfo, setTestSpecimenInfo] = useState<{ sampletype: string | null; containertype: string | null } | null>(null);
+  const handleSpecimenInfo = useCallback((info: { sampletype: string | null; containertype: string | null }) => setTestSpecimenInfo(info), []);
   const [showStorageDialog, setShowStorageDialog] = useState(false);
   const [storageLocation, setStorageLocation] = useState('');
   const [showWorklistDialog, setShowWorklistDialog] = useState(false);
@@ -615,6 +630,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                             className="cursor-pointer hover:bg-gray-50"
                             onClick={() => {
                               setSelectedSample(sample);
+                              setTestSpecimenInfo(null);
                               setShowSampleDetail(true);
                             }}
                           >
@@ -732,10 +748,10 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
           </DialogHeader>
 
           {selectedSample && (
-            <div className="space-y-4 py-2">
-              {/* Patient & Sample Card - matches Order Details format */}
-              <div className="border rounded-lg p-4">
-                <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2 py-1">
+              {/* Patient & Sample Card - compact */}
+              <div className="border rounded-lg p-3">
+                <div className="grid grid-cols-2 gap-4">
                   {/* Left: Patient Info */}
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -768,31 +784,35 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   </div>
 
                   {/* Right: Sample & Order Info */}
-                  <div className="border-l pl-6">
-                    <div className="text-xs">
-                      <span className="text-muted-foreground uppercase text-[10px] font-semibold">Sample Type/Container</span>
-                      <div className="font-medium capitalize">{selectedSample.sampletype}{selectedSample.containertype ? ` / ${selectedSample.containertype}` : ""}</div>
+                  <div className="border-l pl-4">
+                    <div className="text-xs space-y-1">
+                      <div>
+                        <span className="text-muted-foreground uppercase text-[10px] font-semibold">Sample Type</span>
+                        <div className="font-medium capitalize">{selectedSample.sampletype || testSpecimenInfo?.sampletype || "-"}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground uppercase text-[10px] font-semibold">Container</span>
+                        <div className="font-medium capitalize">{selectedSample.containertype || testSpecimenInfo?.containertype || "-"}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Tests Card */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Tests</h3>
-                <SampleTestsDisplay sampleId={selectedSample.sampleid} />
+              <div className="border rounded-lg p-3">
+                <h3 className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Tests</h3>
+                <SampleTestsDisplay sampleId={selectedSample.sampleid} onSpecimenInfo={handleSpecimenInfo} />
               </div>
 
-              {/* Sample Information Card */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Sample Information</h3>
-                <div className="text-sm space-y-1">
-                  <div className="font-mono text-xs">{selectedSample.barcode}</div>
-                  {selectedSample.accessionnumber && (
-                    <div className="text-xs text-muted-foreground">Accession: {selectedSample.accessionnumber}</div>
-                  )}
-                  <div className="text-xs text-muted-foreground">Accessioned: {new Date(selectedSample.accessionedat).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-                </div>
+              {/* Sample Information - inline compact */}
+              <div className="border rounded-lg px-3 py-2 flex items-center gap-4 text-xs">
+                <span className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Sample</span>
+                <span className="font-mono text-[11px]">{selectedSample.barcode}</span>
+                {selectedSample.accessionnumber && (
+                  <span className="text-muted-foreground">Accession: {selectedSample.accessionnumber}</span>
+                )}
+                <span className="text-muted-foreground">Accessioned: {new Date(selectedSample.accessionedat).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </div>
 
 

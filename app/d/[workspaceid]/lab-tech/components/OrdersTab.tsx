@@ -7,7 +7,7 @@
  * - openEHR integration
  */
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSampleRecommendations, getRecommendationsByServiceName, findRecommendation } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -711,70 +711,55 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
   const orders: LimsOrder[] = data?.orders || [];
 
-  // Fetch computed statuses for all OpenEHR orders when orders list changes
+  // Fetch computed statuses for all OpenEHR orders in a single batch request
+  const batchStatusFetchedRef = useRef<string>("");
   useEffect(() => {
-    if (orders && orders.length > 0) {
-      const fetchAllOpenEHRStatuses = async () => {
-        const statusMap = new Map<string, string>();
-        const openEHROrders = orders.filter(
-          (o: LimsOrder) => o.source === "openEHR"
+    if (!orders || orders.length === 0) return;
+
+    const openEHROrders = orders.filter(
+      (o: LimsOrder) => o.source === "openEHR"
+    );
+    const requestIds = openEHROrders
+      .map((o) => o.request_id || o.openehrrequestid)
+      .filter(Boolean) as string[];
+
+    if (requestIds.length === 0) return;
+
+    // Prevent re-fetching for the same set of orders
+    const key = requestIds.sort().join(",");
+    if (batchStatusFetchedRef.current === key) return;
+    batchStatusFetchedRef.current = key;
+
+    const fetchBatchStatuses = async () => {
+      try {
+        const response = await fetch(
+          `/api/d/${workspaceid}/openehr-orders/batch-status`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ requestIds }),
+            signal: AbortSignal.timeout(10000),
+          }
         );
 
-        // Fetch statuses in parallel with error handling
-        const statusPromises = openEHROrders.map(async (order) => {
-          const requestId = order.request_id || order.openehrrequestid;
-          if (!requestId) return null;
-
-          try {
-            const response = await fetch(
-              `/api/d/${workspaceid}/openehr-orders/${requestId}/status`,
-              {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                // Add timeout to prevent hanging requests
-                signal: AbortSignal.timeout(5000),
-              }
-            );
-            
-            if (response.ok) {
-              const data = await response.json();
-              return { requestId, status: data.status };
-            } else {
-              console.warn(`Status API returned ${response.status} for ${requestId}`);
-              return null;
-            }
-          } catch (error) {
-            // Silently handle errors to prevent console spam
-            if (error instanceof Error && error.name === 'AbortError') {
-              console.warn(`Timeout fetching status for ${requestId}`);
-            } else {
-              // Quiet error logging - only in development
-              if (process.env.NODE_ENV === 'development') {
-                console.warn(`Status fetch failed for ${requestId}:`, error);
-              }
-            }
-            return null;
+        if (response.ok) {
+          const data = await response.json();
+          const statusMap = new Map<string, string>();
+          if (data.statuses) {
+            Object.entries(data.statuses).forEach(([id, status]) => {
+              statusMap.set(id, status as string);
+            });
           }
-        });
+          setOpenEHROrderStatuses(statusMap);
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Batch status fetch failed:", error);
+        }
+      }
+    };
 
-        // Wait for all status fetches to complete
-        const results = await Promise.allSettled(statusPromises);
-        
-        // Process successful results
-        results.forEach((result) => {
-          if (result.status === 'fulfilled' && result.value) {
-            const { requestId, status } = result.value;
-            statusMap.set(requestId, status);
-          }
-        });
-
-        setOpenEHROrderStatuses(statusMap);
-      };
-
-      fetchAllOpenEHRStatuses();
-    }
+    fetchBatchStatuses();
   }, [orders, workspaceid]);
 
   // First filter by search and status, then group by test to show only latest
