@@ -19,11 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+
 import { Badge } from "@/components/ui/badge";
 import { Package, TestTube, Building2, X, ChevronsUpDown, Loader2, Plus, ClipboardList, Trash2 } from "lucide-react";
 
@@ -145,6 +141,7 @@ export default function EnhancedLabOrderFormMultiple({
   const [addedTests, setAddedTests] = useState<string[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
   const [packageSearchTerm, setPackageSearchTerm] = useState("");
+  const [packageDropdownOpen, setPackageDropdownOpen] = useState(false);
   const [testCatalog, setTestCatalog] = useState<{
     testPackages: Record<string, any>;
     individualTests: Record<string, any>;
@@ -572,119 +569,122 @@ export default function EnhancedLabOrderFormMultiple({
               <p className="text-sm text-muted-foreground">Select a laboratory first</p>
             ) : (
               <>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between h-auto min-h-[40px]"
-                  >
-                    <div className="flex flex-wrap gap-1 flex-1">
-                      {(formState.selectedPackages || []).length === 0 ? (
-                        <span className="text-muted-foreground">Select test groups...</span>
-                      ) : (
-                        (formState.selectedPackages || []).map((packageId) => {
-                          const pkg = testCatalog.testPackages[packageId];
-                          return pkg ? (
-                            <Badge
-                              key={packageId}
-                              variant="secondary"
-                              className="mr-1"
-                            >
-                              {pkg.name}
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    togglePackage(packageId);
-                                  }
-                                }}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                onClick={(e) => {
+              <div className="relative">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between h-auto min-h-[40px]"
+                  onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
+                >
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {(formState.selectedPackages || []).length === 0 ? (
+                      <span className="text-muted-foreground">Select test groups...</span>
+                    ) : (
+                      (formState.selectedPackages || []).map((packageId) => {
+                        const pkg = testCatalog.testPackages[packageId];
+                        return pkg ? (
+                          <Badge
+                            key={packageId}
+                            variant="secondary"
+                            className="mr-1"
+                          >
+                            {pkg.name}
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   togglePackage(packageId);
-                                }}
-                                aria-label={`Remove ${pkg.name}`}
-                                title={`Remove ${pkg.name}`}
-                              >
-                                <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                              </span>
-                            </Badge>
-                          ) : null;
-                        })
-                      )}
-                    </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <div className="p-3 border-b">
-                    <input
-                      type="text"
-                      placeholder="Search test groups or individual tests..."
-                      value={packageSearchTerm}
-                      onChange={(e) => setPackageSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-64 overflow-y-auto p-1">
-                    {filteredPackages.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        {packageSearchTerm ? "No test groups or tests found" : "No test groups available"}
-                      </div>
-                    ) : (
-                      filteredPackages.map((pkg) => {
-                        const isVirtualTest = pkg.isVirtualTest;
-                        const isSelected = isVirtualTest 
-                          ? formState.selectedTests.includes(pkg.tests[0])
-                          : (formState.selectedPackages || []).includes(pkg.id);
-                        
-                        return (
-                          <div
-                            key={pkg.id}
-                            className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
-                              isSelected ? 'bg-accent' : ''
-                            }`}
-                            onClick={() => togglePackage(pkg.id)}
-                          >
-                            <div className="flex h-5 items-center">
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => togglePackage(pkg.id)}
-                              />
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <p className="text-sm font-medium leading-none">
-                                {pkg.name}
-                                {isVirtualTest && (
-                                  <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
-                                    Individual Test
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-blue-600">
-                                {pkg.category} • {isVirtualTest ? "1 test" : `${pkg.tests.length} tests`}
-                                {isVirtualTest && pkg.originalTest?.code && (
-                                  <span className="ml-1 font-mono">({pkg.originalTest.code})</span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        );
+                                }
+                              }}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                togglePackage(packageId);
+                              }}
+                              aria-label={`Remove ${pkg.name}`}
+                              title={`Remove ${pkg.name}`}
+                            >
+                              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                            </span>
+                          </Badge>
+                        ) : null;
                       })
                     )}
                   </div>
-                </PopoverContent>
-              </Popover>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+
+                {packageDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md">
+                    <div className="p-3 border-b">
+                      <input
+                        type="text"
+                        placeholder="Search test groups or individual tests..."
+                        value={packageSearchTerm}
+                        onChange={(e) => setPackageSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto p-1">
+                      {filteredPackages.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          {packageSearchTerm ? "No test groups or tests found" : "No test groups available"}
+                        </div>
+                      ) : (
+                        filteredPackages.map((pkg) => {
+                          const isVirtualTest = pkg.isVirtualTest;
+                          const isSelected = isVirtualTest 
+                            ? formState.selectedTests.includes(pkg.tests[0])
+                            : (formState.selectedPackages || []).includes(pkg.id);
+                          
+                          return (
+                            <div
+                              key={pkg.id}
+                              className={`flex items-start gap-2 p-2 rounded-sm cursor-pointer hover:bg-accent ${
+                                isSelected ? 'bg-accent' : ''
+                              }`}
+                              onClick={() => togglePackage(pkg.id)}
+                            >
+                              <div className="flex h-5 items-center">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => togglePackage(pkg.id)}
+                                  className="cursor-pointer"
+                                />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <p className="text-sm font-medium leading-none">
+                                  {pkg.name}
+                                  {isVirtualTest && (
+                                    <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                                      Individual Test
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-blue-600">
+                                  {pkg.category} • {isVirtualTest ? "1 test" : `${pkg.tests.length} tests`}
+                                  {isVirtualTest && pkg.originalTest?.code && (
+                                    <span className="ml-1 font-mono">({pkg.originalTest.code})</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {(formState.selectedPackages || []).length > 0 && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-md text-sm">
