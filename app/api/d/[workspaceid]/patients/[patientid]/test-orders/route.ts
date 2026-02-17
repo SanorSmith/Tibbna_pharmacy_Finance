@@ -215,7 +215,7 @@ export async function POST(
     ] = eventTime;
     compositionData[
       "template_clinical_encounter_v1/service_request/request_id"
-    ] = `testreq-${Date.now()}`;
+    ] = `OrderId-${Date.now()}`;
 
     // Enhanced narrative with package/individual test info and target lab
     const enhancedNarrative =

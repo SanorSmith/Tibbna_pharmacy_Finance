@@ -163,7 +163,7 @@ export async function POST(
                 "|archetype_node_id": "openEHR-EHR-ELEMENT.request_id.v1",
                 "|name": "Request ID",
                 "value": {
-                  "|value": `testreq-${Date.now()}`
+                  "|value": `OrderId-${Date.now()}`
                 }
               }
             ]
@@ -182,7 +182,7 @@ export async function POST(
       success: true,
       message: "Lab order created successfully",
       compositionId: result,
-      requestId: `testreq-${Date.now()}`
+      requestId: `OrderId-${Date.now()}`
     });
   } catch (error) {
     console.error("Error creating lab order:", error);
