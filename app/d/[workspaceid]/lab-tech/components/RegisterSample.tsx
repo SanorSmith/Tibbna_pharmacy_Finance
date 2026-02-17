@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock, FlaskConical } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock } from "lucide-react";
 import { calculateTAT, getTATStatusColor, getTATStatusLabel, formatDuration } from "@/lib/lims/tat-tracking";
 import BarcodePrint from "./BarcodePrint";
-import WorklistValidationModal from "./WorklistValidationModal";
 import { getDialogClasses } from "@/lib/ui-constants";
 
 // Storage Location interface
@@ -120,19 +119,81 @@ interface AccessionedSample {
   labcategory?: string | null;
 }
 
+// Component to display tests for a sample
+function SampleTestsDisplay({ sampleId, onSpecimenInfo }: { sampleId: string; onSpecimenInfo?: (info: { sampletype: string | null; containertype: string | null }) => void }) {
+  const { data: sampleData, isLoading } = useQuery({
+    queryKey: ["sample-tests", sampleId],
+    queryFn: async () => {
+      const response = await fetch(`/api/lims/samples/${sampleId}`);
+      if (!response.ok) throw new Error("Failed to fetch sample");
+      return response.json();
+    },
+  });
+
+  // Report specimen info back to parent from first test that has it
+  const reportedRef = useRef(false);
+  useEffect(() => {
+    if (!sampleData?.results || reportedRef.current) return;
+    const tests = sampleData.results as any[];
+    const first = tests.find((t: any) => t.sampletype || t.containertype);
+    if (first && onSpecimenInfo) {
+      reportedRef.current = true;
+      onSpecimenInfo({ sampletype: first.sampletype || null, containertype: first.containertype || null });
+    }
+  }, [sampleData, onSpecimenInfo]);
+
+  if (isLoading) {
+    return <div className="text-xs text-muted-foreground">Loading tests...</div>;
+  }
+
+  const tests = sampleData?.results || [];
+  if (!tests || tests.length === 0) {
+    return <div className="text-xs text-muted-foreground">No tests found</div>;
+  }
+
+  // Group tests by category
+  const testsByCategory = (tests as any[]).reduce((acc: Record<string, any[]>, test: any) => {
+    const category = test.testcategory || "Uncategorized";
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(test);
+    return acc;
+  }, {});
+
+  const categories = Object.entries(testsByCategory);
+  return (
+    <div className={`grid gap-2 ${categories.length >= 3 ? 'grid-cols-3' : categories.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      {categories.map(([category, tests]) => (
+        <div key={category} className="border rounded px-2 py-1.5">
+          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{category}</h4>
+          <div className="space-y-0.5">
+            {tests.map((test: any, index: number) => (
+              <div key={index} className="text-xs px-1.5 py-1 bg-gray-50 rounded">
+                <span className="font-medium">{test.testname}</span>
+                {test.testcode && (
+                  <span className="text-[10px] text-muted-foreground font-mono ml-1">{test.testcode}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const queryClient = useQueryClient();
   const [_showAccessionForm, setShowAccessionForm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showSampleDetail, setShowSampleDetail] = useState(false);
   const [selectedSample, setSelectedSample] = useState<AccessionedSample | null>(null);
+  const [testSpecimenInfo, setTestSpecimenInfo] = useState<{ sampletype: string | null; containertype: string | null } | null>(null);
+  const handleSpecimenInfo = useCallback((info: { sampletype: string | null; containertype: string | null }) => setTestSpecimenInfo(info), []);
   const [showStorageDialog, setShowStorageDialog] = useState(false);
   const [storageLocation, setStorageLocation] = useState('');
   const [showWorklistDialog, setShowWorklistDialog] = useState(false);
   const [showCreateWorklistDialog, setShowCreateWorklistDialog] = useState(false);
   const [showBarcodePrintDialog, setShowBarcodePrintDialog] = useState(false);
-  const [showResultEntryModal, setShowResultEntryModal] = useState(false);
-  const [resultEntrySample, setResultEntrySample] = useState<any>(null);
   
   // Alert dialog states
   const [alertDialog, setAlertDialog] = useState<{
@@ -569,6 +630,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                             className="cursor-pointer hover:bg-gray-50"
                             onClick={() => {
                               setSelectedSample(sample);
+                              setTestSpecimenInfo(null);
                               setShowSampleDetail(true);
                             }}
                           >
@@ -686,10 +748,10 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
           </DialogHeader>
 
           {selectedSample && (
-            <div className="space-y-4 py-2">
-              {/* Patient & Sample Card - matches Order Details format */}
-              <div className="border rounded-lg p-4">
-                <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2 py-1">
+              {/* Patient & Sample Card - compact */}
+              <div className="border rounded-lg p-3">
+                <div className="grid grid-cols-2 gap-4">
                   {/* Left: Patient Info */}
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -722,31 +784,35 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   </div>
 
                   {/* Right: Sample & Order Info */}
-                  <div className="border-l pl-6">
-                    <div className="grid grid-cols-2 gap-x-4 text-xs">
+                  <div className="border-l pl-4">
+                    <div className="text-xs space-y-1">
                       <div>
                         <span className="text-muted-foreground uppercase text-[10px] font-semibold">Sample Type</span>
-                        <div className="font-medium capitalize">{selectedSample.sampletype}</div>
+                        <div className="font-medium capitalize">{selectedSample.sampletype || testSpecimenInfo?.sampletype || "-"}</div>
                       </div>
                       <div>
                         <span className="text-muted-foreground uppercase text-[10px] font-semibold">Container</span>
-                        <div className="font-medium">{selectedSample.containertype || "-"}</div>
+                        <div className="font-medium capitalize">{selectedSample.containertype || testSpecimenInfo?.containertype || "-"}</div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Sample Information Card */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Sample Information</h3>
-                <div className="text-sm space-y-1">
-                  <div className="font-mono text-xs">{selectedSample.barcode}</div>
-                  {selectedSample.accessionnumber && (
-                    <div className="text-xs text-muted-foreground">Accession: {selectedSample.accessionnumber}</div>
-                  )}
-                  <div className="text-xs text-muted-foreground">Accessioned: {new Date(selectedSample.accessionedat).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-                </div>
+              {/* Tests Card */}
+              <div className="border rounded-lg p-3">
+                <h3 className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Tests</h3>
+                <SampleTestsDisplay sampleId={selectedSample.sampleid} onSpecimenInfo={handleSpecimenInfo} />
+              </div>
+
+              {/* Sample Information - inline compact */}
+              <div className="border rounded-lg px-3 py-2 flex items-center gap-4 text-xs">
+                <span className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Sample</span>
+                <span className="font-mono text-[11px]">{selectedSample.barcode}</span>
+                {selectedSample.accessionnumber && (
+                  <span className="text-muted-foreground">Accession: {selectedSample.accessionnumber}</span>
+                )}
+                <span className="text-muted-foreground">Accessioned: {new Date(selectedSample.accessionedat).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </div>
 
 
@@ -773,36 +839,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Worklist
-                </Button>
-                <Button 
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => {
-                    setResultEntrySample({
-                      worklistitemid: `direct-${selectedSample.sampleid}`,
-                      sampleid: selectedSample.sampleid,
-                      sample: {
-                        sampleid: selectedSample.sampleid,
-                        samplenumber: selectedSample.samplenumber,
-                        sampletype: selectedSample.sampletype,
-                        collectiondate: selectedSample.collectiondate,
-                      },
-                      patient: selectedSample.patientid ? {
-                        patientid: selectedSample.patientid,
-                        firstname: selectedSample.patientname?.split(" ")[0] || "",
-                        lastname: selectedSample.patientname?.split(" ").slice(1).join(" ") || "",
-                        dateofbirth: "",
-                        gender: selectedSample.patientsex || "",
-                        age: selectedSample.patientage || 0,
-                      } : null,
-                      results: [],
-                    });
-                    setShowSampleDetail(false);
-                    setShowResultEntryModal(true);
-                  }}
-                >
-                  <FlaskConical className="h-4 w-4 mr-2" />
-                  Add Results
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowSampleDetail(false)}>Close</Button>
               </div>
@@ -1109,15 +1145,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Result Entry Modal - opens WorklistValidationModal for direct result entry from sample list */}
-      <WorklistValidationModal
-        workspaceid={workspaceid}
-        worklistid={null}
-        selectedSample={resultEntrySample}
-        open={showResultEntryModal}
-        onOpenChange={setShowResultEntryModal}
-      />
     </div>
   );
 }

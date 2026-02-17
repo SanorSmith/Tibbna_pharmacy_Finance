@@ -249,7 +249,7 @@ export function generateLabOrderHTML(data: LabOrderData): string {
   }
 
   // FROM / TO info
-  const fromName = data.requestingProvider || "—";
+  const doctorName = data.requestingProvider || "—";
   const fromHospital = data.hospitalName || data.facilityName || "";
   const fromAddress = data.hospitalAddress || "";
   const fromPhone = data.hospitalPhone || "";
@@ -426,7 +426,7 @@ export function generateLabOrderHTML(data: LabOrderData): string {
 
 <body>
   <div class="page">
-    <div class="vertical-lab">KAROLINSKA UNIVERSITY LABORATORY</div>
+    <div class="vertical-lab">${escapeHtml(fromHospital || "LABORATORY")}</div>
 
     <div class="controls">
       <button class="btn" onclick="window.print()">Print</button>
@@ -440,11 +440,10 @@ export function generateLabOrderHTML(data: LabOrderData): string {
           <div class="line">
             <span class="label">FROM</span>
             <div class="content">
-              <div><strong>${escapeHtml(fromName)}</strong></div>
-              ${fromHospital ? `<div>${escapeHtml(fromHospital)}</div>` : ``}
+              ${fromHospital ? `<div><strong>${escapeHtml(fromHospital)}</strong></div>` : ``}
               ${fromAddress ? `<div>${escapeHtml(fromAddress)}</div>` : ``}
               ${fromPhone ? `<div>Tel: ${escapeHtml(fromPhone)}</div>` : ``}
-              ${data.clinicalIndication ? `<div style="margin-top:2px;font-style:italic">${escapeHtml(data.clinicalIndication)}</div>` : ``}
+              <div style="margin-top:4px;">Ordering Physician: <strong>${escapeHtml(doctorName)}</strong></div>
             </div>
           </div>
         </div>
@@ -501,7 +500,7 @@ export function generateLabOrderHTML(data: LabOrderData): string {
       </div>
       <div class="meta-right">
         <div><span class="meta-k">Status:</span> <span class="meta-v">${escapeHtml(status)}</span></div>
-        <div><span class="meta-k">Referrer:</span> <span class="meta-v">${escapeHtml(fromName)}</span></div>
+        <div><span class="meta-k">Urgency:</span> <span class="meta-v">${escapeHtml(data.urgency || "routine")}</span></div>
       </div>
     </div>
 
@@ -529,19 +528,12 @@ export function generateLabOrderHTML(data: LabOrderData): string {
     <!-- Notes -->
     <div class="notes">
       <div class="notes-title">Additional information (order level)</div>
-      <ul>
-        <li>HbA1c: Not recommended for neonates or increased erythrocyte turnover (hemolysis).</li>
-        <li>Must be centrifuged within 4 hours after sampling.</li>
-        <li>Biotin treatment (&gt;5 mg/day) may cause incorrect results. Refer to sampling instructions.</li>
-      </ul>
-
       ${data.narrative ? `<div style="margin-top:8px;"><strong>Comment:</strong> ${escapeHtml(data.narrative)}</div>` : ``}
     </div>
 
     <div class="footer">
       <div>Saved ${escapeHtml(savedDateTime)}</div>
-      <div>Produced by ${escapeHtml(data.requestingProvider || "—")}</div>
-    </div>
+      </div>
   </div>
 </body>
 </html>`;

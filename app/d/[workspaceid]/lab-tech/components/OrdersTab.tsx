@@ -7,7 +7,7 @@
  * - openEHR integration
  */
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSampleRecommendations, getRecommendationsByServiceName, findRecommendation } from "@/lib/lims/test-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -711,70 +711,55 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
   const orders: LimsOrder[] = data?.orders || [];
 
-  // Fetch computed statuses for all OpenEHR orders when orders list changes
+  // Fetch computed statuses for all OpenEHR orders in a single batch request
+  const batchStatusFetchedRef = useRef<string>("");
   useEffect(() => {
-    if (orders && orders.length > 0) {
-      const fetchAllOpenEHRStatuses = async () => {
-        const statusMap = new Map<string, string>();
-        const openEHROrders = orders.filter(
-          (o: LimsOrder) => o.source === "openEHR"
+    if (!orders || orders.length === 0) return;
+
+    const openEHROrders = orders.filter(
+      (o: LimsOrder) => o.source === "openEHR"
+    );
+    const requestIds = openEHROrders
+      .map((o) => o.request_id || o.openehrrequestid)
+      .filter(Boolean) as string[];
+
+    if (requestIds.length === 0) return;
+
+    // Prevent re-fetching for the same set of orders
+    const key = requestIds.sort().join(",");
+    if (batchStatusFetchedRef.current === key) return;
+    batchStatusFetchedRef.current = key;
+
+    const fetchBatchStatuses = async () => {
+      try {
+        const response = await fetch(
+          `/api/d/${workspaceid}/openehr-orders/batch-status`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ requestIds }),
+            signal: AbortSignal.timeout(10000),
+          }
         );
 
-        // Fetch statuses in parallel with error handling
-        const statusPromises = openEHROrders.map(async (order) => {
-          const requestId = order.request_id || order.openehrrequestid;
-          if (!requestId) return null;
-
-          try {
-            const response = await fetch(
-              `/api/d/${workspaceid}/openehr-orders/${requestId}/status`,
-              {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                // Add timeout to prevent hanging requests
-                signal: AbortSignal.timeout(5000),
-              }
-            );
-            
-            if (response.ok) {
-              const data = await response.json();
-              return { requestId, status: data.status };
-            } else {
-              console.warn(`Status API returned ${response.status} for ${requestId}`);
-              return null;
-            }
-          } catch (error) {
-            // Silently handle errors to prevent console spam
-            if (error instanceof Error && error.name === 'AbortError') {
-              console.warn(`Timeout fetching status for ${requestId}`);
-            } else {
-              // Quiet error logging - only in development
-              if (process.env.NODE_ENV === 'development') {
-                console.warn(`Status fetch failed for ${requestId}:`, error);
-              }
-            }
-            return null;
+        if (response.ok) {
+          const data = await response.json();
+          const statusMap = new Map<string, string>();
+          if (data.statuses) {
+            Object.entries(data.statuses).forEach(([id, status]) => {
+              statusMap.set(id, status as string);
+            });
           }
-        });
+          setOpenEHROrderStatuses(statusMap);
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Batch status fetch failed:", error);
+        }
+      }
+    };
 
-        // Wait for all status fetches to complete
-        const results = await Promise.allSettled(statusPromises);
-        
-        // Process successful results
-        results.forEach((result) => {
-          if (result.status === 'fulfilled' && result.value) {
-            const { requestId, status } = result.value;
-            statusMap.set(requestId, status);
-          }
-        });
-
-        setOpenEHROrderStatuses(statusMap);
-      };
-
-      fetchAllOpenEHRStatuses();
-    }
+    fetchBatchStatuses();
   }, [orders, workspaceid]);
 
   // First filter by search and status, then group by test to show only latest
@@ -1742,73 +1727,105 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 </div>
 
 
-                    {/* Requested Tests */}
+                    {/* Requested Tests - List format grouped by specimen */}
                     <div className="border rounded-lg p-2">
-                      <h3 className="font-semibold text-xs mb-0.5">
+                      <h3 className="font-semibold text-xs mb-1.5">
                         Requested Tests
                       </h3>
-                      <p className="text-[10px] text-muted-foreground mb-1.5">Click a test to collect its sample</p>
 
-                      {resolvedTests.length > 0 ? (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1">
-                          <TooltipProvider delayDuration={300}>
-                            {resolvedTests.map(
-                              (test: any, idx: number) => {
-                                const testKey = test.testCode || test.testName || `test-${idx}`;
-                                const isSelected = effectiveSelection === testKey;
-                                return (
-                                <Tooltip key={idx}>
-                                  <TooltipTrigger asChild>
-                                    <div
-                                      onClick={() => setSelectedTestForCollection(testKey)}
-                                      className={`flex w-full items-center gap-0.5 px-1.5 py-1 rounded border transition-colors text-left cursor-pointer ${
-                                        isSelected
-                                          ? 'bg-blue-100 border-blue-400 ring-1 ring-blue-300'
-                                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                      }`}
-                                    >
-                                      <FlaskConical className="h-2.5 w-2.5 text-blue-500 flex-shrink-0" />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-[10px] font-medium truncate leading-tight">
-                                          {test.testName}
-                                        </div>
-                                        <div className="text-[9px] text-gray-500 truncate leading-tight">
-                                          {test.testCode}
-                                          {test.fastingRequired && (
-                                            <span className="inline-block ml-0.5 text-[8px] font-medium bg-amber-100 text-amber-700 rounded px-0.5">
-                                              F
+                      {resolvedTests.length > 0 ? (() => {
+                        // Group tests by specimen type and container
+                        const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
+                          const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
+                          const container = test.containerType || test.containertype || test.specimencontainer || "-";
+                          const groupKey = `${specimen}|${container}`;
+                          if (!acc[groupKey]) {
+                            acc[groupKey] = {
+                              specimen,
+                              container,
+                              tests: []
+                            };
+                          }
+                          acc[groupKey].tests.push(test);
+                          return acc;
+                        }, {});
+                        
+                        return (
+                          <div className="space-y-2">
+                            {Object.entries(specimenGroups).map(([groupKey, data]: [string, any]) => {
+                              const isCollected = !!collectedSpecimenTypes[data.specimen];
+                              const isSelectedForCollection = effectiveSelection && resolvedTests.find((t: any) => (t.testCode || t.testName) === effectiveSelection)?.specimenType === data.specimen;
+                              return (
+                              <div 
+                                key={groupKey} 
+                                className={`border rounded p-2 transition-colors cursor-pointer hover:shadow-md ${
+                                  isCollected ? 'bg-green-50 border-green-300' : 'border-gray-200 hover:border-blue-300'
+                                }`}
+                                onClick={() => {
+                                  // Select first test of this specimen when card is clicked
+                                  const firstTest = data.tests[0];
+                                  if (firstTest) {
+                                    const testKey = firstTest.testCode || firstTest.testName;
+                                    setSelectedTestForCollection(testKey);
+                                  }
+                                }}
+                              >
+                                <div 
+                                  className="flex items-center gap-1.5 mb-1.5"
+                                >
+                                  <FlaskConical className={`h-3 w-3 flex-shrink-0 ${
+                                    isCollected ? 'text-green-600' : 'text-blue-600'
+                                  }`} />
+                                  <span className={`font-semibold text-xs ${
+                                    isCollected ? 'text-green-900' : 'text-blue-900'
+                                  }`}>{data.specimen}</span>
+                                  <span className="text-[10px] text-gray-600">({data.tests.length})</span>
+                                  <span className="text-[10px] text-gray-500">• {data.container}</span>
+                                  {isCollected && (
+                                    <span className="ml-auto text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                                      ✓ Collected
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="space-y-0.5">
+                                  {data.tests.map((test: any, idx: number) => {
+                                    const testKey = test.testCode || test.testName || `test-${idx}`;
+                                    const isSelected = effectiveSelection === testKey;
+                                    // Get test category from catalog or order
+                                    const testCategory = test.testcategory || selectedOrder.test_category || "";
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className={`flex items-center justify-between px-2 py-1 rounded text-xs transition-colors ${
+                                          isSelected
+                                            ? 'bg-blue-100 border border-blue-300'
+                                            : isCollected ? 'bg-green-50' : 'bg-gray-50'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-1.5 flex-1">
+                                          <div className="font-medium">{test.testName}</div>
+                                          <div className="text-[10px] text-gray-500 font-mono">{test.testCode}</div>
+                                          {testCategory && (
+                                            <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded">
+                                              {testCategory}
                                             </span>
                                           )}
                                         </div>
+                                        {test.fastingRequired && (
+                                          <span className="text-[9px] font-medium bg-amber-100 text-amber-700 rounded px-1 py-0.5">
+                                            Fasting
+                                          </span>
+                                        )}
                                       </div>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent sideOffset={6}>
-                                    <div className="space-y-0.5">
-                                      <div className="font-medium">{test.testName}</div>
-                                      <div>
-                                        <span className="font-medium">Code:</span> {test.testCode}
-                                      </div>
-                                      {(test.specimenType || test.specimentype || test.material) && (
-                                        <div>
-                                          <span className="font-medium">Specimen:</span>{" "}
-                                          {test.specimenType || test.specimentype || test.material}
-                                        </div>
-                                      )}
-                                      {typeof test.fastingRequired === "boolean" && (
-                                        <div>
-                                          <span className="font-medium">Fasting:</span>{" "}
-                                          {test.fastingRequired ? "Required" : "Not required"}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
                             })}
-                          </TooltipProvider>
-                        </div>
-                      ) : (
+                          </div>
+                        );
+                      })() : (
                         <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded text-left">
                           <FlaskConical className="h-4 w-4 text-gray-600" />
                           <div className="flex-1 min-w-0">
@@ -1830,47 +1847,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                       )}
                     </div>
 
-                    {/* Required Specimen Types */}
-                    {resolvedTests.length > 0 && (() => {
-                      const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
-                        const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
-                        if (!acc[specimen]) {
-                          acc[specimen] = {
-                            tests: [],
-                            containers: new Set(),
-                            volumes: new Set()
-                          };
-                        }
-                        acc[specimen].tests.push(test);
-                        const container = test.containerType || test.containertype || test.specimencontainer;
-                        if (container) acc[specimen].containers.add(container);
-                        const volume = test.specimenvolume || test.volume;
-                        if (volume) acc[specimen].volumes.add(volume);
-                        return acc;
-                      }, {});
-                      
-                      return (
-                        <div className="border rounded-lg p-2">
-                          <h3 className="font-semibold text-xs mb-1">Required Specimen Types</h3>
-                          <div className="space-y-1">
-                            {Object.entries(specimenGroups).map(([specimen, data]: [string, any]) => (
-                              <div key={specimen} className="bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
-                                <div className="flex items-center gap-1.5">
-                                  <FlaskConical className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                  <span className="font-medium text-xs text-blue-900">{specimen}</span>
-                                  <span className="text-[10px] text-blue-600">({data.tests.length})</span>
-                                  <span className="text-[10px] text-gray-600 truncate">
-                                    {data.containers.size > 0 && <>{Array.from(data.containers).join(', ')} • </>}
-                                    {data.volumes.size > 0 && <>{Array.from(data.volumes).join(', ')} • </>}
-                                    {data.tests.map((t: any) => t.testName).join(", ")}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
 
                     {/* Fasting Requirements Alert */}
                     {resolvedTests.some(
@@ -2118,7 +2094,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                                     {isCollecting ? (
                                       <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Collecting...</>
                                     ) : (
-                                      <><FlaskConical className="h-3 w-3 mr-1" /> Collect {specimen}</>
+                                      <><FlaskConical className="h-3 w-3 mr-1" /> Collect {specimen} Sample</>
                                     )}
                                   </Button>
                                 );

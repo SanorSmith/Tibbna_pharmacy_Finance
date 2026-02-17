@@ -96,6 +96,9 @@ export async function GET(
             resultid: null,
             testcode: test.testcode,
             testname: test.testname,
+            testcategory: test.testcategory || refRange?.grouptests || null,
+            sampletype: refRange?.sampletype || null,
+            containertype: refRange?.containertype || null,
             resultvalue: null,
             unit: refRange?.unit || null,
             referencemin: refRange?.referencemin ? parseFloat(refRange.referencemin) : null,
@@ -116,7 +119,11 @@ export async function GET(
         testsArray = sampleData.tests.map((t: unknown) => String(t || "").trim()).filter(Boolean);
       } else if (typeof sampleData.tests === 'string') {
         try {
-          const parsed = JSON.parse(sampleData.tests);
+          let parsed = JSON.parse(sampleData.tests);
+          // Handle double-encoded JSON
+          if (typeof parsed === 'string') {
+            parsed = JSON.parse(parsed);
+          }
           if (Array.isArray(parsed)) {
             testsArray = parsed.map((t: unknown) => String(t || "").trim()).filter(Boolean);
           }
@@ -164,6 +171,9 @@ export async function GET(
               resultid: null,
               testcode: test.testcode,
               testname: test.testname,
+              testcategory: test.testcategory || refRange?.grouptests || null,
+              sampletype: refRange?.sampletype || null,
+              containertype: refRange?.containertype || null,
               resultvalue: null,
               unit: refRange?.unit || null,
               referencemin: refRange?.referencemin ? parseFloat(refRange.referencemin) : null,
@@ -175,6 +185,46 @@ export async function GET(
               status: 'pending',
               hasResult: false,
             });
+          }
+        }
+      }
+    }
+
+    // Enrich results or requestedTests with specimen/container info from reference ranges
+    const finalResults = results.length > 0 ? results : requestedTests;
+    if (results.length > 0) {
+      // Results exist but lack sampletype/containertype — look them up
+      const testCodes = results.map((r) => r.testcode).filter(Boolean);
+      if (testCodes.length > 0) {
+        const refRows = await db
+          .select({
+            testcode: testReferenceRanges.testcode,
+            sampletype: testReferenceRanges.sampletype,
+            containertype: testReferenceRanges.containertype,
+            grouptests: testReferenceRanges.grouptests,
+          })
+          .from(testReferenceRanges)
+          .where(and(
+            inArray(testReferenceRanges.testcode, testCodes),
+            eq(testReferenceRanges.isactive, 'Y')
+          ));
+
+        const refMap = new Map<string, { sampletype: string | null; containertype: string | null; testcategory: string | null }>();
+        for (const r of refRows) {
+          if (r.testcode && !refMap.has(r.testcode)) {
+            refMap.set(r.testcode, { sampletype: r.sampletype, containertype: r.containertype, testcategory: r.grouptests });
+          }
+        }
+
+        for (let i = 0; i < finalResults.length; i++) {
+          const ref = refMap.get(finalResults[i].testcode);
+          if (ref) {
+            (finalResults as any[])[i] = {
+              ...finalResults[i],
+              sampletype: ref.sampletype || null,
+              containertype: ref.containertype || null,
+              testcategory: (finalResults[i] as any).testcategory || ref.testcategory || null,
+            };
           }
         }
       }
@@ -207,7 +257,7 @@ export async function GET(
         ...sampleData,
         patient: patientData,
       },
-      results: results.length > 0 ? results : requestedTests,
+      results: finalResults,
       validationState,
       hasPreviousResults,
     });

@@ -1,5 +1,5 @@
 "use client";
-import React, { useReducer, useMemo, useState, useEffect } from "react";
+import React, { useReducer, useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -19,11 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+
 import { Badge } from "@/components/ui/badge";
 import { Package, TestTube, Building2, X, ChevronsUpDown, Loader2, Plus, ClipboardList, Trash2 } from "lucide-react";
 
@@ -50,6 +46,7 @@ interface TestOrderForm {
   urgency: "routine" | "urgent" | "stat";
   requesting_provider: string;
   narrative: string;
+  edit_notes: string;
   sampleType: string;
   containerType: string;
   volume: string;
@@ -64,6 +61,7 @@ const DEFAULT_FORM: TestOrderForm = {
   urgency: "routine",
   requesting_provider: "",
   narrative: "",
+  edit_notes: "",
   sampleType: "",
   containerType: "",
   volume: "",
@@ -144,30 +142,46 @@ export default function EnhancedLabOrderFormMultiple({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addedTests, setAddedTests] = useState<string[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [packageSearchTerm, setPackageSearchTerm] = useState("");
+  const [packageDropdownOpen, setPackageDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [testCatalog, setTestCatalog] = useState<{
     testPackages: Record<string, any>;
     individualTests: Record<string, any>;
     laboratories: Record<string, any>;
   }>({ testPackages: TEST_PACKAGES, individualTests: INDIVIDUAL_TESTS, laboratories: LABORATORIES });
 
-  // Fetch dynamic test catalog from DB when dialog opens (skip in edit mode - reverse-matched IDs use static catalog)
+  // Fetch dynamic test catalog from DB when dialog opens
+  // In edit mode, merge with static catalog so reverse-matched IDs still resolve
   useEffect(() => {
-    if (open && workspaceid && !editMode) {
+    if (open && workspaceid) {
       setIsLoadingCatalog(true);
       fetch(`/api/test-catalog?workspaceid=${workspaceid}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.totalTests > 0) {
-            setTestCatalog({
-              testPackages: data.testPackages,
-              individualTests: data.individualTests,
-              laboratories: data.laboratories,
-            });
+            if (editMode) {
+              // Merge: static catalog first, then dynamic on top — static IDs preserved
+              setTestCatalog({
+                testPackages: { ...TEST_PACKAGES, ...data.testPackages },
+                individualTests: { ...INDIVIDUAL_TESTS, ...data.individualTests },
+                laboratories: { ...LABORATORIES, ...data.laboratories },
+              });
+            } else {
+              setTestCatalog({
+                testPackages: data.testPackages,
+                individualTests: data.individualTests,
+                laboratories: data.laboratories,
+              });
+            }
           }
         })
         .catch(err => console.error("Failed to fetch test catalog, using fallback:", err))
-        .finally(() => setIsLoadingCatalog(false));
+        .finally(() => {
+          setIsLoadingCatalog(false);
+          setCatalogLoaded(true);
+        });
     }
   }, [open, workspaceid, editMode]);
 
@@ -218,6 +232,90 @@ export default function EnhancedLabOrderFormMultiple({
       setCurrentStep(3);
     }
   }, [formState.selectedPackages, formState.selectedTests, currentStep]);
+
+  // Helper: resolve a test ID from dynamic catalog first, then static catalog as fallback
+  const resolveTest = useCallback((id: string) => {
+    return testCatalog.individualTests[id] || INDIVIDUAL_TESTS[id] || null;
+  }, [testCatalog.individualTests]);
+
+  // Helper: resolve a package ID from dynamic catalog first, then static catalog as fallback
+  const resolvePackage = useCallback((id: string) => {
+    return testCatalog.testPackages[id] || TEST_PACKAGES[id] || null;
+  }, [testCatalog.testPackages]);
+
+  // In edit mode: resolve packages and tests using dynamic catalog
+  // The edit API returns static catalog IDs which may not exist in individualTests,
+  // so we find the matching dynamic package by name and use its test IDs instead.
+  const editTestsInitialized = useRef(false);
+  useEffect(() => {
+    if (!editMode || !open) {
+      editTestsInitialized.current = false;
+      return;
+    }
+    if (editTestsInitialized.current) return;
+    // Wait for dynamic catalog to actually finish loading
+    if (!catalogLoaded) return;
+    if (!formState.selectedPackages || formState.selectedPackages.length === 0) return;
+
+    const resolvedPackageIds: string[] = [];
+    const allTestIds: string[] = [];
+
+    formState.selectedPackages.forEach(pkgId => {
+      // Try direct lookup in dynamic catalog first
+      let pkg = testCatalog.testPackages[pkgId];
+      let resolvedPkgId = pkgId;
+
+      if (!pkg) {
+        // Fallback: find by name from static catalog, then match to dynamic catalog
+        const staticPkg = TEST_PACKAGES[pkgId];
+        if (staticPkg) {
+          const dynamicEntry = Object.entries(testCatalog.testPackages).find(
+            ([, dp]) => dp.name === staticPkg.name && dp.category === staticPkg.category
+          );
+          if (dynamicEntry) {
+            [resolvedPkgId, pkg] = dynamicEntry;
+          }
+        }
+      }
+
+      if (pkg && pkg.tests) {
+        resolvedPackageIds.push(resolvedPkgId);
+        pkg.tests.forEach((testId: string) => {
+          if (!allTestIds.includes(testId)) allTestIds.push(testId);
+        });
+      }
+    });
+
+    // Filter to only IDs that exist in the catalog
+    const validTestIds = allTestIds.filter(id => testCatalog.individualTests[id]);
+
+    if (validTestIds.length > 0 || resolvedPackageIds.length > 0) {
+      editTestsInitialized.current = true;
+      // Batch all state updates together
+      if (resolvedPackageIds.length > 0) {
+        dispatch({ type: "SET_FIELD", field: "selectedPackages", value: resolvedPackageIds });
+      }
+      dispatch({ type: "SET_FIELD", field: "selectedTests", value: validTestIds });
+      setAddedTests(validTestIds);
+    }
+  }, [editMode, open, catalogLoaded, formState.selectedPackages, testCatalog.testPackages, testCatalog.individualTests]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setPackageDropdownOpen(false);
+      }
+    };
+
+    if (packageDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [packageDropdownOpen]);
 
   // Clear search term and added tests when form is reset
   useEffect(() => {
@@ -290,7 +388,7 @@ export default function EnhancedLabOrderFormMultiple({
     // Add tests from selected packages
     if (formState.selectedPackages && formState.selectedPackages.length > 0) {
       formState.selectedPackages.forEach(pkgId => {
-        const pkg = testCatalog.testPackages[pkgId];
+        const pkg = resolvePackage(pkgId);
         if (pkg) {
           pkg.tests.forEach((testId: string) => testIds.add(testId));
         }
@@ -302,8 +400,8 @@ export default function EnhancedLabOrderFormMultiple({
       formState.selectedTests.forEach((testId: string) => testIds.add(testId));
     }
     
-    return Array.from(testIds).map(id => testCatalog.individualTests[id]).filter(Boolean);
-  }, [formState.selectedPackages, formState.selectedTests, testCatalog.testPackages, testCatalog.individualTests]);
+    return Array.from(testIds).map(id => resolveTest(id)).filter(Boolean);
+  }, [formState.selectedPackages, formState.selectedTests, resolvePackage, resolveTest]);
 
   // Handle adding selected tests to the added list
   const handleAddTests = () => {
@@ -321,12 +419,17 @@ export default function EnhancedLabOrderFormMultiple({
 
   // Get added test objects
   const addedTestObjects = useMemo(() => {
-    return addedTests.map(id => testCatalog.individualTests[id]).filter(Boolean);
-  }, [addedTests, testCatalog.individualTests]);
+    return addedTests.map(id => resolveTest(id)).filter(Boolean);
+  }, [addedTests, resolveTest]);
 
   const handleSubmit = async () => {
     if (!formState.clinical_indication) {
       alert("Please fill in clinical indication");
+      return;
+    }
+
+    if (editMode && !formState.edit_notes) {
+      alert("Please provide a reason for editing this order");
       return;
     }
 
@@ -497,19 +600,25 @@ export default function EnhancedLabOrderFormMultiple({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[80vw] max-h-[90vh] overflow-y-auto"
+        className={`max-w-[80vw] h-[85vh] ${packageDropdownOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}
         onInteractOutside={(e) => { if (editMode) e.preventDefault(); }}
         onPointerDownOutside={(e) => { if (editMode) e.preventDefault(); }}
       >
-        <DialogHeader>
-          <DialogTitle>{editMode ? "Edit Laboratory Test Order" : "Order Laboratory Tests"}</DialogTitle>
-          <DialogDescription>
-            {editMode ? "Modify your test order" : "Select multiple test groups from the same laboratory type"}
-            {patientName && ` for ${patientName}`}
-          </DialogDescription>
+        <DialogHeader className="pb-2">
+          {formState.target_lab && testCatalog.laboratories[formState.target_lab] ? (
+            <div>
+              <DialogTitle className="text-xl">{testCatalog.laboratories[formState.target_lab].name}</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">{testCatalog.laboratories[formState.target_lab].address}</p>
+              {patientName && (
+                <p className="text-sm text-muted-foreground">for {patientName}</p>
+              )}
+            </div>
+          ) : (
+            <DialogTitle>{editMode ? "Edit Laboratory Test Order" : "Order Laboratory Tests"}</DialogTitle>
+          )}
         </DialogHeader>
 
-        <div className="grid gap-4 py-4" style={{ gridTemplateColumns: '1fr 2fr 1fr' }}>
+        <div className="grid gap-4 py-2" style={{ gridTemplateColumns: '1fr 2fr 1fr' }}>
           {/* Column 1: Step 1 + Step 2 */}
           <div className="border-r pr-4 space-y-6">
           {/* Step 1: Select Laboratory */}
@@ -545,18 +654,6 @@ export default function EnhancedLabOrderFormMultiple({
                 ))}
               </SelectContent>
             </Select>
-
-            {selectedLab && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-md text-sm">
-                <p className="font-medium">{selectedLab.name}</p>
-                <p className="text-gray-600">{selectedLab.address}</p>
-                <p className="text-gray-600">{selectedLab.phone}</p>
-                <p className="text-gray-600 mt-1">
-                  <span className="font-medium">Turnaround:</span>{" "}
-                  {selectedLab.turnaround}
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Step 2: Select Test Groups (Multiple Selection) */}
@@ -572,119 +669,122 @@ export default function EnhancedLabOrderFormMultiple({
               <p className="text-sm text-muted-foreground">Select a laboratory first</p>
             ) : (
               <>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between h-auto min-h-[40px]"
-                  >
-                    <div className="flex flex-wrap gap-1 flex-1">
-                      {(formState.selectedPackages || []).length === 0 ? (
-                        <span className="text-muted-foreground">Select test groups...</span>
-                      ) : (
-                        (formState.selectedPackages || []).map((packageId) => {
-                          const pkg = testCatalog.testPackages[packageId];
-                          return pkg ? (
-                            <Badge
-                              key={packageId}
-                              variant="secondary"
-                              className="mr-1"
-                            >
-                              {pkg.name}
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    togglePackage(packageId);
-                                  }
-                                }}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                onClick={(e) => {
+              <div className="relative" ref={dropdownRef}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between h-auto min-h-[40px]"
+                  onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
+                >
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {(formState.selectedPackages || []).length === 0 ? (
+                      <span className="text-muted-foreground">Select test groups...</span>
+                    ) : (
+                      (formState.selectedPackages || []).map((packageId) => {
+                        const pkg = testCatalog.testPackages[packageId];
+                        return pkg ? (
+                          <Badge
+                            key={packageId}
+                            variant="secondary"
+                            className="mr-1"
+                          >
+                            {pkg.name}
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   togglePackage(packageId);
-                                }}
-                                aria-label={`Remove ${pkg.name}`}
-                                title={`Remove ${pkg.name}`}
-                              >
-                                <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                              </span>
-                            </Badge>
-                          ) : null;
-                        })
-                      )}
-                    </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <div className="p-3 border-b">
-                    <input
-                      type="text"
-                      placeholder="Search test groups or individual tests..."
-                      value={packageSearchTerm}
-                      onChange={(e) => setPackageSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-64 overflow-y-auto p-1">
-                    {filteredPackages.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        {packageSearchTerm ? "No test groups or tests found" : "No test groups available"}
-                      </div>
-                    ) : (
-                      filteredPackages.map((pkg) => {
-                        const isVirtualTest = pkg.isVirtualTest;
-                        const isSelected = isVirtualTest 
-                          ? formState.selectedTests.includes(pkg.tests[0])
-                          : (formState.selectedPackages || []).includes(pkg.id);
-                        
-                        return (
-                          <div
-                            key={pkg.id}
-                            className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
-                              isSelected ? 'bg-accent' : ''
-                            }`}
-                            onClick={() => togglePackage(pkg.id)}
-                          >
-                            <div className="flex h-5 items-center">
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => togglePackage(pkg.id)}
-                              />
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <p className="text-sm font-medium leading-none">
-                                {pkg.name}
-                                {isVirtualTest && (
-                                  <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
-                                    Individual Test
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-blue-600">
-                                {pkg.category} • {isVirtualTest ? "1 test" : `${pkg.tests.length} tests`}
-                                {isVirtualTest && pkg.originalTest?.code && (
-                                  <span className="ml-1 font-mono">({pkg.originalTest.code})</span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        );
+                                }
+                              }}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                togglePackage(packageId);
+                              }}
+                              aria-label={`Remove ${pkg.name}`}
+                              title={`Remove ${pkg.name}`}
+                            >
+                              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                            </span>
+                          </Badge>
+                        ) : null;
                       })
                     )}
                   </div>
-                </PopoverContent>
-              </Popover>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+
+                {packageDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md">
+                    <div className="p-3 border-b">
+                      <input
+                        type="text"
+                        placeholder="Search test groups or individual tests..."
+                        value={packageSearchTerm}
+                        onChange={(e) => setPackageSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto p-1">
+                      {filteredPackages.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          {packageSearchTerm ? "No test groups or tests found" : "No test groups available"}
+                        </div>
+                      ) : (
+                        filteredPackages.map((pkg) => {
+                          const isVirtualTest = pkg.isVirtualTest;
+                          const isSelected = isVirtualTest 
+                            ? formState.selectedTests.includes(pkg.tests[0])
+                            : (formState.selectedPackages || []).includes(pkg.id);
+                          
+                          return (
+                            <div
+                              key={pkg.id}
+                              className={`flex items-start gap-2 p-2 rounded-sm cursor-pointer hover:bg-accent ${
+                                isSelected ? 'bg-accent' : ''
+                              }`}
+                              onClick={() => togglePackage(pkg.id)}
+                            >
+                              <div className="flex h-5 items-center">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => togglePackage(pkg.id)}
+                                  className="cursor-pointer"
+                                />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <p className="text-sm font-medium leading-none">
+                                  {pkg.name}
+                                  {isVirtualTest && (
+                                    <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                                      Individual Test
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-blue-600">
+                                  {pkg.category} • {isVirtualTest ? "1 test" : `${pkg.tests.length} tests`}
+                                  {isVirtualTest && pkg.originalTest?.code && (
+                                    <span className="ml-1 font-mono">({pkg.originalTest.code})</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {(formState.selectedPackages || []).length > 0 && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-md text-sm">
@@ -743,19 +843,22 @@ export default function EnhancedLabOrderFormMultiple({
                   {formState.selectedTests.length} of {allSelectedTests.length} tests selected
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto border rounded-md p-3">
+              <div className="grid grid-cols-2 gap-2 max-h-68 overflow-y-auto border rounded-md p-3">
                 {allSelectedTests.map((test) => (
                   <div
                     key={test.id}
                     className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded border"
                   >
-                    <Checkbox
-                      checked={formState.selectedTests.includes(test.id)}
-                      onCheckedChange={() =>
-                        dispatch({ type: "TOGGLE_TEST", testId: test.id })
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
+                    <div className="flex h-5 items-center" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={formState.selectedTests.includes(test.id)}
+                        onCheckedChange={() =>
+                          dispatch({ type: "TOGGLE_TEST", testId: test.id })
+                        }
+                        className="cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => dispatch({ type: "TOGGLE_TEST", testId: test.id })}>
                       <p className="font-medium text-[11px] leading-tight break-words" title={test.name}>{test.name}</p>
                       {test.fastingRequired && (
                         <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 mt-1">
@@ -918,6 +1021,28 @@ export default function EnhancedLabOrderFormMultiple({
                   />
                 </div>
               </div>
+
+              {editMode && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit_notes" className="text-sm">
+                    Edit Notes {editMode && <span className="text-red-500">*</span>}
+                  </Label>
+                  <Textarea
+                    id="edit_notes"
+                    placeholder="Reason for editing this order (required)"
+                    value={formState.edit_notes}
+                    onChange={(e) =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "edit_notes",
+                        value: e.target.value,
+                      })
+                    }
+                    className="min-h-[60px] text-sm"
+                    rows={2}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>

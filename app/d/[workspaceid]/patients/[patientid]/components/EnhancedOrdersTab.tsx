@@ -117,8 +117,14 @@ export default function EnhancedOrdersTab({
     Record<string, string[]>
   >({});
   const [labCatalog, setLabCatalog] = useState<Record<string, any>>({});
-  const [testCatalogIndividual, setTestCatalogIndividual] = useState<Record<string, any>>({});
-  const [workspaceInfo, setWorkspaceInfo] = useState<{ name?: string; address?: string; phone?: string }>({});
+  const [testCatalogIndividual, setTestCatalogIndividual] = useState<
+    Record<string, any>
+  >({});
+  const [workspaceInfo, setWorkspaceInfo] = useState<{
+    name?: string;
+    address?: string;
+    phone?: string;
+  }>({});
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
@@ -127,7 +133,12 @@ export default function EnhancedOrdersTab({
   // Fetch test catalog to map test names to their groups + lab info
   useEffect(() => {
     fetch(`/api/test-catalog?workspaceid=${workspaceid}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch test catalog: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         if (data.success && data.testPackages && data.individualTests) {
           const mapping: Record<string, string[]> = {};
@@ -145,7 +156,8 @@ export default function EnhancedOrdersTab({
           });
           setTestNameToGroups(mapping);
           if (data.laboratories) setLabCatalog(data.laboratories);
-          if (data.individualTests) setTestCatalogIndividual(data.individualTests);
+          if (data.individualTests)
+            setTestCatalogIndividual(data.individualTests);
         }
       })
       .catch(() => {});
@@ -154,7 +166,12 @@ export default function EnhancedOrdersTab({
   // Fetch workspace info for hospital name
   useEffect(() => {
     fetch(`/api/d/${workspaceid}/workspace-info`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch workspace info: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         if (data.workspace) {
           setWorkspaceInfo({
@@ -169,7 +186,12 @@ export default function EnhancedOrdersTab({
   // Fetch current user on mount
   useEffect(() => {
     fetch("/api/auth/session")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch session: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         const u = data.user;
         setCurrentUserName(u?.name || u?.email || null);
@@ -581,7 +603,7 @@ export default function EnhancedOrdersTab({
                         } hover:bg-muted/50 transition-colors`}
                       >
                         <td className="p-3">
-                          <span className="text-xs font-mono font-semibold text-gray-700 break-all">
+                          <span className="text-sm font-normal text-gray-700 break-all">
                             {order.request_id ||
                               order.composition_uid?.substring(0, 20) ||
                               "—"}
@@ -589,13 +611,8 @@ export default function EnhancedOrdersTab({
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">
-                            {order.is_package ? (
-                              <Package className="h-4 w-4 text-orange-500" />
-                            ) : (
-                              <TestTube className="h-4 w-4 text-green-500" />
-                            )}
                             <div>
-                              <div className="font-medium">
+                              <div className=" tex-sm font-normal">
                                 {(() => {
                                   const desc = order.description || "";
                                   const selectedTestsMatch = desc.match(
@@ -614,17 +631,18 @@ export default function EnhancedOrdersTab({
                               </div>
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                 <span
-                                  className={`px-2 py-0.5 text-[10px] rounded-full capitalize ${
+                                  className={`px-2 py-0.5 text-[10px] rounded-full capitalize text-black ${
                                     (order.request_status || order.status) ===
                                     "COMPLETED"
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-blue-100 text-blue-800"
+                                      ? "bg-green-200"
+                                      : "bg-blue-200"
                                   }`}
                                 >
                                   {order.request_status ||
                                     order.status ||
                                     "REQUESTED"}
                                 </span>
+
                                 {order.test_category && (
                                   <Badge
                                     variant="outline"
@@ -808,11 +826,6 @@ export default function EnhancedOrdersTab({
                           </td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
-                              {order.is_package ? (
-                                <Package className="h-4 w-4 text-orange-500" />
-                              ) : (
-                                <TestTube className="h-4 w-4 text-green-500" />
-                              )}
                               <div>
                                 <div className="font-medium text-sm">
                                   {(() => {
@@ -1236,8 +1249,16 @@ export default function EnhancedOrdersTab({
                     {/* RIGHT COLUMN — To / From */}
                     <div className="grid grid-cols-2 border rounded-lg p-3 bg-white text-xs space-y-3">
                       <div>
+                        <span className="text-gray-600 uppercase tracking-wide block">
+                          From:
+                        </span>
+                        <span className="font-medium text-sm text-gray-800">
+                          {selectedTestOrder.requesting_provider || "—"}
+                        </span>
+                      </div>
+                     <div>
                         <span className="text-gray-500 uppercase tracking-wide block">
-                          To
+                          To:
                         </span>
                         <span className="font-medium text-sm text-gray-800">
                           {selectedTestOrder.target_lab ||
@@ -1246,14 +1267,7 @@ export default function EnhancedOrdersTab({
                         </span>
                       </div>
 
-                      <div>
-                        <span className="text-gray-600 uppercase tracking-wide block">
-                          From
-                        </span>
-                        <span className="font-medium text-sm text-gray-800">
-                          {selectedTestOrder.requesting_provider || "—"}
-                        </span>
-                      </div>
+                     
                     </div>
                   </div>
 
@@ -1297,30 +1311,27 @@ export default function EnhancedOrdersTab({
                     )}
                   </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Clinical Indication Section */}
+                    <div className="border rounded-lg p-4">
+                      <h4 className="text-sm font-semibold mb-2 uppercase tracking-wide text-gray-700">
+                        Clinical Indication
+                      </h4>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                        {selectedTestOrder.clinical_indication || "—"}
+                      </p>
+                    </div>
 
-  {/* Clinical Indication Section */}
-  <div className="border rounded-lg p-4">
-    <h4 className="text-sm font-semibold mb-2 uppercase tracking-wide text-gray-700">
-      Clinical Indication
-    </h4>
-    <p className="text-sm text-gray-800 whitespace-pre-wrap">
-      {selectedTestOrder.clinical_indication || "—"}
-    </p>
-  </div>
-
-  {/* Supplementary Info Section */}
-  <div className="border rounded-lg p-4">
-    <h4 className="text-sm font-semibold mb-2 uppercase tracking-wide text-gray-700">
-      Supplementary Info
-    </h4>
-    <p className="text-sm text-gray-800 whitespace-pre-wrap">
-      {selectedTestOrder.narrative || "—"}
-    </p>
-  </div>
-
-</div>
-
+                    {/* Supplementary Info Section */}
+                    <div className="border rounded-lg p-4">
+                      <h4 className="text-sm font-semibold mb-2 uppercase tracking-wide text-gray-700">
+                        Supplementary Info
+                      </h4>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                        {selectedTestOrder.narrative || "—"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
@@ -1333,15 +1344,22 @@ export default function EnhancedOrdersTab({
                 const { generateLabOrderHTML } =
                   await import("@/lib/lims/lab-order-html");
                 // Find lab info from catalog based on target_lab
-                const targetLabKey = (selectedTestOrder.target_lab || "").toLowerCase().replace(/\s+/g, "-");
+                const targetLabKey = (selectedTestOrder.target_lab || "")
+                  .toLowerCase()
+                  .replace(/\s+/g, "-");
                 const labInfo = labCatalog[targetLabKey] || {};
 
                 // Build tests array with specimen info from catalog
                 // Parse test names from description to resolve sampleType/containerType from DB
                 const desc = selectedTestOrder.description || "";
-                const selMatch = desc.match(/Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i);
+                const selMatch = desc.match(
+                  /Selected Tests\s*\(\d+\)\s*:\s*([^|]+)/i,
+                );
                 const testNamesList = selMatch
-                  ? selMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean)
+                  ? selMatch[1]
+                      .split(",")
+                      .map((s: string) => s.trim())
+                      .filter(Boolean)
                   : [];
 
                 // Build name-based lookup from catalog
@@ -1392,9 +1410,7 @@ export default function EnhancedOrdersTab({
                   patientAddress: patientAddress,
                   patientPhone: patientPhone,
                   patientId: patientid,
-                  // Tests with specimen info from catalog
-                  tests: testsWithSpecimen.length > 0 ? testsWithSpecimen : undefined,
-                });
+                                  });
                 const printWindow = window.open("", "_blank");
                 if (printWindow) {
                   printWindow.document.write(html);
