@@ -133,7 +133,12 @@ export default function EnhancedOrdersTab({
   // Fetch test catalog to map test names to their groups + lab info
   useEffect(() => {
     fetch(`/api/test-catalog?workspaceid=${workspaceid}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch test catalog: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         if (data.success && data.testPackages && data.individualTests) {
           const mapping: Record<string, string[]> = {};
@@ -161,7 +166,12 @@ export default function EnhancedOrdersTab({
   // Fetch workspace info for hospital name
   useEffect(() => {
     fetch(`/api/d/${workspaceid}/workspace-info`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch workspace info: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         if (data.workspace) {
           setWorkspaceInfo({
@@ -176,7 +186,12 @@ export default function EnhancedOrdersTab({
   // Fetch current user on mount
   useEffect(() => {
     fetch("/api/auth/session")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch session: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         const u = data.user;
         setCurrentUserName(u?.name || u?.email || null);
