@@ -494,7 +494,7 @@ export default function EnhancedLabOrderFormMultiple({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[80vw] max-h-[90vh] overflow-y-auto"
+        className={`max-w-[80vw] max-h-[90vh] ${packageDropdownOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}
         onInteractOutside={(e) => { if (editMode) e.preventDefault(); }}
         onPointerDownOutside={(e) => { if (editMode) e.preventDefault(); }}
       >
