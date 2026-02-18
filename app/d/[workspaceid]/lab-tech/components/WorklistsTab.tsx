@@ -230,51 +230,102 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
             body {
               font-family: Arial, sans-serif;
               padding: 20px;
+              font-size: 12px;
             }
             .header {
               text-align: center;
-              margin-bottom: 30px;
+              margin-bottom: 20px;
               border-bottom: 2px solid #333;
-              padding-bottom: 15px;
+              padding-bottom: 10px;
             }
-            .header h1 { margin: 0; font-size: 24px; }
-            .header p { margin: 5px 0; color: #666; }
+            .header h1 { margin: 0; font-size: 20px; }
+            .header p { margin: 3px 0; color: #666; font-size: 11px; }
             .info-grid {
               display: grid;
               grid-template-columns: repeat(4, 1fr);
-              gap: 15px;
-              margin-bottom: 30px;
-              padding: 15px;
+              gap: 10px;
+              margin-bottom: 20px;
+              padding: 10px;
               background: #f5f5f5;
               border-radius: 5px;
             }
             .info-item { }
-            .info-label { font-weight: bold; font-size: 12px; color: #666; }
-            .info-value { font-size: 14px; margin-top: 3px; }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 20px;
+            .info-label { font-weight: bold; font-size: 10px; color: #666; }
+            .info-value { font-size: 11px; margin-top: 2px; }
+            .sample-card {
+              border: 2px solid #333;
+              margin-bottom: 20px;
+              page-break-inside: avoid;
+              background: white;
             }
-            th, td {
-              border: 1px solid #ddd;
-              padding: 10px;
-              text-align: left;
-              font-size: 12px;
-            }
-            th {
-              background-color: #4E95D9;
+            .sample-header {
+              background: #4E95D9;
               color: white;
+              padding: 8px 12px;
               font-weight: bold;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
             }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            .footer {
-              margin-top: 30px;
-              text-align: center;
+            .sample-info {
+              padding: 10px 12px;
+              background: #f9f9f9;
+              border-bottom: 1px solid #ddd;
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 8px;
+            }
+            .sample-info-item {
               font-size: 11px;
+            }
+            .sample-info-label {
+              font-weight: bold;
+              color: #666;
+            }
+            .tests-section {
+              padding: 12px;
+            }
+            .tests-title {
+              font-weight: bold;
+              margin-bottom: 10px;
+              font-size: 12px;
+              color: #333;
+              border-bottom: 1px solid #ddd;
+              padding-bottom: 5px;
+            }
+            .test-row {
+              display: grid;
+              grid-template-columns: 40% 60%;
+              border-bottom: 1px solid #eee;
+              padding: 12px 0;
+              min-height: 40px;
+            }
+            .test-row:last-child {
+              border-bottom: none;
+            }
+            .test-name {
+              font-weight: bold;
+              padding-right: 10px;
+            }
+            .result-field {
+              border-bottom: 1px solid #999;
+              min-height: 25px;
+              position: relative;
+            }
+            .result-label {
+              position: absolute;
+              top: -15px;
+              left: 0;
+              font-size: 9px;
+              color: #999;
+            }
+            .footer {
+              margin-top: 20px;
+              text-align: center;
+              font-size: 10px;
               color: #666;
               border-top: 1px solid #ddd;
-              padding-top: 15px;
+              padding-top: 10px;
             }
           </style>
         </head>
@@ -282,7 +333,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
           <div class="header">
             <h1>${selectedWorklist.worklistname}</h1>
             <p>${selectedWorklist.department} | Priority: ${selectedWorklist.priority.toUpperCase()}</p>
-            <p>Created: ${new Date(selectedWorklist.createdat).toLocaleDateString()} | Total Items: ${worklistItems.length}</p>
+            <p>Created: ${new Date(selectedWorklist.createdat).toLocaleDateString()} | Total Samples: ${worklistItems.length}</p>
           </div>
           
           <div class="info-grid">
@@ -304,37 +355,45 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
             </div>
           </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Sample Number</th>
-                <th>Accession Number</th>
-                <th>Tests</th>
-                <th>Patient Name</th>
-                <th>Sample Type</th>
-                <th>Location</th>
-                <th>Added By</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${worklistItems.map(item => `
-                <tr>
-                  <td>${item.samplenumber}</td>
-                  <td>${item.accessionnumber || '-'}</td>
-                  <td>${Array.isArray(item.tests) ? item.tests.join(', ') : '-'}</td>
-                  <td>${item.patientName || item.patientid || '-'}</td>
-                  <td>${item.sampletype}</td>
-                  <td>${item.currentlocation}</td>
-                  <td>${item.addedbyname || '-'}</td>
-                  <td>${item.status}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          ${worklistItems.map(item => {
+            const tests = Array.isArray(item.tests) ? item.tests : [];
+            return `
+              <div class="sample-card">
+                <div class="sample-header">
+                  <span>Sample: ${item.samplenumber}</span>
+                  <span>${item.sampletype}</span>
+                </div>
+                <div class="sample-info">
+                  <div class="sample-info-item">
+                    <span class="sample-info-label">Accession #:</span> ${item.accessionnumber || '-'}
+                  </div>
+                  <div class="sample-info-item">
+                    <span class="sample-info-label">Status:</span> ${item.status}
+                  </div>
+                  <div class="sample-info-item">
+                    <span class="sample-info-label">Added:</span> ${new Date(item.addedat).toLocaleDateString()}
+                  </div>
+                  <div class="sample-info-item">
+                    <span class="sample-info-label">Added By:</span> ${item.addedbyname || '-'}
+                  </div>
+                </div>
+                <div class="tests-section">
+                  <div class="tests-title">Tests & Results (${tests.length} tests)</div>
+                  ${tests.length > 0 ? tests.map(test => `
+                    <div class="test-row">
+                      <div class="test-name">${test}</div>
+                      <div class="result-field">
+                        <div class="result-label">Result:</div>
+                      </div>
+                    </div>
+                  `).join('') : '<div style="padding: 10px; color: #999;">No tests specified</div>'}
+                </div>
+              </div>
+            `;
+          }).join('')}
 
           <div class="footer">
-            <p>Tibbna-LIMs</p>
+            <p>Tibbna-LIMs - Laboratory Information Management System</p>
             <p>Printed on ${new Date().toLocaleString()}</p>
           </div>
 
