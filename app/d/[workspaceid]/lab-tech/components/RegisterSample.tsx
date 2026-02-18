@@ -916,6 +916,27 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {locationsLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading storage locations...
+                    </SelectItem>
+                  ) : storageLocations && storageLocations.length > 0 ? (
+                    storageLocations
+                      .filter(location => location.status === 'active' && location.isavailable)
+                      .map((location) => (
+                        <SelectItem key={location.locationid} value={location.code}>
+                          {location.name} ({location.code})
+                        </SelectItem>
+                      ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No storage locations available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm text-blue-800">
                 <strong>Current Status:</strong> {selectedSample?.currentstatus}
               </p>
