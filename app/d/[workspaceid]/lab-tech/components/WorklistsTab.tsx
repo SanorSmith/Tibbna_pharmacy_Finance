@@ -907,13 +907,10 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                       <TableHeader>
                         <TableRow className="text-xs">
                           <TableHead className="w-[120px]">Sample #</TableHead>
-                          <TableHead className="w-[100px]">Accession #</TableHead>
-                          <TableHead className="w-[120px]">Tests</TableHead>
-                          <TableHead className="w-[140px]">Patient Name</TableHead>
-                          <TableHead className="w-[100px]">Sample Type</TableHead>
-                          <TableHead className="w-[100px]">Location</TableHead>
-                          <TableHead className="w-[100px]">Added Date</TableHead>
-                          <TableHead className="w-[80px]">Status</TableHead>
+                          <TableHead className="w-[180px]">Tests</TableHead>
+                          <TableHead className="w-[120px]">Sample Type</TableHead>
+                          <TableHead className="w-[120px]">Added Date</TableHead>
+                          <TableHead className="w-[100px]">Status</TableHead>
                           <TableHead className="w-[60px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -921,18 +918,10 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                         {worklistItems.map((item) => (
                           <TableRow key={item.worklistitemid} className="text-xs">
                             <TableCell className="font-mono font-medium">{item.samplenumber}</TableCell>
-                            <TableCell className="font-mono">{item.accessionnumber || '-'}</TableCell>
-                            <TableCell className="truncate max-w-[120px]" title={Array.isArray(item.tests) ? item.tests.join(', ') : '-'}>
+                            <TableCell className="truncate max-w-[180px]" title={Array.isArray(item.tests) ? item.tests.join(', ') : '-'}>
                               {Array.isArray(item.tests) ? item.tests.join(', ') : '-'}
                             </TableCell>
-                            <TableCell className="font-medium truncate max-w-[140px]" title={item.patientName || item.patientid || '-'}>
-                              {item.patientName || item.patientid || '-'}
-                            </TableCell>
                             <TableCell className="capitalize">{item.sampletype}</TableCell>
-                            <TableCell className="truncate max-w-[100px]" title={item.currentlocation}>
-                              <MapPin className="h-3 w-3 inline mr-1 text-gray-500" />
-                              {item.currentlocation}
-                            </TableCell>
                             <TableCell>
                               {new Date(item.addedat).toLocaleDateString()}
                             </TableCell>
