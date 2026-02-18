@@ -358,10 +358,19 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
       if (!response.ok) throw new Error('Failed to create worklist');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['worklists', workspaceid] });
       setShowCreateWorklistDialog(false);
       setWorklistFormData({ worklistname: '', laboratory: '', description: '' });
+      
+      // Automatically add the sample to the newly created worklist
+      if (selectedSample && data.worklist) {
+        addToWorklistMutation.mutate({
+          worklistid: data.worklist.worklistid,
+          orderid: selectedSample.orderid || selectedSample.openehrrequestid || null,
+          sampleid: selectedSample.sampleid,
+        });
+      }
     },
   });
 
