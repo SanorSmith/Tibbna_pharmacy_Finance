@@ -26,6 +26,8 @@ import {
   patients,
   labTestCatalog,
   limsOrderTests,
+  worklistItems,
+  worklists,
 } from "@/lib/db/schema";
 import { createWorkspaceNotification } from "@/lib/notifications";
 import { 
@@ -473,8 +475,55 @@ export async function GET(request: NextRequest) {
       return derived ? { ...s, labcategory: derived } : s;
     });
 
+    // Batch lookup: which samples are already assigned to an active worklist?
+    const allSampleIds = samplesWithDerived.map((s: any) => String(s.sampleid)).filter(Boolean);
+    const worklistBySampleId = new Map<string, { worklistid: string; worklistname: string; workliststatus: string }>();
+
+    if (allSampleIds.length > 0) {
+      try {
+        const wlRows = await db
+          .select({
+            sampleid: worklistItems.sampleid,
+            worklistid: worklists.worklistid,
+            worklistname: worklists.worklistname,
+            workliststatus: worklists.status,
+          })
+          .from(worklistItems)
+          .innerJoin(worklists, eq(worklistItems.worklistid, worklists.worklistid))
+          .where(
+            and(
+              inArray(worklistItems.sampleid, allSampleIds),
+              // Only consider active worklists (not completed/cancelled)
+              sql`${worklists.status} NOT IN ('completed', 'cancelled')`
+            )
+          );
+
+        for (const row of wlRows) {
+          if (row.sampleid) {
+            worklistBySampleId.set(String(row.sampleid), {
+              worklistid: row.worklistid,
+              worklistname: row.worklistname,
+              workliststatus: row.workliststatus,
+            });
+          }
+        }
+      } catch (e) {
+        // Best-effort: don't fail the whole request if worklist lookup fails
+      }
+    }
+
+    const samplesWithWorklist = samplesWithDerived.map((s: any) => {
+      const wl = worklistBySampleId.get(String(s.sampleid));
+      return {
+        ...s,
+        worklistid: wl?.worklistid || null,
+        worklistname: wl?.worklistname || null,
+        workliststatus: wl?.workliststatus || null,
+      };
+    });
+
     return NextResponse.json({
-      samples: samplesWithDerived,
+      samples: samplesWithWorklist,
       pagination: {
         limit,
         offset,

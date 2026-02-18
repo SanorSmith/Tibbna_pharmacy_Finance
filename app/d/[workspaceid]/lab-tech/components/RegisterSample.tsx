@@ -117,6 +117,9 @@ interface AccessionedSample {
   accessionnumber?: string | null;
   tests?: unknown;
   labcategory?: string | null;
+  worklistid?: string | null;
+  worklistname?: string | null;
+  workliststatus?: string | null;
 }
 
 // Component to display tests for a sample
@@ -194,6 +197,8 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const [showWorklistDialog, setShowWorklistDialog] = useState(false);
   const [showCreateWorklistDialog, setShowCreateWorklistDialog] = useState(false);
   const [showBarcodePrintDialog, setShowBarcodePrintDialog] = useState(false);
+  const [selectedWorklist, setSelectedWorklist] = useState<any>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; item: any }>({ show: false, item: null });
   
   // Alert dialog states
   const [alertDialog, setAlertDialog] = useState<{
@@ -320,6 +325,17 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     },
   });
 
+  // Fetch laboratory types from database
+  const { data: labTypes } = useQuery({
+    queryKey: ['laboratory-types', workspaceid],
+    queryFn: async () => {
+      const response = await fetch(`/api/d/${workspaceid}/laboratory-types`);
+      if (!response.ok) throw new Error('Failed to fetch laboratory types');
+      const data = await response.json();
+      return data.laboratoryTypes || [];
+    },
+  });
+
   // Fetch storage locations
   const { data: storageLocations, isLoading: locationsLoading } = useQuery<StorageLocation[]>({
     queryKey: ['storage-locations', workspaceid],
@@ -356,6 +372,28 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     },
   });
 
+  // Remove from worklist mutation
+  const removeFromWorklistMutation = useMutation({
+    mutationFn: async ({ worklistid, worklistitemid }: { worklistid: string; worklistitemid: string }) => {
+      const response = await fetch(`/api/lims/worklists/${worklistid}/items?worklistitemid=${worklistitemid}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove from worklist');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worklist-items', selectedWorklist?.worklistid] });
+      queryClient.invalidateQueries({ queryKey: ['accessioned-samples', workspaceid] });
+      showAlert('Success', 'Sample removed from worklist successfully!', 'success');
+    },
+    onError: (error: Error) => {
+      showAlert('Cannot Remove from Worklist', error.message, 'error');
+    },
+  });
+
   // Add to worklist mutation
   const addToWorklistMutation = useMutation({
     mutationFn: async ({ worklistid, orderid, sampleid }: { worklistid: string; orderid: string | null; sampleid: string }) => {
@@ -364,13 +402,20 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderid, sampleid }),
       });
-      if (!response.ok) throw new Error('Failed to add to worklist');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add to worklist');
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worklists', workspaceid] });
+      queryClient.invalidateQueries({ queryKey: ['accessioned-samples', workspaceid] });
       setShowWorklistDialog(false);
       showAlert('Success', 'Sample added to worklist successfully!', 'success');
+    },
+    onError: (error: Error) => {
+      showAlert('Cannot Add to Worklist', error.message, 'error');
     },
   });
 
@@ -619,6 +664,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                           <TableHead>Patient Name</TableHead>
                           
                           <TableHead>Status</TableHead>
+                          <TableHead>Worklist</TableHead>
                           <TableHead>TAT Elapsed</TableHead>
                           <TableHead>Accessioned</TableHead>
                         </TableRow>
@@ -646,6 +692,15 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                               {sample.patientname || sample.subjectidentifier || "Unknown"}
                             </TableCell>
                             <TableCell>{getStatusBadge(sample.currentstatus)}</TableCell>
+                            <TableCell>
+                              {sample.worklistname ? (
+                                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs">
+                                  {sample.worklistname}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
                             <TableCell>
                               {(() => {
                                 const completedStatuses = ["ANALYZED", "DISPOSED"];
@@ -832,13 +887,15 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 <Button 
                   variant="outline" 
                   size="sm"
+                  disabled={!!selectedSample?.worklistname}
+                  title={selectedSample?.worklistname ? `Already in worklist: ${selectedSample.worklistname}` : 'Add to worklist'}
                   onClick={() => {
                     setShowSampleDetail(false);
                     setShowWorklistDialog(true);
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Worklist
+                  {selectedSample?.worklistname ? `In: ${selectedSample.worklistname}` : 'Worklist'}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowSampleDetail(false)}>Close</Button>
               </div>
@@ -1012,117 +1069,47 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Create Worklist Dialog */}
-      <Dialog open={showCreateWorklistDialog} onOpenChange={setShowCreateWorklistDialog}>
-        <DialogContent className={getDialogClasses("MEDIUM")}>
-          <DialogHeader>
-            <DialogTitle>Create New Worklist</DialogTitle>
-            <DialogDescription>
-              Create a new worklist for organizing samples by laboratory
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="worklistname">Worklist Name *</Label>
-              <Input
-                id="worklistname"
-                placeholder="e.g., Hematology Morning Batch"
-                value={worklistFormData.worklistname}
-                onChange={(e) => setWorklistFormData({ ...worklistFormData, worklistname: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="laboratory">Laboratory/Department *</Label>
-              <Select
-                value={worklistFormData.laboratory}
-                onValueChange={(value) => setWorklistFormData({ ...worklistFormData, laboratory: value })}
-              >
-                <SelectTrigger id="laboratory">
-                  <SelectValue placeholder="Select laboratory" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Hematology">Hematology</SelectItem>
-                  <SelectItem value="Biochemistry">Biochemistry</SelectItem>
-                  <SelectItem value="Microbiology">Microbiology</SelectItem>
-                  <SelectItem value="Immunology">Immunology</SelectItem>
-                  <SelectItem value="Molecular">Molecular Biology</SelectItem>
-                  <SelectItem value="Histopathology">Histopathology</SelectItem>
-                  <SelectItem value="Cytology">Cytology</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Optional description for this worklist"
-                value={worklistFormData.description}
-                onChange={(e) => setWorklistFormData({ ...worklistFormData, description: e.target.value })}
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateWorklistDialog(false)}>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm.show} onOpenChange={(open) => setDeleteConfirm({ show: open, item: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Sample from Worklist</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{deleteConfirm.item?.samplenumber}</strong> from this worklist? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm({ show: false, item: null })}
+            >
               Cancel
             </Button>
             <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => {
-                if (!worklistFormData.worklistname || !worklistFormData.laboratory) {
-                  showAlert('Validation Error', 'Please fill in required fields', 'warning');
-                  return;
+                if (deleteConfirm.item && selectedWorklist) {
+                  removeFromWorklistMutation.mutate({
+                    worklistid: selectedWorklist.worklistid,
+                    worklistitemid: deleteConfirm.item.worklistitemid,
+                  });
+                  setDeleteConfirm({ show: false, item: null });
                 }
-                createWorklistMutation.mutate(worklistFormData);
               }}
-              disabled={createWorklistMutation.isPending}
+              disabled={removeFromWorklistMutation.isPending}
             >
-              {createWorklistMutation.isPending ? (
+              {removeFromWorklistMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  Removing...
                 </>
               ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Create Worklist
-                </>
+                'Remove'
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Barcode Print Dialog */}
-      <Dialog open={showBarcodePrintDialog} onOpenChange={setShowBarcodePrintDialog}>
-        <DialogContent className={getDialogClasses("SMALL")}>
-          <DialogHeader>
-            <DialogTitle>Print Barcode Label</DialogTitle>
-            <DialogDescription>
-              Preview and print barcode label for sample {selectedSample?.samplenumber}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedSample && (
-            <BarcodePrint
-              barcode={selectedSample.barcode}
-              sampleNumber={selectedSample.samplenumber}
-              patientName={selectedSample.patientname || selectedSample.patientid || "Unknown"}
-              collectionDate={selectedSample.collectiondate}
-              sampleType={selectedSample.sampletype}
-            />
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBarcodePrintDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Alert Dialog */}
       <AlertDialog open={alertDialog.isOpen} onOpenChange={(open) => setAlertDialog(prev => ({ ...prev, isOpen: open }))}>

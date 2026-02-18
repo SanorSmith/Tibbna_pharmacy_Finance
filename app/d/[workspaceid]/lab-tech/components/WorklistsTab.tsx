@@ -181,6 +181,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worklist-items', selectedWorklist?.worklistid] });
       queryClient.invalidateQueries({ queryKey: ['worklists', workspaceid] });
+      queryClient.invalidateQueries({ queryKey: ['accessioned-samples', workspaceid] });
     },
     onError: (error: Error) => {
       setAlertDialog({ show: true, title: 'Error', message: `Failed to delete item: ${error.message}` });
