@@ -21,6 +21,7 @@ import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock } from 
 import { calculateTAT, getTATStatusColor, getTATStatusLabel, formatDuration } from "@/lib/lims/tat-tracking";
 import BarcodePrint from "./BarcodePrint";
 import { getDialogClasses } from "@/lib/ui-constants";
+import { LABORATORIES } from "@/lib/test-catalog";
 
 // Storage Location interface
 interface StorageLocation {
@@ -325,16 +326,8 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     },
   });
 
-  // Fetch laboratory types from database
-  const { data: labTypes } = useQuery({
-    queryKey: ['laboratory-types', workspaceid],
-    queryFn: async () => {
-      const response = await fetch(`/api/d/${workspaceid}/laboratory-types`);
-      if (!response.ok) throw new Error('Failed to fetch laboratory types');
-      const data = await response.json();
-      return data.laboratoryTypes || [];
-    },
-  });
+  // Use hardcoded laboratories from test catalog (same as lab order form)
+  const labTypes = Object.values(LABORATORIES);
 
   // Fetch storage locations
   const { data: storageLocations, isLoading: locationsLoading } = useQuery<StorageLocation[]>({
@@ -923,27 +916,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {locationsLoading ? (
-                    <SelectItem value="loading" disabled>
-                      Loading storage locations...
-                    </SelectItem>
-                  ) : storageLocations && storageLocations.length > 0 ? (
-                    storageLocations
-                      .filter(location => location.status === 'active' && location.isavailable)
-                      .map((location) => (
-                        <SelectItem key={location.locationid} value={location.code}>
-                          {location.name} ({location.code})
-                        </SelectItem>
-                      ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      No storage locations available
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm text-blue-800">
                 <strong>Current Status:</strong> {selectedSample?.currentstatus}
               </p>
@@ -1100,17 +1072,11 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   <SelectValue placeholder="Select laboratory" />
                 </SelectTrigger>
                 <SelectContent>
-                  {labTypes && labTypes.length > 0 ? (
-                    labTypes.map((lab: any) => (
-                      <SelectItem key={lab.typeid} value={lab.name}>
-                        {lab.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="loading" disabled>
-                      Loading laboratory types...
+                  {labTypes.map((lab) => (
+                    <SelectItem key={lab.id} value={lab.name}>
+                      {lab.name}
                     </SelectItem>
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
             </div>
