@@ -353,7 +353,14 @@ export async function GET(request: NextRequest) {
         createdat: accessionSamples.createdat,
         updatedat: accessionSamples.updatedat,
         openehrrequestid: accessionSamples.openehrrequestid,
-        patientname: sql<string>`COALESCE(${patients.firstname} || ' ' || ${patients.lastname}, null)`.as('patientname'),
+        patientname: sql<string>`COALESCE(
+          CASE 
+            WHEN ${patients.middlename} IS NOT NULL AND TRIM(${patients.middlename}) != '' 
+            THEN ${patients.firstname} || ' ' || ${patients.middlename} || ' ' || ${patients.lastname}
+            ELSE ${patients.firstname} || ' ' || ${patients.lastname}
+          END, 
+          null
+        )`.as('patientname'),
         patientage: sql<number>`COALESCE(EXTRACT(YEAR FROM AGE(${patients.dateofbirth})), null)`.as('patientage'),
         patientsex: sql<string>`COALESCE(${patients.gender}, null)`.as('patientsex'),
         nationalid: sql<string>`${patients.nationalid}`.as('nationalid'),

@@ -741,20 +741,20 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
       {/* Sample Detail Dialog */}
       <Dialog open={showSampleDetail} onOpenChange={setShowSampleDetail}>
-        <DialogContent className="w-[80vw] max-w-[80vw]">
+        <DialogContent className="w-[70vw] max-w-[70vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Sample Details</DialogTitle>
             <p className="text-sm text-muted-foreground font-mono">{selectedSample?.samplenumber}</p>
           </DialogHeader>
 
           {selectedSample && (
-            <div className="space-y-2 py-1">
+            <div className="space-y-1 py-0.5">
               {/* Patient & Sample Card - compact */}
-              <div className="border rounded-lg p-3">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="border rounded p-2">
+                <div className="grid grid-cols-2 gap-3">
                   {/* Left: Patient Info */}
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-0.5">
                       <span className="font-semibold text-sm">{selectedSample.patientname || "Unknown Patient"}</span>
                       {getStatusBadge(selectedSample.currentstatus)}
                       {(() => {
@@ -784,8 +784,8 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   </div>
 
                   {/* Right: Sample & Order Info */}
-                  <div className="border-l pl-4">
-                    <div className="text-xs space-y-1">
+                  <div className="border-l pl-3">
+                    <div className="text-xs space-y-0.5">
                       <div>
                         <span className="text-muted-foreground uppercase text-[10px] font-semibold">Sample Type</span>
                         <div className="font-medium capitalize">{selectedSample.sampletype || testSpecimenInfo?.sampletype || "-"}</div>
@@ -800,13 +800,13 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
               </div>
 
               {/* Tests Card */}
-              <div className="border rounded-lg p-3">
-                <h3 className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Tests</h3>
+              <div className="border rounded p-2">
+                <h3 className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Tests</h3>
                 <SampleTestsDisplay sampleId={selectedSample.sampleid} onSpecimenInfo={handleSpecimenInfo} />
               </div>
 
               {/* Sample Information - inline compact */}
-              <div className="border rounded-lg px-3 py-2 flex items-center gap-4 text-xs">
+              <div className="border rounded px-2 py-1.5 flex items-center gap-3 text-xs">
                 <span className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Sample</span>
                 <span className="font-mono text-[11px]">{selectedSample.barcode}</span>
                 {selectedSample.accessionnumber && (
@@ -817,7 +817,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
 
               {/* Action Buttons - right aligned like Image 2 */}
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <Button 
                   variant="outline" 
                   size="sm"
