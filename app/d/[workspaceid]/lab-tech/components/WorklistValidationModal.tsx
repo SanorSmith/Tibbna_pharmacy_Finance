@@ -186,8 +186,41 @@ export default function WorklistValidationModal({
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+    onSuccess: async () => {
+      // Invalidate queries
+      await queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+      
+      // Refetch the updated worklist data to check if all items are released
+      if (worklistid) {
+        try {
+          const response = await fetch(`/api/lims/worklist/${worklistid}?workspaceid=${workspaceid}`);
+          if (response.ok) {
+            const data = await response.json();
+            const items = data.items || [];
+            
+            // Check if all items in the worklist are now released
+            const allItemsReleased = items.length > 0 && items.every((item: WorklistItem) => {
+              const results = item.results || [];
+              return results.length > 0 && results.every((r: TestResult) => r.status === 'released');
+            });
+
+            // If all items are released, automatically delete the worklist
+            if (allItemsReleased) {
+              const deleteResponse = await fetch(`/api/lims/worklists/${worklistid}`, {
+                method: 'DELETE',
+              });
+              if (deleteResponse.ok) {
+                // Invalidate worklists query to refresh the list
+                await queryClient.invalidateQueries({ queryKey: ["worklists", workspaceid] });
+                // Close the modal
+                onOpenChange(false);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check/delete completed worklist:', error);
+        }
+      }
     },
   });
 
