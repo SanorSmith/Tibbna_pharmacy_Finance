@@ -1069,6 +1069,122 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
         </DialogContent>
       </Dialog>
 
+      {/* Create Worklist Dialog */}
+      <Dialog open={showCreateWorklistDialog} onOpenChange={setShowCreateWorklistDialog}>
+        <DialogContent className={getDialogClasses("MEDIUM")}>
+          <DialogHeader>
+            <DialogTitle>Create New Worklist</DialogTitle>
+            <DialogDescription>
+              Create a new worklist for organizing samples by laboratory
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="worklistname">Worklist Name *</Label>
+              <Input
+                id="worklistname"
+                placeholder="e.g., Hematology Morning Batch"
+                value={worklistFormData.worklistname}
+                onChange={(e) => setWorklistFormData({ ...worklistFormData, worklistname: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="laboratory">Laboratory/Department *</Label>
+              <Select
+                value={worklistFormData.laboratory}
+                onValueChange={(value) => setWorklistFormData({ ...worklistFormData, laboratory: value })}
+              >
+                <SelectTrigger id="laboratory">
+                  <SelectValue placeholder="Select laboratory" />
+                </SelectTrigger>
+                <SelectContent>
+                  {labTypes && labTypes.length > 0 ? (
+                    labTypes.map((lab: any) => (
+                      <SelectItem key={lab.typeid} value={lab.name}>
+                        {lab.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="loading" disabled>
+                      Loading laboratory types...
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Optional description for this worklist"
+                value={worklistFormData.description}
+                onChange={(e) => setWorklistFormData({ ...worklistFormData, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateWorklistDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!worklistFormData.worklistname || !worklistFormData.laboratory) {
+                  showAlert('Validation Error', 'Please fill in required fields', 'warning');
+                  return;
+                }
+                createWorklistMutation.mutate(worklistFormData);
+              }}
+              disabled={createWorklistMutation.isPending}
+            >
+              {createWorklistMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Create Worklist
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Barcode Print Dialog */}
+      <Dialog open={showBarcodePrintDialog} onOpenChange={setShowBarcodePrintDialog}>
+        <DialogContent className={getDialogClasses("SMALL")}>
+          <DialogHeader>
+            <DialogTitle>Print Barcode Label</DialogTitle>
+            <DialogDescription>
+              Preview and print barcode label for sample {selectedSample?.samplenumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSample && (
+            <BarcodePrint
+              barcode={selectedSample.barcode}
+              sampleNumber={selectedSample.samplenumber}
+              patientName={selectedSample.patientname || selectedSample.patientid || "Unknown"}
+              collectionDate={selectedSample.collectiondate}
+              sampleType={selectedSample.sampletype}
+            />
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBarcodePrintDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirm.show} onOpenChange={(open) => setDeleteConfirm({ show: open, item: null })}>
         <AlertDialogContent>
