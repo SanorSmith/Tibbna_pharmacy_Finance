@@ -818,10 +818,18 @@ export default function WorklistValidationModal({
                     const results = (currentItem.results || []).filter((r: TestResult) => r.resultid);
                     const statuses = results.map((r: TestResult) => r.status);
                     const allReleased = statuses.every((s: string) => s === 'released');
+                    
+                    // Check if all results have valid values (not empty, not null, not just "-")
+                    const allHaveResults = results.every((r: TestResult) => {
+                      const value = r.resultvalue?.trim();
+                      return value && value !== '-' && value !== '';
+                    });
+                    
+                    const canRelease = !allReleased && results.length > 0 && allHaveResults;
 
                     return (
                       <>
-                        {/* Release - available for any non-released state */}
+                        {/* Release - available only when all results have values */}
                         {!allReleased && results.length > 0 && (
                           <Button
                             variant="default"
@@ -831,8 +839,8 @@ export default function WorklistValidationModal({
                                 if (result.resultid && result.status !== 'released') releaseMutation.mutate(result.resultid);
                               });
                             }}
-                            disabled={releaseMutation.isPending}
-                            title="Release results to doctor"
+                            disabled={releaseMutation.isPending || !allHaveResults}
+                            title={allHaveResults ? "Release results to doctor" : "All tests must have results before releasing"}
                           >
                             {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                             Release
