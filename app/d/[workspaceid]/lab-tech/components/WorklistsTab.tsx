@@ -981,11 +981,11 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
                             <TableCell className="font-mono text-xs">
                               {item.orderid ? (
                                 <span className="text-blue-600" title={item.orderid}>
-                                  {item.orderid.substring(0, 8)}...
+                                  ...{item.orderid.slice(-5)}
                                 </span>
                               ) : item.openehrrequestid ? (
                                 <span className="text-purple-600" title={item.openehrrequestid}>
-                                  {item.openehrrequestid}
+                                  {item.openehrrequestid.length > 10 ? `...${item.openehrrequestid.slice(-5)}` : item.openehrrequestid}
                                 </span>
                               ) : (
                                 <span className="text-gray-400">-</span>
