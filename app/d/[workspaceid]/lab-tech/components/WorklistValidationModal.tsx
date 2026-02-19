@@ -451,37 +451,66 @@ export default function WorklistValidationModal({
               <div className="border-b pb-3">
                 <p className="text-sm font-semibold text-gray-700 mb-2">Patient Information</p>
                 {currentItem.patient ? (
-                  <div className="flex items-center gap-6 flex-wrap text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Name:</span>
-                      <span className="font-medium">
-                        {currentItem.patient.firstname} {currentItem.patient.lastname}
-                      </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-6 flex-wrap text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Name:</span>
+                        <span className="font-medium">
+                          {currentItem.patient.firstname} {currentItem.patient.lastname}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Age:</span>
+                        <span className="font-medium">{currentItem.patient.age} years</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Gender:</span>
+                        <span className="font-medium capitalize">{currentItem.patient.gender}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Sample ID:</span>
+                        <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">TAT:</span>
+                        {(() => {
+                          const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
+                          return (
+                            <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
+                              <Clock className="h-3 w-3 mr-1" />
+                              {tat.elapsedDisplay} ({tat.percentUsed}%)
+                            </Badge>
+                          );
+                        })()}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Age:</span>
-                      <span className="font-medium">{currentItem.patient.age} years</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Gender:</span>
-                      <span className="font-medium capitalize">{currentItem.patient.gender}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Sample ID:</span>
-                      <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">TAT:</span>
-                      {(() => {
-                        const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
-                        return (
-                          <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
-                            <Clock className="h-3 w-3 mr-1" />
-                            {tat.elapsedDisplay} ({tat.percentUsed}%)
-                          </Badge>
-                        );
-                      })()}
-                    </div>
+                    {/* Order ID and Multi-Sample Indicator */}
+                    {(() => {
+                      const orderid = (currentItem as any).orderid || (currentItem as any).openehrrequestid;
+                      if (!orderid) return null;
+                      
+                      // Count how many samples in this worklist have the same order ID
+                      const samplesInSameOrder = items.filter((item: any) => 
+                        (item.orderid === orderid || item.openehrrequestid === orderid)
+                      );
+                      const isMultiSample = samplesInSameOrder.length > 1;
+                      
+                      return (
+                        <div className="flex items-center gap-4 text-xs pt-2 border-t">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-600">Order ID:</span>
+                            <span className="font-mono text-blue-600 font-medium" title={orderid}>
+                              {orderid.length > 20 ? `${orderid.substring(0, 20)}...` : orderid}
+                            </span>
+                          </div>
+                          {isMultiSample && (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                              Multi-Sample Order ({samplesInSameOrder.length} specimens)
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-xs">No patient information available</p>
