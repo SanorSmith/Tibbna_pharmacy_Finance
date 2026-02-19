@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 export type OpenEHROrderStatus = "REQUESTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 /**
- * Get the status of an OpenEHR order based on its samples' validation states
+ * Get the status of an OpenEHR order based on its samples' statuses and validation states
  * 
  * @param openehrrequestid - The OpenEHR request ID
  * @returns The computed order status
@@ -28,11 +28,33 @@ export async function getOpenEHROrderStatus(openehrrequestid: string): Promise<O
     return "REQUESTED";
   }
 
-  // Check validation state for each sample
+  // Check both sample status and validation state for each sample
   let analyzedCount = 0;
   let inProgressCount = 0;
+  let receivedCount = 0;
 
   for (const sample of samples) {
+    const sampleStatus = sample.currentstatus;
+    
+    // Check if sample is ANALYZED (results released)
+    if (sampleStatus === "ANALYZED") {
+      analyzedCount++;
+      continue;
+    }
+    
+    // Check if sample is IN_PROCESS (being tested)
+    if (sampleStatus === "IN_PROCESS") {
+      inProgressCount++;
+      continue;
+    }
+    
+    // Check if sample is RECEIVED or IN_STORAGE (collected but not started)
+    if (sampleStatus === "RECEIVED" || sampleStatus === "IN_STORAGE") {
+      receivedCount++;
+      continue;
+    }
+    
+    // Also check validation state as fallback
     const validationState = await db
       .select()
       .from(validationStates)
@@ -42,20 +64,27 @@ export async function getOpenEHROrderStatus(openehrrequestid: string): Promise<O
     if (validationState.length > 0) {
       const state = validationState[0].currentstate;
       
-      if (state === "ANALYZED" || state === "TECH_VALIDATED" || state === "CLINICALLY_VALIDATED" || state === "RELEASED") {
+      if (state === "RELEASED") {
         analyzedCount++;
-      } else if (state === "IN_PROCESS" || state === "PENDING_VALIDATION") {
+      } else if (state === "TECH_VALIDATED" || state === "CLINICALLY_VALIDATED" || state === "PENDING_VALIDATION") {
         inProgressCount++;
       }
     }
   }
 
-  // Determine overall status
+  // Determine overall status based on sample states
   if (analyzedCount === samples.length) {
+    // All samples have released results
     return "COMPLETED";
   } else if (analyzedCount > 0 || inProgressCount > 0) {
+    // Some samples are being processed or have results
+    return "IN_PROGRESS";
+  } else if (receivedCount > 0) {
+    // Samples collected but not yet started processing
+    // This should show as IN_PROGRESS since samples exist
     return "IN_PROGRESS";
   } else {
+    // No samples or unknown state
     return "REQUESTED";
   }
 }

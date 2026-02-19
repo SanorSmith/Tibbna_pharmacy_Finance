@@ -239,20 +239,42 @@ export async function POST(request: NextRequest) {
         }),
       });
 
-      // Update order status to IN_PROGRESS when sample is collected (only for local LIMS orders)
-      if (isUuidOrder) {
-        await tx
-          .update(limsOrders)
-          .set({ 
-            status: ORDER_STATUS.IN_PROGRESS,
-            updatedat: new Date(),
-          })
-          .where(eq(limsOrders.orderid, orderId));
-      }
-      // Note: OpenEHR order status updates are handled after commit via openEHR API
-
       return sample;
     });
+
+    // AUTO-TRANSITION: Update order status (REQUESTED → ACCEPTED → IN_PROGRESS)
+    // Only for local LIMS orders (UUID-based), not OpenEHR orders
+    if (isUuidOrder && orderId) {
+      try {
+        const { StatusTransitionService } = await import("@/lib/lims/status-transition-service");
+        
+        // Step 1: Accept the order (REQUESTED → ACCEPTED)
+        const acceptResult = await StatusTransitionService.acceptOrder({
+          orderid: orderId,
+          acceptedby: user.userid,
+          workspaceid: workspaceId,
+          reason: "Sample collected and accessioned",
+        });
+        
+        if (acceptResult.success) {
+          console.log(`[Accession] Order auto-accepted: ${acceptResult.message}`);
+        }
+
+        // Step 2: Start order processing (ACCEPTED → IN_PROGRESS)
+        const progressResult = await StatusTransitionService.startOrderProcessing({
+          orderid: orderId,
+          sampleid: result.sampleid,
+          userid: user.userid,
+        });
+        
+        if (progressResult.success) {
+          console.log(`[Accession] Order processing started: ${progressResult.message}`);
+        }
+      } catch (transitionError) {
+        console.error("[Accession] Status transition error:", transitionError);
+        // Don't fail the accession if status transition fails
+      }
+    }
 
     // Create notification for sample registration
     try {
