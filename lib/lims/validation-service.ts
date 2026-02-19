@@ -296,6 +296,26 @@ export class ValidationService {
       // This would be handled by a separate integration service
       await this.emitResultsReleasedEvent(sampleid);
 
+      // AUTO-SUBMIT: Submit results to OpenEHR when released
+      try {
+        const { OpenEHRResultSubmissionService } = await import("./openehr-result-submission");
+        
+        const submissionResult = await OpenEHRResultSubmissionService.submitResultsToOpenEHR({
+          sampleid: sampleid,
+          userid: userid,
+          overrideStatus: "final",
+        });
+        
+        if (submissionResult.success) {
+          console.log(`[ValidationService] Results submitted to OpenEHR: ${submissionResult.compositionUid}`);
+        } else {
+          console.warn(`[ValidationService] OpenEHR submission failed: ${submissionResult.error}`);
+        }
+      } catch (submissionError) {
+        console.error("[ValidationService] OpenEHR submission error:", submissionError);
+        // Don't fail the release if OpenEHR submission fails
+      }
+
       // AUTO-TRANSITION: Check if order can be completed (IN_PROGRESS → COMPLETED)
       // This happens when all samples for the order have released results
       const sample = await db.query.accessionSamples.findFirst({
