@@ -254,6 +254,22 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     type?: "success" | "error" | "warning";
   }>({ show: false, title: "", message: "" });
 
+  // Query to check if selected order already has samples collected
+  const { data: orderSamples } = useQuery({
+    queryKey: ['order-samples', selectedOrder?.orderid || selectedOrder?.request_id || selectedOrder?.composition_uid],
+    queryFn: async () => {
+      if (!selectedOrder) return null;
+      const orderId = selectedOrder.orderid || selectedOrder.request_id || selectedOrder.composition_uid;
+      if (!orderId) return null;
+      
+      const response = await fetch(`/api/lims/accession?workspaceid=${workspaceid}&orderid=${orderId}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.samples || [];
+    },
+    enabled: !!selectedOrder,
+  });
+
   const createPatientMutation = useMutation({
     mutationFn: async (payload: PatientCreatePayload) => {
       const res = await fetch(`/api/d/${workspaceid}/patients`, {
@@ -2045,6 +2061,10 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                         {(() => {
                           const isCancelled = openEHROrderStatus === "CANCELLED" || selectedOrder?.status === "CANCELLED";
                           if (isCancelled) return null;
+                          
+                          // Check if order already has samples collected
+                          const hasSamplesCollected = orderSamples && orderSamples.length > 0;
+                          
                           const specimenGroups = resolvedTests.reduce((acc: any, test: any) => {
                             const specimen = test.specimenType || test.specimentype || test.material || "Not specified";
                             if (!acc[specimen]) acc[specimen] = { tests: [] as any[], containers: new Set<string>(), volumes: [] as string[] };
@@ -2061,6 +2081,21 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                           }
                           const uncollected = entries.filter(([specimen]) => !collectedSpecimenTypes[specimen]);
                           if (uncollected.length === 0) return null;
+                          
+                          // Show message if samples already collected
+                          if (hasSamplesCollected) {
+                            return (
+                              <div className="mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                                <div className="font-semibold flex items-center gap-1">
+                                  ✓ Samples already collected for this order
+                                </div>
+                                <div className="text-blue-600 mt-1">
+                                  {orderSamples.length} sample{orderSamples.length !== 1 ? 's' : ''} collected: {orderSamples.map((s: any) => s.samplenumber).join(', ')}
+                                </div>
+                              </div>
+                            );
+                          }
+                          
                           return (
                             <div className="mt-3 space-y-2">
                               {uncollected.map(([specimen, data]: [string, any]) => {

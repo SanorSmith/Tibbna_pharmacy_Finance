@@ -334,6 +334,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get("workspaceid");
     const status = searchParams.get("status");
+    const orderId = searchParams.get("orderid");
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
@@ -345,6 +346,18 @@ export async function GET(request: NextRequest) {
     const conditions = [eq(accessionSamples.workspaceid, workspaceId)];
     if (status) {
       conditions.push(eq(accessionSamples.currentstatus, status));
+    }
+    
+    // Filter by order ID if provided (supports both LIMS and OpenEHR orders)
+    if (orderId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuidOrder = uuidRegex.test(orderId);
+      
+      if (isUuidOrder) {
+        conditions.push(eq(accessionSamples.orderid, orderId));
+      } else {
+        conditions.push(eq(accessionSamples.openehrrequestid, orderId));
+      }
     }
 
     // Join with patients table to get patient names and demographics
