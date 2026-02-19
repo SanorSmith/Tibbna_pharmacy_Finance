@@ -350,17 +350,6 @@ export async function GET(request: NextRequest) {
             specimenvolume: t.specimenvolume,
           };
           
-          // Debug logging for first test
-          if (testIndex === 0) {
-            console.log('[LIMS Orders] Sample test data:', {
-              orderTestCode: t.orderTestCode,
-              catalogTestCode: t.catalogTestCode,
-              hasRefData: !!refData,
-              refDataSampleType: refData?.sampletype,
-              catalogSpecimenType: t.specimentype,
-              finalSpecimenType: testData.specimenType,
-            });
-          }
           testIndex++;
           
           return testData;
@@ -436,11 +425,6 @@ export async function GET(request: NextRequest) {
           cancelledbyname,
         };
         
-        // Debug log for order data
-        console.log(`[LIMS Orders] Order ${order.orderid} has ${orderTests.length} tests`);
-        if (orderTests.length > 0) {
-          console.log('[LIMS Orders] First test:', orderTests[0]);
-        }
         
         return orderData;
       })
@@ -456,8 +440,6 @@ export async function GET(request: NextRequest) {
         .where(eq(patients.workspaceid, workspaceId));
       
       const patientsWithEhr = patientsQuery.filter(p => p.ehrid);
-
-      console.log(`Fetching openEHR orders for ${patientsWithEhr.length} patients with EHR IDs`);
 
       // Limit concurrent OpenEHR requests to avoid overwhelming the server
       const batchSize = 5;
@@ -493,7 +475,7 @@ export async function GET(request: NextRequest) {
               }));
               openEHROrders.push(...ordersWithPatient);
             } catch (error) {
-              console.error(`Error fetching openEHR orders for patient ${patient.patientid}:`, error);
+              // Silently continue if OpenEHR fetch fails for a patient
             }
           })
         );

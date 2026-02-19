@@ -201,8 +201,6 @@ export async function getOpenEHRTestOrders(
     // Get only encounter compositions (this finds all test orders)
     const encounterResults = await queryOpenEHR<OpenEHRResult>(encounterQuery);
 
-    console.log(`Found ${encounterResults.length} encounter compositions`);
-
     const testOrders: TestOrderRecord[] = [];
 
     // Process encounter compositions
@@ -294,8 +292,6 @@ export async function getOpenEHRTestOrders(
               }
             }
 
-            console.log(`Processing service request: ${serviceName}, requestId: ${requestId}, status: ${status}, narrative: ${narrative?.substring(0, 100)}`);
-
             // Skip vaccination requests (they have different request_id pattern or service names)
             if (
               requestId.startsWith("VACC-") ||
@@ -303,7 +299,6 @@ export async function getOpenEHRTestOrders(
               description.toLowerCase().includes("vaccin") ||
               narrative.toLowerCase().includes("vaccin")
             ) {
-              console.log("Skipping vaccination request:", serviceName);
               continue;
             }
 
@@ -312,7 +307,6 @@ export async function getOpenEHRTestOrders(
               description === "REFERRAL_REQUEST" ||
               narrative.toLowerCase().includes("referral")
             ) {
-              console.log("Skipping referral request:", serviceName);
               continue;
             }
 
@@ -324,13 +318,11 @@ export async function getOpenEHRTestOrders(
               narrative.toLowerCase().includes("procedure") ||
               narrative.toLowerCase().includes("operation")
             ) {
-              console.log("Skipping procedure request:", serviceName);
               continue;
             }
 
             // Include all remaining service requests as potential test orders
             // This includes orders with "testreq-" prefix and other lab test orders
-            console.log("Including test order:", serviceName, "requestId:", requestId);
 
             // Extract urgency from description or narrative
             let urgency = "routine";
@@ -427,8 +419,6 @@ export async function getOpenEHRTestOrdersWithCancelled(
 
   try {
     const encounterResults = await queryOpenEHR<OpenEHRResult>(encounterQuery);
-    console.log(`Found ${encounterResults.length} encounter compositions (including cancelled)`);
-
     const testOrders: TestOrderRecord[] = [];
 
     for (const row of encounterResults) {
@@ -502,8 +492,6 @@ export async function getOpenEHRTestOrdersWithCancelled(
                 status = statusMatch[1];
               }
             }
-
-            console.log(`Processing service request (with cancelled): ${serviceName}, status: ${status}, narrative: ${narrative?.substring(0, 100)}`);
 
             let testCategory = "";
             let targetLab = receivingProvider;

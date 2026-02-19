@@ -170,7 +170,6 @@ export async function GET(
               );
             if (catalogTests.length > 0) {
               orderTests = catalogTests;
-              console.log(`Fallback 3a: Found ${catalogTests.length} tests from catalog for category "${category}"`);
             } else {
               // Try testReferenceRanges by labtype
               const refTests = await db
@@ -212,7 +211,6 @@ export async function GET(
             orderTests.map(async (test) => {
               if (!test.testcode) return null;
               
-              console.log(`Looking up reference range for test code: ${test.testcode}, test name: ${test.testname}`);
               
               // Try matching by testcode first, then fall back to testname
               let [refRange] = await db
