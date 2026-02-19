@@ -660,6 +660,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Sample Number</TableHead>
+                          <TableHead>Order ID</TableHead>
                           <TableHead>Sample Type</TableHead>
                         
                           <TableHead>Collection Date</TableHead>
@@ -684,6 +685,19 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                           >
                             <TableCell className="font-mono font-medium text-blue-600">
                               {sample.samplenumber}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {sample.orderid ? (
+                                <span className="text-blue-600" title={sample.orderid}>
+                                  ...{sample.orderid.slice(-5)}
+                                </span>
+                              ) : sample.openehrrequestid ? (
+                                <span className="text-purple-600" title={sample.openehrrequestid}>
+                                  {sample.openehrrequestid.length > 10 ? `...${sample.openehrrequestid.slice(-5)}` : sample.openehrrequestid}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
                             </TableCell>
                             <TableCell className="capitalize">{sample.sampletype}</TableCell>
                             
