@@ -183,8 +183,8 @@ export async function GET(request: NextRequest) {
         // Fetch reference ranges for unmatched results
         const extraTests = await Promise.all(
           unmatchedResults.map(async (r) => {
-            let refMin: number | null = r.referencemin;
-            let refMax: number | null = r.referencemax;
+            let refMin: number | null = r.referencemin ? parseFloat(r.referencemin) : null;
+            let refMax: number | null = r.referencemax ? parseFloat(r.referencemax) : null;
             let refRange: string | null = r.referencerange;
             let unit = r.unit;
 
