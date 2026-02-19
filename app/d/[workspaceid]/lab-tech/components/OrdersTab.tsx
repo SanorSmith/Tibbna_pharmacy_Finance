@@ -450,7 +450,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create sample");
+        // Use the detailed message if available, otherwise use the error field
+        const errorMessage = error.message || error.error || "Failed to create sample";
+        throw new Error(errorMessage);
       }
 
       return response.json();

@@ -101,6 +101,29 @@ export async function POST(request: NextRequest) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isUuidOrder = orderId && uuidRegex.test(orderId);
     
+    // Check if order already has samples collected (prevent duplicate collection)
+    if (orderId) {
+      const existingSamples = await db
+        .select({ sampleid: accessionSamples.sampleid })
+        .from(accessionSamples)
+        .where(
+          isUuidOrder
+            ? eq(accessionSamples.orderid, orderId)
+            : eq(accessionSamples.openehrrequestid, orderId)
+        )
+        .limit(1);
+
+      if (existingSamples.length > 0) {
+        return NextResponse.json(
+          { 
+            error: "Sample already collected for this order", 
+            message: "This lab order already has samples collected. Each order can only have samples collected once. Please create a new order if additional specimens are needed."
+          },
+          { status: 400 }
+        );
+      }
+    }
+    
     // Create sample record in transaction
     const result = await db.transaction(async (tx) => {
       let resolvedLabCategory: string | null = null;
