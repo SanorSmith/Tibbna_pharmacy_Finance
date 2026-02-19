@@ -10,7 +10,7 @@ import {
   limsOrders,
   patients,
 } from "@/lib/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 // GET - Fetch worklist items with order, patient, and sample details
 export async function GET(
@@ -112,6 +112,41 @@ export async function POST(
 
     if (!worklist) {
       return NextResponse.json({ error: "Worklist not found" }, { status: 404 });
+    }
+
+    // Block adding sample if it is already in any active worklist
+    if (sampleid) {
+      const existingAssignment = await db
+        .select({
+          worklistitemid: worklistItems.worklistitemid,
+          worklistid: worklists.worklistid,
+          worklistname: worklists.worklistname,
+          workliststatus: worklists.status,
+        })
+        .from(worklistItems)
+        .innerJoin(worklists, eq(worklistItems.worklistid, worklists.worklistid))
+        .where(
+          and(
+            eq(worklistItems.sampleid, sampleid),
+            sql`${worklists.status} NOT IN ('completed', 'cancelled')`
+          )
+        )
+        .limit(1);
+
+      if (existingAssignment.length > 0) {
+        const existing = existingAssignment[0];
+        return NextResponse.json(
+          {
+            error: `Sample is already assigned to worklist "${existing.worklistname}". Remove it from that worklist first before adding to a new one.`,
+            existingWorklist: {
+              worklistid: existing.worklistid,
+              worklistname: existing.worklistname,
+              status: existing.workliststatus,
+            },
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Create worklist item

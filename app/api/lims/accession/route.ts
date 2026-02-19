@@ -26,6 +26,8 @@ import {
   patients,
   labTestCatalog,
   limsOrderTests,
+  worklistItems,
+  worklists,
 } from "@/lib/db/schema";
 import { createWorkspaceNotification } from "@/lib/notifications";
 import { 
@@ -98,6 +100,29 @@ export async function POST(request: NextRequest) {
     // Determine if orderId is a UUID (local LIMS order) or text (OpenEHR order)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isUuidOrder = orderId && uuidRegex.test(orderId);
+    
+    // Check if order already has samples collected (prevent duplicate collection)
+    if (orderId) {
+      const existingSamples = await db
+        .select({ sampleid: accessionSamples.sampleid })
+        .from(accessionSamples)
+        .where(
+          isUuidOrder
+            ? eq(accessionSamples.orderid, orderId)
+            : eq(accessionSamples.openehrrequestid, orderId)
+        )
+        .limit(1);
+
+      if (existingSamples.length > 0) {
+        return NextResponse.json(
+          { 
+            error: "Sample already collected for this order", 
+            message: "This lab order already has samples collected. Each order can only have samples collected once. Please create a new order if additional specimens are needed."
+          },
+          { status: 400 }
+        );
+      }
+    }
     
     // Create sample record in transaction
     const result = await db.transaction(async (tx) => {
@@ -309,6 +334,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get("workspaceid");
     const status = searchParams.get("status");
+    const orderId = searchParams.get("orderid");
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
@@ -320,6 +346,18 @@ export async function GET(request: NextRequest) {
     const conditions = [eq(accessionSamples.workspaceid, workspaceId)];
     if (status) {
       conditions.push(eq(accessionSamples.currentstatus, status));
+    }
+    
+    // Filter by order ID if provided (supports both LIMS and OpenEHR orders)
+    if (orderId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuidOrder = uuidRegex.test(orderId);
+      
+      if (isUuidOrder) {
+        conditions.push(eq(accessionSamples.orderid, orderId));
+      } else {
+        conditions.push(eq(accessionSamples.openehrrequestid, orderId));
+      }
     }
 
     // Join with patients table to get patient names and demographics
@@ -473,8 +511,55 @@ export async function GET(request: NextRequest) {
       return derived ? { ...s, labcategory: derived } : s;
     });
 
+    // Batch lookup: which samples are already assigned to an active worklist?
+    const allSampleIds = samplesWithDerived.map((s: any) => String(s.sampleid)).filter(Boolean);
+    const worklistBySampleId = new Map<string, { worklistid: string; worklistname: string; workliststatus: string }>();
+
+    if (allSampleIds.length > 0) {
+      try {
+        const wlRows = await db
+          .select({
+            sampleid: worklistItems.sampleid,
+            worklistid: worklists.worklistid,
+            worklistname: worklists.worklistname,
+            workliststatus: worklists.status,
+          })
+          .from(worklistItems)
+          .innerJoin(worklists, eq(worklistItems.worklistid, worklists.worklistid))
+          .where(
+            and(
+              inArray(worklistItems.sampleid, allSampleIds),
+              // Only consider active worklists (not completed/cancelled)
+              sql`${worklists.status} NOT IN ('completed', 'cancelled')`
+            )
+          );
+
+        for (const row of wlRows) {
+          if (row.sampleid) {
+            worklistBySampleId.set(String(row.sampleid), {
+              worklistid: row.worklistid,
+              worklistname: row.worklistname,
+              workliststatus: row.workliststatus,
+            });
+          }
+        }
+      } catch (e) {
+        // Best-effort: don't fail the whole request if worklist lookup fails
+      }
+    }
+
+    const samplesWithWorklist = samplesWithDerived.map((s: any) => {
+      const wl = worklistBySampleId.get(String(s.sampleid));
+      return {
+        ...s,
+        worklistid: wl?.worklistid || null,
+        worklistname: wl?.worklistname || null,
+        workliststatus: wl?.workliststatus || null,
+      };
+    });
+
     return NextResponse.json({
-      samples: samplesWithDerived,
+      samples: samplesWithWorklist,
       pagination: {
         limit,
         offset,

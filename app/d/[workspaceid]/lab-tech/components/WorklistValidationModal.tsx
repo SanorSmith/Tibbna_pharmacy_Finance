@@ -186,8 +186,41 @@ export default function WorklistValidationModal({
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+    onSuccess: async () => {
+      // Invalidate queries
+      await queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+      
+      // Refetch the updated worklist data to check if all items are released
+      if (worklistid) {
+        try {
+          const response = await fetch(`/api/lims/worklist/${worklistid}?workspaceid=${workspaceid}`);
+          if (response.ok) {
+            const data = await response.json();
+            const items = data.items || [];
+            
+            // Check if all items in the worklist are now released
+            const allItemsReleased = items.length > 0 && items.every((item: WorklistItem) => {
+              const results = item.results || [];
+              return results.length > 0 && results.every((r: TestResult) => r.status === 'released');
+            });
+
+            // If all items are released, automatically delete the worklist
+            if (allItemsReleased) {
+              const deleteResponse = await fetch(`/api/lims/worklists/${worklistid}`, {
+                method: 'DELETE',
+              });
+              if (deleteResponse.ok) {
+                // Invalidate worklists query to refresh the list
+                await queryClient.invalidateQueries({ queryKey: ["worklists", workspaceid] });
+                // Close the modal
+                onOpenChange(false);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check/delete completed worklist:', error);
+        }
+      }
     },
   });
 
@@ -418,37 +451,66 @@ export default function WorklistValidationModal({
               <div className="border-b pb-3">
                 <p className="text-sm font-semibold text-gray-700 mb-2">Patient Information</p>
                 {currentItem.patient ? (
-                  <div className="flex items-center gap-6 flex-wrap text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Name:</span>
-                      <span className="font-medium">
-                        {currentItem.patient.firstname} {currentItem.patient.lastname}
-                      </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-6 flex-wrap text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Name:</span>
+                        <span className="font-medium">
+                          {currentItem.patient.firstname} {currentItem.patient.lastname}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Age:</span>
+                        <span className="font-medium">{currentItem.patient.age} years</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Gender:</span>
+                        <span className="font-medium capitalize">{currentItem.patient.gender}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Sample ID:</span>
+                        <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">TAT:</span>
+                        {(() => {
+                          const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
+                          return (
+                            <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
+                              <Clock className="h-3 w-3 mr-1" />
+                              {tat.elapsedDisplay} ({tat.percentUsed}%)
+                            </Badge>
+                          );
+                        })()}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Age:</span>
-                      <span className="font-medium">{currentItem.patient.age} years</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Gender:</span>
-                      <span className="font-medium capitalize">{currentItem.patient.gender}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Sample ID:</span>
-                      <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">TAT:</span>
-                      {(() => {
-                        const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
-                        return (
-                          <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
-                            <Clock className="h-3 w-3 mr-1" />
-                            {tat.elapsedDisplay} ({tat.percentUsed}%)
-                          </Badge>
-                        );
-                      })()}
-                    </div>
+                    {/* Order ID and Multi-Sample Indicator */}
+                    {(() => {
+                      const orderid = (currentItem as any).orderid || (currentItem as any).openehrrequestid;
+                      if (!orderid) return null;
+                      
+                      // Count how many samples in this worklist have the same order ID
+                      const samplesInSameOrder = items.filter((item: any) => 
+                        (item.orderid === orderid || item.openehrrequestid === orderid)
+                      );
+                      const isMultiSample = samplesInSameOrder.length > 1;
+                      
+                      return (
+                        <div className="flex items-center gap-4 text-xs pt-2 border-t">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-600">Order ID:</span>
+                            <span className="font-mono text-blue-600 font-medium" title={orderid}>
+                              {orderid.length > 20 ? `${orderid.substring(0, 20)}...` : orderid}
+                            </span>
+                          </div>
+                          {isMultiSample && (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                              Multi-Sample Order ({samplesInSameOrder.length} specimens)
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-xs">No patient information available</p>
@@ -785,10 +847,18 @@ export default function WorklistValidationModal({
                     const results = (currentItem.results || []).filter((r: TestResult) => r.resultid);
                     const statuses = results.map((r: TestResult) => r.status);
                     const allReleased = statuses.every((s: string) => s === 'released');
+                    
+                    // Check if all results have valid values (not empty, not null, not just "-")
+                    const allHaveResults = results.every((r: TestResult) => {
+                      const value = r.resultvalue?.trim();
+                      return value && value !== '-' && value !== '';
+                    });
+                    
+                    const canRelease = !allReleased && results.length > 0 && allHaveResults;
 
                     return (
                       <>
-                        {/* Release - available for any non-released state */}
+                        {/* Release - available only when all results have values */}
                         {!allReleased && results.length > 0 && (
                           <Button
                             variant="default"
@@ -798,8 +868,8 @@ export default function WorklistValidationModal({
                                 if (result.resultid && result.status !== 'released') releaseMutation.mutate(result.resultid);
                               });
                             }}
-                            disabled={releaseMutation.isPending}
-                            title="Release results to doctor"
+                            disabled={releaseMutation.isPending || !allHaveResults}
+                            title={allHaveResults ? "Release results to doctor" : "All tests must have results before releasing"}
                           >
                             {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                             Release
