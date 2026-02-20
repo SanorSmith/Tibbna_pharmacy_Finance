@@ -28,6 +28,7 @@ interface WorklistItem {
   addedbyname: string;
   addedat: string;
   status: string;
+  openehrrequestid?: string;
   orderstatus: string;
   priority: string;
 }

@@ -384,7 +384,7 @@ export default function WorklistValidationModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedSample ? 'Sample Validation' : 'Worklist Validation'}

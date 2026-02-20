@@ -165,6 +165,26 @@ export async function POST(
 
     const [newItem] = await db.insert(worklistItems).values(itemData).returning();
 
+    // AUTO-TRANSITION: Sample RECEIVED/IN_STORAGE → IN_PROCESS when added to worklist
+    if (sampleid) {
+      try {
+        const { StatusTransitionService } = await import("@/lib/lims/status-transition-service");
+        
+        const transitionResult = await StatusTransitionService.startSampleProcessing({
+          sampleid: sampleid,
+          userid: user.userid,
+          worklistid: worklistid,
+        });
+        
+        if (transitionResult.success) {
+          console.log(`[Worklist] Sample status transitioned: ${transitionResult.message}`);
+        }
+      } catch (transitionError) {
+        console.error("[Worklist] Sample status transition error:", transitionError);
+        // Don't fail the worklist addition if status transition fails
+      }
+    }
+
     return NextResponse.json({
       success: true,
       item: newItem,

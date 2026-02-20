@@ -296,6 +296,50 @@ export class ValidationService {
       // This would be handled by a separate integration service
       await this.emitResultsReleasedEvent(sampleid);
 
+      // AUTO-SUBMIT: Submit results to OpenEHR when released
+      try {
+        const { OpenEHRResultSubmissionService } = await import("./openehr-result-submission");
+        
+        const submissionResult = await OpenEHRResultSubmissionService.submitResultsToOpenEHR({
+          sampleid: sampleid,
+          userid: userid,
+          overrideStatus: "final",
+        });
+        
+        if (submissionResult.success) {
+          console.log(`[ValidationService] Results submitted to OpenEHR: ${submissionResult.compositionUid}`);
+        } else {
+          console.warn(`[ValidationService] OpenEHR submission failed: ${submissionResult.error}`);
+        }
+      } catch (submissionError) {
+        console.error("[ValidationService] OpenEHR submission error:", submissionError);
+        // Don't fail the release if OpenEHR submission fails
+      }
+
+      // AUTO-TRANSITION: Check if order can be completed (IN_PROGRESS → COMPLETED)
+      // This happens when all samples for the order have released results
+      const sample = await db.query.accessionSamples.findFirst({
+        where: eq(accessionSamples.sampleid, sampleid),
+      });
+
+      if (sample?.orderid) {
+        try {
+          const { StatusTransitionService } = await import("./status-transition-service");
+          
+          const completionResult = await StatusTransitionService.checkAndCompleteOrder({
+            orderid: sample.orderid,
+            userid: userid,
+          });
+          
+          if (completionResult.success) {
+            console.log(`[ValidationService] Order completed: ${completionResult.message}`);
+          }
+        } catch (transitionError) {
+          console.error("[ValidationService] Order completion check error:", transitionError);
+          // Don't fail the release if order completion check fails
+        }
+      }
+
       return result;
     });
   }
@@ -341,11 +385,11 @@ export class ValidationService {
       }
 
       // Fetch test results for this sample
-      const testResults = await db.query.testResults.findMany({
+      const sampleResults = await db.query.testResults.findMany({
         where: eq(testResults.sampleid, sampleid)
       });
 
-      if (testResults.length === 0) {
+      if (sampleResults.length === 0) {
         console.log(`[ValidationService] No test results to submit to OpenEHR for sample ${sampleid}`);
         return;
       }
@@ -354,7 +398,7 @@ export class ValidationService {
       const submitData = {
         sampleId: sampleid,
         workspaceId: sample.workspaceid,
-        results: testResults.map(result => ({
+        results: sampleResults.map((result: any) => ({
           testCode: result.testcode,
           testName: result.testname,
           resultValue: result.resultvalue,
@@ -362,7 +406,7 @@ export class ValidationService {
           referenceMin: result.referencemin,
           referenceMax: result.referencemax,
           referenceRange: result.referencerange,
-          flag: result.resultflag,
+          flag: result.flag,
           isAbnormal: result.isabormal,
           isCritical: result.iscritical,
         })),

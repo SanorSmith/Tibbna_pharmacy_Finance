@@ -731,6 +731,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
 
   // Fetch computed statuses for all OpenEHR orders in a single batch request
   const batchStatusFetchedRef = useRef<string>("");
+  const [statusRefreshTrigger, setStatusRefreshTrigger] = useState(0);
+  
   useEffect(() => {
     if (!orders || orders.length === 0) return;
 
@@ -742,11 +744,6 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       .filter(Boolean) as string[];
 
     if (requestIds.length === 0) return;
-
-    // Prevent re-fetching for the same set of orders
-    const key = requestIds.sort().join(",");
-    if (batchStatusFetchedRef.current === key) return;
-    batchStatusFetchedRef.current = key;
 
     const fetchBatchStatuses = async () => {
       try {
@@ -778,7 +775,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     };
 
     fetchBatchStatuses();
-  }, [orders, workspaceid]);
+    
+    // Refresh statuses every 30 seconds to pick up changes from sample collection
+    const intervalId = setInterval(() => {
+      fetchBatchStatuses();
+    }, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [orders, workspaceid, statusRefreshTrigger]);
 
   // First filter by search and status, then group by test to show only latest
   const baseFilteredOrders = orders.filter((order: LimsOrder) => {
@@ -805,18 +809,10 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       ? order.status || openEHROrderStatuses.get(requestId || "") || "REQUESTED"
       : order.status;
     
-    // Only show REQUESTED and CANCELLED orders
-    const isAllowedStatus = orderStatus === "REQUESTED" || orderStatus === "CANCELLED";
-    
-    // Debug logging
-    if (statusFilter !== "all") {
-      console.log(`Order ${orderId}: status=${orderStatus}, filter=${statusFilter}, matches=${orderStatus === statusFilter}`);
-    }
-    
     const matchesStatus =
       statusFilter === "all" || orderStatus === statusFilter;
 
-    return matchesSearch && matchesStatus && isAllowedStatus;
+    return matchesSearch && matchesStatus;
   });
 
   // Group orders by test and keep only the latest one for each test
