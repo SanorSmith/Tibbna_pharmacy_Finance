@@ -485,16 +485,28 @@ export async function GET(request: NextRequest) {
       // Don't throw - continue with local orders only
     }
 
-    // Combine and deduplicate by order ID + composition UID
+    // Combine and deduplicate by order ID + composition UID + request_id
+    // Strategy: Keep local orders, filter out OpenEHR orders that match local orders
+    const localOrderIds = new Set(localOrders.map(o => o.orderid).filter(Boolean));
+    const localCompositionUids = new Set(localOrders.map(o => o.compositionuid).filter(Boolean));
+    
+    // Filter OpenEHR orders to exclude those that match local orders
+    const uniqueOpenEHROrders = openEHROrders.filter(o => {
+      // Exclude if request_id matches a local order ID (same order submitted to OpenEHR)
+      if (o.request_id && localOrderIds.has(o.request_id)) return false;
+      // Exclude if composition_uid matches a local order's composition UID
+      if (o.composition_uid && localCompositionUids.has(o.composition_uid)) return false;
+      return true;
+    });
+    
+    // Combine local orders with unique OpenEHR orders
     const combined = [
       ...localOrders.map(o => ({ ...o, source: "local" })),
-      ...openEHROrders,
+      ...uniqueOpenEHROrders,
     ];
+    
+    // Final deduplication pass to remove any remaining duplicates
     const seen = new Set<string>();
-    // Pre-populate seen set with compositionuid from local orders to prevent openEHR duplicates
-    for (const o of localOrders) {
-      if (o.compositionuid) seen.add(o.compositionuid);
-    }
     const allOrders = combined.filter(o => {
       const key = o.orderid || o.composition_uid || o.request_id || '';
       if (!key || seen.has(key)) return false;
@@ -530,39 +542,50 @@ async function validateTestsInCatalog(
   invalidTests?: string[];
   validTests?: Array<{ testid: string | null; testcode: string; testname: string; category?: string }>;
 }> {
-  // First try labTestCatalog
-  const catalogTests = await db
+  // Normalize test codes to lowercase for case-insensitive matching
+  const normalizedTestCodes = testCodes.map(code => code.toLowerCase());
+  
+  // First try labTestCatalog - fetch all active tests and filter in memory for case-insensitive match
+  const allCatalogTests = await db
     .select()
     .from(labTestCatalog)
     .where(
       and(
-        inArray(labTestCatalog.testcode, testCodes),
         eq(labTestCatalog.workspaceid, workspaceId),
         eq(labTestCatalog.isactive, true)
       )
     );
 
-  const foundTestCodes = catalogTests.map((t) => t.testcode);
-  const remainingTestCodes = testCodes.filter((code) => !foundTestCodes.includes(code));
+  // Case-insensitive matching for catalog tests
+  const catalogTests = allCatalogTests.filter(t => 
+    normalizedTestCodes.includes(t.testcode.toLowerCase())
+  );
+
+  const foundTestCodes = catalogTests.map((t) => t.testcode.toLowerCase());
+  const remainingTestCodes = normalizedTestCodes.filter((code) => !foundTestCodes.includes(code));
 
   // If some tests not found in labTestCatalog, check testReferenceRanges
   let referenceTests: any[] = [];
   if (remainingTestCodes.length > 0) {
-    referenceTests = await db
+    const allReferenceTests = await db
       .select()
       .from(testReferenceRanges)
       .where(
         and(
-          inArray(testReferenceRanges.testcode, remainingTestCodes),
           eq(testReferenceRanges.workspaceid, workspaceId),
           eq(testReferenceRanges.isactive, "Y")
         )
       );
+    
+    // Case-insensitive matching for reference tests
+    referenceTests = allReferenceTests.filter(t => 
+      remainingTestCodes.includes(t.testcode.toLowerCase())
+    );
   }
 
-  const foundReferenceTestCodes = referenceTests.map((t) => t.testcode);
+  const foundReferenceTestCodes = referenceTests.map((t) => t.testcode.toLowerCase());
   const allFoundTestCodes = [...foundTestCodes, ...foundReferenceTestCodes];
-  const invalidTests = testCodes.filter((code) => !allFoundTestCodes.includes(code));
+  const invalidTests = normalizedTestCodes.filter((code) => !allFoundTestCodes.includes(code));
 
   if (invalidTests.length > 0) {
     console.log('Test validation details:', {

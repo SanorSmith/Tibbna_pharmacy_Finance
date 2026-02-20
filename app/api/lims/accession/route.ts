@@ -101,23 +101,27 @@ export async function POST(request: NextRequest) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isUuidOrder = orderId && uuidRegex.test(orderId);
     
-    // Check if order already has samples collected (prevent duplicate collection)
-    if (orderId) {
+    // Check if this specific sample type has already been collected for this order
+    // (Allow multiple different specimen types, but prevent duplicate collection of the same type)
+    if (orderId && sampleType) {
       const existingSamples = await db
-        .select({ sampleid: accessionSamples.sampleid })
+        .select({ sampleid: accessionSamples.sampleid, sampletype: accessionSamples.sampletype })
         .from(accessionSamples)
         .where(
-          isUuidOrder
-            ? eq(accessionSamples.orderid, orderId)
-            : eq(accessionSamples.openehrrequestid, orderId)
+          and(
+            isUuidOrder
+              ? eq(accessionSamples.orderid, orderId)
+              : eq(accessionSamples.openehrrequestid, orderId),
+            eq(accessionSamples.sampletype, sampleType)
+          )
         )
         .limit(1);
 
       if (existingSamples.length > 0) {
         return NextResponse.json(
           { 
-            error: "Sample already collected for this order", 
-            message: "This lab order already has samples collected. Each order can only have samples collected once. Please create a new order if additional specimens are needed."
+            error: "Sample already collected", 
+            message: `A ${sampleType} sample has already been collected for this order. Please select a different specimen type or create a new order.`
           },
           { status: 400 }
         );

@@ -202,6 +202,8 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
   
@@ -452,7 +454,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       return false;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
-    staleTime: 30000, // Consider data fresh for 30 seconds
+    staleTime: 0, // Always refetch on invalidation to ensure status updates are visible
   });
 
   // Mutation for creating accession samples
@@ -719,7 +721,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       case "COMPLETED":
         return <Badge className="bg-green-600">Completed</Badge>;
       case "CANCELLED":
-        return <Badge variant="outline">Cancelled</Badge>;
+        return <Badge className="bg-red-100 text-red-700 border-red-200">Cancelled</Badge>;
       case "REJECTED":
         return <Badge variant="destructive">Rejected</Badge>;
       default:
@@ -812,7 +814,14 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     const matchesStatus =
       statusFilter === "all" || orderStatus === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    // Priority filter
+    const orderPriority = order.source === "openEHR"
+      ? (order.urgency?.toUpperCase() || "ROUTINE")
+      : (order.priority || "ROUTINE");
+    const matchesPriority =
+      priorityFilter === "all" || orderPriority === priorityFilter;
+
+    return matchesSearch && matchesStatus && matchesPriority;
   });
 
   // Group orders by test and keep only the latest one for each test
@@ -846,7 +855,16 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     }
   });
 
-  const filteredOrders = Array.from(latestOrdersByTest.values());
+  const filteredOrders = Array.from(latestOrdersByTest.values()).sort((a, b) => {
+    const dateA = a.source === "openEHR" 
+      ? new Date(a.recorded_time || "").getTime()
+      : new Date(a.createdat || "").getTime();
+    const dateB = b.source === "openEHR" 
+      ? new Date(b.recorded_time || "").getTime()
+      : new Date(b.createdat || "").getTime();
+    
+    return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+  });
 
   return (
     <div className="flex flex-col h-full gap-2">
@@ -1238,7 +1256,25 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="REQUESTED">Requested</SelectItem>
+                  <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Priority Filter */}
+            <div>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="ROUTINE">Routine</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1249,6 +1285,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                 onClick={() => {
                   setSearchTerm("");
                   setStatusFilter("all");
+                  setPriorityFilter("all");
                 }}
                 className="w-full"
                 size="sm"
@@ -1313,7 +1350,17 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                     <TableHead className="font-semibold w-28 sticky top-0 z-10 bg-gray-50">Status</TableHead>
                     <TableHead className="font-semibold w-36 sticky top-0 z-10 bg-gray-50">Provider</TableHead>
                     <TableHead className="font-semibold w-28 sticky top-0 z-10 bg-gray-50">TAT</TableHead>
-                    <TableHead className="font-semibold w-32 sticky top-0 z-10 bg-gray-50">Order Date</TableHead>
+                    <TableHead className="font-semibold w-32 sticky top-0 z-10 bg-gray-50">
+                      <button
+                        onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+                        className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                      >
+                        Order Date
+                        <span className="text-xs">
+                          {sortOrder === "desc" ? "↓" : "↑"}
+                        </span>
+                      </button>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
