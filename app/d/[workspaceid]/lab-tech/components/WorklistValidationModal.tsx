@@ -55,6 +55,19 @@ interface WorklistItem {
   sample: Sample;
   patient: Patient | null;
   results: TestResult[];
+  validationState?: {
+    currentstate: string;
+    validateddate: string | null;
+    releaseddate: string | null;
+    validatedby: {
+      name: string;
+      email: string;
+    } | null;
+    releasedby: {
+      name: string;
+      email: string;
+    } | null;
+  } | null;
 }
 
 interface WorklistValidationModalProps {
@@ -846,7 +859,6 @@ export default function WorklistValidationModal({
                   {(() => {
                     const results = (currentItem.results || []).filter((r: TestResult) => r.resultid);
                     const statuses = results.map((r: TestResult) => r.status);
-                    const allReleased = statuses.every((s: string) => s === 'released');
                     
                     // Check if all results have valid values (not empty, not null, not just "-")
                     const allHaveResults = results.every((r: TestResult) => {
@@ -854,12 +866,17 @@ export default function WorklistValidationModal({
                       return value && value !== '-' && value !== '';
                     });
                     
-                    const canRelease = !allReleased && results.length > 0 && allHaveResults;
+                    // Use validation state for consistency, but allow release if results have values
+                    const isReleased = currentItem.validationState?.currentstate === "RELEASED";
+                    
+                    // For worklist modal: allow release if results have values and not already released
+                    // Clinical validation is not required in this context
+                    const canRelease = !isReleased && allHaveResults;
 
                     return (
                       <>
-                        {/* Release - available only when all results have values */}
-                        {!allReleased && results.length > 0 && (
+                        {/* Release - available when results have values and not yet released */}
+                        {!isReleased && results.length > 0 && (
                           <Button
                             variant="default"
                             className="bg-green-600 hover:bg-green-700"
@@ -868,16 +885,16 @@ export default function WorklistValidationModal({
                                 if (result.resultid && result.status !== 'released') releaseMutation.mutate(result.resultid);
                               });
                             }}
-                            disabled={releaseMutation.isPending || !allHaveResults}
-                            title={allHaveResults ? "Release results to doctor" : "All tests must have results before releasing"}
+                            disabled={releaseMutation.isPending || !canRelease}
+                            title={canRelease ? "Release results to OpenEHR" : "All tests must have results before release"}
                           >
                             {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                            Release
+                            Release Results
                           </Button>
                         )}
 
                         {/* Already released indicator */}
-                        {allReleased && (
+                        {isReleased && (
                           <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">
                             <CheckCircle2 className="h-4 w-4 mr-1" />
                             Released
@@ -888,22 +905,25 @@ export default function WorklistValidationModal({
                   })()}
 
                   {/* Reject and Rerun - always available unless released */}
-                  {!(currentItem.results || []).every((r: TestResult) => r.status === 'released') && (
-                    <>
-                      <Button
-                        variant="destructive"
-                        onClick={() => setShowRejectDialog(true)}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowRerunDialog(true)}
-                      >
-                        Rerun
-                      </Button>
-                    </>
-                  )}
+                  {(() => {
+                    const isReleased = currentItem.validationState?.currentstate === "RELEASED";
+                    return !isReleased && (
+                      <>
+                        <Button
+                          variant="destructive"
+                          onClick={() => setShowRejectDialog(true)}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowRerunDialog(true)}
+                        >
+                          Rerun
+                        </Button>
+                      </>
+                    );
+                  })()}
                   <Button
                     variant="outline"
                     onClick={() => onOpenChange(false)}

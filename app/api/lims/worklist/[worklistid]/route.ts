@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { worklists, worklistItems, accessionSamples, patients, testResults, limsOrders, limsOrderTests, labTestCatalog, testReferenceRanges } from "@/lib/db/schema";
+import { worklists, worklistItems, accessionSamples, patients, testResults, limsOrders, limsOrderTests, labTestCatalog, testReferenceRanges, validationStates } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 export async function GET(
@@ -99,6 +99,25 @@ export async function GET(
 
           patientData = patient || null;
         }
+
+        // Fetch validation state for this sample
+        const validationState = await db.query.validationStates.findFirst({
+          where: eq(validationStates.sampleid, item.sample.sampleid),
+          with: {
+            validatedby: {
+              columns: {
+                name: true,
+                email: true,
+              },
+            },
+            releasedby: {
+              columns: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        });
 
         // Fetch test results for this sample
         const results = await db
@@ -385,6 +404,7 @@ export async function GET(
           },
           patient: patientData,
           results: allTests,
+          validationState: validationState,
         };
       })
     );
