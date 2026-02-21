@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import axios from "axios";
+import { getOpenEHROrderStatus } from "@/lib/openehr-order-status";
 
 const username = process.env.EHRBASE_USER?.trim() || "";
 const password = process.env.EHRBASE_PASSWORD?.trim() || "";
@@ -78,7 +79,20 @@ export async function GET(
           const composition = response.data;
           
           // Parse the FLAT composition to extract order details
-          return parseLabOrderComposition(composition, order.composition_uid);
+          const parsedOrder = parseLabOrderComposition(composition, order.composition_uid);
+          
+          // Compute actual status based on collected samples
+          if (parsedOrder.request_id) {
+            try {
+              const computedStatus = await getOpenEHROrderStatus(parsedOrder.request_id);
+              parsedOrder.request_status = computedStatus;
+            } catch (statusError) {
+              console.error(`Error computing status for order ${parsedOrder.request_id}:`, statusError);
+              // Keep default REQUESTED status if computation fails
+            }
+          }
+          
+          return parsedOrder;
         } catch (error) {
           console.error(`Error fetching composition ${order.composition_uid}:`, error);
           return null;
