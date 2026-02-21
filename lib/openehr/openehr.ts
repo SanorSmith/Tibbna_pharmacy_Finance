@@ -6,6 +6,10 @@
  * - All requests send JSON (Content-Type) and prefer JSON responses (Accept).
  */
 import axios from "axios";
+import { db } from "@/lib/db";
+import { patients } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getOpenEHROrderStatus } from "@/lib/openehr-order-status";
 
 const username = process.env.EHRBASE_USER?.trim() || "";
 const password = process.env.EHRBASE_PASSWORD?.trim() || "";
@@ -383,14 +387,30 @@ export async function getOpenEHRTestOrders(
       }
     }
 
+    // Compute actual status based on collected samples for each order
+    const ordersWithComputedStatus = await Promise.all(
+      testOrders.map(async (order) => {
+        if (order.request_id && order.status !== "CANCELLED") {
+          try {
+            const computedStatus = await getOpenEHROrderStatus(order.request_id);
+            return { ...order, status: computedStatus };
+          } catch (error) {
+            // Keep original status if computation fails
+            return order;
+          }
+        }
+        return order;
+      })
+    );
+
     // Sort results by recorded_time descending
-    testOrders.sort(
+    ordersWithComputedStatus.sort(
       (a, b) =>
         new Date(b.recorded_time).getTime() -
         new Date(a.recorded_time).getTime()
     );
 
-    return testOrders;
+    return ordersWithComputedStatus;
   } catch (error) {
     console.error("Error fetching test orders via AQL:", error);
     return [];

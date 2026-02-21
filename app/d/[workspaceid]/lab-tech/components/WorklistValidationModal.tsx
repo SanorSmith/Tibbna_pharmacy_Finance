@@ -55,6 +55,19 @@ interface WorklistItem {
   sample: Sample;
   patient: Patient | null;
   results: TestResult[];
+  validationState?: {
+    currentstate: string;
+    validateddate: string | null;
+    releaseddate: string | null;
+    validatedby: {
+      name: string;
+      email: string;
+    } | null;
+    releasedby: {
+      name: string;
+      email: string;
+    } | null;
+  } | null;
 }
 
 interface WorklistValidationModalProps {
@@ -84,6 +97,7 @@ export default function WorklistValidationModal({
   const [showCommentDialog, setShowCommentDialog] = useState(false);
   const [changeComment, setChangeComment] = useState<string>("");
   const [pendingResultUpdate, setPendingResultUpdate] = useState<{resultId: string, newValue: string} | null>(null);
+  const [showWorklistCompleteDialog, setShowWorklistCompleteDialog] = useState(false);
 
   // Fetch worklist items with patient and sample data
   const { data: worklistData, isLoading, error } = useQuery({
@@ -172,19 +186,39 @@ export default function WorklistValidationModal({
 
   const currentItem = filteredItems[currentIndex];
 
-  // Release result mutation (any non-released → released)
+  // Release sample mutation (validates then releases all results for the sample)
   const releaseMutation = useMutation({
-    mutationFn: async (resultid: string) => {
-      const response = await fetch(`/api/d/${workspaceid}/test-results/${resultid}/validate`, {
+    mutationFn: async ({ sampleid, resultids }: { sampleid: string; resultids: string[] }) => {
+      // Step 1: Validate the sample (clinical validation)
+      const validateResponse = await fetch(`/api/lims/samples/${sampleid}/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'release' }),
+        body: JSON.stringify({ 
+          workspaceid,
+          resultids,
+          validateAll: true,
+          comments: {}
+        }),
       });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to release result');
+      
+      if (!validateResponse.ok) {
+        const data = await validateResponse.json();
+        throw new Error(data.error || 'Failed to validate results');
       }
-      return response.json();
+
+      // Step 2: Release the validated sample
+      const releaseResponse = await fetch(`/api/lims/samples/${sampleid}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceid }),
+      });
+      
+      if (!releaseResponse.ok) {
+        const data = await releaseResponse.json();
+        throw new Error(data.error || 'Failed to release results');
+      }
+      
+      return releaseResponse.json();
     },
     onSuccess: async () => {
       // Invalidate queries
@@ -198,27 +232,18 @@ export default function WorklistValidationModal({
             const data = await response.json();
             const items = data.items || [];
             
-            // Check if all items in the worklist are now released
+            // Check if all samples in the worklist have released validation state
             const allItemsReleased = items.length > 0 && items.every((item: WorklistItem) => {
-              const results = item.results || [];
-              return results.length > 0 && results.every((r: TestResult) => r.status === 'released');
+              return item.validationState?.currentstate === "RELEASED";
             });
 
-            // If all items are released, automatically delete the worklist
+            // If all items are released, ask user before deleting the worklist
             if (allItemsReleased) {
-              const deleteResponse = await fetch(`/api/lims/worklists/${worklistid}`, {
-                method: 'DELETE',
-              });
-              if (deleteResponse.ok) {
-                // Invalidate worklists query to refresh the list
-                await queryClient.invalidateQueries({ queryKey: ["worklists", workspaceid] });
-                // Close the modal
-                onOpenChange(false);
-              }
+              setShowWorklistCompleteDialog(true);
             }
           }
         } catch (error) {
-          console.error('Failed to check/delete completed worklist:', error);
+          console.error('Failed to check completed worklist:', error);
         }
       }
     },
@@ -408,7 +433,12 @@ export default function WorklistValidationModal({
               {/* Worklist ID Display - Only show for worklist validation */}
               {!selectedSample && worklistid && (
                 <div className="border-b pb-3">
-                  <p className="text-sm font-semibold text-gray-700 mb-1">Worklist ID: {worklistid.substring(0, 8)} </p>
+                  <p className="text-sm font-semibold text-gray-700 mb-1">
+                    Worklist ID: {worklistid.substring(0, 8)}
+                    {worklistData?.worklist?.worklistname && (
+                      <span className="text-gray-600 font-normal"> ({worklistData.worklist.worklistname})</span>
+                    )}
+                  </p>
                 </div>
               )}
               {/* Search and Navigation - Only show for worklists with multiple samples */}
@@ -846,7 +876,6 @@ export default function WorklistValidationModal({
                   {(() => {
                     const results = (currentItem.results || []).filter((r: TestResult) => r.resultid);
                     const statuses = results.map((r: TestResult) => r.status);
-                    const allReleased = statuses.every((s: string) => s === 'released');
                     
                     // Check if all results have valid values (not empty, not null, not just "-")
                     const allHaveResults = results.every((r: TestResult) => {
@@ -854,30 +883,42 @@ export default function WorklistValidationModal({
                       return value && value !== '-' && value !== '';
                     });
                     
-                    const canRelease = !allReleased && results.length > 0 && allHaveResults;
+                    // Use validation state for consistency, but allow release if results have values
+                    const isReleased = currentItem.validationState?.currentstate === "RELEASED";
+                    
+                    // For worklist modal: allow release if results have values and not already released
+                    // Clinical validation is not required in this context
+                    const canRelease = !isReleased && allHaveResults;
 
                     return (
                       <>
-                        {/* Release - available only when all results have values */}
-                        {!allReleased && results.length > 0 && (
+                        {/* Release - available when results have values and not yet released */}
+                        {!isReleased && results.length > 0 && (
                           <Button
                             variant="default"
                             className="bg-green-600 hover:bg-green-700"
                             onClick={() => {
-                              results.forEach((result: TestResult) => {
-                                if (result.resultid && result.status !== 'released') releaseMutation.mutate(result.resultid);
+                              // Collect all result IDs for validation
+                              const resultids = results
+                                .filter((r: TestResult) => r.resultid)
+                                .map((r: TestResult) => r.resultid as string);
+                              
+                              // Validate and release the entire sample
+                              releaseMutation.mutate({
+                                sampleid: currentItem.sample.sampleid,
+                                resultids
                               });
                             }}
-                            disabled={releaseMutation.isPending || !allHaveResults}
-                            title={allHaveResults ? "Release results to doctor" : "All tests must have results before releasing"}
+                            disabled={releaseMutation.isPending || !canRelease}
+                            title={canRelease ? "Release results to OpenEHR" : "All tests must have results before release"}
                           >
                             {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                            Release
+                            Release Results
                           </Button>
                         )}
 
                         {/* Already released indicator */}
-                        {allReleased && (
+                        {isReleased && (
                           <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">
                             <CheckCircle2 className="h-4 w-4 mr-1" />
                             Released
@@ -888,22 +929,25 @@ export default function WorklistValidationModal({
                   })()}
 
                   {/* Reject and Rerun - always available unless released */}
-                  {!(currentItem.results || []).every((r: TestResult) => r.status === 'released') && (
-                    <>
-                      <Button
-                        variant="destructive"
-                        onClick={() => setShowRejectDialog(true)}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowRerunDialog(true)}
-                      >
-                        Rerun
-                      </Button>
-                    </>
-                  )}
+                  {(() => {
+                    const isReleased = currentItem.validationState?.currentstate === "RELEASED";
+                    return !isReleased && (
+                      <>
+                        <Button
+                          variant="destructive"
+                          onClick={() => setShowRejectDialog(true)}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowRerunDialog(true)}
+                        >
+                          Rerun
+                        </Button>
+                      </>
+                    );
+                  })()}
                   <Button
                     variant="outline"
                     onClick={() => onOpenChange(false)}
@@ -1017,6 +1061,44 @@ export default function WorklistValidationModal({
               ) : (
                 "Confirm Update"
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Worklist Complete Confirmation Dialog */}
+      <AlertDialog open={showWorklistCompleteDialog} onOpenChange={setShowWorklistCompleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Worklist Completed</AlertDialogTitle>
+            <AlertDialogDescription>
+              All samples in this worklist have been released. Do you want to delete this completed worklist?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowWorklistCompleteDialog(false)}>
+              No, Keep It
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  const deleteResponse = await fetch(`/api/lims/worklists/${worklistid}`, {
+                    method: 'DELETE',
+                  });
+                  if (deleteResponse.ok) {
+                    // Invalidate worklists query to refresh the list
+                    await queryClient.invalidateQueries({ queryKey: ["worklists", workspaceid] });
+                    // Close dialogs and modal
+                    setShowWorklistCompleteDialog(false);
+                    onOpenChange(false);
+                  }
+                } catch (error) {
+                  console.error('Failed to delete completed worklist:', error);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Yes, Delete Worklist
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
