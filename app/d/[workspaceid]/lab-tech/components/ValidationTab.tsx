@@ -197,6 +197,9 @@ export default function ValidationTab({ workspaceid }: { workspaceid: string }) 
                   >
                     <TableCell className="font-medium">
                       {worklist.worklistid.substring(0, 8)}
+                      {worklist.worklistname && (
+                        <span className="text-gray-600 font-normal"> ({worklist.worklistname})</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {new Date(worklist.createdat).toLocaleDateString()}
