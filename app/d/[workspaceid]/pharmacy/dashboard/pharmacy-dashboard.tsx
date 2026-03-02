@@ -13,10 +13,6 @@ import {
   LayoutDashboard,
   ClipboardList,
   Pill,
-  Users,
-  Package,
-  Receipt,
-  Shield,
   ListTodo,
   BarChart3,
   PackageSearch,
@@ -31,7 +27,6 @@ import {
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import PrescriptionManagement from "./components/PrescriptionManagement";
-import InventoryManagement from "./components/InventoryManagement";
 import DrugRegistration from "./components/DrugRegistration";
 
 const TEAL = "#2BBCB3";
@@ -99,34 +94,6 @@ export default function PharmacyDashboard({
             >
               <Pill className="h-4 w-4" />
               Drug registration
-            </TabsTrigger>
-            <TabsTrigger
-              value="hr"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
-            >
-              <Users className="h-4 w-4" />
-              HR
-            </TabsTrigger>
-            <TabsTrigger
-              value="inventory"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
-            >
-              <Package className="h-4 w-4" />
-              Inventory
-            </TabsTrigger>
-            <TabsTrigger
-              value="billing"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
-            >
-              <Receipt className="h-4 w-4" />
-              Billing
-            </TabsTrigger>
-            <TabsTrigger
-              value="insurance"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
-            >
-              <Shield className="h-4 w-4" />
-              Insurance
             </TabsTrigger>
             <TabsTrigger
               value="todo"
@@ -365,6 +332,25 @@ export default function PharmacyDashboard({
           <TabsContent value="orders" className="mt-4">
             {loadedTabs.has("orders") && (
               <div className="space-y-6">
+                {/* Order Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="shadow-sm bg-purple-100 border-purple-200">
+                    <CardContent className="pt-6 pb-6 px-6 text-center">
+                      <p className="text-lg font-semibold text-purple-900">Total orders {stats?.orders.total ?? 0}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm bg-green-100 border-green-200">
+                    <CardContent className="pt-6 pb-6 px-6 text-center">
+                      <p className="text-lg font-semibold text-green-900">Complete orders {stats?.orders.dispensed ?? 0}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm bg-yellow-100 border-yellow-200">
+                    <CardContent className="pt-6 pb-6 px-6 text-center">
+                      <p className="text-lg font-semibold text-yellow-900">Pending orders {stats?.orders.pending ?? 0}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
                 <PrescriptionManagement workspaceid={workspaceid} />
                 <div className="border-t pt-6">
                   <PharmacyOrdersPage workspaceid={workspaceid} />
@@ -377,30 +363,6 @@ export default function PharmacyDashboard({
           <TabsContent value="drug-registration" className="mt-4">
             {loadedTabs.has("drug-registration") && (
               <DrugRegistration workspaceid={workspaceid} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="hr" className="mt-4">
-            {loadedTabs.has("hr") && (
-              <PlaceholderTab title="HR" description="Manage pharmacy staff and human resources" icon={<Users className="h-12 w-12 text-gray-300" />} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="inventory" className="mt-4">
-            {loadedTabs.has("inventory") && (
-              <InventoryManagement workspaceid={workspaceid} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="billing" className="mt-4">
-            {loadedTabs.has("billing") && (
-              <PlaceholderTab title="Billing" description="Manage billing, invoices, and payment records" icon={<Receipt className="h-12 w-12 text-gray-300" />} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="insurance" className="mt-4">
-            {loadedTabs.has("insurance") && (
-              <PlaceholderTab title="Insurance" description="Manage insurance claims and coverage verification" icon={<Shield className="h-12 w-12 text-gray-300" />} />
             )}
           </TabsContent>
 
