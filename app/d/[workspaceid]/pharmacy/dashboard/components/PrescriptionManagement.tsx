@@ -166,13 +166,13 @@ export default function PrescriptionManagement({ workspaceid }: { workspaceid: s
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Patient info card */}
           <Card className="shadow-sm">
-            <CardHeader className="pb-2 pt-3 px-4">
+            <CardHeader className="pb-2 pt-2 px-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <User className="h-4 w-4 text-teal-500" />
                 Patient Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-3">
+            <CardContent className="px-3 pb-2">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-muted-foreground text-xs">National ID</span>
@@ -204,13 +204,13 @@ export default function PrescriptionManagement({ workspaceid }: { workspaceid: s
 
           {/* Insurance card */}
           <Card className="shadow-sm">
-            <CardHeader className="pb-2 pt-3 px-4">
+            <CardHeader className="pb-2 pt-2 px-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Shield className="h-4 w-4 text-blue-500" />
                 Insurance Coverage
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-3">
+            <CardContent className="px-3 pb-2">
               {insurance.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-3 text-center">No insurance on file</p>
               ) : (
@@ -242,14 +242,14 @@ export default function PrescriptionManagement({ workspaceid }: { workspaceid: s
 
         {/* Prescriptions (from OpenEHR) */}
         <Card className="shadow-sm">
-          <CardHeader className="pb-2 pt-3 px-4">
+          <CardHeader className="pb-2 pt-2 px-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <FileText className="h-4 w-4 text-purple-500" />
               Medication History (Prescriptions)
               <Badge variant="outline" className="text-[10px]">{prescriptions.length}</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-3">
+          <CardContent className="px-3 pb-2">
             {prescriptions.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">No prescriptions found</p>
             ) : (
@@ -299,14 +299,14 @@ export default function PrescriptionManagement({ workspaceid }: { workspaceid: s
 
         {/* Pharmacy Orders */}
         <Card className="shadow-sm">
-          <CardHeader className="pb-2 pt-3 px-4">
+          <CardHeader className="pb-2 pt-2 px-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Pill className="h-4 w-4 text-orange-500" />
               Pharmacy Orders
               <Badge variant="outline" className="text-[10px]">{pharmacyOrders.length}</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-3">
+          <CardContent className="px-3 pb-2">
             {pharmacyOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">No pharmacy orders for this patient</p>
             ) : (
@@ -384,8 +384,8 @@ export default function PrescriptionManagement({ workspaceid }: { workspaceid: s
 
   // Search view
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-bold">Prescription Management</h2>
+    <div className="space-y-3">
+      <h2 className="text-base font-bold">Prescription Management</h2>
 
       {/* Search field */}
       <div className="relative max-w-lg">
