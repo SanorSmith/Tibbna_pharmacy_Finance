@@ -26,7 +26,6 @@ import {
   FlaskConical,
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
-import PrescriptionManagement from "./components/PrescriptionManagement";
 import DrugRegistration from "./components/DrugRegistration";
 
 const TEAL = "#2BBCB3";
@@ -67,37 +66,37 @@ export default function PharmacyDashboard({
   return (
     <div className="flex flex-col min-h-screen">
       {/* Tabs */}
-      <div className="px-6 pt-4 pb-2">
+      <div className="px-4 pt-2 pb-1">
         <Tabs
           defaultValue="dashboard"
           className="w-full"
           onValueChange={handleTabChange}
         >
-          <TabsList className="flex w-full flex-wrap gap-1.5 h-auto bg-transparent p-0">
+          <TabsList className="flex w-full flex-wrap gap-1 h-auto bg-transparent p-0">
             <TabsTrigger
               value="dashboard"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
+              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
             >
               <LayoutDashboard className="h-4 w-4" />
               Dashboard
             </TabsTrigger>
             <TabsTrigger
               value="orders"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
+              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
             >
               <ClipboardList className="h-4 w-4" />
               Orders
             </TabsTrigger>
             <TabsTrigger
               value="drug-registration"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
+              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
             >
               <Pill className="h-4 w-4" />
               Drug registration
             </TabsTrigger>
             <TabsTrigger
               value="todo"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-4 py-2 flex items-center gap-1.5 text-sm"
+              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
             >
               <ListTodo className="h-4 w-4" />
               To Do
@@ -105,15 +104,15 @@ export default function PharmacyDashboard({
           </TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="mt-6">
-            <h2 className="text-xl font-bold mb-4">Dashboard</h2>
+          <TabsContent value="dashboard" className="mt-3">
+            <h2 className="text-lg font-bold mb-3">Dashboard</h2>
 
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Top summary cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Card className="shadow-sm">
@@ -351,8 +350,7 @@ export default function PharmacyDashboard({
                   </Card>
                 </div>
 
-                <PrescriptionManagement workspaceid={workspaceid} />
-                <div className="border-t pt-6">
+                <div className="border-t pt-3">
                   <PharmacyOrdersPage workspaceid={workspaceid} />
                 </div>
               </div>
