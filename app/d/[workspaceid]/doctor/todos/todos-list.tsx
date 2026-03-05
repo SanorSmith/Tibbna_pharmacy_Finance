@@ -44,9 +44,10 @@ type Todo = {
 
 type Props = {
   workspaceid: string;
+  showHomeButton?: boolean;
 };
 
-export default function TodosList({ workspaceid }: Props) {
+export default function TodosList({ workspaceid, showHomeButton = true }: Props) {
   const queryClient = useQueryClient();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -186,16 +187,18 @@ export default function TodosList({ workspaceid }: Props) {
     <div className="flex items-center justify-between">
   {/* Left side: icon + title */}
   <div className="flex items-center gap-3">
-    <Link href={`/d/${workspaceid}/doctor`}>
-      <Button
-        variant="outline"
-        size="icon"
-        aria-label="Back to Doctor Dashboard"
-        className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-         >
-        <Home className="h-4 w-4" />
-      </Button>
-    </Link>
+    {showHomeButton && (
+      <Link href={`/d/${workspaceid}/doctor`}>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Back to Doctor Dashboard"
+          className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
+           >
+          <Home className="h-4 w-4" />
+        </Button>
+      </Link>
+    )}
 
     <h1 className="text-xl font-semibold">Todos</h1>
   </div>
@@ -276,6 +279,7 @@ export default function TodosList({ workspaceid }: Props) {
                             size="sm"
                             variant="ghost"
                             onClick={() => openEditDialog(todo)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -283,6 +287,7 @@ export default function TodosList({ workspaceid }: Props) {
                             size="sm"
                             variant="ghost"
                             onClick={() => openDeleteDialog(todo)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           >
                             <Trash2 className="h-3 w-3 text-red-500" />
                           </Button>
@@ -328,6 +333,7 @@ export default function TodosList({ workspaceid }: Props) {
                           size="sm"
                           variant="ghost"
                           onClick={() => openDeleteDialog(todo)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         >
                           <Trash2 className="h-3 w-3 text-red-500" />
                         </Button>
@@ -443,7 +449,7 @@ export default function TodosList({ workspaceid }: Props) {
 
       {/* Edit Todo Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Todo</DialogTitle>
             <DialogDescription>Update your todo details</DialogDescription>
@@ -520,12 +526,14 @@ export default function TodosList({ workspaceid }: Props) {
               variant="outline"
               onClick={() => setShowEditDialog(false)}
               disabled={updateMutation.isPending}
+              className="bg-blue-100/90 hover:bg-blue-200"
             >
               Cancel
             </Button>
             <Button
               onClick={handleEditTodo}
               disabled={!formData.title.trim() || updateMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {updateMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
@@ -565,6 +573,7 @@ export default function TodosList({ workspaceid }: Props) {
                 setDeletingTodo(null);
               }}
               disabled={deleteMutation.isPending}
+              className="bg-blue-100/90 hover:bg-blue-200"
             >
               Cancel
             </Button>

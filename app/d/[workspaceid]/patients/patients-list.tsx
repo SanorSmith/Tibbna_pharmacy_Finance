@@ -39,7 +39,7 @@ type OpenEHREHR = {
   created_time: string;
 };
 
-type UserRole = "doctor" | "nurse" | "receptionist" | "administrator";
+type UserRole = "doctor" | "nurse" | "lab_technician" | "pharmacist" | "receptionist" | "administrator";
 
 export default function PatientsList({ 
   workspaceid, 
@@ -255,7 +255,7 @@ export default function PatientsList({
       {/* Edit Patient Dialog */}
       {editingPatient && (
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Patient</DialogTitle>
               <DialogDescription>
@@ -311,6 +311,7 @@ export default function PatientsList({
                 <select
                   id="gender"
                   name="gender"
+                  aria-label="Select gender"
                   defaultValue={editingPatient.gender || ""}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
@@ -325,6 +326,7 @@ export default function PatientsList({
                 <select
                   id="bloodgroup"
                   name="bloodgroup"
+                  aria-label="Select blood group"
                   defaultValue={editingPatient.bloodgroup || ""}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >

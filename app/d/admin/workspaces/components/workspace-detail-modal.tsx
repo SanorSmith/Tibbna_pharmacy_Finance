@@ -58,6 +58,8 @@ interface WorkspaceDetailModalProps {
 const roleColors = {
   doctor: "bg-blue-100 text-blue-800",
   nurse: "bg-green-100 text-green-800",
+  lab_technician: "bg-purple-100 text-purple-800",
+  pharmacist: "bg-orange-100 text-orange-800",
   receptionist: "bg-yellow-100 text-yellow-800",
   administrator: "bg-red-100 text-red-800",
 };
@@ -184,7 +186,7 @@ export function WorkspaceDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:!max-w-[55vw] !max-w-[55vw] w-[55vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <WorkspaceIcon type={workspace.type} className="h-5 w-5" />
@@ -339,12 +341,14 @@ export function WorkspaceDetailModal({
                   setSelectedRole(value as WorkspaceUserRole)
                 }
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="item-aligned">
                   <SelectItem value="doctor">Doctor</SelectItem>
                   <SelectItem value="nurse">Nurse</SelectItem>
+                  <SelectItem value="lab_technician">Lab Technician</SelectItem>
+                  <SelectItem value="pharmacist">Pharmacist</SelectItem>
                   <SelectItem value="receptionist">Receptionist</SelectItem>
                   <SelectItem value="administrator">Administrator</SelectItem>
                 </SelectContent>
@@ -361,13 +365,13 @@ export function WorkspaceDetailModal({
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Users in Workspace</h3>
             <div className="border rounded-lg">
-              <Table>
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[25%]">User</TableHead>
+                    <TableHead className="w-[45%]">Email</TableHead>
+                    <TableHead className="w-[20%]">Role</TableHead>
+                    <TableHead className="w-[10%] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -392,7 +396,7 @@ export function WorkspaceDetailModal({
                             <span>{workspaceUser.user.name || "No name"}</span>
                           </div>
                         </TableCell>
-                        <TableCell>{workspaceUser.user.email}</TableCell>
+                        <TableCell className="break-words">{workspaceUser.user.email}</TableCell>
                         <TableCell>
                           <Badge className={roleColors[workspaceUser.role]}>
                             {workspaceUser.role}

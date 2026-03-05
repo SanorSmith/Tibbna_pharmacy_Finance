@@ -31,3 +31,12 @@ export * from "./careplan";
 
 // Re-export from laboratory.ts
 export * from "./laboratory";
+
+// Re-export from referral.ts
+export * from "./referral";
+
+// Re-export from vaccination.ts
+export * from "./vaccination";
+
+// Re-export from clinical-notes.ts
+export * from "./clinical-notes";

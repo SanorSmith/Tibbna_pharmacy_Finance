@@ -1,0 +1,380 @@
+labtype,grouptests,testname,testcode,sampletype,unit,containertype
+Endocrinology,Thyroid Function Test,Thyroid stimulating hormone,TSH,Serum,mIU/L,SST tube
+Endocrinology,Thyroid Function Test,Total triiodothyronine hormone,T3,Serum,ng/dL,SST tube
+Endocrinology,Thyroid Function Test,Total thyroxin hormone,T4,Serum,µg/dL,SST tube
+Endocrinology,Thyroid Function Test,Free triiodothyronine,FT3,Serum,pg/mL,SST tube
+Endocrinology,Thyroid Function Test,Free thyroxin,FT4,Serum,ng/dL,SST tube
+Endocrinology,Thyroid Function Test,Thyroglobulin,TG,Serum,ng/mL,SST tube
+Endocrinology,Thyroid Function Test,Thyroglobulin autoantibody,TGA,Serum,IU/mL,SST tube
+Endocrinology,Thyroid Function Test,Anti-thyroid peroxoidase,ATPO,Serum,IU/mL,SST tube
+Endocrinology,Thyroid Function Test,Thyroid microsomal autoantibody,TMA,Serum,IU/mL,SST tube
+Endocrinology,Thyroid Function Test,Reverse triiodothyronine,Rev T3,Serum,ng/dL,SST tube
+Endocrinology,Thyroid Function Test,TSH receptor Auto-antibody,TRAb,Serum,IU/L,SST tube
+Endocrinology,Thyroid Function Test,T3 Up Take,T3 ut,Serum,%,SST tube
+Endocrinology,Thyroid Function Test,Thyroxine Binding Globulin,TBG,Serum,µg/mL,SST tube
+Endocrinology,Thyroid Function Test,Free Thyroxine Index,FTI,Serum,N/A,SST tube
+Endocrinology,Fertility,Luteinizing hormone,LH,Serum,mIU/mL,SST tube
+Endocrinology,Fertility,Follicular-stimulating hormone,FSH,Serum,mIU/mL,SST tube
+Endocrinology,Fertility,Prolactin,PRL,Serum,ng/mL,SST tube
+Endocrinology,Fertility,Estradiol,E2,Serum,pg/mL,SST tube
+Endocrinology,Fertility,Free Estradiol,FE2,Serum,pg/mL,SST tube
+Endocrinology,Fertility,Progesterone,PRG,Serum,ng/mL,SST tube
+Endocrinology,Fertility,Testosterone,TEST,Serum,ng/dL,SST tube
+Endocrinology,Fertility,Free testosterone,FTEST,Serum,pg/mL,SST tube
+Endocrinology,Fertility,Beta Human chorionic Gonadotropin,β-HCG,Serum,mIU/mL,SST tube
+Endocrinology,Fertility,Anti mullerian hormone,AMH,Serum,ng/mL,SST tube
+Endocrinology,Fertility,Androgen,Androg,Serum,ng/dL,SST tube
+Endocrinology,Fertility,Gastrin,GA,Serum,pg/mL,SST tube
+Endocrinology,Fertility,Dehydroepiandrosterone sulfate,DHEA s,Serum,µg/dL,SST tube
+Endocrinology,Fertility,Renin,Renin,Plasma EDTA,ng/mL/hr,EDTA tube
+Endocrinology,Fertility,17-Hydroxy Progesterone,17-OHPROG,Serum,ng/mL,SST tube
+Endocrinology,Adrenal Gland,Adrenocorticotropic hormone,ACTH,Serum,pg/mL,SST tube
+Endocrinology,Adrenal Gland,Cortisol,Cortisol,Serum,µg/dL,SST tube
+Endocrinology,Adrenal Gland,Cortisol in urine,Cortisol in urine,Urine,µg/24hr,Urine container
+Endocrinology,Bone Metabolism,Parathyroid hormone,PTH,Serum,pg/mL,SST tube
+Endocrinology,Bone Metabolism,Calcitonin,CT,Serum,pg/mL,SST tube
+Endocrinology,Bone Metabolism,Osteocalcin,BGP,Serum,ng/mL,SST tube
+Endocrinology,Bone Metabolism,25-OH Vitamin D,VitD3,Serum,ng/mL,SST tube
+Endocrinology,Bone Metabolism,Growth hormone,GH,Serum,ng/mL,SST tube
+Biochemistry,Glyco Metabolism,C-peptide,C-P,Serum,ng/mL,SST tube
+Biochemistry,Glyco Metabolism,Insulin,INS,Serum,µU/mL,SST tube
+Biochemistry,Glyco Metabolism,Pro-insulin,Pro-insulin,Serum,pmol/L,SST tube
+Biochemistry,Glyco Metabolism,Human insulin Auto antibodies,IAA,Serum,N/A,SST tube
+Biochemistry,Glyco Metabolism,Glutamic acid decarboxylase,GAD65,Serum,IU/mL,SST tube
+Biochemistry,Glyco Metabolism,Insulin-like Growth Factor 1,IGF-I,Serum,ng/mL,SST tube
+Biochemistry,Glyco Metabolism,Insulin Resistance,IR HOMA,Serum,N/A,SST tube
+Biochemistry,Glyco Metabolism,Oral Glucose Tolerance Test,OGTT,Serum,mg/dL,SST tube
+Hematology,Anemia,Folic acid,FA,Serum,ng/mL,SST tube
+Hematology,Anemia,Vitamin B12,VB12,Serum,pg/mL,SST tube
+Hematology,Anemia,Ferritin,Fert,Serum,ng/mL,SST tube
+Biochemistry,Cardiac Markers,Myoglobin,MB,Serum,ng/mL,SST tube
+Biochemistry,Cardiac Markers,Troponin I Titer,Trop I,Serum,ng/mL,SST tube
+Biochemistry,Cardiac Markers,Troponin I screen,Trop I screen,Serum,N/A,SST tube
+Biochemistry,Cardiac Markers,Creatine Kinase-MB,CK-MB,Serum,ng/mL,SST tube
+Hematology,Cardiac Markers,D-Dimer,DD,Plasma Sodium citrate,µg/mL,Sodium citrate tube
+Serology,TORCH,Toxoplasmosis-IgG,Toxo IgG,Serum,IU/mL,SST tube
+Serology,TORCH,Toxoplasmosis-IgM,Toxo IgM,Serum,N/A,SST tube
+Serology,TORCH,Cytomegalovirus-IgG,CMV IgG,Serum,AU/mL,SST tube
+Serology,TORCH,Cytomegalovirus-IgM,CMV IgM,Serum,N/A,SST tube
+Serology,TORCH,Rubella virus-IgG,Rubella IgG,Serum,IU/mL,SST tube
+Serology,TORCH,Rubella virus-IgM,Rubella IgM,Serum,N/A,SST tube
+Serology,TORCH,Herpes simplex virus 1/2-IgG,HSV 1/2 IgG,Serum,N/A,SST tube
+Serology,TORCH,Herpes simplex virus 1/2-IgM,HSV 1/2 IgM,Serum,N/A,SST tube
+Serology,Blood Viruses,HBsAg titer,HBs Ag titer,Serum,IU/mL,SST tube
+Serology,Blood Viruses,HBsAg screen,HBs Ag screen,Serum,N/A,SST tube
+Serology,Blood Viruses,HBs Ab IgG,HBs Ab IgG,Serum,mIU/mL,SST tube
+Serology,Blood Viruses,HBe Ag,Hbe Ag,Serum,N/A,SST tube
+Serology,Blood Viruses,Hbe Ab IgG,Hbe Ab IgG,Serum,N/A,SST tube
+Serology,Blood Viruses,HBc Ab IgG,HBc Ab IgG,Serum,N/A,SST tube
+Serology,Blood Viruses,HBV screen,HBV screen,Serum,N/A,SST tube
+Serology,Blood Viruses,HCV IgG titer,HCV IgG titer,Serum,S/CO,SST tube
+Serology,Blood Viruses,HCV screen,HCV screen,Serum,N/A,SST tube
+Serology,Blood Viruses,HAV Titer,HAV Titer,Serum,N/A,SST tube
+Serology,Blood Viruses,HAV screen,HAV screen,Serum,N/A,SST tube
+Serology,Blood Viruses,HEV screen,HEV screen,Serum,N/A,SST tube
+Serology,Blood Viruses,HIV titer,HIV titer,Serum,S/CO,SST tube
+Serology,Blood Viruses,HIV screen,HIV screen,Serum,N/A,SST tube
+Hematology,Complete Blood Count,Complete blood count & Differential,CBC,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,Erythrocyte sedimentation rate,ESR,Whole blood,mm/hr,ESR tube
+Hematology,Hematology,Blood Film,Blood Film,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,CBC & Blood Film,CBC & Blood Film,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,Reticulocyte counting,Retic,Whole blood EDTA,%,EDTA tube
+Hematology,Hematology,Sickling test,Sickling test,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,Malaria Test,Malaria test,Whole blood EDTA,N/A,EDTA tube
+Hematology,Coagulation Profile,Prothrombin time,PT &INR,Plasma Sodium citrate,seconds,Sodium citrate tube
+Hematology,Coagulation Profile,Partial thromboplastin time,PTT,Plasma Sodium citrate,seconds,Sodium citrate tube
+Hematology,Coagulation Profile,Plasma Fibrinogen,Fibrinogen,Plasma Sodium citrate,mg/dL,Sodium citrate tube
+Hematology,Blood Bank,Blood group&Rh,Blood group&Rh,Whole blood EDTA,N/A,EDTA tube
+Hematology,Blood Bank,Cross match,Cross match,Whole blood EDTA,N/A,EDTA tube
+Hematology,Blood Bank,Whole blood,Whole blood,Whole blood,N/A,Blood bag
+Hematology,Blood Bank,Packed RBC,Packed RBC,Packed RBC,N/A,Blood bag
+Hematology,Blood Bank,Plasma,Plasma,Plasma,N/A,Blood bag
+Hematology,Blood Bank,Cryoprecipitate,Cryoprecipitate,Cryoprecipitate,N/A,Blood bag
+Hematology,Blood Bank,Platelets,Platelets,Platelets,N/A,Blood bag
+Hematology,Hematology,Glucose-6-phosphate dehydrogenase Titer,G6PD Titer,Whole blood EDTA,U/g Hb,EDTA tube
+Hematology,Hematology,Glucose-6-phosphate dehydrogenase Screen,G6PD Screen,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,Direct coomb test,Direct coomb test,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,Indirect coomb test,Indirect coomb test,Serum,N/A,SST tube
+Hematology,Hematology,Rh Ab titer,Rh Ab titer,Serum,N/A,SST tube
+Hematology,Coagulation Profile,Anti-thrombin III,AT3,Plasma Sodium citrate,%,Sodium citrate tube
+Hematology,Coagulation Profile,Protein C,PROT-C,Plasma Sodium citrate,%,Sodium citrate tube
+Hematology,Coagulation Profile,Protein S,PROT-S,Plasma Sodium citrate,%,Sodium citrate tube
+Hematology,Hematology,Lupus erythematosus preparation,LE cell preparation,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,Hemoglobin H preparation,Hemoglobin H preparation,Whole blood EDTA,N/A,EDTA tube
+Hematology,Hematology,Bleeding Time,BT,Whole Blood,minutes,N/A
+Hematology,Hematology,Clotting Time,CT,Whole Blood,minutes,N/A
+Hematology,Electrophoresis,Hb Electrophoresis HPLC,Hb Electrophoresis HPLC,Whole blood EDTA,N/A,EDTA tube
+Hematology,Electrophoresis,HbA1C by HPLC,HbA1 by HPLC,Whole blood EDTA,%,EDTA tube
+Biochemistry,Electrophoresis,Serum protein Electrophoresis,SPE,Serum,g/dL,SST tube
+Biochemistry,Electrophoresis,Urine protein Electrophoresis,UPE,Urine,N/A,Urine container
+Biochemistry,Electrophoresis,Urine Bence Jones protein Electrophoresis,Urine Bence Jones Protein Electrophoresis,Urine,N/A,Urine container
+Immunology,Electrophoresis,Serum immune fixation,Serum immune fixation,Serum,N/A,SST tube
+Hematology,Electrophoresis,Hb capillary's Electrophoresis,Hb capillary's Electrophoresis,Whole blood EDTA,N/A,EDTA tube
+Hematology,Electrophoresis,HbA1C by Capillary's Electrophoresis,HbA1c by capillary's Electrophoresis,Whole blood EDTA,%,EDTA tube
+Serology,Serology,Venereal disease research laboratory,VDRL,Serum,N/A,SST tube
+Serology,Serology,Treponema pallidum Hemagglutination Assay,TPHA,Serum,N/A,SST tube
+Serology,Serology,Anti streptolysin O test (titer),ASOT titer,Serum,IU/mL,SST tube
+Serology,Serology,Pregnancy test,Pt,Serum,N/A,SST tube
+Serology,Serology,C-Reactive protein titer,Crp titer,Serum,mg/L,SST tube
+Serology,Serology,Latex (Rheumatoid Factor),RF,Serum,IU/mL,SST tube
+Serology,Serology,Rose Bengal test,Rose bengal test,Serum,N/A,SST tube
+Serology,Serology,Tuberculosis,TP,Serum,N/A,SST tube
+Serology,Serology,Mononucleosis,Mo,Serum,N/A,SST tube
+Serology,Serology,Typhoid IgM IgG,Typhoid IgM IgG,Serum,N/A,SST tube
+Serology,Serology,H. Pylori Ab,H.Pylori Ab,Serum,N/A,SST tube
+Serology,Serology,H. Pylori Ag,H.pylori Ag,Stool,N/A,Stool container
+Immunology,Immunity,Anti Cardiolipin IgG,ACL IgG,Serum,GPL U/mL,SST tube
+Immunology,Immunity,Anti Cardiolipin IgM,ACL IgM,Serum,MPL U/mL,SST tube
+Immunology,Immunity,Anti-Phospholipid IgG,APL IgG,Serum,GPL U/mL,SST tube
+Immunology,Immunity,Anti-Phospholipid IgM,APL IgM,Serum,MPL U/mL,SST tube
+Immunology,Immunity,Anti tissue transglutaminase IgG,Ttg IgG,Serum,U/mL,SST tube
+Immunology,Immunity,Anti tissue transglutaminase IgA,Ttg IgA,Serum,U/mL,SST tube
+Immunology,Immunity,Anti Gliadin IgG,AGA IgG,Serum,U/mL,SST tube
+Immunology,Immunity,Anti Gliadin IgA,AGA IgA,Serum,U/mL,SST tube
+Immunology,Immunity,Human immunoglobulin E,IgE (ELISA),Serum,IU/mL,SST tube
+Immunology,Immunity,Human immunoglobulin E,IgE (COBAS E4),Serum,IU/mL,SST tube
+Immunology,Immunity,Human immunoglobulin M,IgM,Serum,mg/dL,SST tube
+Immunology,Immunity,Human immunoglobulin G,IgG,Serum,mg/dL,SST tube
+Immunology,Immunity,Human immunoglobulin A,IgA,Serum,mg/dL,SST tube
+Immunology,Immunity,Tuberculosis Ab,TB,Serum,N/A,SST tube
+Immunology,Tumor Markers,Alpha-fetoprotein,AFP,Serum,ng/mL,SST tube
+Immunology,Tumor Markers,Carcino embryonic antigen,CEA,Serum,ng/mL,SST tube
+Immunology,Tumor Markers,Cancer Antigen 125,CA 125,Serum,U/mL,SST tube
+Immunology,Tumor Markers,Cancer Antigen 15-3,CA 15-3,Serum,U/mL,SST tube
+Immunology,Tumor Markers,Cancer Antigen 19-9,CA 19-9,Serum,U/mL,SST tube
+Immunology,Tumor Markers,Prostate Specific Antigen,PSA,Serum,ng/mL,SST tube
+Immunology,Tumor Markers,Free prostate Specific Antigen,f-PSA,Serum,ng/mL,SST tube
+Immunology,Immunity,Transferrin,Transferrin,Serum,mg/dL,SST tube
+Immunology,Immunity,Anti-beta-2 glycoprotein IgM,Beta 2GP IgM,Serum,U/mL,SST tube
+Immunology,Immunity,Anti-beta-2 glycoprotein IgG,Beta 2GP IgG,Serum,U/mL,SST tube
+Immunology,Immunity,Anti-reticulin G (ELISA),Anti-reticulin G ELISA,Serum,N/A,SST tube
+Immunology,Immunity,Anti-reticulin G (COBAS E4),Anti-reticulin G COBAS,Serum,N/A,SST tube
+Immunology,Immunity,Anti-reticulin A (ELISA),Anti-reticulin A ELISA,Serum,N/A,SST tube
+Immunology,Immunity,Anti-reticulin A (COBAS E4),Anti-reticulin A COBAS,Serum,N/A,SST tube
+Immunology,Immunity,Anti Endomysial IgG,EMA IgG,Serum,N/A,SST tube
+Immunology,Immunity,Anti Endomysial IgA,EMA IgA,Serum,N/A,SST tube
+Immunology,Immunity,Anti-liver kidney Ab,ALK,Serum,N/A,SST tube
+Immunology,Immunity,Anti-soluble liver antigen,Anti-SLA,Serum,N/A,SST tube
+Immunology,Immunity,Epstein Barr virus IgG,EBV IgG,Serum,N/A,SST tube
+Immunology,Immunity,Epstein Barr virus IgM,EBV IgM,Serum,N/A,SST tube
+Immunology,Immunity,Alpha-1-anti trypsin,A1AT,Serum,mg/dL,SST tube
+Immunology,Immunity,Lipoprotein A,LPA,Serum,mg/dL,SST tube
+Immunology,Immunity,Apolipoprotein A1,APO A1,Serum,mg/dL,SST tube
+Immunology,Immunity,Apolipoprotein B,APO B,Serum,mg/dL,SST tube
+Immunology,Tumor Markers,Prostatic Acid Phosphatase,PAP,Serum,ng/mL,SST tube
+Immunology,Immunity,Pro calcitonin,PCT,Serum,ng/mL,SST tube
+Immunology,Immunity,Calprotectin,Calprotectin,Stool,µg/g,Stool container
+Immunology,Immunity,Lactoferrin,Lactoferrin,Stool,µg/g,Stool container
+Immunology,Immunity,Anti-cyclic citrullinated peptide antibody,Anti-CCP,Serum,U/mL,SST tube
+Immunology,Immunity,Extractable nuclear antigen,ENA,Serum,N/A,SST tube
+Immunology,Immunity,Anti nuclear antibody,ANA,Serum,N/A,SST tube
+Immunology,Immunity,Anti chlamydia IgG,Anti chlamydia IgG,Serum,N/A,SST tube
+Immunology,Immunity,Anti chlamydia IgM,Anti chlamydia IgM,Serum,N/A,SST tube
+Immunology,Immunity,Complement 3,C3,Serum,mg/dL,SST tube
+Immunology,Immunity,Complement 4,C4,Serum,mg/dL,SST tube
+Immunology,Immunity,Immuno histochemical Stains,IHS,Tissue,N/A,Formalin container
+Biochemistry,Biochemistry,Total Bilirubin,TSB,Serum,mg/dL,SST tube
+Biochemistry,Biochemistry,Direct Bilirubin,DB,Serum,mg/dL,SST tube
+Biochemistry,Biochemistry,Alanine transaminase,ALT/GPT,Serum,U/L,SST tube
+Biochemistry,Biochemistry,Aspartate transaminase,AST/GOT,Serum,U/L,SST tube
+Biochemistry,Lipid Profile,Cholesterol,CHOL,Serum,mg/dL,SST tube
+Biochemistry,Lipid Profile,Triglyceride,Trig,Serum,mg/dL,SST tube
+Biochemistry,Lipid Profile,High Density Lipoprotein,HDL,Serum,mg/dL,SST tube
+Biochemistry,Lipid Profile,Low Density Lipoprotein,LDL,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,B.Urea,Urea,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,Creatinine,CRE,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,Uric Acid,UA,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,Electrolyte (Na-K-Cl),Electrolyte Na-K-Cl,Serum,mmol/L,SST tube
+Biochemistry,Renal Function,Electrolyte (Na-K-Ca),Electrolyte Na-K-Ca,Serum,mmol/L,SST tube
+Biochemistry,Renal Function,Total calcium,Ca,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,Potassium,K,Serum,mmol/L,SST tube
+Biochemistry,Renal Function,Alkaline phosphatase,Alp,Serum,U/L,SST tube
+Biochemistry,Renal Function,Copper,CU,Serum,µg/dL,SST tube
+Biochemistry,Renal Function,Creatine phosphokinase-MB,CPK-MB,Serum,U/L,SST tube
+Biochemistry,Renal Function,Creatine phosphokinase-Total,CPK,Serum,U/L,SST tube
+Biochemistry,Renal Function,Gamma Glutamyl transferase,GGT,Serum,U/L,SST tube
+Biochemistry,Renal Function,Glucose,Fbs/Rbs,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,Glycated hemoglobin,HbA1c,Whole blood EDTA,%,EDTA tube
+Biochemistry,Renal Function,Lactic Acid,LA,Plasma EDTA,mmol/L,EDTA tube
+Biochemistry,Renal Function,Lactate Dehydrogenase,LDH,Serum,U/L,SST tube
+Biochemistry,Renal Function,Magnesium,MG,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,Micro albumin,u-albumin,Urine,mg/L,Urine container
+Biochemistry,Renal Function,Phosphorus,PO4,Serum,mg/dL,SST tube
+Biochemistry,Renal Function,Acid phosphatase,ACP,Serum,U/L,SST tube
+Biochemistry,Renal Function,Iron,Fe,Serum,µg/dL,SST tube
+Biochemistry,Renal Function,Total iron Binding Capacity,TIBC,Serum,µg/dL,SST tube
+Biochemistry,Renal Function,Zinc,Zn,Serum,µg/dL,SST tube
+Biochemistry,Renal Function,Albumin,Alb,Serum,g/dL,SST tube
+Biochemistry,Renal Function,Globulin,Globulin,Serum,g/dL,SST tube
+Biochemistry,Renal Function,Total protein,TP,Serum,g/dL,SST tube
+Biochemistry,Renal Function,Total Amylase,AMY total,Serum,U/L,SST tube
+Biochemistry,Renal Function,Lipase,Lipase,Serum,U/L,SST tube
+Biochemistry,Renal Function,Total carbon dioxide,TCO2,Serum,mmol/L,SST tube
+Biochemistry,Renal Function,Arterial blood gases,ABG,Whole blood,N/A,Heparinized syringe
+Biochemistry,Renal Function,Albumin creatinine ratio,Albumin creatinine ratio,Urine,mg/g,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for protein,24 Hr Urine protein,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for cortisol,24 Hr Urine cortisol,Urine (24 Hr.),µg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for copper,24 Hr Urine copper,Urine (24 Hr.),µg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for creatinine,24 Hr Urine creatinine,Urine (24 Hr.),g/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for Amylase,24 Hr Urine Amylase,Urine (24 Hr.),U/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for calcium,24 Hr Urine calcium,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for chloride,24 Hr Urine chloride,Urine (24 Hr.),mmol/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for magnesium,24 Hr Urine magnesium,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for phosphorus,24 Hr Urine phosphorus,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for potassium,24 Hr Urine potassium,Urine (24 Hr.),mmol/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for sodium,24 Hr Urine sodium,Urine (24 Hr.),mmol/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for uric acid,24 Hr Urine uric acid,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for oxalic acid,24 Hr Urine oxalic acid,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,24 Hr. Urine for Citrate,24 Hr Urine Citrate,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,Micro albuminuria,Micro albuminuria,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,24-Hour Urine Tests,Vanillylmandelic acid,VMA,Urine (24 Hr.),mg/24hr,Urine container
+Biochemistry,Special Tests,Stone analysis,Stone analysis,Stone,N/A,Sterile container
+Biochemistry,Special Tests,Fructose for seminal fluid,Fructose seminal,Seminal fluid,mg/dL,Sterile container
+Biochemistry,Renal Function,Creatinine Clearance,CrCL,Serum and Urine,mL/min,SST tube + Urine container
+Microbiology,Abscess,Abscess for C/S (manual),Abscess C/S manual,Abscess,N/A,Sterile container
+Microbiology,Abscess,Abscess for C/S (automated),Abscess C/S automated,Abscess,N/A,Sterile container
+Microbiology,Abscess,Gram stain,Gram stain Abscess,Abscess,N/A,Sterile container
+Microbiology,Abscess,Acid Fast Bacilli stain,AFB stain Abscess,Abscess,N/A,Sterile container
+Microbiology,Abscess,Total cells counting,Total cells Abscess,Abscess,cells/µL,Sterile container
+Microbiology,Abscess,Differential WBC Counting,Diff WBC Abscess,Abscess,%,Sterile container
+Microbiology,Urine Culture,Urine for c/s (manual),Urine C/S manual,Urine,CFU/mL,Sterile urine container
+Microbiology,Urine Culture,Direct Examination,GUE,Urine,N/A,Sterile urine container
+Microbiology,Urine Culture,Gram stain,Gram stain Urine,Urine,N/A,Sterile urine container
+Microbiology,Urine Culture,Acid Fast Bacilli stain for T.B,AFB stain Urine TB,Urine,N/A,Sterile urine container
+Microbiology,Stool Culture,Stool for c/s (manual),Stool C/S manual,Stool,N/A,Stool container
+Microbiology,Stool Culture,Stool for c/s (automated),Stool C/S automated,Stool,N/A,Stool container
+Microbiology,Stool Culture,Direct Examination,GSE,Stool,N/A,Stool container
+Microbiology,Stool Culture,Fecal occult blood,FOB,Stool,N/A,Stool container
+Microbiology,Stool Culture,S.S. agar cultivation,SS agar Salmonella Shigella,Stool,N/A,Stool container
+Microbiology,Stool Culture,TCBS agar cultivation Vibrio cholerae,TCBS agar Vibrio,Stool,N/A,Stool container
+Microbiology,Blood Culture,Blood for C/S (manual),Blood C/S manual,Blood,N/A,Blood culture bottle
+Microbiology,Blood Culture,Blood for C/S (automated),Blood C/S automated,Blood,N/A,Blood culture bottle
+Microbiology,Sputum Culture,Sputum for C/S (manual),Sputum C/S manual,Sputum,N/A,Sterile container
+Microbiology,Sputum Culture,Sputum for C/S (automated),Sputum C/S automated,Sputum,N/A,Sterile container
+Microbiology,Sputum Culture,Gram stain,Gram stain Sputum,Sputum,N/A,Sterile container
+Microbiology,Sputum Culture,Acid Fast Bacilli stain for T.B,AFB stain Sputum TB,Sputum,N/A,Sterile container
+Microbiology,Sputum Culture,Mycological Cultivation,Fungal ID Sputum,Sputum,N/A,Sterile container
+Microbiology,Wound Culture,Wound Swab C/S (manual),Wound Swab manual,Wound,N/A,Swab
+Microbiology,Wound Culture,Wound Swab C/S (automated),Wound Swab automated,Wound,N/A,Swab
+Microbiology,Wound Culture,Mycological Cultivation,Fungal ID Ear,Ear,N/A,Swab
+Microbiology,Wound Culture,Eye Swab Gram stain,Eye Swab Gram,Eye,N/A,Swab
+Microbiology,Nasal Swab,Nasal Swab c/s,Nasal Swab,Nasal,N/A,Swab
+Microbiology,Throat Swab,Throat Swab c/s,Throat Swab,Throat,N/A,Swab
+Microbiology,Throat Swab,Gram stain,Gram stain Throat,Throat,N/A,Swab
+Microbiology,High Vaginal Swab,High Vaginal Swab,HVS direct Gram,High Vaginal,N/A,Swab
+Microbiology,High Vaginal Swab,Wet preparation Trichomonas vaginales,Wet prep Trichomonas,High Vaginal,N/A,Swab
+Microbiology,High Vaginal Swab,Gram stain,Gram stain HVS,High Vaginal,N/A,Swab
+Microbiology,High Vaginal Swab,Mycological Cultivation,Fungal ID HVS,High Vaginal,N/A,Swab
+Microbiology,Urethral Swab,Urethral Swab,Urethral direct Gram,Urethral,N/A,Swab
+Microbiology,Urethral Swab,Urethral Swab for Gonococcal,Urethral Gonococcal,Urethral,N/A,Swab
+Microbiology,Other Swabs,Skin lesions Swab,Skin lesions Swab,Skin,N/A,Swab
+Microbiology,Other Swabs,Cervical Swab,Cervical Swab,Cervix,N/A,Swab
+Microbiology,Other Swabs,Oral swab,Oral swab,Oral,N/A,Swab
+Microbiology,Other Swabs,Infected burns Swab,Burns Swab,Burns,N/A,Swab
+Microbiology,Pleural Fluid,Pleural Fluid for C/S (manual),Pleural C/S manual,Pleural Fluid,N/A,Sterile container
+Microbiology,Pleural Fluid,Pleural Fluid for C/S (automated),Pleural C/S automated,Pleural Fluid,N/A,Sterile container
+Microbiology,Pleural Fluid,Pleural Fluid for Sugar,Pleural Sugar,Pleural Fluid,mg/dL,Sterile container
+Microbiology,Pleural Fluid,Pleural Fluid for Protein,Pleural Protein,Pleural Fluid,g/dL,Sterile container
+Microbiology,Pleural Fluid,Gram stain,Gram stain Pleural,Pleural Fluid,N/A,Sterile container
+Microbiology,Pleural Fluid,Acid Fast Bacilli stain,AFB stain Pleural,Pleural Fluid,N/A,Sterile container
+Microbiology,Pleural Fluid,Total cells counting,Total cells Pleural,Pleural Fluid,cells/µL,Sterile container
+Microbiology,Pleural Fluid,Differential WBC Counting,Diff WBC Pleural,Pleural Fluid,%,Sterile container
+Microbiology,Ascitic Fluid,Ascitic Fluid C/S (manual),Ascitic C/S manual,Ascitic Fluid,N/A,Sterile container
+Microbiology,Ascitic Fluid,Ascitic Fluid C/S (automated),Ascitic C/S automated,Ascitic Fluid,N/A,Sterile container
+Microbiology,Ascitic Fluid,Gram stain,Gram stain Ascitic,Ascitic Fluid,N/A,Sterile container
+Microbiology,Ascitic Fluid,Acid Fast Bacilli stain,AFB stain Ascitic,Ascitic Fluid,N/A,Sterile container
+Microbiology,Ascitic Fluid,Total cells counting,Total cells Ascitic,Ascitic Fluid,cells/µL,Sterile container
+Microbiology,Ascitic Fluid,Differential WBC Counting,Diff WBC Ascitic,Ascitic Fluid,%,Sterile container
+Microbiology,Synovial Fluid,Synovial Fluid C/S (manual),Synovial C/S manual,Synovial Fluid,N/A,Sterile container
+Microbiology,Synovial Fluid,Synovial Fluid C/S (automated),Synovial C/S automated,Synovial Fluid,N/A,Sterile container
+Microbiology,Synovial Fluid,Synovial Fluid for Sugar,Synovial Sugar,Synovial Fluid,mg/dL,Sterile container
+Microbiology,Synovial Fluid,Synovial Fluid for Protein,Synovial Protein,Synovial Fluid,g/dL,Sterile container
+Microbiology,Synovial Fluid,Gram stain,Gram stain Synovial,Synovial Fluid,N/A,Sterile container
+Microbiology,Synovial Fluid,Acid Fast Bacilli stain,AFB stain Synovial,Synovial Fluid,N/A,Sterile container
+Microbiology,Synovial Fluid,Total cells counting,Total cells Synovial,Synovial Fluid,cells/µL,Sterile container
+Microbiology,Synovial Fluid,Differential WBC Counting,Diff WBC Synovial,Synovial Fluid,%,Sterile container
+Microbiology,Cerebro-Spinal Fluid,CSF for C/S (manual),CSF C/S manual,Cerebro Spinal Fluid,N/A,Sterile container
+Microbiology,Cerebro-Spinal Fluid,CSF for C/S (automated),CSF C/S automated,Cerebro Spinal Fluid,N/A,Sterile container
+Microbiology,Cerebro-Spinal Fluid,CSF for Protein,CSF Protein,Cerebro Spinal Fluid,mg/dL,Sterile container
+Microbiology,Cerebro-Spinal Fluid,CSF for Sugar,CSF Sugar,Cerebro Spinal Fluid,mg/dL,Sterile container
+Microbiology,Cerebro-Spinal Fluid,Gram stain,Gram stain CSF,Cerebro Spinal Fluid,N/A,Sterile container
+Microbiology,Cerebro-Spinal Fluid,Acid Fast Bacilli stain,AFB stain CSF,Cerebro Spinal Fluid,N/A,Sterile container
+Microbiology,Cerebro-Spinal Fluid,Differential WBC Counting,Diff WBC CSF,Cerebro Spinal Fluid,%,Sterile container
+Microbiology,Cerebro-Spinal Fluid,CSF for Brucellosis,CSF Brucellosis,Cerebro Spinal Fluid,N/A,Sterile container
+Microbiology,Cerebro-Spinal Fluid,CSF for Syphilis,CSF Syphilis,Cerebro Spinal Fluid,N/A,Sterile container
+Microbiology,Seminal Fluid,Seminal Fluid for C/S,Seminal C/S,Seminal fluid,N/A,Sterile container
+Microbiology,Seminal Fluid,Direct Examination,SFA,Seminal fluid,N/A,Sterile container
+Microbiology,Seminal Fluid,Gram stain (GC),Gram stain Seminal GC,Seminal fluid,N/A,Sterile container
+Microbiology,Seminal Fluid,Acid Fast Bacilli stain,AFB stain Seminal,Seminal fluid,N/A,Sterile container
+Microbiology,Peritoneal Fluid,Peritoneal Fluid C/S (manual),Peritoneal C/S manual,Peritoneal Fluid,N/A,Sterile container
+Microbiology,Peritoneal Fluid,Peritoneal Fluid for C/S,Peritoneal C/S,Peritoneal Fluid,N/A,Sterile container
+Microbiology,Peritoneal Fluid,Direct Examination,Direct exam Peritoneal,Peritoneal Fluid,N/A,Sterile container
+Microbiology,Peritoneal Fluid,Gram stain,Gram stain Peritoneal,Peritoneal Fluid,N/A,Sterile container
+Microbiology,Peritoneal Fluid,Acid Fast Bacilli stain,AFB stain Peritoneal,Peritoneal Fluid,N/A,Sterile container
+Microbiology,Peritoneal Fluid,Total cells counting,Total cells Peritoneal,Peritoneal Fluid,cells/µL,Sterile container
+Microbiology,Peritoneal Fluid,Differential WBC Counting,Diff WBC Peritoneal,Peritoneal Fluid,%,Sterile container
+Molecular Biology,PCR,PCR For HCV Viral Load,PCR HCV VL,Serum,IU/mL,SST tube
+Molecular Biology,PCR,PCR For HBV Viral Load,PCR HBV VL,Serum,IU/mL,SST tube
+Molecular Biology,PCR,PCR for HIV viral load,PCR HIV VL,Serum,copies/mL,SST tube
+Molecular Biology,PCR,PCR For TB,PCR TB,Blood EDTA or Serum,N/A,EDTA tube or SST tube
+Molecular Biology,PCR,PCR For Human papilloma virus,PCR HPV,Cervical Swab or Seminal,N/A,Swab or Sterile container
+Molecular Biology,PCR,PCR For Geno Type HCV,PCR HCV Genotype,Serum,N/A,SST tube
+Molecular Biology,PCR,PCR For HCV Viral Load by genexpert,PCR HCV VL genexpert,Serum,IU/mL,SST tube
+Molecular Biology,PCR,PCR For HBV Viral Load By genexpert,PCR HBV VL genexpert,Serum,IU/mL,SST tube
+Molecular Biology,PCR,PCR For TB By genexpert,PCR TB genexpert,Sputum or Fluid or Urine,N/A,Sterile container
+Histopathology,Histopathology,Thyroid gland biopsy,Thyroid biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Lung branch scope,Lung bronchoscopy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Brain biopsy,Brain biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Breast mass biopsy,Breast mass biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Mastectomy,Mastectomy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Salivary gland biopsy,Salivary gland biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Skin biopsy,Skin biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Bone biopsy,Bone biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Spleen biopsy,Spleen biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Appendix,Appendix,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Testis biopsy,Testis biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Colon biopsy,Colon biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Colonoscopy biopsy,Colonoscopy biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Lymph-node biopsy,Lymph-node biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Discectomy-laminectomy,Discectomy-laminectomy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Duodenal biopsy,Duodenal biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Prostatectomy,Prostatectomy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Prostatic chips,Prostatic chips,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Cyst-ovary,Cyst-ovary,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Uterus,Uterus,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Uterus with ovary,Uterus with ovary,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Product of gestation,Product of gestation,Tissue,N/A,Formalin container
+Histopathology,Histopathology,D&C,D&C,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Polyp,Polyp,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Pap Smear,Pap Smear,Cervical cells,N/A,Slide or liquid medium
+Histopathology,Histopathology,C.S.F Cytology,CSF Cytology,Cerebro Spinal Fluid,N/A,Sterile container
+Histopathology,Histopathology,Kidney biopsy,Kidney biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Gall bladder,Gall bladder,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Corpectomy,Corpectomy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Soft tissue biopsy,Soft tissue biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Tissue Tumor marker,Tissue Tumor marker,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Muscles biopsy,Muscles biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Sinus biopsy,Sinus biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Core biopsy (liver),Core biopsy liver,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Ovary with tube,Ovary with tube,Tissue,N/A,Formalin container
+Histopathology,Histopathology,F.N.A.C,FNAC,Aspirate,N/A,Slide or container
+Histopathology,Histopathology,Endoscopic biopsy,Endoscopic biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Gynecomastia,Gynecomastia,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Slide review,Slide review,Slide,N/A,Slide
+Histopathology,Histopathology,Fibroid,Fibroid,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Hemicolectomy,Hemicolectomy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Femur biopsy,Femur biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Ulcerative mass,Ulcerative mass,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Ectopic pregnancy,Ectopic pregnancy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Abortion,Abortion,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Urinary bladder biopsy,Urinary bladder biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Cell block,Cell block,Cells,N/A,Formalin container
+Histopathology,Histopathology,Mass biopsy,Mass biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Neck mass biopsy,Neck mass biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Endometriosis,Endometriosis,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Tissue & bone,Tissue & bone,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Hernia,Hernia,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Nasal papilloma,Nasal papilloma,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Endometrial biopsy,Endometrial biopsy,Tissue,N/A,Formalin container
+Histopathology,Histopathology,Special Stains,Special Stains,Tissue,N/A,Formalin container
+Special Tests,Special Tests,PCR for HIV Viral Load by genexpert,PCR HIV VL genexpert special,Serum,copies/mL,SST tube

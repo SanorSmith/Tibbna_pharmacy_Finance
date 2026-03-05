@@ -73,36 +73,33 @@ export default function NotificationsList({ workspaceid }: Notification) {
     },
   });
 
-  // Fetch all referrals for all patients
-  const { data: allReferrals = [], isLoading: loadingReferrals } = useQuery({
-    queryKey: ["referrals", workspaceid],
-    queryFn: async (): Promise<EnhancedReferralRecord[]> => {
-      const referrals: EnhancedReferralRecord[] = [];
-      
-      // Fetch referrals for each patient
-      for (const patient of allPatients) {
-        try {
-          const res = await fetch(`/api/d/${workspaceid}/patients/${patient.patientid}/referrals`);
-          if (res.ok) {
-            const data = await res.json();
-            const patientReferrals = (data.referrals as ReferralRecord[]) || [];
-            // Add patient info to each referral
-            referrals.push(...patientReferrals.map(referral => ({
-              ...referral,
-              patientid: patient.patientid,
-              patientName: `${patient.firstname} ${patient.lastname}`,
-              patientNationalId: patient.nationalid || patient.patientid,
-            })));
-          }
-        } catch (error) {
-          console.error(`Error fetching referrals for patient ${patient.patientid}:`, error);
+  // Fetch incoming and outgoing referrals for the doctor
+  const { data: doctorReferrals, isLoading: loadingReferrals } = useQuery({
+    queryKey: ["doctor-referrals", workspaceid],
+    queryFn: async (): Promise<{
+      incomingReferrals: EnhancedReferralRecord[];
+      outgoingReferrals: EnhancedReferralRecord[];
+    }> => {
+      try {
+        const res = await fetch(`/api/d/${workspaceid}/doctor/referrals`);
+        if (res.ok) {
+          const data = await res.json();
+          return {
+            incomingReferrals: (data.incomingReferrals as EnhancedReferralRecord[]) || [],
+            outgoingReferrals: (data.outgoingReferrals as EnhancedReferralRecord[]) || [],
+          };
         }
+        return { incomingReferrals: [], outgoingReferrals: [] };
+      } catch (error) {
+        console.error("Error fetching doctor referrals:", error);
+        return { incomingReferrals: [], outgoingReferrals: [] };
       }
-      
-      return referrals;
     },
-    enabled: allPatients.length > 0,
   });
+
+  const incomingReferrals = doctorReferrals?.incomingReferrals || [];
+  const outgoingReferrals = doctorReferrals?.outgoingReferrals || [];
+  const totalReferrals = incomingReferrals.length + outgoingReferrals.length;
 
   // Filter chronic patients
   const chronicPatients = allPatients.filter(
@@ -198,9 +195,9 @@ export default function NotificationsList({ workspaceid }: Notification) {
             className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
           >
             Referrals
-            {formatTabCount(allReferrals.length) && (
+            {formatTabCount(totalReferrals) && (
               <span className="ml-2 bg-white text-blue-600 text-xs px-1.5 py-0.5 rounded-full font-medium">
-                {formatTabCount(allReferrals.length)}
+                {formatTabCount(totalReferrals)}
               </span>
             )}
           </TabsTrigger>
@@ -390,113 +387,231 @@ export default function NotificationsList({ workspaceid }: Notification) {
 
         {/* Referrals Tab */}
         <TabsContent value="referrals">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-purple-600" />
-                Patient Referrals
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingReferrals ? (
-                <p className="text-sm text-muted-foreground">Loading referrals...</p>
-              ) : allReferrals.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No referrals found. This section will display patient referrals from OpenEHR.
-                </p>
-              ) : (
-                <div className="rounded-md border">
-                  <table className="w-full">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Patient Name
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Patient ID
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Department
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Clinical Indication
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Urgency
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Date
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allReferrals.map((referral) => (
-                        <tr
-                          key={referral.composition_uid}
-                          className="border-t hover:bg-muted/50"
-                        >
-                          <td className="py-3 px-4 font-medium">
-                            {referral.patientName}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {referral.patientNationalId}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-medium">{referral.physician_department}</span>
-                              {referral.receiving_physician && (
-                                <span className="text-xs text-muted-foreground">
-                                  Dr. {referral.receiving_physician}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            <div className="max-w-xs">
-                              <p className="truncate" title={referral.clinical_indication}>
-                                {referral.clinical_indication}
-                              </p>
-                              {referral.comment && (
-                                <p className="text-xs text-muted-foreground truncate" title={referral.comment}>
-                                  {referral.comment}
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`px-2 py-1 text-xs rounded-full capitalize ${
-                                referral.urgency === "urgent"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-green-100 text-green-800"
-                              }`}
-                            >
-                              {referral.urgency || "routine"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {new Date(referral.recorded_time).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            <Link
-                              href={`/d/${workspaceid}/patients/${referral.patientid}`}
-                            >
-                              <Button size="sm" variant="outline">
-                                View Patient
-                              </Button>
-                            </Link>
-                          </td>
+          <div className="space-y-4">
+            {/* Incoming Referrals */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  Incoming Referrals
+                  <Badge variant="secondary" className="ml-2">
+                    {incomingReferrals.length}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingReferrals ? (
+                  <p className="text-sm text-muted-foreground">Loading referrals...</p>
+                ) : incomingReferrals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No incoming referrals. Patients referred to you will appear here.
+                  </p>
+                ) : (
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Patient Name
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Patient ID
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Referred By
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Clinical Indication
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Urgency
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Date
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Actions
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      </thead>
+                      <tbody>
+                        {incomingReferrals.map((referral) => (
+                          <tr
+                            key={referral.composition_uid}
+                            className="border-t hover:bg-muted/50"
+                          >
+                            <td className="py-3 px-4 font-medium">
+                              {referral.patientName}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {referral.patientNationalId}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">{referral.referred_by}</span>
+                                {referral.physician_department && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {referral.physician_department}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              <div className="max-w-xs">
+                                <p className="truncate" title={referral.clinical_indication}>
+                                  {referral.clinical_indication}
+                                </p>
+                                {referral.comment && (
+                                  <p className="text-xs text-muted-foreground truncate" title={referral.comment}>
+                                    {referral.comment}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full capitalize ${
+                                  referral.urgency === "urgent"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-green-100 text-green-800"
+                                }`}
+                              >
+                                {referral.urgency || "routine"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {new Date(referral.recorded_time).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Link
+                                href={`/d/${workspaceid}/patients/${referral.patientid}`}
+                              >
+                                <Button size="sm" variant="outline">
+                                  View Patient
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Outgoing Referrals */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-purple-600" />
+                  Outgoing Referrals
+                  <Badge variant="secondary" className="ml-2">
+                    {outgoingReferrals.length}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingReferrals ? (
+                  <p className="text-sm text-muted-foreground">Loading referrals...</p>
+                ) : outgoingReferrals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No outgoing referrals. Patients you refer to other doctors will appear here.
+                  </p>
+                ) : (
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Patient Name
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Patient ID
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Referred To
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Clinical Indication
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Urgency
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Date
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {outgoingReferrals.map((referral) => (
+                          <tr
+                            key={referral.composition_uid}
+                            className="border-t hover:bg-muted/50"
+                          >
+                            <td className="py-3 px-4 font-medium">
+                              {referral.patientName}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {referral.patientNationalId}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">{referral.receiving_physician}</span>
+                                {referral.physician_department && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {referral.physician_department}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              <div className="max-w-xs">
+                                <p className="truncate" title={referral.clinical_indication}>
+                                  {referral.clinical_indication}
+                                </p>
+                                {referral.comment && (
+                                  <p className="text-xs text-muted-foreground truncate" title={referral.comment}>
+                                    {referral.comment}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full capitalize ${
+                                  referral.urgency === "urgent"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-green-100 text-green-800"
+                                }`}
+                              >
+                                {referral.urgency || "routine"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {new Date(referral.recorded_time).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Link
+                                href={`/d/${workspaceid}/patients/${referral.patientid}`}
+                              >
+                                <Button size="sm" variant="outline">
+                                  View Patient
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

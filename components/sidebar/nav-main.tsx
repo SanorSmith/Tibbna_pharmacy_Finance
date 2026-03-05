@@ -46,7 +46,7 @@ import { usePathname } from "next/navigation";
 
 // Define types for workspace and role combinations
 type WorkspaceType = "hospital" | "laboratory" | "pharmacy";
-type WorkspaceRole = "doctor" | "nurse" | "receptionist" | "administrator";
+type WorkspaceRole = "doctor" | "nurse" | "lab_technician" | "pharmacist" | "receptionist" | "administrator";
 
 type MenuItem = {
   title: string;
@@ -330,6 +330,82 @@ export function NavMain() {
           icon: Settings,
         },
       ],
+      lab_technician: [
+        {
+          title: ttt("Dashboard"),
+          url: `${base}/lab-tech`,
+          icon: Home,
+          isActive: true,
+        },
+        {
+          title: ttt("Lab Orders"),
+          url: "/d/orders",
+          icon: TestTube,
+          items: [
+            { title: ttt("Pending Orders"), url: "/d/orders/pending" },
+            { title: ttt("In Progress"), url: "/d/orders/progress" },
+            { title: ttt("Completed"), url: "/d/orders/completed" },
+          ],
+        },
+        {
+          title: "Sample Processing",
+          url: "/d/samples",
+          icon: TestTube,
+          items: [
+            { title: "Sample Queue", url: "/d/samples/queue" },
+            { title: "Processing Status", url: "/d/samples/status" },
+            { title: "Quality Checks", url: "/d/samples/quality" },
+          ],
+        },
+        {
+          title: "Results Entry",
+          url: "/d/results",
+          icon: FileSearch,
+          items: [
+            { title: "Enter Results", url: "/d/results/enter" },
+            { title: "Review Results", url: "/d/results/review" },
+            { title: ttt("Critical Values"), url: "/d/results/critical" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      pharmacist: [
+        {
+          title: "Pharmacy Orders",
+          url: `${base}/pharmacy/orders`,
+          icon: Pill,
+          isActive: true,
+        },
+        {
+          title: ttt("Prescriptions"),
+          url: "/d/prescriptions",
+          icon: ClipboardList,
+          items: [
+            { title: "Review Prescriptions", url: "/d/prescriptions/review" },
+            { title: ttt("Drug Interactions"), url: "/d/prescriptions/interactions" },
+            { title: "Patient Counseling", url: "/d/prescriptions/counseling" },
+          ],
+        },
+        {
+          title: "Medication Management",
+          url: "/d/medications",
+          icon: Package,
+          items: [
+            { title: ttt("Inventory"), url: "/d/medications/inventory" },
+            { title: ttt("Stock Levels"), url: "/d/medications/stock" },
+            { title: ttt("Expiry Tracking"), url: "/d/medications/expiry" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
     },
     laboratory: {
       doctor: [
@@ -501,6 +577,82 @@ export function NavMain() {
           icon: Settings,
         },
       ],
+      lab_technician: [
+        {
+          title: ttt("Lab Orders"),
+          url: "/d/orders",
+          icon: TestTube,
+          isActive: true,
+          items: [
+            { title: ttt("Pending Orders"), url: "/d/orders/pending" },
+            { title: ttt("In Progress"), url: "/d/orders/progress" },
+            { title: ttt("Completed"), url: "/d/orders/completed" },
+          ],
+        },
+        {
+          title: "Sample Processing",
+          url: "/d/samples",
+          icon: TestTube,
+          items: [
+            { title: "Sample Queue", url: "/d/samples/queue" },
+            { title: "Processing Status", url: "/d/samples/status" },
+            { title: "Quality Checks", url: "/d/samples/quality" },
+          ],
+        },
+        {
+          title: "Results Entry",
+          url: "/d/results",
+          icon: FileSearch,
+          items: [
+            { title: "Enter Results", url: "/d/results/enter" },
+            { title: "Review Results", url: "/d/results/review" },
+            { title: ttt("Critical Values"), url: "/d/results/critical" },
+          ],
+        },
+        {
+          title: ttt("Quality Control"),
+          url: "/d/quality",
+          icon: FlaskConical,
+          items: [
+            { title: ttt("QC Results"), url: "/d/quality/results" },
+            { title: ttt("Calibration"), url: "/d/quality/calibration" },
+            { title: ttt("Maintenance"), url: "/d/quality/maintenance" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      pharmacist: [
+        {
+          title: ttt("Lab Results"),
+          url: "/d/results",
+          icon: FileSearch,
+          isActive: true,
+          items: [
+            { title: "Review Results", url: "/d/results/review" },
+            { title: ttt("Approved Results"), url: "/d/results/approved" },
+            { title: ttt("Critical Values"), url: "/d/results/critical" },
+          ],
+        },
+        {
+          title: ttt("Quality Control"),
+          url: "/d/quality",
+          icon: FlaskConical,
+          items: [
+            { title: ttt("QC Results"), url: "/d/quality/results" },
+            { title: ttt("Calibration"), url: "/d/quality/calibration" },
+            { title: ttt("Maintenance"), url: "/d/quality/maintenance" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
     },
     pharmacy: {
       doctor: [
@@ -607,7 +759,7 @@ export function NavMain() {
       ],
       receptionist: [
         {
-          title: ttt("Prescription Processing"),
+          title: "Prescription Processing",
           url: "/d/prescriptions",
           icon: FileText,
           isActive: true,
@@ -660,7 +812,7 @@ export function NavMain() {
           isActive: true,
           items: [
             {
-              title: ttt("Inventory Management"),
+              title: "Inventory Management",
               url: "/d/operations/inventory",
             },
             {
@@ -702,6 +854,73 @@ export function NavMain() {
         {
           title: ttt("Admin Panel"),
           url: "/d/admin",
+          icon: Settings,
+        },
+      ],
+      lab_technician: [
+        {
+          title: "Prescription Processing",
+          url: "/d/prescriptions",
+          icon: Pill,
+          isActive: true,
+          items: [
+            { title: "Process Prescriptions", url: "/d/prescriptions/process" },
+            { title: "Compounding", url: "/d/prescriptions/compound" },
+            { title: "Quality Check", url: "/d/prescriptions/quality" },
+          ],
+        },
+        {
+          title: "Inventory Management",
+          url: "/d/inventory",
+          icon: Package,
+          items: [
+            { title: "Stock Management", url: "/d/inventory/stock" },
+            { title: ttt("Expiry Tracking"), url: "/d/inventory/expiry" },
+            { title: "Supplier Orders", url: "/d/inventory/orders" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
+          icon: Settings,
+        },
+      ],
+      pharmacist: [
+        {
+          title: "Pharmacy Orders",
+          url: `${base}/pharmacy/orders`,
+          icon: Pill,
+          isActive: true,
+        },
+        {
+          title: ttt("Prescription Review"),
+          url: "/d/prescriptions",
+          icon: ClipboardList,
+          items: [
+            { title: ttt("Pending Review"), url: "/d/prescriptions/pending" },
+            {
+              title: ttt("Drug Interactions"),
+              url: "/d/prescriptions/interactions",
+            },
+            {
+              title: ttt("Clinical Guidelines"),
+              url: "/d/prescriptions/guidelines",
+            },
+          ],
+        },
+        {
+          title: ttt("Drug Information"),
+          url: "/d/drugs",
+          icon: FileSearch,
+          items: [
+            { title: ttt("Drug Database"), url: "/d/drugs/database" },
+            { title: ttt("Formulary"), url: "/d/drugs/formulary" },
+            { title: ttt("Clinical Studies"), url: "/d/drugs/studies" },
+          ],
+        },
+        {
+          title: ttt("Settings"),
+          url: "/d/settings",
           icon: Settings,
         },
       ],

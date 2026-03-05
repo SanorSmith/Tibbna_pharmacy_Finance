@@ -76,7 +76,7 @@ export function PatientSearch({ workspaceid }: PatientSearchProps) {
   return (
     <div className="relative w-full max-w-md">
       <div className="relative">
-        <Search className="absolute text-white left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-current" />
         <Input
           type="text"
           value={query}
@@ -86,7 +86,7 @@ export function PatientSearch({ workspaceid }: PatientSearchProps) {
           }}
           placeholder="Search patients by name or ID..."
           className="
-    pl-9 pr-3 h-9 text-white text-sm placeholder:text-white/80
+    pl-9 pr-3 h-9 text-current text-sm placeholder:text-current/70
     focus-visible:ring-0 focus-visible:ring-offset-0
     focus:ring-[1px] focus:ring-orange-400 focus:border-orange-400
   "

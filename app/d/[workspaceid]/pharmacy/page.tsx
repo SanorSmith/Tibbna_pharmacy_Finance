@@ -175,7 +175,8 @@ export default function PharmaciesPage({
               Manage pharmacy facilities and their contact information
             </p>
           </div>
-          <Button onClick={handleOpenAdd}>
+          <Button onClick={handleOpenAdd}
+          className="bg-blue-500 hover:bg-blue-600 ">
             <Plus className="h-4 w-4 mr-2" />
             Add Pharmacy
           </Button>

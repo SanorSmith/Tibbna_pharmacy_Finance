@@ -39,6 +39,8 @@ type Patient = {
   email?: string | null;
   gender?: string | null;
   createdat?: string | null;
+  lastvisit?: string | null;
+  chronicconditions?: string[];
 };
 
 type DoctorInfo = {
@@ -173,29 +175,55 @@ export default function DoctorDashboard({
     },
   });
 
-  // Calculate overdue patients
+  // Fetch doctor referrals
+  const { data: doctorReferrals, isLoading: loadingReferrals } = useQuery({
+    queryKey: ["doctor-referrals", workspaceid],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/d/${workspaceid}/doctor/referrals`);
+        if (res.ok) {
+          const data = await res.json();
+          return {
+            incomingReferrals: (data.incomingReferrals as Record<string, unknown>[]) || [],
+            outgoingReferrals: (data.outgoingReferrals as Record<string, unknown>[]) || [],
+          };
+        }
+        return { incomingReferrals: [], outgoingReferrals: [] };
+      } catch (error) {
+        console.error("Error fetching doctor referrals:", error);
+        return { incomingReferrals: [], outgoingReferrals: [] };
+      }
+    },
+  });
+
+  // Calculate overdue patients (90+ days since last visit)
   const overduePatients = useMemo(() => {
-    const now = new Date();
-    return patients.filter(patient => {
-      // Check if patient has any overdue appointments
-      const patientAppointments = allAppointments.filter(appt => 
-        appt.patientid === patient.patientid && 
-        appt.status === 'scheduled'
-      );
-      
-      return patientAppointments.some(appt => {
-        const apptTime = new Date(appt.starttime);
-        return apptTime < now; // Appointment time has passed
-      });
+    return patients.filter((p) => {
+      if (!p.lastvisit) return true; // Never visited
+      const lastVisit = new Date(p.lastvisit);
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      return lastVisit < ninetyDaysAgo;
     }).length;
-  }, [patients, allAppointments]);
+  }, [patients]);
+
+  // Calculate total referrals
+  const totalReferrals = useMemo(() => {
+    const incomingReferrals = doctorReferrals?.incomingReferrals || [];
+    const outgoingReferrals = doctorReferrals?.outgoingReferrals || [];
+    return incomingReferrals.length + outgoingReferrals.length;
+  }, [doctorReferrals]);
+
+  // Calculate total notifications
+  const totalNotifications = overduePatients + totalReferrals;
 
   const loading =
     loadingAppts ||
     loadingOps ||
     loadingTodos ||
     loadingPatients ||
-    loadingStaff;
+    loadingStaff ||
+    loadingReferrals;
 
   // Use allAppointments for counts (not filtered by date)
   const todayAppointments = useMemo(() => {
@@ -335,20 +363,17 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-xl font-semibold mb-4">Appointments ({allAppointments.length})</div>
-              <div className="text-sm opacity-75 mt-2">{todayAppointments.length} today - {upcomingAppointments.length} upcoming</div>
+              <div className="text-xl font-semibold mb-2">Appointments ({allAppointments.length})</div>
+              <div className="text-base opacity-90 mt-2">{todayAppointments.length} today - {upcomingAppointments.length} upcoming</div>
               {nextAppointment && (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
-                  <div className="font-medium">Next appointment:</div>
-                  <div className="truncate">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
+                  <div className="font-medium text-card-smtext">Next appointment:</div>
+                  <div className="truncate text-card-smtext">
                     {new Date(nextAppointment.starttime).toLocaleDateString()} at{" "}
                     {new Date(nextAppointment.starttime).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
-                  </div>
-                  <div className="text-xs opacity-75 truncate">
-                    {nextAppointment.notes?.patientname || "Patient"}
                   </div>
                 </div>
               )}
@@ -363,7 +388,7 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-xl font-semibold mb-4">Patients ({patients.length})</div>
+              <div className="text-xl font-semibold mb-2">Patients ({patients.length})</div>
               
               {/* Mini Weekly Activity Chart */}
               <div className="mt-4">
@@ -403,15 +428,15 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-xl font-semibold mb-4">Operations ({operations.length})</div>
-              <div className="text-base opacity-90 mt-1">
+              <div className="text-xl font-semibold mb-2">Operations ({operations.length})</div>
+              <div className="text-lg opacity-90 mt-1">
                 {operations.filter((o) => o.status === "scheduled").length}{" "}
                 scheduled •{" "}
                 {operations.filter((o) => o.status === "in_progress").length} in
                 progress
               </div>
               {nextOperation ? (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
                   <div className="font-medium text-blue-600">Next Operation:</div>
                   <div>
                     {new Date(nextOperation.scheduleddate).toLocaleDateString()} •{" "}
@@ -425,7 +450,7 @@ export default function DoctorDashboard({
                   </div>
                 </div>
               ) : (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
                   <div className="font-medium text-gray-500">No operation scheduled</div>
                 </div>
               )}
@@ -440,12 +465,20 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-xl font-semibold mb-4">Notifications</div>
-              <div className={`text-3xl font-bold ${overduePatients > 0 ? 'text-red-600' : ''}`}>
-                {overduePatients}
+              <div className="text-xl font-semibold mb-2">Notifications</div>
+              <div className={`text-3xl font-bold ${totalNotifications > 0 ? 'text-red-600' : ''}`}>
+                {totalNotifications}
               </div>
-              <div className="text-sm opacity-90 mt-1">
-                {overduePatients === 1 ? 'Patient overdue' : overduePatients === 0 ? 'No overdue patients' : 'Patients overdue'}
+              <div className="text-base opacity-90 mt-1">
+                {totalNotifications === 0 ? 'No notifications' : 
+                 totalNotifications === 1 ? '1 notification' : 
+                 `${totalNotifications} notifications`}
+              </div>
+              <div className="text-xs opacity-75 mt-2">
+                {overduePatients > 0 && `${overduePatients} overdue${overduePatients === 1 ? ' patient' : ' patients'}`}
+                {overduePatients > 0 && totalReferrals > 0 && ' • '}
+                {totalReferrals > 0 && `${totalReferrals} referral${totalReferrals === 1 ? '' : 's'}`}
+                {overduePatients === 0 && totalReferrals === 0 && 'All caught up!'}
               </div>
             </div>
           </CardContent>
@@ -458,8 +491,8 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-xl font-semibold mb-4">Contacts ({staff.length})</div>
-              <div className="text-base opacity-90 mt-1">
+              <div className="text-xl font-semibold mb-2">Contacts ({staff.length})</div>
+              <div className="text-lg opacity-90 mt-1">
                 {doctorsCount} doctors • {nursesCount} nurses
               </div>
             </div>
@@ -473,8 +506,8 @@ export default function DoctorDashboard({
         >
           <CardContent className="flex items-center justify-center py-6 text-center">
             <div>
-              <div className="text-xl font-semibold mb-4">To do ({todos.length})</div>
-              <div className="text-base opacity-90 mt-1">
+              <div className="text-xl font-semibold mb-2">To do ({todos.length})</div>
+              <div className="text-lg opacity-90 mt-1">
                 <span className="text-orange-600">
                   {todos.filter((t) => !t.completed).length} active
                 </span>
@@ -482,7 +515,7 @@ export default function DoctorDashboard({
                 {todos.filter((t) => t.completed).length} completed
               </div>
               {nextHighPriorityTodo && (
-                <div className="text-sm opacity-90 mt-2 border-t pt-2">
+                <div className="text-base opacity-90 mt-2 border-t pt-2">
                   <div className="font-medium text-red-600">Next High Priority:</div>
                   <div className="truncate">
                     {nextHighPriorityTodo.title}

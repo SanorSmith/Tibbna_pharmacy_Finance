@@ -41,7 +41,7 @@ export function NavUser({ user, roleLabel }: { user: User; roleLabel?: string })
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
             size="lg"
-            className="data-[state=open]:bg-sidebar-accent  data-[state=open]:text-sidebar-accent-foreground text-white hover:bg-white/20 hover:text-blue-900 transition-colors"
+            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground text-current hover:bg-white/20 transition-colors"
           >
             <Avatar className="h-8 w-8 rounded-lg text-blue-900">
               {user.image && (

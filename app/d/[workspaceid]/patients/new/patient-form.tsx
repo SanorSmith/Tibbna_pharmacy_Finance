@@ -42,15 +42,31 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
     setShowErrorDialog(false);
     setLoading(true);
     try {
+      // Validate required fields
+      const nationalid = (formData.get("nationalid") as string) || "";
+      const dateofbirth = (formData.get("dateofbirth") as string) || "";
+      const phone = (formData.get("phone") as string) || "";
+
+      if (!nationalid || nationalid.replace(/\D/g, "").length !== 12) {
+        throw new Error("National ID must be exactly 12 digits");
+      }
+      if (!dateofbirth) {
+        throw new Error("Date of Birth is required");
+      }
+      const phoneDigits = phone.replace(/\D/g, "");
+      if (!phone || phoneDigits.length < 11 || phoneDigits.length > 16) {
+        throw new Error("Telephone must be between 11 and 16 digits");
+      }
+
       const payload = {
         firstname: String(formData.get("firstname") || ""),
         middlename: (formData.get("middlename") as string) || undefined,
         lastname: String(formData.get("lastname") || ""),
-        nationalid: (formData.get("nationalid") as string) || undefined,
-        dateofbirth: (formData.get("dateofbirth") as string) || undefined,
+        nationalid: nationalid || undefined,
+        dateofbirth: dateofbirth || undefined,
         gender: (formData.get("gender") as string) || undefined,
         bloodgroup: (formData.get("bloodgroup") as string) || undefined,
-        phone: (formData.get("phone") as string) || undefined,
+        phone: phone || undefined,
         email: (formData.get("email") as string) || undefined,
         address: (formData.get("address") as string) || undefined,
         medicalhistory: formData.get("medicalhistory")
@@ -81,151 +97,91 @@ export default function PatientForm({ workspaceid }: { workspaceid: string }) {
   }
 
   return (
-    <form action={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* --- NAME ROW ----------------------------------------------------- */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:col-span-2">
+    <form action={onSubmit} className="space-y-3">
+      {/* Row 1: Names */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="space-y-1">
-          <Label htmlFor="firstname">First name</Label>
-          <Input
-            id="firstname"
-            name="firstname"
-            required
-            placeholder="John"
-            className="h-9"
-          />
+          <Label htmlFor="firstname" className="text-xs">First name</Label>
+          <Input id="firstname" name="firstname" required placeholder="John" className="h-8 text-sm" />
         </div>
-
         <div className="space-y-1">
-          <Label htmlFor="middlename">Middle name</Label>
-          <Input
-            id="middlename"
-            name="middlename"
-            placeholder="A."
-            className="h-9"
-          />
+          <Label htmlFor="middlename" className="text-xs">Middle name</Label>
+          <Input id="middlename" name="middlename" placeholder="A." className="h-8 text-sm" />
         </div>
-
         <div className="space-y-1">
-          <Label htmlFor="lastname">Last name</Label>
-          <Input
-            id="lastname"
-            name="lastname"
-            required
-            placeholder="Doe"
-            className="h-9"
-          />
+          <Label htmlFor="lastname" className="text-xs">Last name</Label>
+          <Input id="lastname" name="lastname" required placeholder="Doe" className="h-8 text-sm" />
         </div>
       </div>
 
-      {/* --- OTHER FIELDS -------------------------------------------------- */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:col-span-2">
-      <div className="space-y-1">
-        <Label htmlFor="nationalid">National ID</Label>
-        <Input
-          id="nationalid"
-          name="nationalid"
-          placeholder="ID number"
-          className="h-9"
-        />
+      {/* Row 2: National ID, DOB, Gender, Blood Group */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="nationalid" className="text-xs">National ID *</Label>
+          <Input id="nationalid" name="nationalid" required placeholder="12-digit ID" minLength={12} maxLength={12} pattern="[0-9]{12}" title="National ID must be exactly 12 digits" className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="dateofbirth" className="text-xs">Date of Birth *</Label>
+          <Input id="dateofbirth" name="dateofbirth" type="date" required className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="gender" className="text-xs">Gender</Label>
+          <Select name="gender">
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent className="bg-blue-200/90">
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="bloodgroup" className="text-xs">Blood Group</Label>
+          <Select name="bloodgroup">
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent className="bg-blue-200/90">
+              <SelectItem value="A+">A+</SelectItem>
+              <SelectItem value="A-">A-</SelectItem>
+              <SelectItem value="B+">B+</SelectItem>
+              <SelectItem value="B-">B-</SelectItem>
+              <SelectItem value="AB+">AB+</SelectItem>
+              <SelectItem value="AB-">AB-</SelectItem>
+              <SelectItem value="O+">O+</SelectItem>
+              <SelectItem value="O-">O-</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="dateofbirth">Date of Birth</Label>
-        <Input
-          id="dateofbirth"
-          name="dateofbirth"
-          type="date"
-          className="h-9"
-        />
+      {/* Row 3: Phone, Email, Address */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="phone" className="text-xs">Telephone *</Label>
+          <Input id="phone" name="phone" type="tel" required placeholder="+1 555 555 5555" minLength={11} maxLength={16} title="Telephone must be between 11 and 16 digits" className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="email" className="text-xs">Email</Label>
+          <Input id="email" name="email" type="email" placeholder="name@example.com" className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="address" className="text-xs">Address</Label>
+          <Input id="address" name="address" placeholder="123 Main St" className="h-8 text-sm" />
+        </div>
       </div>
 
-      {/* --- GENDER -------------------------------------------------------- */}
+      {/* Row 4: Medical History + Submit */}
       <div className="space-y-1">
-        <Label htmlFor="gender">Gender</Label>
-        <Select name="gender">
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder="Select gender" />
-          </SelectTrigger>
-          <SelectContent className="bg-blue-200/90">
-            <SelectItem value="male">Male</SelectItem>
-            <SelectItem value="female">Female</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
+        <Label htmlFor="medicalhistory" className="text-xs">Medical history</Label>
+        <Textarea id="medicalhistory" name="medicalhistory" placeholder="Notes, conditions, allergies..." rows={2} className="text-sm resize-none" />
       </div>
 
-      {/* --- BLOOD GROUP --------------------------------------------------- */}
-      <div className="space-y-1">
-        <Label htmlFor="bloodgroup">Blood Group</Label>
-        <Select name="bloodgroup">
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder="Select blood group" />
-          </SelectTrigger>
-          <SelectContent className="bg-blue-200/90">
-            <SelectItem value="A+">A+</SelectItem>
-            <SelectItem value="A-">A-</SelectItem>
-            <SelectItem value="B+">B+</SelectItem>
-            <SelectItem value="B-">B-</SelectItem>
-            <SelectItem value="AB+">AB+</SelectItem>
-            <SelectItem value="AB-">AB-</SelectItem>
-            <SelectItem value="O+">O+</SelectItem>
-            <SelectItem value="O-">O-</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-</div>
- <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:col-span-2">
-      <div className="space-y-1">
-        <Label htmlFor="phone">Telephone</Label>
-  
-        <Input
-          id="phone"
-          name="phone"
-          type="tel"
-          placeholder="+1 555 555"
-          className="h-9"
-          />
-      </div>
-
-      {/* --- EMAIL + ADDRESS in same row ---------------------------------- */}
-      <div className="space-y-1">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          placeholder="name@example.com"
-          className="h-9"
-          />
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="address">Address</Label>
-        <Input
-          id="address"
-          name="address"
-          placeholder="123 Main St"
-          className="h-9"
-          />
-      </div>
-          </div>
-
-      {/* --- MEDICAL HISTORY ---------------------------------------------- */}
-      <div className="space-y-1 md:col-span-2">
-        <Label htmlFor="medicalhistory">Medical history</Label>
-        <Textarea
-          id="medicalhistory"
-          name="medicalhistory"
-          placeholder="Notes, conditions, allergies..."
-        />
-      </div>
-
-      {/* --- SUBMIT BUTTON (right aligned) -------------------------------- */}
-      <div className="md:col-span-2 flex justify-end">
+      <div className="flex justify-end">
         <Button
           type="submit"
           disabled={loading}
-          aria-label="Back to Doctor Dashboard"
           className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
         >
           {loading ? "Saving..." : "Register Patient"}

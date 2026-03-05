@@ -51,6 +51,8 @@ interface UserDetailModalProps {
 const roleColors = {
   doctor: "bg-blue-100 text-blue-800",
   nurse: "bg-green-100 text-green-800",
+  lab_technician: "bg-purple-100 text-purple-800",
+  pharmacist: "bg-orange-100 text-orange-800",
   receptionist: "bg-yellow-100 text-yellow-800",
   administrator: "bg-red-100 text-red-800",
 };
@@ -274,12 +276,14 @@ export function UserDetailModal({
                   setSelectedRole(value as WorkspaceUserRole)
                 }
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="item-aligned">
                   <SelectItem value="doctor">Doctor</SelectItem>
                   <SelectItem value="nurse">Nurse</SelectItem>
+                  <SelectItem value="lab_technician">Lab Technician</SelectItem>
+                  <SelectItem value="pharmacist">Pharmacist</SelectItem>
                   <SelectItem value="receptionist">Receptionist</SelectItem>
                   <SelectItem value="administrator">Administrator</SelectItem>
                 </SelectContent>

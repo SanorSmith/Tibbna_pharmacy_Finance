@@ -3,13 +3,14 @@
  * - Display all appointments for a workspace in a table format
  * - Route: /d/[workspaceid]/appointments
  */
-import { Header } from "@/components/sidebar/header";
+//import { Header } from "@/components/sidebar/header";
 import AppointmentsList from "./appointments-list";
 import { Home } from "lucide-react";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
@@ -26,7 +27,6 @@ export default async function AppointmentsPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <div>
@@ -35,15 +35,16 @@ export default async function AppointmentsPage({ params }: PageProps) {
               View and manage all appointments in the workspace
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Back to Doctor Dashboard"
-            className="bg-icon-color border-blue-400 text-white hover:bg-icon-color hover:border-blue-900"
-            onClick={() => (window.location.href = `/d/${workspaceid}/doctor`)}
-          >
-            <Home className="h-4 w-4" />
-          </Button>
+          <Link href={`/d/${workspaceid}/doctor`}>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Back to Doctor Dashboard"
+              className="bg-blue-400 border-blue-400 text-white hover:bg-icon-color hover:border-blue-900"
+            >
+              <Home className="h-4 w-4" />
+            </Button>
+          </Link>
         </div>
         <div className="bg-background rounded-xl border">
           <AppointmentsList workspaceid={workspaceid} userRole={userRole} />

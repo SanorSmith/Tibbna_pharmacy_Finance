@@ -72,14 +72,11 @@ export function VitalSignsTab({
   return (
     <div className="space-y-2">
       {/* Card Header */}
-      <Card className="bg-card-bg">
+      <Card className="">
         <CardHeader className="py-2 px-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Vital Signs Monitor</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Track essential health metrics
-              </p>
+              <CardTitle className="text-xl font-semibold">Vital Signs Monitor</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -95,7 +92,7 @@ export function VitalSignsTab({
                   onClick={() => loadVitalSigns(false)}
                   disabled={loadingMoreVitals}
                   variant="outline"
-                  className="bg-orange-400 hover:bg-orange-500 text-white border-none flex items-center gap-1 text-xs"
+                  className="bg-orange-500 hover:bg-orange-600 hover:text-white text-white border-none flex items-center gap-1 text-xs"
                 >
                   {loadingMoreVitals ? (
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>

@@ -118,7 +118,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Appointments</CardTitle>
+            <CardTitle className="text-xl font-semibold">Appointments</CardTitle>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowAddDialog(true)}>
               + Add Appointment
             </Button>
@@ -218,7 +218,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
 
     {/* Add Appointment Dialog */}
     <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Appointment</DialogTitle>
           <DialogDescription>

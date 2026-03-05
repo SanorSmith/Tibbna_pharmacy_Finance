@@ -29,7 +29,7 @@ export default async function PatientOverviewPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
+      <Header userRole={role} />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <PatientOverviewContent 
           workspaceid={workspaceid} 

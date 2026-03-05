@@ -6,6 +6,10 @@
  * - All requests send JSON (Content-Type) and prefer JSON responses (Accept).
  */
 import axios from "axios";
+import { db } from "@/lib/db";
+import { patients } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getOpenEHROrderStatus } from "@/lib/openehr-order-status";
 
 const username = process.env.EHRBASE_USER?.trim() || "";
 const password = process.env.EHRBASE_PASSWORD?.trim() || "";
@@ -63,6 +67,7 @@ export interface TestOrderRecord {
   test_category?: string;
   is_package?: boolean;
   target_lab?: string;
+  status?: string; // Order status: REQUESTED, IN_PROGRESS, COMPLETED, CANCELLED
 }
 
 export interface DiagnosisRecord {
@@ -126,36 +131,43 @@ function findValueByName(
 
   // Check narrative at instruction level
   if (fieldName === "narrative") {
-    if (instruction.narrative?.value) {
-      return instruction.narrative.value;
+    const narrative = instruction.narrative as { value?: string } | undefined;
+    if (narrative?.value) {
+      return narrative.value;
     }
     // Also check for narrative in the parent composition's service_request
-    if (instruction._parent?.narrative?.value) {
-      return instruction._parent.narrative.value;
+    const parent = instruction._parent as { narrative?: { value?: string } } | undefined;
+    if (parent?.narrative?.value) {
+      return parent.narrative.value;
     }
   }
 
   // Check protocol items for request_id and Order Type marker
+  const protocol = instruction.protocol as { items?: unknown[] } | undefined;
   if (
-    instruction.protocol?.items &&
-    Array.isArray(instruction.protocol.items)
+    protocol?.items &&
+    Array.isArray(protocol.items)
   ) {
-    for (const item of instruction.protocol.items) {
-      if (item.name?.value === fieldName && item.value?.value) {
-        return item.value.value;
+    for (const item of protocol.items) {
+      const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+      if (typedItem.name?.value === fieldName && typedItem.value?.value) {
+        return typedItem.value.value;
       }
     }
   }
 
   // Special case: look for request_id in protocol section with name "Request ID"
-  if (
-    fieldName === "request_id" &&
-    instruction.protocol?.items &&
-    Array.isArray(instruction.protocol.items)
-  ) {
-    for (const item of instruction.protocol.items) {
-      if (item.name?.value === "Request ID" && item.value?.value) {
-        return item.value.value;
+  if (fieldName === "request_id") {
+    const protocol2 = instruction.protocol as { items?: unknown[] } | undefined;
+    if (
+      protocol2?.items &&
+      Array.isArray(protocol2.items)
+    ) {
+      for (const item of protocol2.items) {
+        const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+        if (typedItem.name?.value === "Request ID" && typedItem.value?.value) {
+          return typedItem.value.value;
+        }
       }
     }
   }
@@ -193,8 +205,6 @@ export async function getOpenEHRTestOrders(
     // Get only encounter compositions (this finds all test orders)
     const encounterResults = await queryOpenEHR<OpenEHRResult>(encounterQuery);
 
-    console.log(`Found ${encounterResults.length} encounter compositions`);
-
     const testOrders: TestOrderRecord[] = [];
 
     // Process encounter compositions
@@ -210,11 +220,7 @@ export async function getOpenEHRTestOrders(
             "openEHR-EHR-INSTRUCTION.service_request.v1"
           ) {
             const instruction = item;
-            console.log(
-              "Found service request in encounter:",
-              JSON.stringify(instruction, null, 2)
-            );
-
+           
             // Extract fields using the exact field names from OpenEHR structure
             const serviceName =
               findValueByName(instruction, "Service Name") || "";
@@ -227,17 +233,8 @@ export async function getOpenEHRTestOrders(
             const receivingProvider =
               findValueByName(instruction, "Receiving Provider") || "";
             const requestId = findValueByName(instruction, "request_id") || "";
-
-            console.log(
-              "DEBUG: Extracted fields - Service:",
-              serviceName,
-              "Request ID:",
-              requestId,
-              "Description:",
-              description
-            );
-
-            // Try to get narrative from multiple sources
+            
+            // Try to get narrative from multiple sources FIRST (before status extraction)
             let narrative = findValueByName(instruction, "narrative") || "";
 
             // Look for narrative in the service_request within composition content
@@ -284,6 +281,21 @@ export async function getOpenEHRTestOrders(
               narrative = composition.narrative.value;
             }
 
+            // NOW extract status - check narrative FIRST for [CANCELLED] marker, then description
+            let status = "REQUESTED";
+            
+            // Priority 1: Check narrative for [CANCELLED] marker
+            if (narrative && narrative.includes("[CANCELLED]")) {
+              status = "CANCELLED";
+            } 
+            // Priority 2: Check description for status
+            else if (description) {
+              const statusMatch = description.match(/Status:\s*(REQUESTED|CANCELLED|IN_PROGRESS|COMPLETED)/);
+              if (statusMatch) {
+                status = statusMatch[1];
+              }
+            }
+
             // Skip vaccination requests (they have different request_id pattern or service names)
             if (
               requestId.startsWith("VACC-") ||
@@ -291,31 +303,30 @@ export async function getOpenEHRTestOrders(
               description.toLowerCase().includes("vaccin") ||
               narrative.toLowerCase().includes("vaccin")
             ) {
-              console.log("Skipping vaccination request:", serviceName);
               continue;
             }
 
-            // Only include test orders (they use request_id pattern starting with "testreq-")
-            console.log(
-              "Checking request - Service:",
-              serviceName,
-              "Request ID:",
-              requestId
-            );
-            const isTestOrder =
-              (requestId && requestId.startsWith("testreq-")) ||
-              (description && description.startsWith("Test Type:"));
-
-            if (!isTestOrder) {
-              console.log(
-                "Skipping non-test-order request:",
-                serviceName,
-                "requestId:",
-                requestId
-              );
+            // Skip referral requests (they have REFERRAL marker)
+            if (
+              description === "REFERRAL_REQUEST" ||
+              narrative.toLowerCase().includes("referral")
+            ) {
               continue;
             }
-            console.log("Including test order:", serviceName);
+
+            // Skip procedure/operation requests (they have PROCEDURE_REQUEST marker)
+            if (
+              description === "PROCEDURE_REQUEST" ||
+              requestId.toLowerCase().includes("procedure") ||
+              serviceName.toLowerCase().includes("surgery") ||
+              narrative.toLowerCase().includes("procedure") ||
+              narrative.toLowerCase().includes("operation")
+            ) {
+              continue;
+            }
+
+            // Include all remaining service requests as potential test orders
+            // This includes orders with "testreq-" prefix and other lab test orders
 
             // Extract urgency from description or narrative
             let urgency = "routine";
@@ -369,25 +380,186 @@ export async function getOpenEHRTestOrders(
               test_category: testCategory,
               is_package: true,
               target_lab: targetLab,
+              status: status, // Include status in the returned record
             });
           }
         }
       }
     }
 
+    // Compute actual status based on collected samples for each order
+    const ordersWithComputedStatus = await Promise.all(
+      testOrders.map(async (order) => {
+        if (order.request_id && order.status !== "CANCELLED") {
+          try {
+            const computedStatus = await getOpenEHROrderStatus(order.request_id);
+            return { ...order, status: computedStatus };
+          } catch (error) {
+            // Keep original status if computation fails
+            return order;
+          }
+        }
+        return order;
+      })
+    );
+
     // Sort results by recorded_time descending
+    ordersWithComputedStatus.sort(
+      (a, b) =>
+        new Date(b.recorded_time).getTime() -
+        new Date(a.recorded_time).getTime()
+    );
+
+    return ordersWithComputedStatus;
+  } catch (error) {
+    console.error("Error fetching test orders via AQL:", error);
+    return [];
+  }
+}
+
+/**
+ * Get all test orders including cancelled ones (for doctors/patient view)
+ * This function does NOT filter out cancelled orders
+ */
+export async function getOpenEHRTestOrdersWithCancelled(
+  ehrId: string
+): Promise<TestOrderRecord[]> {
+  // Use the same query as getOpenEHRTestOrders but without filtering cancelled orders
+  const encounterQuery = `SELECT
+    c/uid/value as composition_uid,
+    c/context/start_time/value as recorded_time,
+    c as full_composition
+  FROM
+    EHR e
+    CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.encounter.v1]
+  WHERE
+    e/ehr_id/value = '${ehrId}'
+  ORDER BY
+    c/context/start_time/value DESC`;
+
+  try {
+    const encounterResults = await queryOpenEHR<OpenEHRResult>(encounterQuery);
+    const testOrders: TestOrderRecord[] = [];
+
+    for (const row of encounterResults) {
+      const composition = row.full_composition as any;
+
+      if (composition?.content) {
+        for (const item of composition.content) {
+          if (
+            item.archetype_node_id ===
+            "openEHR-EHR-INSTRUCTION.service_request.v1"
+          ) {
+            const instruction = item;
+           
+            const serviceName = findValueByName(instruction, "Service Name") || "";
+            const description = findValueByName(instruction, "Description") || "";
+            const clinicalIndication = findValueByName(instruction, "Clinical Indication") || "";
+            const requestingProvider = findValueByName(instruction, "Requesting Provider") || "";
+            const receivingProvider = findValueByName(instruction, "Receiving Provider") || "";
+            const requestId = findValueByName(instruction, "request_id") || "";
+
+            // Skip non-test orders (vaccinations, referrals, procedures)
+            if (
+              requestId.startsWith("VACC-") ||
+              serviceName.toLowerCase().includes("vaccin") ||
+              description === "REFERRAL_REQUEST" ||
+              description === "PROCEDURE_REQUEST" ||
+              requestId.toLowerCase().includes("procedure")
+            ) {
+              continue;
+            }
+
+            let narrative = findValueByName(instruction, "narrative") || "";
+            if (!narrative && composition.content) {
+              for (const contentItem of composition.content) {
+                if (
+                  contentItem.archetype_node_id ===
+                  "openEHR-EHR-INSTRUCTION.service_request.v1"
+                ) {
+                  if (contentItem.narrative?.value) {
+                    narrative = contentItem.narrative.value;
+                    break;
+                  }
+                }
+              }
+            }
+
+            let urgency = "routine";
+            if (description && description.toLowerCase().includes("urgency: urgent")) {
+              urgency = "urgent";
+            } else if (narrative && narrative.toLowerCase().includes("(urgent)")) {
+              urgency = "urgent";
+            }
+
+            if (!narrative || narrative.length <= 2) {
+              narrative = `${serviceName} test ordered due to ${clinicalIndication}${
+                urgency !== "routine" ? ` (urgency: ${urgency})` : ""
+              }${receivingProvider ? ` at ${receivingProvider}` : ""}`;
+            }
+
+            // Extract status - check narrative FIRST for [CANCELLED] marker, then description
+            let status = "REQUESTED";
+            
+            // Priority 1: Check narrative for [CANCELLED] marker
+            if (narrative && narrative.includes("[CANCELLED]")) {
+              status = "CANCELLED";
+            } 
+            // Priority 2: Check description for status
+            else if (description) {
+              const statusMatch = description.match(/Status:\s*(REQUESTED|CANCELLED|IN_PROGRESS|COMPLETED)/);
+              if (statusMatch) {
+                status = statusMatch[1];
+              }
+            }
+
+            let testCategory = "";
+            let targetLab = receivingProvider;
+
+            if (description) {
+              const categoryMatch = description.match(/Category:\s*([^|]+)/);
+              if (categoryMatch) {
+                testCategory = categoryMatch[1].trim();
+              }
+
+              const labMatch = description.match(/Laboratory:\s*([^|]+)/);
+              if (labMatch) {
+                targetLab = labMatch[1].trim();
+              }
+            }
+
+            testOrders.push({
+              composition_uid: row.composition_uid,
+              recorded_time: row.recorded_time,
+              service_name: serviceName,
+              service_type_code: "",
+              service_type_value: "",
+              description: description,
+              clinical_indication: clinicalIndication,
+              urgency: urgency,
+              requesting_provider: requestingProvider,
+              receiving_provider: receivingProvider,
+              request_id: requestId,
+              narrative: narrative,
+              test_category: testCategory,
+              is_package: true,
+              target_lab: targetLab,
+              status: status, // Include status (REQUESTED, CANCELLED, etc.)
+            });
+          }
+        }
+      }
+    }
+
     testOrders.sort(
       (a, b) =>
         new Date(b.recorded_time).getTime() -
         new Date(a.recorded_time).getTime()
     );
 
-    console.log(
-      `Returning ${testOrders.length} test orders from encounter compositions`
-    );
     return testOrders;
   } catch (error) {
-    console.error("Error fetching test orders via AQL:", error);
+    console.error("Error fetching test orders (with cancelled) via AQL:", error);
     return [];
   }
 }
@@ -411,10 +583,12 @@ function findDiagnosisValue(
 ): string | undefined {
   if (!evaluation || typeof evaluation !== "object") return undefined;
 
-  if (evaluation.data?.items && Array.isArray(evaluation.data.items)) {
-    for (const item of evaluation.data.items) {
-      if (item.name?.value === fieldName && item.value?.value) {
-        return item.value.value;
+  const data = evaluation.data as { items?: unknown[] } | undefined;
+  if (data?.items && Array.isArray(data.items)) {
+    for (const item of data.items) {
+      const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+      if (typedItem.name?.value === fieldName && typedItem.value?.value) {
+        return typedItem.value.value;
       }
     }
   }
@@ -431,11 +605,13 @@ function findDiagnosisValueFuzzy(
 
   const needle = fieldSubstring.toLowerCase();
 
-  if (evaluation.data?.items && Array.isArray(evaluation.data.items)) {
-    for (const item of evaluation.data.items) {
-      const label = item.name?.value as string | undefined;
-      if (label && label.toLowerCase().includes(needle) && item.value?.value) {
-        return item.value.value;
+  const data = evaluation.data as { items?: unknown[] } | undefined;
+  if (data?.items && Array.isArray(data.items)) {
+    for (const item of data.items) {
+      const typedItem = item as { name?: { value?: string }; value?: { value?: string } };
+      const label = typedItem.name?.value;
+      if (label && label.toLowerCase().includes(needle) && typedItem.value?.value) {
+        return typedItem.value.value;
       }
     }
   }
@@ -463,7 +639,7 @@ ORDER BY
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results = await queryOpenEHR<any>(query);
 
-    return results.map((row) => {
+    const allDiagnoses = results.map((row) => {
       const evaluation = row.full_evaluation;
 
       // Extract fields using the exact field names from OpenEHR structure
@@ -497,6 +673,50 @@ ORDER BY
         comment: comment,
       };
     });
+
+    // Build a set of superseded composition UIDs
+    const supersededUids = new Set<string>();
+    allDiagnoses.forEach((diagnosis) => {
+      if (diagnosis.comment?.includes("Supersedes:")) {
+        const match = diagnosis.comment.match(/Supersedes:\s*([a-f0-9-:]+)/);
+        if (match) {
+          supersededUids.add(match[1]);
+        }
+      }
+    });
+
+    // Filter out care plans, referrals, vaccinations, clinical notes, and superseded versions
+    return allDiagnoses.filter((diagnosis) => {
+      // Filter out care plan compositions
+      if (
+        diagnosis.problem_diagnosis === "Care Plan - See Goal Section" ||
+        diagnosis.clinical_description?.includes("This is a care plan composition")
+      ) {
+        return false;
+      }
+      
+      // Filter out referral compositions (they start with "REFERRAL:")
+      if (diagnosis.problem_diagnosis.startsWith("REFERRAL:")) {
+        return false;
+      }
+      
+      // Filter out vaccination compositions (they start with "VACCINATION:")
+      if (diagnosis.problem_diagnosis.startsWith("VACCINATION:")) {
+        return false;
+      }
+      
+      // Filter out clinical note compositions (they start with "CLINICAL_NOTE:")
+      if (diagnosis.problem_diagnosis.startsWith("CLINICAL_NOTE:")) {
+        return false;
+      }
+      
+      // Filter out superseded versions (old versions that have been updated)
+      if (supersededUids.has(diagnosis.composition_uid)) {
+        return false;
+      }
+      
+      return true;
+    });
   } catch (error) {
     console.error("Error fetching diagnoses via AQL:", error);
     return [];
@@ -504,21 +724,22 @@ ORDER BY
 }
 
 // Helper to recursively find a magnitude value for a specific archetype node ID (at-code)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function findMagnitude(node: any, atCode: string): number | undefined {
+function findMagnitude(node: Record<string, unknown>, atCode: string): number | undefined {
   if (!node || typeof node !== "object") return undefined;
   // Check if this node matches the atCode and has a magnitude
+  const value = node.value as { magnitude?: number } | undefined;
   if (
     node.archetype_node_id === atCode &&
-    node.value?.magnitude !== undefined
+    value?.magnitude !== undefined
   ) {
-    return node.value.magnitude;
+    return value.magnitude;
   }
   // Traverse children (arrays or objects)
   for (const key of Object.keys(node)) {
     // Optimization: skip non-structural keys
-    if (key === "value" || typeof node[key] !== "object") continue;
-    const res = findMagnitude(node[key], atCode);
+    const child = node[key];
+    if (key === "value" || typeof child !== "object" || child === null) continue;
+    const res = findMagnitude(child as Record<string, unknown>, atCode);
     if (res !== undefined) return res;
   }
   return undefined;
@@ -1009,7 +1230,11 @@ export async function updateOpenEHRComposition(
   templateId: string,
   compositionData: Record<string, unknown>
 ): Promise<string> {
-  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionId}`;
+  // Extract just the UUID part from versioned UID (format: uuid::domain::version)
+  // OpenEHR API expects only the UUID in the URL path
+  const compositionUuid = compositionId.split("::")[0];
+  
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionUuid}`;
   try {
     const response = await axios.put(url, compositionData, {
       headers: {
@@ -1018,14 +1243,25 @@ export async function updateOpenEHRComposition(
         "Content-Type": "application/json",
         Accept: "application/json",
         Prefer: "return=representation",
-        "If-Match": compositionId, // Use the composition ID for version matching
+        "If-Match": compositionId, // Use the full versioned UID for version matching
       },
       params: {
         format: "FLAT",
         templateId: templateId,
       },
     });
-    return response.data.uid.value;
+    
+    // Handle different response formats
+    if (response.data?.uid?.value) {
+      return response.data.uid.value;
+    } else if (response.data?._uid) {
+      return response.data._uid;
+    } else if (typeof response.data === 'string') {
+      return response.data;
+    }
+    
+    // If update succeeded but no UID in response, return the original compositionId
+    return compositionId;
   } catch (error: unknown) {
     const err = error as { response?: { status?: unknown; data?: unknown } };
     console.error(
@@ -1037,6 +1273,19 @@ export async function updateOpenEHRComposition(
     console.error("Request data:", JSON.stringify(compositionData, null, 2));
     throw error;
   }
+}
+
+export async function deleteOpenEHRComposition(
+  ehrId: string,
+  compositionUid: string
+): Promise<void> {
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionUid}`;
+  await axios.delete(url, {
+    headers: {
+      "X-API-Key": process.env.EHRBASE_API_KEY!,
+      Authorization: `Basic ${basicAuth}`,
+    },
+  });
 }
 
 export async function deleteOpenEHREHR(ehrId: string): Promise<void> {
@@ -1091,7 +1340,10 @@ export async function getOpenEHRComposition(
   ehrId: string,
   compositionId: string
 ): Promise<unknown> {
-  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionId}?format=FLAT`;
+  // Extract just the UUID part from versioned UID (format: uuid::domain::version)
+  const compositionUuid = compositionId.split("::")[0];
+  
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition/${compositionUuid}?format=FLAT`;
   const response = await axios.get(url, {
     headers: {
       "X-API-Key": process.env.EHRBASE_API_KEY!,

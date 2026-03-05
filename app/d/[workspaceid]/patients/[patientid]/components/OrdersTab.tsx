@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useReducer, useMemo } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History } from "lucide-react";
+import { Plus, History, Edit, Trash2, Printer, ShieldAlert, Ban, Loader2 } from "lucide-react";
+import EnhancedLabOrderFormMultiple from "@/components/shared/EnhancedLabOrderFormMultiple";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ---------- Types ----------
 export interface TestOrderRecord {
@@ -31,94 +44,48 @@ export interface TestOrderRecord {
   narrative?: string;
 }
 
-type TestOrderForm = {
-  service_name: string;
-  service_type_code: string; // snomed code
-  service_type_value: string; // human readable
-  clinical_indication: string;
-  urgency: "routine" | "urgent" | "stat" | "asap";
-  requesting_provider: string;
-  receiving_provider: string;
-  narrative: string;
-};
-
 interface OrdersTabProps {
   workspaceid: string;
   patientid: string;
 }
 
-// ---------- Test Types ----------
-const TEST_TYPES: Record<string, { code: string; value: string; name: string }> = {
-  "104177005": { code: "104177005", value: "Complete blood count (procedure)", name: "Complete Blood Count (CBC)" },
-  "257051000": { code: "257051000", value: "Comprehensive metabolic panel", name: "Comprehensive Metabolic Panel" },
-  "116276005": { code: "116276005", value: "Blood glucose measurement", name: "Blood Glucose Test" },
-  "271749007": { code: "271749007", value: "Serum cholesterol measurement", name: "Serum Cholesterol Test" },
-  "271658002": { code: "271658002", value: "Serum triglyceride measurement", name: "Serum Triglycerides Test" },
-  "309902002": { code: "309902002", value: "Urinalysis", name: "Urinalysis" },
-  "245670007": { code: "245670007", value: "Radiographic imaging", name: "X-Ray" },
-  "169093000": { code: "169093000", value: "Magnetic resonance imaging", name: "MRI" },
-};
-
-const DEFAULT_FORM: TestOrderForm = {
-  service_name: "",
-  service_type_code: "104177005",
-  service_type_value: TEST_TYPES["104177005"].value,
-  clinical_indication: "",
-  urgency: "routine",
-  requesting_provider: "",
-  receiving_provider: "Clinical Laboratory",
-  narrative: "",
-};
-
-// ---------- Reducer ----------
-type Action =
-  | { type: "SET_FIELD"; field: keyof TestOrderForm; value: string | number | undefined }
-  | { type: "SET_TEST_TYPE"; code: string }
-  | { type: "RESET"; keepRequester?: string };
-
-function formReducer(state: TestOrderForm, action: Action): TestOrderForm {
-  switch (action.type) {
-    case "SET_FIELD":
-      return { ...state, [action.field]: action.value };
-    case "SET_TEST_TYPE": {
-      const t = TEST_TYPES[action.code];
-      if (!t) return state;
-      return {
-        ...state,
-        service_name: t.name,
-        service_type_code: t.code,
-        service_type_value: t.value,
-      };
-    }
-    case "RESET":
-      return {
-        ...DEFAULT_FORM,
-        requesting_provider: action.keepRequester ?? "",
-      };
-    default:
-      return state;
-  }
-}
-
 // ---------- Component ----------
 export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
-  const [showTestOrderForm, setShowTestOrderForm] = React.useState(false);
-  const [testOrderRecords, setTestOrderRecords] = React.useState<TestOrderRecord[]>([]);
-  const [loadingTestOrders, setLoadingTestOrders] = React.useState(false);
-  const [loadingMoreTestOrders, setLoadingMoreTestOrders] = React.useState(false);
-  const [testOrdersHasMore, setTestOrdersHasMore] = React.useState(false);
-  const [selectedTestOrder, setSelectedTestOrder] = React.useState<TestOrderRecord | null>(null);
-  const [showTestOrderDetails, setShowTestOrderDetails] = React.useState(false);
+  const [showTestOrderForm, setShowTestOrderForm] = useState(false);
+  const [testOrderRecords, setTestOrderRecords] = useState<TestOrderRecord[]>([]);
+  const [loadingTestOrders, setLoadingTestOrders] = useState(false);
+  const [loadingMoreTestOrders, setLoadingMoreTestOrders] = useState(false);
+  const [testOrdersHasMore, setTestOrdersHasMore] = useState(false);
+  const [selectedTestOrder, setSelectedTestOrder] = useState<TestOrderRecord | null>(null);
+  const [showTestOrderDetails, setShowTestOrderDetails] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<TestOrderRecord | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>(null);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<TestOrderRecord | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+  const [showNotAuthorizedDialog, setShowNotAuthorizedDialog] = useState(false);
+  const [notAuthorizedCreator, setNotAuthorizedCreator] = useState<string>("");
+  const [showAlreadyCancelledDialog, setShowAlreadyCancelledDialog] = useState(false);
 
   const testOrdersOffsetRef = useRef(0);
   const hasLoadedTestOrders = useRef(false);
   const CACHE_KEY = `test_orders_v2_${patientid}`;
 
-  // form reducer
-  const [formState, dispatch] = useReducer(formReducer, DEFAULT_FORM);
-
-  // memoized test types list used in selects
-  const testTypesOptions = useMemo(() => Object.entries(TEST_TYPES), []);
+  // Fetch current user on mount
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then(res => res.json())
+      .then(data => {
+        const u = data.user;
+        setCurrentUserName(u?.name || u?.email || null);
+      })
+      .catch(() => {});
+  }, []);
 
   // load cached test orders on mount (sessionStorage)
   useEffect(() => {
@@ -138,26 +105,6 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
     }
   }, [CACHE_KEY]);
 
-  // Load current user and populate requesting provider
-  useEffect(() => {
-    let mounted = true;
-    const loadUser = async () => {
-      try {
-        const res = await fetch("/api/auth/session");
-        if (!res.ok) return;
-        const data = await res.json();
-        const currentUser = data.user;
-        const provider = currentUser?.name || currentUser?.email || "Unknown Provider";
-        if (mounted) {
-          dispatch({ type: "SET_FIELD", field: "requesting_provider", value: provider });
-        }
-      } catch (err) {
-        console.error("Failed to load user info", err);
-      }
-    };
-    loadUser();
-    return () => { mounted = false; };
-  }, []);
 
   // Load test orders
   const loadTestOrders = useCallback(async (reset = true) => {
@@ -209,31 +156,18 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
     if (!hasLoadedTestOrders.current) loadTestOrders(true);
   }, [loadTestOrders]);
 
-  // Save order
-  const saveTestOrder = useCallback(async () => {
-    if (!formState.service_name || !formState.clinical_indication) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
+  // Save order using shared modal
+  const handleSubmitOrder = useCallback(async (formData: any) => {
+    setIsSubmitting(true);
     try {
-      // ensure latest user info and override requesting_provider with actual user
+      // Get current user
       const userResponse = await fetch("/api/auth/session");
       const userData = await userResponse.json();
       const currentUser = userData.user;
       const requesting = currentUser?.name || currentUser?.email || "Unknown Provider";
 
-      console.log("=== NEW CODE V2 ===");
-      console.log("DEBUG: currentUser:", currentUser);
-      console.log("DEBUG: requesting_provider being sent:", requesting);
-      console.log("DEBUG: urgency being sent:", formState.urgency);
-      console.log("DEBUG: formState.requesting_provider (BEFORE override):", formState.requesting_provider);
-
-      // Always use the current user's name, ignore what's in the form
-      const orderData = { ...formState, requesting_provider: requesting };
-
-      console.log("DEBUG: Final orderData being sent:", orderData);
-      console.log("=== END DEBUG ===");
+      // Always use the current user's name
+      const orderData = { ...formData, requesting_provider: requesting };
 
       const response = await fetch(`/api/d/${workspaceid}/patients/${patientid}/test-orders`, {
         method: "POST",
@@ -250,27 +184,167 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
       console.log("Saved test order", result);
 
       setShowTestOrderForm(false);
-      dispatch({ type: "RESET", keepRequester: requesting });
 
       // reload list and clear cache
       hasLoadedTestOrders.current = false;
       sessionStorage.removeItem(CACHE_KEY);
-      // small delay to allow backend to persist
       setTimeout(() => loadTestOrders(true), 500);
     } catch (err) {
       console.error(err);
       alert(err instanceof Error ? err.message : "Failed to save test order");
+      throw err;
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [formState, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
+  }, [workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
-  // Handlers
-  const onFieldChange = useCallback((field: keyof TestOrderForm, value: string | number | undefined) => {
-    dispatch({ type: "SET_FIELD", field, value });
-  }, []);
+  // Handle edit order - fetch full details from OpenEHR and reverse-match to catalog
+  const handleEditOrder = useCallback(async (order: TestOrderRecord) => {
+    setEditingOrder(order);
+    setIsLoadingEdit(true);
 
-  const onTestTypeChange = useCallback((code: string) => {
-    dispatch({ type: "SET_TEST_TYPE", code });
-  }, []);
+    try {
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${order.composition_uid}`
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        console.error("GET order details failed:", res.status, errBody);
+        throw new Error(errBody.error || "Failed to fetch order details");
+      }
+
+      const data = await res.json();
+      const o = data.order;
+
+      setEditFormData({
+        target_lab: o.matched_lab_id || "",
+        selectedPackages: o.matched_package_ids || [],
+        selectedTests: o.matched_test_ids || [],
+        clinical_indication: o.clinical_indication || "",
+        urgency: o.urgency || "routine",
+        requesting_provider: o.requesting_provider || "",
+        narrative: o.narrative || "",
+        sampleType: "",
+        containerType: "",
+        volume: "",
+        volumeUnit: "mL",
+      });
+      // Only open form AFTER data is ready (avoids Radix Dialog conflict)
+      setShowEditForm(true);
+    } catch (err) {
+      console.error("Error loading order for edit:", err);
+      alert("Failed to load order details for editing");
+      setEditingOrder(null);
+    } finally {
+      setIsLoadingEdit(false);
+    }
+  }, [workspaceid, patientid]);
+
+  // Handle update order - receives full submission data from EnhancedLabOrderFormMultiple
+  const handleUpdateOrder = useCallback(async (submissionData: any) => {
+    if (!editingOrder) return;
+
+    try {
+      const response = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${editingOrder.composition_uid}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            testOrder: {
+              service_name: submissionData.service_name,
+              description: submissionData.description,
+              clinical_indication: submissionData.clinical_indication,
+              requesting_provider: submissionData.requesting_provider,
+              receiving_provider: submissionData.receiving_provider,
+              narrative: submissionData.narrative,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update order");
+      }
+
+      setShowEditForm(false);
+      setEditingOrder(null);
+      setEditFormData(null);
+
+      // Reload list and clear cache
+      hasLoadedTestOrders.current = false;
+      sessionStorage.removeItem(CACHE_KEY);
+      setTimeout(() => loadTestOrders(true), 500);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Failed to update order");
+      throw error;
+    }
+  }, [editingOrder, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
+
+  // Check if current user is authorized to cancel
+  const handleCancelClick = useCallback((order: TestOrderRecord) => {
+    // Check if order is already cancelled
+    if (order.narrative && order.narrative.includes("[CANCELLED]")) {
+      setShowAlreadyCancelledDialog(true);
+      return;
+    }
+
+    const creator = order.requesting_provider || "";
+    const isOwner = currentUserName && creator &&
+      creator.toLowerCase().trim() === currentUserName.toLowerCase().trim();
+
+    if (!isOwner) {
+      setNotAuthorizedCreator(creator || "another provider");
+      setShowNotAuthorizedDialog(true);
+      return;
+    }
+
+    setOrderToCancel(order);
+    setShowCancelDialog(true);
+  }, [currentUserName]);
+
+  // Handle cancel order
+  const handleCancelOrder = useCallback(async () => {
+    if (!orderToCancel) return;
+    
+    setIsCancelling(true);
+    try {
+      const response = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/test-orders/${orderToCancel.composition_uid}?reason=${encodeURIComponent(cancelReason || "Cancelled by doctor")}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403 && errorData.error?.includes("Cancellation not permitted")) {
+          setShowCancelDialog(false);
+          setNotAuthorizedCreator(orderToCancel.requesting_provider || "another provider");
+          setShowNotAuthorizedDialog(true);
+          return;
+        }
+        throw new Error(errorData.error || "Failed to cancel order");
+      }
+
+      setShowCancelDialog(false);
+      setOrderToCancel(null);
+      setCancelReason("");
+      
+      // Reload list and clear cache
+      hasLoadedTestOrders.current = false;
+      sessionStorage.removeItem(CACHE_KEY);
+      setTimeout(() => loadTestOrders(true), 500);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Failed to cancel order");
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [orderToCancel, cancelReason, workspaceid, patientid, CACHE_KEY, loadTestOrders]);
 
   return (
     <>
@@ -346,7 +420,33 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
                       </td>
                       <td className="p-3 text-sm">{new Date(order.recorded_time).toLocaleDateString()}</td>
                       <td className="p-3">
-                        <Button size="sm" variant="outline" onClick={() => { setSelectedTestOrder(order); setShowTestOrderDetails(true); }}>Details</Button>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => { setSelectedTestOrder(order); setShowTestOrderDetails(true); }}
+                          >
+                            Details
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                            onClick={() => handleEditOrder(order)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                            onClick={() => handleCancelClick(order)}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -357,80 +457,115 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
         </CardContent>
       </Card>
 
-      {/* Form Dialog */}
-      <Dialog open={showTestOrderForm} onOpenChange={setShowTestOrderForm}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Order Laboratory Test</DialogTitle>
-            <DialogDescription>Create a new laboratory test request based on openEHR service request template</DialogDescription>
-          </DialogHeader>
+      {/* Create Order Form Dialog */}
+      <EnhancedLabOrderFormMultiple
+        open={showTestOrderForm}
+        onOpenChange={setShowTestOrderForm}
+        onSubmit={handleSubmitOrder}
+      />
 
-          <div className="space-y-4">
-            {/* Service Name */}
-            <div>
-              <label htmlFor="service_name" className="text-sm font-medium">Test Name *</label>
-              <input id="service_name" type="text" className="w-full mt-1 px-3 py-2 border rounded-md" placeholder="e.g., Complete Blood Count (CBC)" value={formState.service_name} onChange={(e) => onFieldChange("service_name", e.target.value)} aria-label="Test name" title="Enter the name of the laboratory test" />
-            </div>
+      {/* Edit Order Dialog - Full form with test catalog */}
+      {editFormData && (
+        <EnhancedLabOrderFormMultiple
+          open={showEditForm}
+          onOpenChange={(open) => {
+            setShowEditForm(open);
+            if (!open) {
+              setEditingOrder(null);
+              setEditFormData(null);
+            }
+          }}
+          onSubmit={handleUpdateOrder}
+          editMode={true}
+          initialData={editFormData}
+          workspaceid={workspaceid}
+        />
+      )}
 
-            {/* Service Type */}
-            <div>
-              <label htmlFor="service_type" className="text-sm font-medium">Test Type (SNOMED-CT)</label>
-              <select id="service_type" className="w-full mt-1 px-3 py-2 border rounded-md" value={formState.service_type_code} onChange={(e) => onTestTypeChange(e.target.value)} aria-label="Test type" title="Select the type of laboratory test">
-                <option value="">Select test type (optional)</option>
-                {testTypesOptions.map(([code, meta]) => (
-                  <option key={code} value={code}>{meta.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground mt-1">Selecting a test type will auto-fill the test name and SNOMED-CT codes</p>
-            </div>
+      {/* Already Cancelled Dialog */}
+      <AlertDialog open={showAlreadyCancelledDialog} onOpenChange={setShowAlreadyCancelledDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+              <Ban className="h-5 w-5" />
+              Order Already Cancelled
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              This test order has already been cancelled and cannot be cancelled again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-            {/* Clinical Indication */}
-            <div>
-              <label htmlFor="clinical_indication" className="text-sm font-medium">Clinical Indication *</label>
-              <textarea id="clinical_indication" className="w-full mt-1 px-3 py-2 border rounded-md" rows={3} placeholder="e.g., Patient presents with fatigue and fever; rule out infection or anemia." value={formState.clinical_indication} onChange={(e) => onFieldChange("clinical_indication", e.target.value)} aria-label="Clinical indication" title="Describe the clinical reason for ordering this test" />
-            </div>
-
-            {/* Urgency */}
-            <div>
-              <label htmlFor="urgency" className="text-sm font-medium">Urgency</label>
-              <select id="urgency" className="w-full mt-1 px-3 py-2 border rounded-md" value={formState.urgency} onChange={(e) => onFieldChange("urgency", e.target.value)} aria-label="Urgency" title="Select the urgency of the test request">
-                <option value="routine">Routine</option>
-                <option value="urgent">Urgent</option>
-                <option value="stat">STAT</option>
-                <option value="asap">ASAP</option>
-              </select>
-            </div>
-
-            {/* Receiving Laboratory */}
-            <div>
-              <label htmlFor="receiving_provider" className="text-sm font-medium">Receiving Laboratory/Department</label>
-              <input id="receiving_provider" type="text" className="w-full mt-1 px-3 py-2 border rounded-md" placeholder="Clinical Laboratory" value={formState.receiving_provider} onChange={(e) => onFieldChange("receiving_provider", e.target.value)} aria-label="Receiving provider" title="Laboratory or department that will perform the test" />
-            </div>
-
-            {/* Narrative */}
-            <div>
-              <label htmlFor="narrative" className="text-sm font-medium">Narrative Summary</label>
-              <textarea id="narrative" className="w-full mt-1 px-3 py-2 border rounded-md" rows={2} placeholder="Brief summary of the test order" value={formState.narrative} onChange={(e) => onFieldChange("narrative", e.target.value)} aria-label="Narrative summary" title="Brief narrative summary of the test order" />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowTestOrderForm(false)}>Cancel</Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={saveTestOrder}>Order Test</Button>
-            </div>
+      {/* Not Authorized to Cancel Dialog */}
+      <AlertDialog open={showNotAuthorizedDialog} onOpenChange={setShowNotAuthorizedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-700">
+              <ShieldAlert className="h-5 w-5" />
+              Cancellation Not Permitted
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              You cannot cancel this order because it was created by <strong className="text-foreground">{notAuthorizedCreator}</strong>.
+              Only the ordering provider can discontinue this request.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            Please contact the ordering provider or the lab to request cancellation.
           </div>
-        </DialogContent>
-      </Dialog>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Test Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this test order? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="cancel-reason">Reason for Cancellation (Optional)</Label>
+            <Textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Enter reason for cancelling this order..."
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setCancelReason(""); setOrderToCancel(null); }}>
+              Keep Order
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelOrder}
+              disabled={isCancelling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isCancelling ? "Cancelling..." : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Details Dialog */}
       <Dialog open={showTestOrderDetails} onOpenChange={setShowTestOrderDetails}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Test Order Details</DialogTitle>
             <DialogDescription>Complete information about this laboratory test order</DialogDescription>
           </DialogHeader>
 
           {selectedTestOrder && (
-            <div className="space-y-4">
+            <div id="printable-order-details" className="space-y-4">
               <div>
                 <h4 className="font-medium">Test Information</h4>
                 <div className="grid grid-cols-2 gap-4 mt-2">
@@ -504,7 +639,38 @@ export default function OrdersTab({ workspaceid, patientid }: OrdersTabProps) {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!selectedTestOrder) return;
+                const { generateLabOrderHTML } = await import('@/lib/lims/lab-order-html');
+                const html = generateLabOrderHTML({
+                  facilityName: selectedTestOrder.receiving_provider || 'Laboratory',
+                  serviceName: selectedTestOrder.service_name,
+                  serviceTypeValue: selectedTestOrder.service_type_value,
+                  serviceTypeCode: selectedTestOrder.service_type_code,
+                  urgency: selectedTestOrder.urgency,
+                  clinicalIndication: selectedTestOrder.clinical_indication,
+                  narrative: selectedTestOrder.narrative,
+                  description: selectedTestOrder.description,
+                  requestingProvider: selectedTestOrder.requesting_provider,
+                  receivingProvider: selectedTestOrder.receiving_provider,
+                  recordedTime: selectedTestOrder.recorded_time,
+                  requestId: selectedTestOrder.request_id,
+                  requestStatus: selectedTestOrder.request_status,
+                });
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                  printWindow.document.write(html);
+                  printWindow.document.close();
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print Order
+            </Button>
             <Button variant="outline" onClick={() => setShowTestOrderDetails(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>

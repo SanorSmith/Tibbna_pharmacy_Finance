@@ -3,7 +3,7 @@
  * - Display appointments in a monthly calendar format
  * - Route: /d/[workspaceid]/appointments/calendar
  */
-import { Header } from "@/components/sidebar/header";
+//import { Header } from "@/components/sidebar/header";
 import CalendarView from "./calendar-view";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
@@ -24,7 +24,6 @@ export default async function AppointmentsCalendarPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <div>

@@ -308,7 +308,7 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
 
       {/* Add/Edit Staff Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingStaff ? "Edit Staff" : "Add Staff"}</DialogTitle>
             <DialogDescription>

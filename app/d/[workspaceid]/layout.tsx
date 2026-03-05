@@ -43,13 +43,14 @@ export default async function HomeLayout({
           {/*  <AppSidebar user={user} /> */}
           <SidebarInset>
             <Header
-              middleSlot={<PatientSearch workspaceid={workspaceid} />}
+              middleSlot={workspace.role !== 'lab_technician' ? <PatientSearch workspaceid={workspaceid} /> : null}
               rightSlot={
                 <>
                   <HeaderActions />
                   <NavUser user={user} roleLabel={roleLabel} />
                 </>
               }
+              userRole={workspace.role}
             />
             {children}
           </SidebarInset>

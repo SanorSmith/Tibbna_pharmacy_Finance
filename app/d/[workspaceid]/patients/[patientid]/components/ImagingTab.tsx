@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -9,6 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ImagingRequest {
   composition_uid: string;
@@ -20,6 +29,7 @@ interface ImagingRequest {
   urgency: string;
   target_body_site?: string;
   clinical_indication?: string;
+  comment?: string;
 }
 
 interface ImagingResult {
@@ -32,6 +42,7 @@ interface ImagingResult {
   additional_details?: string;
   reported_by?: string;
   report_date: string;
+  comment?: string;
 }
 
 interface ImagingTabProps {
@@ -57,13 +68,17 @@ export default function ImagingTab({
   patient,
   fullName,
 }: ImagingTabProps) {
+  const [selectedRequest, setSelectedRequest] = useState<ImagingRequest | null>(null);
+  const [showRequestDetails, setShowRequestDetails] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<ImagingResult | null>(null);
+  const [showResultDetails, setShowResultDetails] = useState(false);
   return (
     <>
       {/* Imaging Requests Section */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Imaging Requests</CardTitle>
+            <CardTitle className="text-xl font-medium">Imaging Requests</CardTitle>
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               size="sm"
@@ -83,80 +98,72 @@ export default function ImagingTab({
               No imaging requests found. Click &quot;+ New Imaging Request&quot; to create one.
             </div>
           ) : (
-            <div className="space-y-3">
-              {imagingRequests.map((request) => (
-                <div
-                  key={request.composition_uid}
-                  className="border rounded-lg p-4"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold">
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Request Name</TableHead>
+                    <TableHead>Body Site</TableHead>
+                    <TableHead>Urgency</TableHead>
+                    <TableHead>Request Date</TableHead>
+                    <TableHead>Requested By</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {imagingRequests.map((request) => (
+                    <TableRow key={request.composition_uid}>
+                      <TableCell className="font-medium">
                         {request.request_name}
-                      </h4>
-                      {request.description && (
-                        <p className="text-sm text-muted-foreground">
-                          {request.description}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        request.request_status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : request.request_status === "in-progress"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : request.request_status === "cancelled"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {request.request_status.charAt(0).toUpperCase() +
-                        request.request_status.slice(1)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <div className="text-muted-foreground text-xs">
-                        Requested By
-                      </div>
-                      <div>{request.requested_by}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">
-                        Request Date
-                      </div>
-                      <div>
-                        {new Date(
-                          request.recorded_time
-                        ).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-xs">
-                        Urgency
-                      </div>
-                      <div className="capitalize">{request.urgency}</div>
-                    </div>
-                    {request.target_body_site && (
-                      <div>
-                        <div className="text-muted-foreground text-xs">
-                          Body Site
-                        </div>
-                        <div>{request.target_body_site}</div>
-                      </div>
-                    )}
-                  </div>
-                  {request.clinical_indication && (
-                    <div className="mt-3 text-sm">
-                      <div className="text-muted-foreground text-xs mb-1">
-                        Clinical Indication
-                      </div>
-                      <div>{request.clinical_indication}</div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                      </TableCell>
+                      <TableCell>{request.target_body_site || "-"}</TableCell>
+                      <TableCell>
+                        <span className="capitalize">{request.urgency}</span>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(request.recorded_time).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )}
+                      </TableCell>
+                      <TableCell>{request.requested_by}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            request.request_status === "completed"
+                              ? "bg-green-100 text-green-800"
+                              : request.request_status === "in-progress"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : request.request_status === "cancelled"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {request.request_status.charAt(0).toUpperCase() +
+                            request.request_status.slice(1)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            setShowRequestDetails(true);
+                          }}
+                        >
+                          Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
@@ -165,7 +172,7 @@ export default function ImagingTab({
       {/* Imaging Results Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Imaging Results</CardTitle>
+          <CardTitle className="text-xl font-medium">Imaging Results</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingImaging ? (
@@ -177,76 +184,70 @@ export default function ImagingTab({
               No imaging results available.
             </div>
           ) : (
-            <div className="space-y-4">
-              {imagingResults.map((result) => (
-                <div
-                  key={result.composition_uid}
-                  className="border rounded-lg p-4"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold text-lg">
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Examination</TableHead>
+                    <TableHead>Body Site</TableHead>
+                    <TableHead>Impression</TableHead>
+                    <TableHead>Report Date</TableHead>
+                    <TableHead>Reported By</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {imagingResults.map((result) => (
+                    <TableRow key={result.composition_uid}>
+                      <TableCell className="font-medium">
                         {result.examination_name}
-                      </h4>
-                      {result.body_site && (
-                        <p className="text-sm text-muted-foreground">
-                          {result.body_site}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        result.result_status === "final"
-                          ? "bg-green-100 text-green-800"
-                          : result.result_status === "preliminary"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {result.result_status.charAt(0).toUpperCase() +
-                        result.result_status.slice(1)}
-                    </span>
-                  </div>
-
-                  {result.imaging_findings && (
-                    <div className="mb-3 p-3 bg-blue-50 rounded">
-                      <p className="text-xs font-medium text-blue-900 mb-1">
-                        Imaging Findings
-                      </p>
-                      <p className="text-sm">{result.imaging_findings}</p>
-                    </div>
-                  )}
-
-                  {result.impression && (
-                    <div className="mb-3 p-3 bg-purple-50 rounded">
-                      <p className="text-xs font-medium text-purple-900 mb-1">
-                        Impression
-                      </p>
-                      <p className="text-sm">{result.impression}</p>
-                    </div>
-                  )}
-
-                  {result.additional_details && (
-                    <div className="mb-3 text-sm">
-                      <div className="text-muted-foreground text-xs mb-1">
-                        Additional Details
-                      </div>
-                      <div>{result.additional_details}</div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                    <div>
-                      {result.reported_by && (
-                        <span>Reported by: {result.reported_by}</span>
-                      )}
-                      <span className="ml-3">
-                        {new Date(result.report_date).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                      </TableCell>
+                      <TableCell>{result.body_site || "-"}</TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {result.impression || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(result.report_date).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )}
+                      </TableCell>
+                      <TableCell>{result.reported_by || "-"}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            result.result_status === "final"
+                              ? "bg-green-100 text-green-800"
+                              : result.result_status === "preliminary"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {result.result_status.charAt(0).toUpperCase() +
+                            result.result_status.slice(1)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedResult(result);
+                            setShowResultDetails(true);
+                          }}
+                        >
+                          Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
@@ -497,6 +498,271 @@ export default function ImagingTab({
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Imaging Request Details Dialog */}
+      <Dialog open={showRequestDetails} onOpenChange={setShowRequestDetails}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Imaging Request Details</DialogTitle>
+            <DialogDescription>
+              Complete information about the imaging request
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Request Name
+                  </label>
+                  <div className="mt-1 text-md font-medium">
+                    {selectedRequest.request_name}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Status
+                  </label>
+                  <div className="mt-1">
+                    <span
+                      className={`px-3 py-1 rounded text-sm font-medium ${
+                        selectedRequest.request_status === "completed"
+                          ? "bg-green-100 text-green-800"
+                          : selectedRequest.request_status === "in-progress"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : selectedRequest.request_status === "cancelled"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {selectedRequest.request_status.charAt(0).toUpperCase() +
+                        selectedRequest.request_status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Request Date
+                  </label>
+                  <div className="mt-1 text-md font-medium">
+                    {new Date(selectedRequest.recorded_time).toLocaleString(
+                      "en-US",
+                      {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Requested By
+                  </label>
+                  <div className="mt-1 text-md font-medium">
+                    {selectedRequest.requested_by}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Urgency
+                  </label>
+                  <div className="mt-1 text-md font-medium capitalize">
+                    {selectedRequest.urgency}
+                  </div>
+                </div>
+                {selectedRequest.target_body_site && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">
+                      Target Body Site
+                    </label>
+                    <div className="mt-1 text-md font-medium">
+                      {selectedRequest.target_body_site}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedRequest.description && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Description
+                  </label>
+                  <div className="mt-1 text-gray-700">
+                    {selectedRequest.description}
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.clinical_indication && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Clinical Indication
+                  </label>
+                  <div className="mt-1 text-gray-700">
+                    {selectedRequest.clinical_indication}
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.comment && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Comment
+                  </label>
+                  <div className="mt-1 text-gray-700">
+                    {selectedRequest.comment}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRequestDetails(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Imaging Result Details Dialog */}
+      <Dialog open={showResultDetails} onOpenChange={setShowResultDetails}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Imaging Result Details</DialogTitle>
+            <DialogDescription>
+              Complete radiology report with findings and impression
+            </DialogDescription>
+          </DialogHeader>
+          {selectedResult && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Examination
+                  </label>
+                  <div className="mt-1 text-md font-medium">
+                    {selectedResult.examination_name}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Status
+                  </label>
+                  <div className="mt-1">
+                    <span
+                      className={`px-3 py-1 rounded text-sm font-medium ${
+                        selectedResult.result_status === "final"
+                          ? "bg-green-100 text-green-800"
+                          : selectedResult.result_status === "preliminary"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {selectedResult.result_status.charAt(0).toUpperCase() +
+                        selectedResult.result_status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Report Date
+                  </label>
+                  <div className="mt-1 text-lg font-medium">
+                    {new Date(selectedResult.report_date).toLocaleString(
+                      "en-US",
+                      {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Reported By
+                  </label>
+                  <div className="mt-1 text-lg font-medium">
+                    {selectedResult.reported_by || "Unknown"}
+                  </div>
+                </div>
+                {selectedResult.body_site && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">
+                      Body Site
+                    </label>
+                    <div className="mt-1 text-lg font-medium">
+                      {selectedResult.body_site}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedResult.imaging_findings && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-lg text-blue-900 mb-2">
+                    Imaging Findings
+                  </h4>
+                  <div className="text-blue-900 whitespace-pre-line">
+                    {selectedResult.imaging_findings}
+                  </div>
+                </div>
+              )}
+
+              {selectedResult.impression && (
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-medium text-lg text-purple-900 mb-2">
+                    Impression
+                  </h4>
+                  <div className="text-purple-900 whitespace-pre-line">
+                    {selectedResult.impression}
+                  </div>
+                </div>
+              )}
+
+              {selectedResult.additional_details && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Additional Details
+                  </label>
+                  <div className="mt-1 text-gray-700 whitespace-pre-line">
+                    {selectedResult.additional_details}
+                  </div>
+                </div>
+              )}
+
+              {selectedResult.comment && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">
+                    Comment
+                  </label>
+                  <div className="mt-1 text-gray-700">
+                    {selectedResult.comment}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowResultDetails(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

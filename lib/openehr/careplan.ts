@@ -205,19 +205,30 @@ export async function createCarePlan(
   composition: CarePlanComposition
 ): Promise<string> {
   const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}/composition`;
-  const response = await axios.post(url, composition, {
-    headers: {
-      "X-API-Key": process.env.EHRBASE_API_KEY!,
-      Authorization: `Basic ${basicAuth}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    params: {
-      format: "FLAT",
-      templateId: "template_care_plan_v1",
-    },
-  });
-  return response.data.compositionUid || response.data.uid?.value;
+  
+  try {
+    const response = await axios.post(url, composition, {
+      headers: {
+        "X-API-Key": process.env.EHRBASE_API_KEY!,
+        Authorization: `Basic ${basicAuth}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      params: {
+        format: "FLAT",
+        templateId: "template_care_plan_v1",
+      },
+    });
+    return response.data.compositionUid || response.data.uid?.value;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error("openEHR Care Plan Creation Error:");
+      console.error("Status:", error.response.status);
+      console.error("Response Data:", JSON.stringify(error.response.data, null, 2));
+      console.error("Sent Composition:", JSON.stringify(composition, null, 2));
+    }
+    throw error;
+  }
 }
 
 /**

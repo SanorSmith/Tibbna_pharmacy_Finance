@@ -36,7 +36,7 @@ export default async function NewStaffPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
+      <Header userRole={membership.role} />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Register Staff</h1>

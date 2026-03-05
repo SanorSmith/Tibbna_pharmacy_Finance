@@ -1,0 +1,297 @@
+Category,Test Name,Units,Male Range,Female Range,Pediatric Range,Low Flag,High Flag,Critical Low,Critical High,Notes
+Endocrinology,TSH,µIU/mL,0.4–4.0,0.4–4.0,0.7–6.4,0.1,10,0.01,20,
+Chemistry,Creatinine,mg/dL,0.7–1.3,0.6–1.1,0.3–0.7,0.2,5.0,0.1,7.0,
+Hematology,Hemoglobin,g/dL,13.5–17.5,12.0–15.5,11.0–14.0,7.0,20,5.0,22,
+Cardiac,Troponin I,ng/mL,<0.04,<0.04,<0.04,—,—,—,—,
+Serology,HBsAg,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Endocrinology - Thyroid,Total T3,ng/dL,80–200,80–200,100–260,60,300,40,400,
+Endocrinology - Thyroid,Total T4,µg/dL,5.0–12.0,5.0–12.0,6.0–15.0,3.0,18.0,2.0,25.0,
+Endocrinology - Thyroid,Free T3 (FT3),pg/mL,2.3–4.2,2.3–4.2,2.8–5.2,1.5,6.0,1.0,7.0,
+Endocrinology - Thyroid,Free T4 (FT4),ng/dL,0.8–1.8,0.8–1.8,0.9–2.3,0.5,3.0,0.2,4.0,
+Endocrinology - Thyroid,Thyroglobulin (TG),ng/mL,<55,<55,<55,—,—,—,—,Assay-dependent; interpret with lab cutoffs
+Endocrinology - Thyroid,Anti-Thyroglobulin Ab (TgAb / TGA),IU/mL,<40,<40,<40,—,—,—,—,Assay-dependent cutoff
+Endocrinology - Thyroid,Anti-TPO (ATPO),IU/mL,<35,<35,<35,—,—,—,—,Assay-dependent cutoff
+Endocrinology - Thyroid,TSH Receptor Ab (TRAb),IU/L,<1.75,<1.75,<1.75,—,—,—,—,Assay-dependent cutoff
+Endocrinology - Thyroid,Reverse T3 (rT3),ng/dL,10–24,10–24,10–30,5,40,2,60,
+Endocrinology - Thyroid,Thyroxine Binding Globulin (TBG),µg/mL,14–31,14–31,—,—,—,—,—,Method-dependent; pediatrics age-banded
+Endocrinology - Thyroid,T3 Uptake (T3U),%,24–39,24–39,—,—,—,—,—,Assay-dependent; often reported with T7/FTI
+Endocrinology - Thyroid,Free Thyroxine Index (FTI),index,5–12,5–12,—,—,—,—,—,Calculated parameter
+Endocrinology - Reproductive,LH,IU/L,1.7–8.6,Follicular 2.4–12.6; Luteal 0.5–16.9,Prepubertal 0.1–1.0,—,—,—,—,Female cycle-dependent
+Endocrinology - Reproductive,FSH,IU/L,1.5–12.4,Follicular 3.5–12.5; Luteal 1.7–7.7,Prepubertal 0.5–3.0,—,—,—,—,Female cycle-dependent
+Endocrinology - Reproductive,Prolactin (PRL),ng/mL,4–15,5–25,3–15,2,50,1,100,Pregnancy/lactation higher
+Endocrinology - Reproductive,Estradiol (E2),pg/mL,10–40,Follicular 30–120; Midcycle 130–370; Luteal 70–250,<20,—,—,—,—,Female cycle-dependent
+Endocrinology - Reproductive,Progesterone (PRG),ng/mL,<1.0,Follicular <1.0; Luteal 5–20,<0.5,—,—,—,—,Female cycle-dependent
+Endocrinology - Reproductive,Testosterone (Total),ng/dL,300–1000,15–70,Prepubertal <20,100,1200,50,1500,Units commonly ng/dL; SI labs may use nmol/L
+Endocrinology - Reproductive,Free Testosterone,pg/mL,5–21,0.5–6,—,—,—,—,—,Assay-dependent; may be calculated
+Endocrinology - Reproductive,β-hCG,mIU/mL,<5,<5 (non-pregnant),<5,—,—,—,—,Pregnancy interpretation is gestation-specific
+Endocrinology - Reproductive,Anti-Müllerian Hormone (AMH),ng/mL,—,1.0–8.0,Age-dependent,—,—,—,—,Ranges vary by assay and age
+Endocrinology - Adrenal,ACTH,pg/mL,10–60,10–60,15–70,5,200,2,500,Morning sample preferred
+Endocrinology - Adrenal,Cortisol (Serum AM),µg/dL,5–25,5–25,3–20,2,40,1,60,Diurnal variation; PM lower
+Endocrinology - Adrenal,Cortisol (24h Urine),µg/24h,20–90,20–90,20–100,—,—,—,—,Assay-dependent
+Endocrinology - Adrenal,DHEA-S,µg/dL,80–560,35–430,Age-dependent,—,—,—,—,Strong age dependence
+Endocrinology - Adrenal,17-Hydroxyprogesterone (17-OHP),ng/dL,<200,<200,Age-dependent,—,—,—,—,Neonates higher; interpret by age/sex
+Endocrinology - Adrenal,Renin (Plasma Activity),ng/mL/hr,0.6–4.3,0.6–4.3,—,—,—,—,—,Posture/salt intake affect
+Endocrinology - Adrenal,Aldosterone (Upright),ng/dL,4–31,4–31,—,—,—,—,—,Posture affects
+Endocrinology - Pituitary,Growth Hormone (GH) Basal,ng/mL,<5,<5,<10,—,—,—,—,Pulsatile; stimulation tests used
+Endocrinology - Pituitary,IGF-1,ng/mL,Age-dependent,Age-dependent,Age-dependent,—,—,—,—,Use age/sex z-scores where available
+Endocrinology - Bone,Parathyroid Hormone (PTH),pg/mL,15–65,15–65,10–70,5,120,2,150,Assay-dependent
+Endocrinology - Bone,Calcitonin,pg/mL,<10,<10,<10,—,—,—,—,Smokers/renal failure may elevate
+Endocrinology - Bone,Osteocalcin (BGP),ng/mL,11–43,11–43,20–50,—,—,—,—,Method-dependent
+Vitamins,25-OH Vitamin D,ng/mL,30–100,30–100,20–100,20,150,10,200,Deficiency <20; insufficiency 20–29
+Vitamins,Vitamin B12,pg/mL,200–900,200–900,200–900,—,—,—,—,Borderline 200–300
+Vitamins,Folate (Folic Acid),ng/mL,3–17,3–17,5–20,—,—,—,—,RBC folate alternative
+Diabetes/Autoimmune,Insulin (Fasting),µIU/mL,2–25,2–25,2–20,—,—,—,—,Interpret with glucose
+Diabetes/Autoimmune,C-Peptide,ng/mL,0.5–2.0,0.5–2.0,0.3–1.8,—,—,—,—,Fasting preferred
+Diabetes/Autoimmune,Proinsulin,pmol/L,<10,<10,—,—,—,—,—,Assay-dependent
+Diabetes/Autoimmune,Insulin Autoantibodies (IAA),U/mL,Negative,Negative,Negative,—,—,—,—,Reported as Neg/Pos per kit cutoff
+Diabetes/Autoimmune,GAD65 Ab,IU/mL,Negative,Negative,Negative,—,—,—,—,Reported as Neg/Pos per kit cutoff
+Iron Studies,Ferritin,ng/mL,30–400,15–150,10–140,—,—,—,—,Inflammation elevates
+Iron Studies,Iron (Fe),µg/dL,65–175,50–170,50–120,—,—,—,—,Diurnal variation
+Iron Studies,TIBC,µg/dL,250–450,250–450,250–430,—,—,—,—,
+Iron Studies,Transferrin,mg/dL,200–360,200–360,200–400,—,—,—,—,
+Proteins,Albumin,g/dL,3.5–5.0,3.5–5.0,3.8–5.4,2.5,6.0,2.0,6.5,Critical low varies by policy
+Cardiac,Troponin I,ng/mL,<0.04,<0.04,<0.04,—,—,—,—,Use assay-specific 99th percentile
+Cardiac,CK-MB,ng/mL,<5.0,<5.0,<5.0,—,—,—,—,Assay-dependent
+Coagulation,Antithrombin III (AT3),%,80–120,80–120,60–120,—,—,—,—,
+Coagulation,Protein C,%,70–140,70–140,40–120,—,—,—,—,Age-dependent
+Coagulation,Protein S,%,60–140,60–140,50–120,—,—,—,—,Female pregnancy lowers
+Tumor Markers,AFP,ng/mL,<10,<10,<10,—,—,—,—,Pregnancy elevates
+Tumor Markers,CEA,ng/mL,<3 (non-smoker); <5 (smoker),<3 (non-smoker); <5 (smoker),<3,—,—,—,—,
+Tumor Markers,CA 125,U/mL,—,<35,<35,—,—,—,—,Primarily female
+Tumor Markers,CA 15-3,U/mL,<30,<30,<30,—,—,—,—,
+Tumor Markers,CA 19-9,U/mL,<37,<37,<37,—,—,—,—,
+Tumor Markers,PSA (Total),ng/mL,<4.0,—,—,—,—,—,—,Male only; age-banded often used
+Tumor Markers,Free PSA,%,25–100,—,—,—,—,—,—,Lower % suggests higher cancer risk
+Immunology,IgG,mg/dL,700–1600,700–1600,650–1500,—,—,—,—,Pediatrics age-banded
+Immunology,IgA,mg/dL,70–400,70–400,20–200,—,—,—,—,Pediatrics age-banded
+Immunology,IgM,mg/dL,40–230,40–230,40–150,—,—,—,—,Pediatrics age-banded
+Immunology,IgE,IU/mL,<100,<100,<60,—,—,—,—,Strong atopy dependence
+Serology,Toxoplasma IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,Cutoffs assay-dependent
+Serology,Toxoplasma IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,Cutoffs assay-dependent
+Serology,Rubella IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,Immune if positive per kit
+Serology,Rubella IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,HSV 1/2 IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,HSV 1/2 IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,HBsAg,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,Anti-HBs,mIU/mL,≥10 immune,≥10 immune,≥10 immune,—,—,—,—,
+Serology,HBeAg,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,Anti-HBe,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,Anti-HBc IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,HCV Ab,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,HAV IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,HEV Screen,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,HIV Screen,Qualitative,Non-reactive,Non-reactive,Non-reactive,—,—,—,—,
+Microbiology,Blood Culture (C/S),Qualitative,No Growth,No Growth,No Growth,—,—,—,—,Report organism & AST if positive
+Microbiology,Urine Culture (C/S),Qualitative,No Growth,No Growth,No Growth,—,—,—,—,Quantitation often reported as CFU/mL
+Microbiology,Stool Culture (C/S),Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,Sputum Culture (C/S),Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,Wound Swab Culture (C/S),Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,AFB Stain,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Histopathology,Thyroid gland biopsy,Descriptive,,,,—,—,—,—,Report diagnosis; no ranges
+Histopathology,Breast mass biopsy,Descriptive,,,,—,—,—,—,
+Histopathology,Colon biopsy,Descriptive,,,,—,—,—,—,
+Cytology,Pap smear,Descriptive,,,,—,—,—,—,Report via Bethesda system
+Cytology,CSF cytology,Descriptive,,,,—,—,—,—,
+Hematology,RBC Count,x10^12/L,4.5–5.9,4.1–5.1,3.8–5.5,—,—,—,—,
+Hematology,MCV,fL,80–96,80–96,75–95,—,—,—,—,
+Hematology,MCH,pg,27–33,27–33,24–32,—,—,—,—,
+Hematology,MCHC,g/dL,32–36,32–36,32–36,—,—,—,—,
+Hematology,RDW-CV,%,11.5–14.5,11.5–14.5,11.5–15.5,—,—,—,—,
+Hematology,Neutrophils %,%,40–75,40–75,30–70,—,—,—,—,
+Hematology,Lymphocytes %,%,20–45,20–45,25–60,—,—,—,—,
+Hematology,Monocytes %,%,2–10,2–10,2–12,—,—,—,—,
+Hematology,Eosinophils %,%,1–6,1–6,1–6,—,—,—,—,
+Hematology,Basophils %,%,0–1,0–1,0–1,—,—,—,—,
+Hematology,Absolute Neutrophil Count (ANC),x10^9/L,1.8–7.5,1.8–7.5,1.5–8.0,1.0,20,0.5,30,Critical policy may vary
+Hematology,Absolute Lymphocyte Count,x10^9/L,1.0–4.0,1.0–4.0,1.5–7.0,—,—,—,—,
+Hematology,Absolute Monocyte Count,x10^9/L,0.2–0.8,0.2–0.8,0.2–1.0,—,—,—,—,
+Hematology,Absolute Eosinophil Count,x10^9/L,0.0–0.5,0.0–0.5,0.0–0.6,—,—,—,—,
+Hematology,Absolute Basophil Count,x10^9/L,0.0–0.1,0.0–0.1,0.0–0.1,—,—,—,—,
+Hematology,ESR,mm/hr,0–15,0–20,0–10,—,—,—,—,Age increases normal range
+Hematology,Reticulocyte %,%,0.5–2.5,0.5–2.5,0.5–3.0,—,—,—,—,
+Hematology,Reticulocyte Count,x10^9/L,25–100,25–100,20–120,—,—,—,—,
+Hematology,Sickling Test,Qualitative,Negative,Negative,Negative,—,—,—,—,Screen for HbS
+Hematology,Malaria Test,Qualitative,Negative,Negative,Negative,—,—,—,—,RDT or smear
+Lipids,Total Cholesterol,mg/dL,<200,<200,<170,—,—,—,—,Desirable <200
+Lipids,Triglycerides,mg/dL,<150,<150,<90 (<10y); <130 (10–19y),—,—,—,—,Fasting preferred
+Lipids,HDL-C,mg/dL,>40,>50,>45,—,—,—,—,Higher is better
+Lipids,LDL-C,mg/dL,<100,<100,<110,—,—,—,—,Target varies by risk
+Lipids,Non-HDL Cholesterol,mg/dL,<130,<130,<120,—,—,—,—,TC-HDL
+Lipids,VLDL-C,mg/dL,5–40,5–40,5–30,—,—,—,—,Calculated
+Lipids,Lipoprotein(a),mg/dL,<30,<30,<30,—,—,—,—,Assay-dependent
+Electrolytes,Sodium (Na),mmol/L,135–145,135–145,135–145,120,160,115,165,
+Electrolytes,Potassium (K),mmol/L,3.5–5.1,3.5–5.1,3.4–5.4,2.5,6.5,2.3,7.0,
+Electrolytes,Chloride (Cl),mmol/L,98–107,98–107,98–110,—,—,—,—,
+Electrolytes,Calcium (Total),mg/dL,8.6–10.2,8.6–10.2,8.8–10.8,6.5,13.0,6.0,13.5,
+Electrolytes,Magnesium,mg/dL,1.7–2.4,1.7–2.4,1.6–2.5,1.0,4.0,0.8,5.0,
+Electrolytes,Phosphorus (PO4),mg/dL,2.5–4.5,2.5–4.5,3.5–6.5,1.0,7.0,0.8,8.0,
+Chemistry,Total CO2 (Bicarbonate),mmol/L,22–29,22–29,18–28,10,40,8,45,
+Renal,Creatinine Clearance (CrCl),mL/min,90–140,80–130,—,—,—,—,—,Calculated; use eGFR commonly
+Renal,Microalbumin (Urine),mg/L,<30,<30,<30,—,—,—,—,Use ACR for screening
+Liver,Total Protein,g/dL,6.4–8.3,6.4–8.3,6.0–8.0,—,—,—,—,
+Liver,Globulin,g/dL,2.0–3.5,2.0–3.5,2.0–3.5,—,—,—,—,Calculated if not measured
+Liver,A/G Ratio,ratio,1.0–2.2,1.0–2.2,1.0–2.2,—,—,—,—,
+Liver,Indirect Bilirubin,mg/dL,0.2–0.9,0.2–0.9,0.2–0.8,—,—,—,—,Calculated
+Diabetes,OGTT 2-hour (75g),mg/dL,<140,<140,<140,—,—,—,—,140–199 impaired; ≥200 diabetes
+Diabetes,HOMA-IR,index,<2.5,<2.5,—,—,—,—,—,Derived from fasting insulin & glucose
+Diabetes,Insulin Resistance (IR HOMA),index,<2.5,<2.5,—,—,—,—,—,Same as HOMA-IR
+Enzymes,Creatine Kinase (CK/CPK Total),U/L,39–308,26–192,60–305,—,—,—,—,Analyzer dependent
+Enzymes,CPK-MB (alt label),ng/mL,<5.0,<5.0,<5.0,—,—,—,—,Duplicate label mapping
+Enzymes,Acid Phosphatase (ACP),U/L,<6.5,<6.5,—,—,—,—,—,Assay-dependent
+Enzymes,Gamma GT (GGT),U/L,10–71,6–42,<23,—,—,—,—,Duplicate mapping
+Inflammation,CRP (Quantitative),mg/L,<5,<5,<5,—,—,—,—,
+Inflammation,Procalcitonin (PCT),ng/mL,<0.1,<0.1,<0.1,—,—,—,—,0.5+ suggests bacterial sepsis risk
+Inflammation,Calprotectin (stool),µg/g,<50,<50,<50,—,—,—,—,IBD risk if elevated
+Inflammation,Lactoferrin (stool),Qualitative,Negative,Negative,Negative,—,—,—,—,Inflammatory diarrhea marker
+Serology,VDRL,Qualitative,Non-reactive,Non-reactive,Non-reactive,—,—,—,—,
+Serology,TPHA,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Serology,ASO Titer (ASOT),IU/mL,<200,<200,<200,—,—,—,—,Method dependent; pediatrics often higher
+Serology,Pregnancy Test (Urine),Qualitative,Negative,Negative,Negative,—,—,—,—,hCG-based
+Serology,H. pylori Ab,Qualitative,Negative,Negative,Negative,—,—,—,—,Serology limited utility
+Serology,H. pylori Ag (Stool),Qualitative,Negative,Negative,Negative,—,—,—,—,Preferred for active infection
+Urinalysis,Urine pH,pH,4.5–8.0,4.5–8.0,4.5–8.0,—,—,—,—,
+Urinalysis,Urine Specific Gravity,SG,1.005–1.030,1.005–1.030,1.005–1.030,—,—,—,—,
+Urinalysis,Urine Protein,Qualitative,Negative,Negative,Negative,—,—,—,—,Trace may occur
+Urinalysis,Urine Glucose,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Urinalysis,Urine Ketones,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Stool,Fecal Occult Blood (FOB),Qualitative,Negative,Negative,Negative,—,—,—,—,
+Stool,Ova & Parasites,Qualitative,None seen,None seen,None seen,—,—,—,—,
+Stool,Direct Examination (GSE),Qualitative,No pathogens,No pathogens,No pathogens,—,—,—,—,
+Autoimmune,ENA Screen,Qualitative,Negative,Negative,Negative,—,—,—,—,Extractable nuclear antigens
+Autoimmune,Anti-Sm,U/mL,<20,<20,<20,—,—,—,—,SLE marker
+Autoimmune,Anti-RNP,U/mL,<20,<20,<20,—,—,—,—,MCTD marker
+Autoimmune,Anti-SSA (Ro),U/mL,<20,<20,<20,—,—,—,—,Sjögren/SLE
+Autoimmune,Anti-SSB (La),U/mL,<20,<20,<20,—,—,—,—,Sjögren
+Autoimmune,Anti-Scl-70,U/mL,<20,<20,<20,—,—,—,—,Systemic sclerosis
+Autoimmune,Anti-Jo-1,U/mL,<20,<20,<20,—,—,—,—,Myositis
+Autoimmune,Anti-Mitochondrial Ab (AMA),U/mL,<20,<20,<20,—,—,—,—,PBC marker
+Autoimmune,Anti-Smooth Muscle Ab (ASMA),U/mL,<20,<20,<20,—,—,—,—,Autoimmune hepatitis
+Autoimmune,Anti-LKM,U/mL,<20,<20,<20,—,—,—,—,Autoimmune hepatitis
+Autoimmune,Anti-Endomysial IgA,Qualitative,Negative,Negative,Negative,—,—,—,—,Celiac disease
+Autoimmune,Anti-TTG IgA,U/mL,<10,<10,<10,—,—,—,—,Celiac disease
+Autoimmune,Anti-TTG IgG,U/mL,<10,<10,<10,—,—,—,—,IgA deficiency
+Coagulation - Thrombophilia,Lupus Anticoagulant,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Coagulation - Thrombophilia,Anti-Cardiolipin IgG,GPL,<15,<15,<15,—,—,—,—,
+Coagulation - Thrombophilia,Anti-Cardiolipin IgM,MPL,<15,<15,<15,—,—,—,—,
+Coagulation - Thrombophilia,Beta-2 Glycoprotein I IgG,U/mL,<10,<10,<10,—,—,—,—,
+Coagulation - Thrombophilia,Beta-2 Glycoprotein I IgM,U/mL,<10,<10,<10,—,—,—,—,
+Hepatitis Panel,HBsAg,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Hepatitis Panel,Anti-HBs,mIU/mL,≥10 immune,≥10 immune,≥10 immune,—,—,—,—,
+Hepatitis Panel,Anti-HBc IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,Past exposure
+Hepatitis Panel,Anti-HBc IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,Acute infection
+Hepatitis Panel,HBeAg,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Hepatitis Panel,Anti-HBe,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Hepatitis Panel,HCV Ab,Qualitative,Negative,Negative,Negative,—,—,—,—,Screening
+Hepatitis Panel,HCV RNA,IU/mL,Not Detected,Not Detected,Not Detected,—,—,—,—,Quantitative PCR
+Hepatitis Panel,HAV IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,Acute HAV
+Hepatitis Panel,HAV IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,Immunity
+Hepatitis Panel,HEV IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Hepatitis Panel,HEV IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Viral Serology,EBV VCA IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,Past infection
+Viral Serology,EBV VCA IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,Acute infection
+Viral Serology,EBV EBNA IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Viral Serology,CMV IgG,AU/mL,<6,<6,<6,—,—,—,—,Cutoff assay dependent
+Viral Serology,CMV IgM,AU/mL,<30,<30,<30,—,—,—,—,
+Viral Serology,Toxoplasma IgG,IU/mL,<6,<6,<6,—,—,—,—,
+Viral Serology,Toxoplasma IgM,IU/mL,<30,<30,<30,—,—,—,—,
+Viral Serology,Rubella IgG,IU/mL,≥10 immune,≥10 immune,≥10 immune,—,—,—,—,
+Viral Serology,Rubella IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Viral Serology,HSV 1 IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Viral Serology,HSV 2 IgG,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Viral Serology,HSV 1/2 IgM,Qualitative,Negative,Negative,Negative,—,—,—,—,
+Tumor Markers,Procalcitonin (PCT),ng/mL,<0.1,<0.1,<0.1,—,—,—,—,Inflammation/sepsis marker
+Tumor Markers,Chromogranin A,ng/mL,<100,<100,<100,—,—,—,—,Neuroendocrine tumors
+Tumor Markers,NSE,ng/mL,<16,<16,<16,—,—,—,—,Neuron specific enolase
+Tumor Markers,Beta-2 Microglobulin,mg/L,0.7–1.8,0.7–1.8,0.7–1.8,—,—,—,—,Renal function dependent
+Tumor Markers,Prostatic Acid Phosphatase (PAP),U/L,<3.5,—,—,—,—,—,—,Male only
+Allergy,Total IgE (ELISA),IU/mL,<100,<100,<60,—,—,—,—,Atopy dependent
+Allergy,Total IgE (COBAS),IU/mL,<100,<100,<60,—,—,—,—,Method specific
+Allergy,Tryptase,ng/mL,<11.4,<11.4,<11.4,—,—,—,—,Mast cell activation
+Microbiology,Blood Culture – Aerobic,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,5–7 days incubation
+Microbiology,Blood Culture – Anaerobic,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Urine C/S (Manual),Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Urine C/S (Automated),Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Stool C/S (Salmonella/Shigella),Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,TCBS – Vibrio cholerae,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Sputum C/S,Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,Wound Swab C/S,Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,High Vaginal Swab C/S,Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,Urethral Swab (GC),Qualitative,Negative,Negative,Negative,—,—,—,—,Gram stain
+Microbiology,Nasal Swab C/S,Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,Throat Swab C/S,Qualitative,No Pathogen,No Pathogen,No Pathogen,—,—,—,—,
+Microbiology,CSF C/S,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,Urgent
+Microbiology,Pleural Fluid C/S,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Ascitic Fluid C/S,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Synovial Fluid C/S,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Peritoneal Fluid C/S,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Semen C/S,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+Microbiology,Fungal Culture,Qualitative,No Growth,No Growth,No Growth,—,—,—,—,
+PCR,HCV Genotype,Qualitative,Reported,Reported,Reported,—,—,—,—,Genotype 1–6
+PCR,HBV Genotype,Qualitative,Reported,Reported,Reported,—,—,—,—,If available
+PCR,HIV Genotype,Qualitative,Reported,Reported,Reported,—,—,—,—,Resistance testing
+PCR,HPV High-Risk Genotype,Qualitative,Negative,Negative,Negative,—,—,—,—,16/18 etc
+Blood Gas,pH,—,7.35–7.45,7.35–7.45,7.31–7.41,7.2,7.6,7.1,7.7,Arterial
+Blood Gas,pCO2,mmHg,35–45,35–45,30–50,—,—,—,—,
+Blood Gas,pO2,mmHg,80–100,80–100,60–100,—,—,—,—,
+Blood Gas,HCO3,mmol/L,22–26,22–26,18–24,—,—,—,—,
+Blood Gas,O2 Saturation,%,95–100,95–100,90–100,—,—,—,—,
+Special Chemistry,Lactic Acid,mmol/L,0.5–2.2,0.5–2.2,0.6–3.0,—,—,—,—,
+Special Chemistry,Ammonia,µmol/L,15–45,15–45,20–80,—,—,—,—,
+Special Chemistry,Vanillylmandelic Acid (VMA),mg/24h,2–8,2–8,—,—,—,—,—,Pheochromocytoma
+Special Chemistry,Oxalic Acid (Urine),mg/24h,10–40,10–40,—,—,—,—,—,
+Special Chemistry,Citrate (Urine),mg/24h,320–1240,320–1240,—,—,—,—,—,Stone workup
+Fertility,Semen Volume,mL,>=1.5,>=1.5,—,—,—,—,—,WHO reference
+Fertility,Sperm Concentration,million/mL,>=15,>=15,—,—,—,—,—,WHO reference
+Fertility,Total Motility,%,≥40,≥40,—,—,—,—,—,
+Fertility,Progressive Motility,%,≥32,≥32,—,—,—,—,—,
+Fertility,Normal Morphology,%,≥4,≥4,—,—,—,—,—,Strict criteria
+Histopathology,Thyroid,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Lung bronchoscopy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Brain,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Breast mass,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Mastectomy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Salivary gland,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Skin,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Bone,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Spleen,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Appendix,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Testis,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Colon,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Colonoscopy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Lymph node,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Discectomy/Laminectomy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Duodenal,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Prostatectomy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Prostatic chips,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Ovary cyst,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Uterus,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Uterus with ovary,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Products of gestation,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,D&C,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Polyp,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Kidney,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Gall bladder,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Corpectomy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Soft tissue,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Muscle biopsy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Sinus,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Liver core biopsy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Ovary with tube,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,FNAC,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Endoscopic biopsy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Gynecomastia,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Slide review,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Fibroid,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Hemicolectomy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Femur,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Ulcer mass,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Ectopic pregnancy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Abortion,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Urinary bladder,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Cell block,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Neck mass,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Endometriosis,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Hernia,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Nasal papilloma,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Endometrial biopsy,Descriptive,,,,—,—,—,—,Report per pathology protocol
+Histopathology,Special stains,Descriptive,,,,—,—,—,—,Report per pathology protocol
