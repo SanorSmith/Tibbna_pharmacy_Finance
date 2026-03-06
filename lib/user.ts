@@ -41,13 +41,6 @@ const authOptions: NextAuthConfig = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          redirect_uri: process.env.NEXTAUTH_URL 
-            ? `${process.env.NEXTAUTH_URL}/api/auth/callback/google`
-            : undefined, // Let NextAuth handle it automatically
-        },
-      },
     }),
     Credentials({
       // The name to display on the sign in form (e.g. 'Sign in with...')
