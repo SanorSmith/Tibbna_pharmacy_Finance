@@ -63,9 +63,8 @@ const authOptions: NextAuthConfig = {
           // Call our API endpoint to verify credentials
           // This avoids using Node.js crypto module in the Edge runtime
           const res = await fetch(
-            `${
-              process.env.NEXTAUTH_URL || "http://localhost:3000"
-            }/api/auth/credentials`,
+            //`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/auth/credentials`,
+            `/api/auth/credentials`,
             {
               method: "POST",
               body: JSON.stringify({
