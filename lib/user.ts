@@ -39,9 +39,17 @@ declare module "next-auth" {
 const authOptions: NextAuthConfig = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
+  clientId: process.env.GOOGLE_CLIENT_ID!,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  authorization: {
+    params: {
+      redirect_uri:
+        process.env.VERCEL_ENV === "preview"
+          ? "https://preview.app.tibbna.com/api/auth/callback/google"
+          : "https://app.tibbna.com/api/auth/callback/google",
+    },
+  },
+}),
     Credentials({
       // The name to display on the sign in form (e.g. 'Sign in with...')
       name: "Credentials",
