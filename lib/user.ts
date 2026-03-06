@@ -39,17 +39,16 @@ declare module "next-auth" {
 const authOptions: NextAuthConfig = {
   providers: [
     GoogleProvider({
-  clientId: process.env.GOOGLE_CLIENT_ID!,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-  authorization: {
-    params: {
-      redirect_uri:
-        process.env.VERCEL_ENV === "preview"
-          ? "https://preview.app.tibbna.com/api/auth/callback/google"
-          : "https://app.tibbna.com/api/auth/callback/google",
-    },
-  },
-}),
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          redirect_uri: process.env.NEXTAUTH_URL 
+            ? `${process.env.NEXTAUTH_URL}/api/auth/callback/google`
+            : undefined, // Let NextAuth handle it automatically
+        },
+      },
+    }),
     Credentials({
       // The name to display on the sign in form (e.g. 'Sign in with...')
       name: "Credentials",
@@ -70,10 +69,8 @@ const authOptions: NextAuthConfig = {
         try {
           // Call our API endpoint to verify credentials
           // This avoids using Node.js crypto module in the Edge runtime
-          const res = await fetch(
-            //`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/auth/credentials`,
-            `/api/auth/credentials`,
-            {
+          const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000";
+          const res = await fetch(`${baseUrl}/api/auth/credentials`, {
               method: "POST",
               body: JSON.stringify({
                 email: credentials.email,
