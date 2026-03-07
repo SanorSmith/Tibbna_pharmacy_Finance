@@ -469,9 +469,9 @@ export default function EnhancedLabOrderForm({
                   <Button
                     variant="outline"
                     role="combobox"
-                    className="w-full justify-between h-auto min-h-[40px]"
+                    className="w-full justify-between h-[60px]"
                   >
-                    <div className="flex flex-wrap gap-1 flex-1">
+                    <div className="flex flex-wrap gap-1 flex-1 max-h-[44px] overflow-y-auto pr-2">
                       {formState.selectedPackages.length === 0 ? (
                         <span className="text-muted-foreground">Select test groups...</span>
                       ) : (
@@ -481,7 +481,7 @@ export default function EnhancedLabOrderForm({
                             <Badge
                               key={packageId}
                               variant="secondary"
-                              className="mr-1"
+                              className="mr-1 shrink-0"
                             >
                               {pkg.name}
                               <span
