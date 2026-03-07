@@ -93,16 +93,19 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
       const isCurrentlySelected = currentPackages.includes(action.packageId);
       
       if (isCurrentlySelected) {
+        // Remove package and its tests
         return {
           ...state,
           selectedPackages: currentPackages.filter(id => id !== action.packageId),
           selectedTests: currentTests.filter(testId => !pkgTests.includes(testId)),
         };
       } else {
+        // Add package and auto-select all its tests
+        const testsToAdd = pkgTests.filter((testId: string) => !currentTests.includes(testId));
         return {
           ...state,
           selectedPackages: [...currentPackages, action.packageId],
-          selectedTests: currentTests,
+          selectedTests: [...currentTests, ...testsToAdd],
         };
       }
     }
@@ -752,9 +755,14 @@ export default function EnhancedLabOrderFormMultiple({
                               className={`flex items-start gap-2 p-2 rounded-sm cursor-pointer hover:bg-accent ${
                                 isSelected ? 'bg-accent' : ''
                               }`}
-                              onClick={() => togglePackage(pkg.id)}
+                              onClick={(e) => {
+                                // Only trigger if clicking the card itself, not the checkbox
+                                if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.flex-1')) {
+                                  togglePackage(pkg.id);
+                                }
+                              }}
                             >
-                              <div className="flex h-5 items-center">
+                              <div className="flex h-5 items-center" onClick={(e) => e.stopPropagation()}>
                                 <Checkbox
                                   checked={isSelected}
                                   onCheckedChange={() => togglePackage(pkg.id)}

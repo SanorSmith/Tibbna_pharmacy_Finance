@@ -110,9 +110,12 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
         const packageTests = pkg?.tests || [];
         newSelectedTests = state.selectedTests.filter(testId => !packageTests.includes(testId));
       } else {
-        // Add package but don't auto-select tests
+        // Add package and auto-select all its tests
         newSelectedPackages = [...state.selectedPackages, action.packageId];
-        newSelectedTests = [...state.selectedTests];
+        const packageTests = pkg?.tests || [];
+        // Add package tests that aren't already selected
+        const testsToAdd = packageTests.filter((testId: string) => !state.selectedTests.includes(testId));
+        newSelectedTests = [...state.selectedTests, ...testsToAdd];
       }
       
       return {
@@ -535,9 +538,14 @@ export default function EnhancedLabOrderForm({
                         className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
                           formState.selectedPackages.includes(pkg.id) ? 'bg-accent' : ''
                         }`}
-                        onClick={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
+                        onClick={(e) => {
+                          // Only trigger if clicking the card itself, not the checkbox
+                          if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.flex-1')) {
+                            dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id });
+                          }
+                        }}
                       >
-                        <div className="flex h-5 items-center">
+                        <div className="flex h-5 items-center" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={formState.selectedPackages.includes(pkg.id)}
                             onCheckedChange={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
