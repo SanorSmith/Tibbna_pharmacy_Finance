@@ -365,15 +365,64 @@ export const INDIVIDUAL_TESTS: Record<string, TestItem> = {
   "17-ohp": { id: "17-ohp", name: "17-Hydroxy Progesterone", code: "17-OHP", category: "Biochemistry", material: "Blood", snomedCode: "104590004" },
   "protein-electrophoresis": { id: "protein-electrophoresis", name: "Protein Electrophoresis", code: "PROT-ELEC", category: "Biochemistry", material: "Blood", snomedCode: "165771003" },
   
-  // MICROBIOLOGY
-  bacteremia: { id: "bacteremia", name: "Bacteremia", code: "BACT", category: "Microbiology", material: "Blood", snomedCode: "165772005" },
-  fungemia: { id: "fungemia", name: "Fungemia", code: "FUNG", category: "Microbiology", material: "Blood", snomedCode: "165773000" },
-  "uti-diagnosis": { id: "uti-diagnosis", name: "UTI Diagnosis", code: "UTI", category: "Microbiology", material: "Urine", snomedCode: "165774006" },
-  "sputum-culture-test": { id: "sputum-culture-test", name: "Sputum Culture", code: "SPUTUM", category: "Microbiology", material: "Sputum", snomedCode: "165775007" },
+  // MICROBIOLOGY - Abscess
+  "abscess-cs-manual": { id: "abscess-cs-manual", name: "Abscess C/S (Manual)", code: "ABSCESS-CS-M", category: "Microbiology", material: "Abscess", snomedCode: "165772001" },
+  "abscess-cs-automated": { id: "abscess-cs-automated", name: "Abscess C/S (Automated)", code: "ABSCESS-CS-A", category: "Microbiology", material: "Abscess", snomedCode: "165772002" },
+  "gram-stain-abscess": { id: "gram-stain-abscess", name: "Gram Stain (Abscess)", code: "GRAM-ABS", category: "Microbiology", material: "Abscess", snomedCode: "165772003" },
+  "afb-stain-abscess": { id: "afb-stain-abscess", name: "AFB Stain (Abscess)", code: "AFB-ABS", category: "Microbiology", material: "Abscess", snomedCode: "165772004" },
+  
+  // MICROBIOLOGY - Urine
+  "urine-cs": { id: "urine-cs", name: "Urine Culture & Sensitivity", code: "URINE-CS", category: "Microbiology", material: "Urine", snomedCode: "165774006" },
+  
+  // MICROBIOLOGY - Stool
+  "stool-cs-manual": { id: "stool-cs-manual", name: "Stool C/S (Manual)", code: "STOOL-CS-M", category: "Microbiology", material: "Stool", snomedCode: "165776001" },
+  "stool-cs-automated": { id: "stool-cs-automated", name: "Stool C/S (Automated)", code: "STOOL-CS-A", category: "Microbiology", material: "Stool", snomedCode: "165776002" },
   "stool-parasites": { id: "stool-parasites", name: "Parasites", code: "PARA-ST", category: "Microbiology", material: "Stool", snomedCode: "165776008" },
   "c-difficile": { id: "c-difficile", name: "C. difficile", code: "C-DIFF", category: "Microbiology", material: "Stool", snomedCode: "165777004" },
   "occult-blood": { id: "occult-blood", name: "Occult Blood", code: "OB", category: "Microbiology", material: "Stool", snomedCode: "165778009" },
-  "pcr-naat": { id: "pcr-naat", name: "PCR/NAAT", code: "PCR", category: "Microbiology", material: "Stool", snomedCode: "165779001" },
+  
+  // MICROBIOLOGY - Blood
+  "blood-cs-manual": { id: "blood-cs-manual", name: "Blood C/S (Manual)", code: "BLOOD-CS-M", category: "Microbiology", material: "Blood", snomedCode: "165772005" },
+  "blood-cs-automated": { id: "blood-cs-automated", name: "Blood C/S (Automated)", code: "BLOOD-CS-A", category: "Microbiology", material: "Blood", snomedCode: "165772006" },
+  bacteremia: { id: "bacteremia", name: "Bacteremia", code: "BACT", category: "Microbiology", material: "Blood", snomedCode: "165772007" },
+  fungemia: { id: "fungemia", name: "Fungemia", code: "FUNG", category: "Microbiology", material: "Blood", snomedCode: "165773000" },
+  
+  // MICROBIOLOGY - Sputum
+  "sputum-cs-manual": { id: "sputum-cs-manual", name: "Sputum C/S (Manual)", code: "SPUTUM-CS-M", category: "Microbiology", material: "Sputum", snomedCode: "165775001" },
+  "sputum-cs-automated": { id: "sputum-cs-automated", name: "Sputum C/S (Automated)", code: "SPUTUM-CS-A", category: "Microbiology", material: "Sputum", snomedCode: "165775002" },
+  
+  // MICROBIOLOGY - Wound
+  "wound-cs-manual": { id: "wound-cs-manual", name: "Wound C/S (Manual)", code: "WOUND-CS-M", category: "Microbiology", material: "Wound", snomedCode: "165780001" },
+  "wound-cs-automated": { id: "wound-cs-automated", name: "Wound C/S (Automated)", code: "WOUND-CS-A", category: "Microbiology", material: "Wound", snomedCode: "165780002" },
+  
+  // MICROBIOLOGY - Swabs
+  "nasal-cs": { id: "nasal-cs", name: "Nasal Swab C/S", code: "NASAL-CS", category: "Microbiology", material: "Nasal Swab", snomedCode: "165781001" },
+  "throat-cs": { id: "throat-cs", name: "Throat Swab C/S", code: "THROAT-CS", category: "Microbiology", material: "Throat Swab", snomedCode: "165782001" },
+  "hvs-direct-exam": { id: "hvs-direct-exam", name: "HVS Direct Exam", code: "HVS-EXAM", category: "Microbiology", material: "HVS", snomedCode: "165783001" },
+  "gram-stain-hvs": { id: "gram-stain-hvs", name: "Gram Stain (HVS)", code: "GRAM-HVS", category: "Microbiology", material: "HVS", snomedCode: "165783002" },
+  "urethral-direct-exam": { id: "urethral-direct-exam", name: "Urethral Direct Exam", code: "URETH-EXAM", category: "Microbiology", material: "Urethral Swab", snomedCode: "165784001" },
+  "gc-stain-urethral": { id: "gc-stain-urethral", name: "GC Stain (Urethral)", code: "GC-URETH", category: "Microbiology", material: "Urethral Swab", snomedCode: "165784002" },
+  
+  // MICROBIOLOGY - Body Fluids
+  "pleural-cs-manual": { id: "pleural-cs-manual", name: "Pleural Fluid C/S (Manual)", code: "PLEURAL-CS-M", category: "Microbiology", material: "Pleural Fluid", snomedCode: "165785001" },
+  "pleural-cs-automated": { id: "pleural-cs-automated", name: "Pleural Fluid C/S (Automated)", code: "PLEURAL-CS-A", category: "Microbiology", material: "Pleural Fluid", snomedCode: "165785002" },
+  "gram-stain-pleural": { id: "gram-stain-pleural", name: "Gram Stain (Pleural)", code: "GRAM-PLEUR", category: "Microbiology", material: "Pleural Fluid", snomedCode: "165785003" },
+  "ascitic-cs-manual": { id: "ascitic-cs-manual", name: "Ascitic Fluid C/S (Manual)", code: "ASCITIC-CS-M", category: "Microbiology", material: "Ascitic Fluid", snomedCode: "165786001" },
+  "ascitic-cs-automated": { id: "ascitic-cs-automated", name: "Ascitic Fluid C/S (Automated)", code: "ASCITIC-CS-A", category: "Microbiology", material: "Ascitic Fluid", snomedCode: "165786002" },
+  "gram-stain-ascitic": { id: "gram-stain-ascitic", name: "Gram Stain (Ascitic)", code: "GRAM-ASCIT", category: "Microbiology", material: "Ascitic Fluid", snomedCode: "165786003" },
+  "synovial-cs-manual": { id: "synovial-cs-manual", name: "Synovial Fluid C/S (Manual)", code: "SYNOV-CS-M", category: "Microbiology", material: "Synovial Fluid", snomedCode: "165787001" },
+  "synovial-cs-automated": { id: "synovial-cs-automated", name: "Synovial Fluid C/S (Automated)", code: "SYNOV-CS-A", category: "Microbiology", material: "Synovial Fluid", snomedCode: "165787002" },
+  "gram-stain-synovial": { id: "gram-stain-synovial", name: "Gram Stain (Synovial)", code: "GRAM-SYNOV", category: "Microbiology", material: "Synovial Fluid", snomedCode: "165787003" },
+  "csf-cs-manual": { id: "csf-cs-manual", name: "CSF C/S (Manual)", code: "CSF-CS-M", category: "Microbiology", material: "CSF", snomedCode: "165788001" },
+  "csf-cs-automated": { id: "csf-cs-automated", name: "CSF C/S (Automated)", code: "CSF-CS-A", category: "Microbiology", material: "CSF", snomedCode: "165788002" },
+  "gram-stain-csf": { id: "gram-stain-csf", name: "Gram Stain (CSF)", code: "GRAM-CSF", category: "Microbiology", material: "CSF", snomedCode: "165788003" },
+  "seminal-cs": { id: "seminal-cs", name: "Seminal Fluid C/S", code: "SEMINAL-CS", category: "Microbiology", material: "Seminal Fluid", snomedCode: "165789001" },
+  "gc-stain-seminal": { id: "gc-stain-seminal", name: "GC Stain (Seminal)", code: "GC-SEMIN", category: "Microbiology", material: "Seminal Fluid", snomedCode: "165789002" },
+  sfa: { id: "sfa", name: "Seminal Fluid Analysis", code: "SFA", category: "Microbiology", material: "Seminal Fluid", snomedCode: "165789003" },
+  "peritoneal-cs-manual": { id: "peritoneal-cs-manual", name: "Peritoneal Fluid C/S (Manual)", code: "PERIT-CS-M", category: "Microbiology", material: "Peritoneal Fluid", snomedCode: "165790001" },
+  "peritoneal-cs": { id: "peritoneal-cs", name: "Peritoneal Fluid C/S", code: "PERIT-CS", category: "Microbiology", material: "Peritoneal Fluid", snomedCode: "165790002" },
+  "gram-stain-peritoneal": { id: "gram-stain-peritoneal", name: "Gram Stain (Peritoneal)", code: "GRAM-PERIT", category: "Microbiology", material: "Peritoneal Fluid", snomedCode: "165790003" },
+  "pcr-naat": { id: "pcr-naat", name: "PCR/NAAT", code: "PCR", category: "Microbiology", material: "Various", snomedCode: "165779001" },
   
   // Biochemistry - Immunity
   ana: { id: "ana", name: "ANA", code: "ANA", category: "Biochemistry", material: "Blood", snomedCode: "165780003" },

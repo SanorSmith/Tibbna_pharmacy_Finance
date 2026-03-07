@@ -110,12 +110,9 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
         const packageTests = pkg?.tests || [];
         newSelectedTests = state.selectedTests.filter(testId => !packageTests.includes(testId));
       } else {
-        // Add package and auto-select all its tests
+        // Add package but don't auto-select tests - user selects manually in Step 3
         newSelectedPackages = [...state.selectedPackages, action.packageId];
-        const packageTests = pkg?.tests || [];
-        // Add package tests that aren't already selected
-        const testsToAdd = packageTests.filter((testId: string) => !state.selectedTests.includes(testId));
-        newSelectedTests = [...state.selectedTests, ...testsToAdd];
+        newSelectedTests = [...state.selectedTests];
       }
       
       return {
