@@ -110,7 +110,7 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
         const packageTests = pkg?.tests || [];
         newSelectedTests = state.selectedTests.filter(testId => !packageTests.includes(testId));
       } else {
-        // Add package but don't auto-select tests
+        // Add package but don't auto-select tests - user selects manually in Step 3
         newSelectedPackages = [...state.selectedPackages, action.packageId];
         newSelectedTests = [...state.selectedTests];
       }
@@ -469,9 +469,9 @@ export default function EnhancedLabOrderForm({
                   <Button
                     variant="outline"
                     role="combobox"
-                    className="w-full justify-between h-auto min-h-[40px]"
+                    className="w-full justify-between h-[60px]"
                   >
-                    <div className="flex flex-wrap gap-1 flex-1">
+                    <div className="flex flex-wrap gap-1 flex-1 max-h-[44px] overflow-y-auto pr-2">
                       {formState.selectedPackages.length === 0 ? (
                         <span className="text-muted-foreground">Select test groups...</span>
                       ) : (
@@ -481,7 +481,7 @@ export default function EnhancedLabOrderForm({
                             <Badge
                               key={packageId}
                               variant="secondary"
-                              className="mr-1"
+                              className="mr-1 shrink-0"
                             >
                               {pkg.name}
                               <span
@@ -535,9 +535,14 @@ export default function EnhancedLabOrderForm({
                         className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-accent rounded-sm ${
                           formState.selectedPackages.includes(pkg.id) ? 'bg-accent' : ''
                         }`}
-                        onClick={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}
+                        onClick={(e) => {
+                          // Only trigger if clicking the card itself, not the checkbox
+                          if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.flex-1')) {
+                            dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id });
+                          }
+                        }}
                       >
-                        <div className="flex h-5 items-center">
+                        <div className="flex h-5 items-center" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={formState.selectedPackages.includes(pkg.id)}
                             onCheckedChange={() => dispatch({ type: "TOGGLE_PACKAGE", packageId: pkg.id })}

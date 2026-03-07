@@ -93,12 +93,14 @@ function formReducer(state: TestOrderForm, action: FormAction): TestOrderForm {
       const isCurrentlySelected = currentPackages.includes(action.packageId);
       
       if (isCurrentlySelected) {
+        // Remove package and its tests
         return {
           ...state,
           selectedPackages: currentPackages.filter(id => id !== action.packageId),
           selectedTests: currentTests.filter(testId => !pkgTests.includes(testId)),
         };
       } else {
+        // Add package but don't auto-select tests - user selects manually in Step 3
         return {
           ...state,
           selectedPackages: [...currentPackages, action.packageId],
@@ -673,10 +675,10 @@ export default function EnhancedLabOrderFormMultiple({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full justify-between h-auto min-h-[40px]"
+                  className="w-full justify-between h-[60px]"
                   onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
                 >
-                  <div className="flex flex-wrap gap-1 flex-1">
+                  <div className="flex flex-wrap gap-1 flex-1 max-h-[44px] overflow-y-auto pr-2">
                     {(formState.selectedPackages || []).length === 0 ? (
                       <span className="text-muted-foreground">Select test groups...</span>
                     ) : (
@@ -686,7 +688,7 @@ export default function EnhancedLabOrderFormMultiple({
                           <Badge
                             key={packageId}
                             variant="secondary"
-                            className="mr-1"
+                            className="mr-1 shrink-0"
                           >
                             {pkg.name}
                             <span
@@ -752,9 +754,14 @@ export default function EnhancedLabOrderFormMultiple({
                               className={`flex items-start gap-2 p-2 rounded-sm cursor-pointer hover:bg-accent ${
                                 isSelected ? 'bg-accent' : ''
                               }`}
-                              onClick={() => togglePackage(pkg.id)}
+                              onClick={(e) => {
+                                // Only trigger if clicking the card itself, not the checkbox
+                                if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.flex-1')) {
+                                  togglePackage(pkg.id);
+                                }
+                              }}
                             >
-                              <div className="flex h-5 items-center">
+                              <div className="flex h-5 items-center" onClick={(e) => e.stopPropagation()}>
                                 <Checkbox
                                   checked={isSelected}
                                   onCheckedChange={() => togglePackage(pkg.id)}
@@ -843,11 +850,11 @@ export default function EnhancedLabOrderFormMultiple({
                   {formState.selectedTests.length} of {allSelectedTests.length} tests selected
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 max-h-68 overflow-y-auto border rounded-md p-3">
+              <div className="grid grid-cols-2 gap-2 max-h-68 overflow-y-auto border rounded-md p-2">
                 {allSelectedTests.map((test) => (
                   <div
                     key={test.id}
-                    className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded border"
+                    className="flex items-start gap-2 p-1.5 hover:bg-gray-50 rounded border"
                   >
                     <div className="flex h-5 items-center" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
@@ -861,11 +868,11 @@ export default function EnhancedLabOrderFormMultiple({
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => dispatch({ type: "TOGGLE_TEST", testId: test.id })}>
                       <p className="font-medium text-[11px] leading-tight break-words" title={test.name}>{test.name}</p>
                       {test.fastingRequired && (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 mt-1">
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 mt-0.5">
                           Fasting
                         </span>
                       )}
-                      <p className="text-[10px] text-gray-500 mt-1" title={`Code: ${test.code}`}>
+                      <p className="text-[10px] text-gray-500 mt-0.5" title={`Code: ${test.code}`}>
                         {test.code}
                       </p>
                     </div>
@@ -917,15 +924,15 @@ export default function EnhancedLabOrderFormMultiple({
                   {addedTests.length} test{addedTests.length !== 1 ? 's' : ''} added to order
                 </p>
               </div>
-              <div className="space-y-1 max-h-80 overflow-y-auto border rounded-md p-3">
+              <div className="grid grid-cols-2 gap-1.5 max-h-80 overflow-y-auto border rounded-md p-2">
                 {addedTestObjects.map((test, index) => (
                   <div
                     key={test.id}
-                    className="flex items-center justify-between p-2 bg-green-50 rounded border border-green-200"
+                    className="flex items-center justify-between p-1.5 bg-green-50 rounded border border-green-200"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-xs" title={test.name}>{index + 1}. {test.name}</p>
-                      <p className="text-[10px] text-gray-500" title={`Code: ${test.code}`}>
+                      <p className="font-medium text-xs leading-tight" title={test.name}>{index + 1}. {test.name}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5" title={`Code: ${test.code}`}>
                         {test.code}
                       </p>
                     </div>
@@ -934,7 +941,7 @@ export default function EnhancedLabOrderFormMultiple({
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemoveAddedTest(test.id)}
-                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0 ml-1"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
