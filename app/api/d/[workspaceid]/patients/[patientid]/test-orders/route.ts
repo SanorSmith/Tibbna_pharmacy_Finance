@@ -63,11 +63,10 @@ export async function GET(
       ehrId = await getOpenEHREHRBySubjectId(patientid);
     }
 
+    // If no EHR exists, return empty array instead of 404
+    // This allows the UI to display "No test orders" instead of an error
     if (!ehrId) {
-      return NextResponse.json(
-        { error: "No EHR found for this patient" },
-        { status: 404 }
-      );
+      return NextResponse.json({ testOrders: [], hasMore: false });
     }
 
     // Use optimized AQL query to fetch test orders directly (including cancelled for doctors)
