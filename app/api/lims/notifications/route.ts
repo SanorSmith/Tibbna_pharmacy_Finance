@@ -42,7 +42,11 @@ export async function GET(request: NextRequest) {
     const result = await getUserNotifications(user.userid, workspaceid, limit, unreadOnly);
     
     if (!result.success) {
-      return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 });
+      console.error("getUserNotifications failed:", result.error);
+      return NextResponse.json({ 
+        error: "Failed to fetch notifications",
+        details: result.error instanceof Error ? result.error.message : String(result.error)
+      }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -50,7 +54,11 @@ export async function GET(request: NextRequest) {
       total: result.notifications.length,
     });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 });
+    console.error("Error fetching notifications:", error);
+    return NextResponse.json({ 
+      error: "Failed to fetch notifications", 
+      details: error instanceof Error ? error.message : String(error) 
+    }, { status: 500 });
   }
 }
 
