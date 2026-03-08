@@ -262,7 +262,9 @@ export async function GET(
               if (!refRange && test.testcategory) {
                 const category = test.testcategory.toLowerCase();
                 if (category.includes('pathology') || category.includes('cytology') || 
-                    category.includes('biopsy') || category.includes('screening')) {
+                    category.includes('biopsy') || category.includes('screening') ||
+                    category.includes('microbiology') || category.includes('culture') ||
+                    category.includes('bacteriology') || category.includes('parasitology')) {
                   referencerange = 'Descriptive result';
                   unit = 'N/A';
                 }
