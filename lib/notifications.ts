@@ -50,16 +50,20 @@ export async function createWorkspaceNotification({
     // Create notification for each user
     const notificationPromises = workspaceUsers.map(async (user) => {
       return await db.insert(notifications).values({
-        workspaceid,
-        userid: user.userid,
-        type,
+        organization_id: workspaceid,
+        recipient_id: user.userid,
+        notification_type: type,
+        category: 'LIMS',
         title,
         message,
-        relatedentityid,
-        relatedentitytype,
+        related_entity_id: relatedentityid,
+        related_entity_type: relatedentitytype,
         metadata: metadata || {},
-        priority,
-        read: false,
+        priority: priority.toUpperCase(),
+        is_read: false,
+        send_in_app: true,
+        send_email: false,
+        send_sms: false,
       });
     });
 
@@ -86,16 +90,20 @@ export async function createUserNotification({
 }: CreateNotificationParams & { userid: string }) {
   try {
     await db.insert(notifications).values({
-      workspaceid,
-      userid,
-      type,
+      organization_id: workspaceid,
+      recipient_id: userid,
+      notification_type: type,
+      category: 'LIMS',
       title,
       message,
-      relatedentityid,
-      relatedentitytype,
+      related_entity_id: relatedentityid,
+      related_entity_type: relatedentitytype,
       metadata: metadata || {},
-      priority,
-      read: false,
+      priority: priority.toUpperCase(),
+      is_read: false,
+      send_in_app: true,
+      send_email: false,
+      send_sms: false,
     });
     return { success: true };
   } catch (error) {
@@ -136,16 +144,20 @@ export async function createRoleNotification({
 
     const notificationPromises = roleUsers.map(async (user) => {
       return await db.insert(notifications).values({
-        workspaceid,
-        userid: user.userid,
-        type,
+        organization_id: workspaceid,
+        recipient_id: user.userid,
+        notification_type: type,
+        category: 'LIMS',
         title,
         message,
-        relatedentityid,
-        relatedentitytype,
+        related_entity_id: relatedentityid,
+        related_entity_type: relatedentitytype,
         metadata: metadata || {},
-        priority,
-        read: false,
+        priority: priority.toUpperCase(),
+        is_read: false,
+        send_in_app: true,
+        send_email: false,
+        send_sms: false,
       });
     });
 
@@ -381,12 +393,12 @@ export async function getUserNotifications(
   try {
     
     const conditions = [
-      eq(notifications.userid, userid ),
-      eq(notifications.workspaceid, workspaceid ),
+      eq(notifications.recipient_id, userid),
+      eq(notifications.organization_id, workspaceid),
     ];
 
     if (unreadOnly) {
-      conditions.push(eq(notifications.read, false));
+      conditions.push(eq(notifications.is_read, false));
     }
 
 
@@ -394,7 +406,7 @@ export async function getUserNotifications(
       .select()
       .from(notifications)
       .where(and(...conditions))
-      .orderBy(desc(notifications.createdat))
+      .orderBy(desc(notifications.created_at))
       .limit(limit);
 
     return { success: true, notifications: userNotifications };
@@ -410,10 +422,10 @@ export async function markNotificationAsRead(notificationid: string, userid: str
   try {
     await db
       .update(notifications)
-      .set({ read: true, updatedat: new Date() })
+      .set({ is_read: true, read_at: new Date() })
       .where(and(
         eq(notifications.notificationid, notificationid),
-        eq(notifications.userid, userid)
+        eq(notifications.recipient_id, userid)
       ));
     return { success: true };
   } catch (error) {
@@ -428,11 +440,11 @@ export async function markAllNotificationsAsRead(userid: string, workspaceid: st
   try {
     await db
       .update(notifications)
-      .set({ read: true, updatedat: new Date() })
+      .set({ is_read: true, read_at: new Date() })
       .where(and(
-        eq(notifications.userid, userid ),
-        eq(notifications.workspaceid, workspaceid ),
-        eq(notifications.read, false)
+        eq(notifications.recipient_id, userid),
+        eq(notifications.organization_id, workspaceid),
+        eq(notifications.is_read, false)
       ));
     return { success: true };
   } catch (error) {
@@ -449,7 +461,7 @@ export async function deleteNotification(notificationid: string, userid: string)
       .delete(notifications)
       .where(and(
         eq(notifications.notificationid, notificationid),
-        eq(notifications.userid, userid )
+        eq(notifications.recipient_id, userid)
       ));
     return { success: true };
   } catch (error) {
@@ -466,9 +478,9 @@ export async function getUnreadNotificationCount(userid: string, workspaceid: st
       .select({ count: notifications })
       .from(notifications)
       .where(and(
-        eq(notifications.userid, userid),
-        eq(notifications.workspaceid, workspaceid),
-        eq(notifications.read, false)
+        eq(notifications.recipient_id, userid),
+        eq(notifications.organization_id, workspaceid),
+        eq(notifications.is_read, false)
       ));
     
     return { success: true, count: result.length };
