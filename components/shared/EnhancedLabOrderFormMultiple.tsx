@@ -725,8 +725,8 @@ export default function EnhancedLabOrderFormMultiple({
                 </Button>
 
                 {packageDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md">
-                    <div className="p-3 border-b">
+                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-[500px] flex flex-col">
+                    <div className="p-3 border-b flex-shrink-0">
                       <input
                         type="text"
                         placeholder="Search test groups or individual tests..."
@@ -736,7 +736,7 @@ export default function EnhancedLabOrderFormMultiple({
                         autoFocus
                       />
                     </div>
-                    <div className="max-h-[400px] overflow-y-auto p-1">
+                    <div className="overflow-y-auto p-1 flex-1">
                       {filteredPackages.length === 0 ? (
                         <div className="p-4 text-center text-sm text-muted-foreground">
                           {packageSearchTerm ? "No test groups or tests found" : "No test groups available"}
