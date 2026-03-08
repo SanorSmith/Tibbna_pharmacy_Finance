@@ -58,7 +58,7 @@ export default function PatientsList({
   // Only administrators can edit
   const canEdit = userRole === "administrator";
 
-  // Fetch patients - disabled by default, will be triggered by global header search
+  // Fetch patients
   const { data: rows = [], isLoading: loadingPatients, error: patientsError } = useQuery({
     queryKey: ["patients", workspaceid],
     queryFn: async () => {
@@ -67,7 +67,7 @@ export default function PatientsList({
       const data = await res.json();
       return (data.patients as Patient[]) ?? [];
     },
-    enabled: false, // Will be triggered by global header search
+    enabled: true, // Auto-load patients on page load
   });
 
   // Fetch EHRs
