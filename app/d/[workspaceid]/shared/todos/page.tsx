@@ -1,5 +1,5 @@
 import { getUser } from "@/lib/user";
-import TodosList from "../doctor/todos/todos-list";
+import TodosList from "../../ehr/doctor/todos/todos-list";
 
 type Props = {
   params: Promise<{ workspaceid: string }>;
