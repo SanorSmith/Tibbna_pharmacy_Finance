@@ -316,6 +316,32 @@ export class ValidationService {
         // Don't fail the release if OpenEHR submission fails
       }
 
+      // NOTIFY DOCTOR: Send notification to ordering doctor when results are released
+      try {
+        const sample = await db.query.accessionSamples.findFirst({
+          where: eq(accessionSamples.sampleid, sampleid),
+          with: {
+            order: true,
+          },
+        });
+
+        if (sample?.order?.workspaceid) {
+          const { notifyDoctorOnResultRelease } = await import("@/lib/notifications");
+          
+          await notifyDoctorOnResultRelease({
+            workspaceid: sample.order.workspaceid,
+            sampleid: sampleid,
+            testname: "Lab Results", // Generic name, actual tests will be in notification details
+            patientname: "", // Will be resolved in notification function
+          });
+          
+          console.log(`[ValidationService] Doctor notification sent for sample ${sampleid}`);
+        }
+      } catch (notificationError) {
+        console.error("[ValidationService] Doctor notification error:", notificationError);
+        // Don't fail the release if notification fails
+      }
+
       // AUTO-TRANSITION: Check if order can be completed (IN_PROGRESS → COMPLETED)
       // This happens when all samples for the order have released results
       const sample = await db.query.accessionSamples.findFirst({
