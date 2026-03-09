@@ -270,20 +270,19 @@ export class ValidationService {
   }): Promise<{ success: boolean; violations?: ValidationRuleViolation[] }> {
     const { sampleid, userid, userrole } = params;
 
-    return await db.transaction(async (tx) => {
-      // Transition validation state to RELEASED
-      const result = await this.transitionState({
+    // Step 1: Transaction - state transition + status update only
+    const result = await db.transaction(async (tx) => {
+      const transitionResult = await this.transitionState({
         sampleid,
         targetState: VALIDATION_STATES.RELEASED,
         userid,
         userrole,
       });
 
-      if (!result.success) {
-        return result;
+      if (!transitionResult.success) {
+        return transitionResult;
       }
 
-      // Update sample status to ANALYZED
       await tx
         .update(accessionSamples)
         .set({
@@ -292,117 +291,119 @@ export class ValidationService {
         })
         .where(eq(accessionSamples.sampleid, sampleid));
 
-      // Emit domain event for openEHR integration
-      // This would be handled by a separate integration service
-      await this.emitResultsReleasedEvent(sampleid);
+      return transitionResult;
+    });
 
-      // AUTO-SUBMIT: Submit results to OpenEHR when released
-      try {
-        const { OpenEHRResultSubmissionService } = await import("./openehr-result-submission");
+    // If transaction failed, return early
+    if (!result.success) {
+      return result;
+    }
+
+    // Step 2: Post-transaction side effects (OpenEHR, notifications, order completion)
+    // These run OUTSIDE the transaction so they don't block or deadlock
+
+    // Emit domain event for openEHR integration
+    await this.emitResultsReleasedEvent(sampleid);
+
+    // AUTO-SUBMIT: Submit results to OpenEHR when released
+    try {
+      const { OpenEHRResultSubmissionService } = await import("./openehr-result-submission");
+      
+      const submissionResult = await OpenEHRResultSubmissionService.submitResultsToOpenEHR({
+        sampleid: sampleid,
+        userid: userid,
+        overrideStatus: "final",
+      });
+      
+      if (submissionResult.success) {
+        console.log(`[ValidationService] Results submitted to OpenEHR: ${submissionResult.compositionUid}`);
+      } else {
+        console.warn(`[ValidationService] OpenEHR submission failed: ${submissionResult.error}`);
+      }
+    } catch (submissionError) {
+      console.error("[ValidationService] OpenEHR submission error:", submissionError);
+    }
+
+    // NOTIFY DOCTOR: Send notification to all doctors when results are released
+    try {
+      console.log(`[ValidationService] Starting notification for sample: ${sampleid}`);
+      
+      const [sampleData] = await db
+        .select({
+          patientid: accessionSamples.patientid,
+          orderid: accessionSamples.orderid,
+          workspaceid: limsOrders.workspaceid,
+        })
+        .from(accessionSamples)
+        .leftJoin(limsOrders, eq(accessionSamples.orderid, limsOrders.orderid))
+        .where(eq(accessionSamples.sampleid, sampleid))
+        .limit(1);
+
+      console.log(`[ValidationService] Sample data: patientid=${sampleData?.patientid}, orderid=${sampleData?.orderid}, workspaceid=${sampleData?.workspaceid}`);
+
+      if (sampleData?.workspaceid) {
+        const sampleResults = await db
+          .select({ testname: testResults.testname })
+          .from(testResults)
+          .where(eq(testResults.sampleid, sampleid))
+          .limit(5);
+
+        const testNames = sampleResults.map(r => r.testname).filter(Boolean).join(", ");
+
+        let patientName = "Unknown Patient";
+        if (sampleData.patientid) {
+          const [patient] = await db
+            .select({ firstname: patients.firstname, lastname: patients.lastname })
+            .from(patients)
+            .where(sql`${patients.patientid}::text = ${sampleData.patientid}`)
+            .limit(1);
+          if (patient) {
+            patientName = `${patient.firstname} ${patient.lastname}`;
+          }
+        }
+
+        console.log(`[ValidationService] Sending notification: tests=${testNames}, patient=${patientName}`);
+
+        const { notifyDoctorOnResultRelease } = await import("@/lib/notifications");
         
-        const submissionResult = await OpenEHRResultSubmissionService.submitResultsToOpenEHR({
+        const notifResult = await notifyDoctorOnResultRelease({
+          workspaceid: sampleData.workspaceid,
           sampleid: sampleid,
-          userid: userid,
-          overrideStatus: "final",
+          testname: testNames || "Lab Results",
+          patientname: patientName,
         });
         
-        if (submissionResult.success) {
-          console.log(`[ValidationService] Results submitted to OpenEHR: ${submissionResult.compositionUid}`);
-        } else {
-          console.warn(`[ValidationService] OpenEHR submission failed: ${submissionResult.error}`);
-        }
-      } catch (submissionError) {
-        console.error("[ValidationService] OpenEHR submission error:", submissionError);
-        // Don't fail the release if OpenEHR submission fails
+        console.log(`[ValidationService] Notification result:`, JSON.stringify(notifResult));
+      } else {
+        console.warn(`[ValidationService] No workspaceid found for sample ${sampleid}, skipping notification`);
       }
+    } catch (notificationError) {
+      console.error("[ValidationService] Doctor notification error:", notificationError);
+    }
 
-      // NOTIFY DOCTOR: Send notification to all doctors when results are released
-      try {
-        console.log(`[ValidationService] Starting notification for sample: ${sampleid}`);
-        
-        // Use plain select to avoid Drizzle relation issues
-        const [sampleData] = await db
-          .select({
-            patientid: accessionSamples.patientid,
-            orderid: accessionSamples.orderid,
-            workspaceid: limsOrders.workspaceid,
-          })
-          .from(accessionSamples)
-          .leftJoin(limsOrders, eq(accessionSamples.orderid, limsOrders.orderid))
-          .where(eq(accessionSamples.sampleid, sampleid))
-          .limit(1);
-
-        console.log(`[ValidationService] Sample data: patientid=${sampleData?.patientid}, orderid=${sampleData?.orderid}, workspaceid=${sampleData?.workspaceid}`);
-
-        if (sampleData?.workspaceid) {
-          // Get test results for this sample
-          const sampleResults = await db
-            .select({ testname: testResults.testname })
-            .from(testResults)
-            .where(eq(testResults.sampleid, sampleid))
-            .limit(5);
-
-          const testNames = sampleResults.map(r => r.testname).filter(Boolean).join(", ");
-
-          // Fetch patient name with type cast (patientid is text, patients.patientid is uuid)
-          let patientName = "Unknown Patient";
-          if (sampleData.patientid) {
-            const [patient] = await db
-              .select({ firstname: patients.firstname, lastname: patients.lastname })
-              .from(patients)
-              .where(sql`${patients.patientid}::text = ${sampleData.patientid}`)
-              .limit(1);
-            if (patient) {
-              patientName = `${patient.firstname} ${patient.lastname}`;
-            }
-          }
-
-          console.log(`[ValidationService] Sending notification: tests=${testNames}, patient=${patientName}`);
-
-          const { notifyDoctorOnResultRelease } = await import("@/lib/notifications");
-          
-          const notifResult = await notifyDoctorOnResultRelease({
-            workspaceid: sampleData.workspaceid,
-            sampleid: sampleid,
-            testname: testNames || "Lab Results",
-            patientname: patientName,
-          });
-          
-          console.log(`[ValidationService] Notification result:`, JSON.stringify(notifResult));
-        } else {
-          console.warn(`[ValidationService] No workspaceid found for sample ${sampleid}, skipping notification`);
-        }
-      } catch (notificationError) {
-        console.error("[ValidationService] Doctor notification error:", notificationError);
-        // Don't fail the release if notification fails
-      }
-
-      // AUTO-TRANSITION: Check if order can be completed (IN_PROGRESS → COMPLETED)
-      // This happens when all samples for the order have released results
+    // AUTO-TRANSITION: Check if order can be completed
+    try {
       const sample = await db.query.accessionSamples.findFirst({
         where: eq(accessionSamples.sampleid, sampleid),
       });
 
       if (sample?.orderid) {
-        try {
-          const { StatusTransitionService } = await import("./status-transition-service");
-          
-          const completionResult = await StatusTransitionService.checkAndCompleteOrder({
-            orderid: sample.orderid,
-            userid: userid,
-          });
-          
-          if (completionResult.success) {
-            console.log(`[ValidationService] Order completed: ${completionResult.message}`);
-          }
-        } catch (transitionError) {
-          console.error("[ValidationService] Order completion check error:", transitionError);
-          // Don't fail the release if order completion check fails
+        const { StatusTransitionService } = await import("./status-transition-service");
+        
+        const completionResult = await StatusTransitionService.checkAndCompleteOrder({
+          orderid: sample.orderid,
+          userid: userid,
+        });
+        
+        if (completionResult.success) {
+          console.log(`[ValidationService] Order completed: ${completionResult.message}`);
         }
       }
+    } catch (transitionError) {
+      console.error("[ValidationService] Order completion check error:", transitionError);
+    }
 
-      return result;
-    });
+    return result;
   }
 
   /**
