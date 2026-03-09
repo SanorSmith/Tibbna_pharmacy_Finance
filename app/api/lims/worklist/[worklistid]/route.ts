@@ -140,6 +140,9 @@ export async function GET(
             .from(limsOrderTests)
             .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
             .where(sql`${limsOrderTests.orderid}::text = ${item.sample.orderid}::text`);
+          
+          // Filter out entries with null testcode (happens when testid is null in lims_order_tests)
+          orderTests = orderTests.filter(t => t.testcode !== null && t.testcode !== undefined);
         }
         
         // Fallback 1: Use sample's tests JSON field (populated for openEHR orders)
