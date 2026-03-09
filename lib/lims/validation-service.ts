@@ -351,7 +351,7 @@ export class ValidationService {
           .where(eq(testResults.sampleid, sampleid))
           .limit(5);
 
-        const testNames = sampleResults.map(r => r.testname).filter(Boolean).join(", ");
+        const testNames = [...new Set(sampleResults.map(r => r.testname).filter(Boolean))].join(", ");
 
         let patientName = "Unknown Patient";
         if (sampleData.patientid) {
