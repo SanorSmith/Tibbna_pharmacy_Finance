@@ -384,6 +384,23 @@ export class ValidationService {
       console.error("[ValidationService] Doctor notification error:", notificationError);
     }
 
+    // AUTO-TRANSITION: Update worklist item status to COMPLETED
+    try {
+      const { worklistItems } = await import("@/lib/db/schema");
+      
+      await db
+        .update(worklistItems)
+        .set({ 
+          status: "completed",
+          completedat: new Date()
+        })
+        .where(eq(worklistItems.sampleid, sampleid));
+      
+      console.log(`[ValidationService] Worklist item status updated to COMPLETED for sample ${sampleid}`);
+    } catch (worklistItemError) {
+      console.error("[ValidationService] Worklist item status update error:", worklistItemError);
+    }
+
     // AUTO-TRANSITION: Check if order can be completed
     try {
       const sample = await db.query.accessionSamples.findFirst({
