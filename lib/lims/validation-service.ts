@@ -322,17 +322,29 @@ export class ValidationService {
           where: eq(accessionSamples.sampleid, sampleid),
           with: {
             order: true,
+            patient: true,
           },
         });
 
         if (sample?.order?.workspaceid) {
+          // Get test results for this sample to include in notification
+          const results = await db.query.testResults.findMany({
+            where: eq(testResults.sampleid, sampleid),
+            limit: 5, // Include up to 5 tests in the notification
+          });
+
+          const testNames = results.map(r => r.testname).filter(Boolean).join(", ");
+          const patientName = sample.patient 
+            ? `${sample.patient.firstname} ${sample.patient.lastname}`
+            : "Unknown Patient";
+
           const { notifyDoctorOnResultRelease } = await import("@/lib/notifications");
           
           await notifyDoctorOnResultRelease({
             workspaceid: sample.order.workspaceid,
             sampleid: sampleid,
-            testname: "Lab Results", // Generic name, actual tests will be in notification details
-            patientname: "", // Will be resolved in notification function
+            testname: testNames || "Lab Results",
+            patientname: patientName,
           });
           
           console.log(`[ValidationService] Doctor notification sent for sample ${sampleid}`);

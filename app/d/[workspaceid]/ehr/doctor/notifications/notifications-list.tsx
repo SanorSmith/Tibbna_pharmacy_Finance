@@ -60,6 +60,15 @@ type Notification = {
   workspaceid: string;
 };
 
+type LabNotification = {
+  notificationid: string;
+  title: string;
+  message: string;
+  created_at: string;
+  is_read: boolean;
+  notification_type: string;
+};
+
 export default function NotificationsList({ workspaceid }: Notification) {
   const { data: allPatients = [], isLoading: loading } = useQuery({
     queryKey: ["patients", workspaceid],
@@ -70,6 +79,27 @@ export default function NotificationsList({ workspaceid }: Notification) {
         return (data.patients as Patient[]) || [];
       }
       return [];
+    },
+  });
+
+  // Fetch lab result notifications
+  const { data: labNotifications = [], isLoading: loadingLabNotifications } = useQuery({
+    queryKey: ["lab-notifications", workspaceid],
+    queryFn: async (): Promise<LabNotification[]> => {
+      try {
+        const res = await fetch(`/api/lims/notifications?workspaceid=${workspaceid}`);
+        if (res.ok) {
+          const data = await res.json();
+          // Filter for RESULTS_RELEASED notifications
+          return (data.notifications || []).filter((n: LabNotification) => 
+            n.notification_type === 'RESULTS_RELEASED'
+          );
+        }
+        return [];
+      } catch (error) {
+        console.error("Error fetching lab notifications:", error);
+        return [];
+      }
     },
   });
 
@@ -188,6 +218,11 @@ export default function NotificationsList({ workspaceid }: Notification) {
             className="data-[state=active]:bg-orange-400 data-[state=active]:text-white bg-[#618FF5] text-white"
           >
             Results & Labs
+            {formatTabCount(labNotifications.length) && (
+              <span className="ml-2 bg-white text-blue-600 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                {formatTabCount(labNotifications.length)}
+              </span>
+            )}
           </TabsTrigger>
 
           <TabsTrigger
@@ -374,13 +409,50 @@ export default function NotificationsList({ workspaceid }: Notification) {
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-600" />
                 Results & Laboratory Updates
+                <Badge variant="secondary" className="ml-2">
+                  {labNotifications.length}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                This section combines acute results and laboratory comments. 
-                No urgent results or lab updates at this time.
-              </p>
+              {loadingLabNotifications ? (
+                <p className="text-sm text-muted-foreground">Loading lab results...</p>
+              ) : labNotifications.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  This section combines acute results and laboratory comments. 
+                  No urgent results or lab updates at this time.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {labNotifications.map((notification) => (
+                    <div
+                      key={notification.notificationid}
+                      className={`p-4 rounded-lg border ${
+                        notification.is_read ? 'bg-gray-50' : 'bg-blue-50 border-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm mb-1">
+                            {notification.title}
+                          </h4>
+                          <p className="text-sm text-gray-700 mb-2">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(notification.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        {!notification.is_read && (
+                          <Badge variant="default" className="ml-2 bg-blue-600">
+                            New
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
