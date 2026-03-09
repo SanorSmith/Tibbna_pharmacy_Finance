@@ -326,7 +326,7 @@ export default function WorklistValidationPage() {
             <TableBody>
               {currentItem.results && currentItem.results.length > 0 ? (
                 currentItem.results.map((result, index) => {
-                  const resultKey = `${currentItem.sampleid}-${result.testcode}`;
+                  const resultKey = result.resultid || `${currentItem.sampleid}-${result.testcode}-${index}`;
                   const hasResult = result.hasResult !== false;
                   
                   return (
