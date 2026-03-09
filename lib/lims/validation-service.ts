@@ -316,47 +316,61 @@ export class ValidationService {
         // Don't fail the release if OpenEHR submission fails
       }
 
-      // NOTIFY DOCTOR: Send notification to ordering doctor when results are released
+      // NOTIFY DOCTOR: Send notification to all doctors when results are released
       try {
-        const sample = await db.query.accessionSamples.findFirst({
-          where: eq(accessionSamples.sampleid, sampleid),
-          with: {
-            order: true,
-          },
-        });
+        console.log(`[ValidationService] Starting notification for sample: ${sampleid}`);
+        
+        // Use plain select to avoid Drizzle relation issues
+        const [sampleData] = await db
+          .select({
+            patientid: accessionSamples.patientid,
+            orderid: accessionSamples.orderid,
+            workspaceid: limsOrders.workspaceid,
+          })
+          .from(accessionSamples)
+          .leftJoin(limsOrders, eq(accessionSamples.orderid, limsOrders.orderid))
+          .where(eq(accessionSamples.sampleid, sampleid))
+          .limit(1);
 
-        if (sample?.order?.workspaceid) {
-          // Get test results for this sample to include in notification
-          const sampleResults = await db.query.testResults.findMany({
-            where: eq(testResults.sampleid, sampleid),
-            limit: 5,
-          });
+        console.log(`[ValidationService] Sample data: patientid=${sampleData?.patientid}, orderid=${sampleData?.orderid}, workspaceid=${sampleData?.workspaceid}`);
+
+        if (sampleData?.workspaceid) {
+          // Get test results for this sample
+          const sampleResults = await db
+            .select({ testname: testResults.testname })
+            .from(testResults)
+            .where(eq(testResults.sampleid, sampleid))
+            .limit(5);
 
           const testNames = sampleResults.map(r => r.testname).filter(Boolean).join(", ");
 
-          // Fetch patient name separately with type cast (patientid is text, patients.patientid is uuid)
+          // Fetch patient name with type cast (patientid is text, patients.patientid is uuid)
           let patientName = "Unknown Patient";
-          if (sample.patientid) {
+          if (sampleData.patientid) {
             const [patient] = await db
               .select({ firstname: patients.firstname, lastname: patients.lastname })
               .from(patients)
-              .where(sql`${patients.patientid}::text = ${sample.patientid}`)
+              .where(sql`${patients.patientid}::text = ${sampleData.patientid}`)
               .limit(1);
             if (patient) {
               patientName = `${patient.firstname} ${patient.lastname}`;
             }
           }
 
+          console.log(`[ValidationService] Sending notification: tests=${testNames}, patient=${patientName}`);
+
           const { notifyDoctorOnResultRelease } = await import("@/lib/notifications");
           
-          await notifyDoctorOnResultRelease({
-            workspaceid: sample.order.workspaceid,
+          const notifResult = await notifyDoctorOnResultRelease({
+            workspaceid: sampleData.workspaceid,
             sampleid: sampleid,
             testname: testNames || "Lab Results",
             patientname: patientName,
           });
           
-          console.log(`[ValidationService] Doctor notification sent for sample ${sampleid}`);
+          console.log(`[ValidationService] Notification result:`, JSON.stringify(notifResult));
+        } else {
+          console.warn(`[ValidationService] No workspaceid found for sample ${sampleid}, skipping notification`);
         }
       } catch (notificationError) {
         console.error("[ValidationService] Doctor notification error:", notificationError);
