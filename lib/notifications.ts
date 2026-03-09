@@ -208,7 +208,7 @@ export async function notifyDoctorOnResultRelease({
     console.log(`[Notifications] Creating RESULTS_RELEASED notification for workspace ${workspaceid}, tests: ${testname}, patient: ${patientname}`);
 
     // Notify all doctors in the workspace
-    const result = await createRoleNotification({
+    const doctorResult = await createRoleNotification({
       workspaceid,
       role: "doctor",
       type: "RESULTS_RELEASED" as any,
@@ -219,9 +219,23 @@ export async function notifyDoctorOnResultRelease({
       metadata: notificationMeta,
       priority: "high",
     });
+
+    // Also notify lab technicians so they see released results in LIMS
+    const labTechResult = await createRoleNotification({
+      workspaceid,
+      role: "lab_technician",
+      type: "RESULTS_RELEASED" as any,
+      title: notificationTitle,
+      message: notificationMessage,
+      relatedentityid: sampleid,
+      relatedentitytype: "test_result",
+      metadata: notificationMeta,
+      priority: "high",
+    });
     
-    console.log(`[Notifications] RESULTS_RELEASED notification created for ${result.count} doctors`);
-    return { success: true, notifiedDoctorCount: result.count };
+    const totalCount = (doctorResult.count || 0) + (labTechResult.count || 0);
+    console.log(`[Notifications] RESULTS_RELEASED notification created for ${doctorResult.count} doctors and ${labTechResult.count} lab technicians`);
+    return { success: true, notifiedDoctorCount: totalCount };
   } catch (error) {
     console.error("[Notifications] Error notifying doctor on result release:", error);
     return { success: false, error };
