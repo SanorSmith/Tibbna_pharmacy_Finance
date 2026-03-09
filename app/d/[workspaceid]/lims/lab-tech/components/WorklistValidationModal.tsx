@@ -237,8 +237,22 @@ export default function WorklistValidationModal({
               return item.validationState?.currentstate === "RELEASED";
             });
 
-            // If all items are released, ask user before deleting the worklist
+            // If all items are released, update worklist status to COMPLETED
             if (allItemsReleased) {
+              // Update worklist status to COMPLETED
+              await fetch(`/api/lims/worklists`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  worklistid: worklistid,
+                  status: 'completed',
+                }),
+              });
+              
+              // Invalidate worklists query to refresh the list with updated status
+              await queryClient.invalidateQueries({ queryKey: ["worklists", workspaceid] });
+              
+              // Ask user if they want to delete the completed worklist
               setShowWorklistCompleteDialog(true);
             }
           }

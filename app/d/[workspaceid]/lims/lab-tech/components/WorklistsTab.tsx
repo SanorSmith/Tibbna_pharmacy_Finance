@@ -98,7 +98,7 @@ export default function WorklistsTab({ workspaceid }: { workspaceid: string }) {
 
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"active" | "done" | "all">("active");
+  const [statusFilter, setStatusFilter] = useState<"active" | "done" | "all">("all");
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
   const [addSampleSearch, setAddSampleSearch] = useState("");

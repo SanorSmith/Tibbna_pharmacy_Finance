@@ -140,6 +140,9 @@ export async function GET(
             .from(limsOrderTests)
             .leftJoin(labTestCatalog, eq(limsOrderTests.testid, labTestCatalog.testid))
             .where(sql`${limsOrderTests.orderid}::text = ${item.sample.orderid}::text`);
+          
+          // Filter out entries with null testcode (happens when testid is null in lims_order_tests)
+          orderTests = orderTests.filter(t => t.testcode !== null && t.testcode !== undefined);
         }
         
         // Fallback 1: Use sample's tests JSON field (populated for openEHR orders)
@@ -147,7 +150,35 @@ export async function GET(
           const sampleTests = (item.sample as any).tests;
           if (Array.isArray(sampleTests) && sampleTests.length > 0) {
             // Tests can be strings (test codes) or objects with testcode/testname
-            orderTests = sampleTests.map((t: any) => {
+            // Look up test names from test_reference_ranges for better display
+            orderTests = await Promise.all(sampleTests.map(async (t: any) => {
+              const testcode = typeof t === 'string' ? t : (t.testCode || t.testcode || t.code || t);
+              
+              // Try to get the proper test name from test_reference_ranges
+              const [refTest] = await db
+                .select({
+                  testcode: testReferenceRanges.testcode,
+                  testname: testReferenceRanges.testname,
+                  labtype: testReferenceRanges.labtype,
+                })
+                .from(testReferenceRanges)
+                .where(
+                  and(
+                    eq(testReferenceRanges.testcode, testcode),
+                    eq(testReferenceRanges.isactive, 'Y')
+                  )
+                )
+                .limit(1);
+              
+              if (refTest) {
+                return {
+                  testcode: refTest.testcode,
+                  testname: refTest.testname,
+                  testcategory: refTest.labtype,
+                };
+              }
+              
+              // Fallback to original logic if not found in reference ranges
               if (typeof t === 'string') {
                 return { testcode: t, testname: t, testcategory: null };
               }
@@ -156,7 +187,7 @@ export async function GET(
                 testname: t.testName || t.testname || t.name || t.testCode || t.testcode || t,
                 testcategory: t.testCategory || t.testcategory || t.category || null,
               };
-            });
+            }));
           }
         }
         

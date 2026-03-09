@@ -12,14 +12,14 @@ import { Bell, CheckCircle, AlertCircle, Info, Clock, Check, X, Trash2 } from "l
 
 interface Notification {
   notificationid: string;
-  type: string;
+  notification_type: string;
   title: string;
   message: string;
-  relatedentityid?: string;
-  relatedentitytype?: string;
-  read: boolean;
+  related_entity_id?: string;
+  related_entity_type?: string;
+  is_read: boolean;
   priority: string;
-  createdat: string;
+  created_at: string;
 }
 
 export default function NotificationTab({ workspaceid }: { workspaceid: string }) {
@@ -69,12 +69,14 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
   });
 
   const notifications: Notification[] = data?.notifications || [];
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const getNotificationIcon = (type: string, priority: string) => {
-    if (priority === "high") return <AlertCircle className="h-4 w-4 text-red-500" />;
+    if (priority?.toLowerCase() === "high") return <AlertCircle className="h-4 w-4 text-red-500" />;
+    if (type === "RESULTS_RELEASED") return <CheckCircle className="h-4 w-4 text-green-500" />;
     if (type === "TEST_VALIDATED") return <CheckCircle className="h-4 w-4 text-green-500" />;
     if (type === "RESULT_ENTERED") return <Info className="h-4 w-4 text-blue-500" />;
+    if (type === "SAMPLE_REGISTERED") return <Bell className="h-4 w-4 text-blue-500" />;
     return <Bell className="h-4 w-4 text-gray-500" />;
   };
 
@@ -189,21 +191,21 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
               <div
                 key={notification.notificationid}
                 className={`p-4 rounded-lg border transition-colors ${
-                  !notification.read
+                  !notification.is_read
                     ? "bg-blue-50 border-blue-200"
                     : "bg-white border-gray-200"
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
-                    {getNotificationIcon(notification.type, notification.priority)}
+                    {getNotificationIcon(notification.notification_type, notification.priority)}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium text-sm truncate">
                           {notification.title}
                         </h4>
                         {getPriorityBadge(notification.priority)}
-                        {!notification.read && (
+                        {!notification.is_read && (
                           <Badge variant="secondary" className="text-xs">
                             New
                           </Badge>
@@ -215,11 +217,11 @@ export default function NotificationTab({ workspaceid }: { workspaceid: string }
                       <div className="flex items-center gap-4 text-xs text-gray-400">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {formatTimeAgo(notification.createdat)}
+                          {formatTimeAgo(notification.created_at)}
                         </span>
-                        {notification.relatedentitytype && (
+                        {notification.related_entity_type && (
                           <span className="capitalize">
-                            {notification.relatedentitytype}
+                            {notification.related_entity_type}
                           </span>
                         )}
                       </div>
