@@ -332,16 +332,19 @@ export class ValidationService {
         .select({
           patientid: accessionSamples.patientid,
           orderid: accessionSamples.orderid,
-          workspaceid: limsOrders.workspaceid,
+          sampleWorkspaceid: accessionSamples.workspaceid,
+          orderWorkspaceid: limsOrders.workspaceid,
         })
         .from(accessionSamples)
         .leftJoin(limsOrders, eq(accessionSamples.orderid, limsOrders.orderid))
         .where(eq(accessionSamples.sampleid, sampleid))
         .limit(1);
 
-      console.log(`[ValidationService] Sample data: patientid=${sampleData?.patientid}, orderid=${sampleData?.orderid}, workspaceid=${sampleData?.workspaceid}`);
+      // Fallback: use sample's own workspaceid if order join returns null (e.g. samples without an order)
+      const workspaceid = sampleData?.orderWorkspaceid || sampleData?.sampleWorkspaceid;
+      console.log(`[ValidationService] Sample data: patientid=${sampleData?.patientid}, orderid=${sampleData?.orderid}, workspaceid=${workspaceid}`);
 
-      if (sampleData?.workspaceid) {
+      if (workspaceid) {
         const sampleResults = await db
           .select({ testname: testResults.testname })
           .from(testResults)
@@ -367,7 +370,7 @@ export class ValidationService {
         const { notifyDoctorOnResultRelease } = await import("@/lib/notifications");
         
         const notifResult = await notifyDoctorOnResultRelease({
-          workspaceid: sampleData.workspaceid,
+          workspaceid: workspaceid,
           sampleid: sampleid,
           testname: testNames || "Lab Results",
           patientname: patientName,
