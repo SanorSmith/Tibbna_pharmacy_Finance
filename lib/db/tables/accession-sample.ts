@@ -20,6 +20,7 @@ import { pgTable, text, timestamp, numeric, uuid, index, jsonb } from "drizzle-o
 import { relations } from "drizzle-orm";
 import { users } from "./user";
 import { limsOrders } from "./lims-order";
+import { patients } from "./patient";
 
 export const accessionSamples = pgTable(
   "accession_samples",
@@ -98,6 +99,10 @@ export const accessionSamplesRelations = relations(accessionSamples, ({ one, man
   order: one(limsOrders, {
     fields: [accessionSamples.orderid],
     references: [limsOrders.orderid],
+  }),
+  patient: one(patients, {
+    fields: [accessionSamples.patientid],
+    references: [patients.patientid],
   }),
   accessionedByUser: one(users, {
     fields: [accessionSamples.accessionedby],
