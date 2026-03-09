@@ -6,7 +6,7 @@
 
 import { db } from "@/lib/db";
 import { notifications, workspaceusers } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { NotificationTypeType } from "@/lib/db/tables/notifications";
 import type { WorkspaceUserRole } from "@/lib/db/tables/workspace";
 
@@ -128,12 +128,13 @@ export async function createRoleNotification({
 }: CreateNotificationParams & { role: WorkspaceUserRole }) {
   try {
     // Get all users in the workspace with the specified role
+    // Use sql cast because workspaceid may be text from lims_orders but uuid in workspaceusers
     const roleUsers = await db
       .select({ userid: workspaceusers.userid })
       .from(workspaceusers)
       .where(
         and(
-          eq(workspaceusers.workspaceid, workspaceid),
+          sql`${workspaceusers.workspaceid}::text = ${workspaceid}`,
           eq(workspaceusers.role, role)
         )
       );
@@ -177,89 +178,52 @@ export async function notifyDoctorOnResultRelease({
   workspaceid,
   sampleid,
   testname,
-  testcode,
-  resultvalue,
-  resultid,
-  patientName,
+  patientname,
 }: {
   workspaceid: string;
   sampleid: string;
   testname: string;
-  testcode: string;
-  resultvalue: string;
-  resultid: string;
-  patientName?: string;
+  patientname: string;
 }) {
   try {
-    // Dynamic imports to avoid circular dependency issues
-    const { accessionSamples, limsOrders, patients } = await import("@/lib/db/schema");
+    const { accessionSamples } = await import("@/lib/db/schema");
 
-    // Trace: sample → order → ordering doctor
+    // Get sample number
     const [sample] = await db
-      .select({
-        orderid: accessionSamples.orderid,
-        patientid: accessionSamples.patientid,
-        samplenumber: accessionSamples.samplenumber,
-      })
+      .select({ samplenumber: accessionSamples.samplenumber })
       .from(accessionSamples)
       .where(eq(accessionSamples.sampleid, sampleid))
       .limit(1);
 
-    let orderingDoctorId: string | null = null;
-    let resolvedPatientName = patientName || "Unknown Patient";
-
-    if (sample?.orderid) {
-      const [order] = await db
-        .select({ orderingproviderid: limsOrders.orderingproviderid })
-        .from(limsOrders)
-        .where(eq(limsOrders.orderid, sample.orderid))
-        .limit(1);
-
-      if (order?.orderingproviderid) {
-        orderingDoctorId = order.orderingproviderid;
-      }
-    }
-
-    // Resolve patient name if not provided
-    if (!patientName && sample?.patientid) {
-      const [patient] = await db
-        .select({ firstname: patients.firstname, lastname: patients.lastname })
-        .from(patients)
-        .where(eq(patients.patientid, sample.patientid))
-        .limit(1);
-
-      if (patient) {
-        resolvedPatientName = `${patient.firstname} ${patient.lastname}`;
-      }
-    }
-
+    const sampleNumber = sample?.samplenumber || "N/A";
     const notificationTitle = "Lab Results Released";
-    const notificationMessage = `Results for ${testname} (${testcode}) are now available for patient ${resolvedPatientName}. Sample: ${sample?.samplenumber || "N/A"}.`;
+    const notificationMessage = `Results for ${testname} are now available for patient ${patientname}. Sample: ${sampleNumber}.`;
     const notificationMeta = {
-      testCode: testcode,
       testName: testname,
-      resultValue: resultvalue,
       sampleId: sampleid,
-      sampleNumber: sample?.samplenumber,
-      patientName: resolvedPatientName,
+      sampleNumber: sampleNumber,
+      patientName: patientname,
     };
 
-    // Always notify all doctors in the workspace (not just ordering doctor)
-    // This ensures all doctors can see lab results for their patients
+    console.log(`[Notifications] Creating RESULTS_RELEASED notification for workspace ${workspaceid}, tests: ${testname}, patient: ${patientname}`);
+
+    // Notify all doctors in the workspace
     const result = await createRoleNotification({
       workspaceid,
       role: "doctor",
       type: "RESULTS_RELEASED" as any,
       title: notificationTitle,
       message: notificationMessage,
-      relatedentityid: resultid,
+      relatedentityid: sampleid,
       relatedentitytype: "test_result",
       metadata: notificationMeta,
       priority: "high",
     });
-    return { success: true, notifiedDoctorCount: result.count, orderingDoctorId };
+    
+    console.log(`[Notifications] RESULTS_RELEASED notification created for ${result.count} doctors`);
+    return { success: true, notifiedDoctorCount: result.count };
   } catch (error) {
-    console.error("Error notifying doctor on result release:", error);
+    console.error("[Notifications] Error notifying doctor on result release:", error);
     return { success: false, error };
   }
 }
