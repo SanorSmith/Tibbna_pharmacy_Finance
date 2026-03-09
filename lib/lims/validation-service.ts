@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { testResults, validationStates, ValidationStateType, VALIDATION_STATES, NewValidationState, accessionSamples, SAMPLE_STATUS, limsOrders, patients } from "@/lib/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { AuditService } from "./audit-service";
 import { AUDIT_ACTIONS } from "@/lib/db/tables/audit-log";
 
@@ -322,21 +322,30 @@ export class ValidationService {
           where: eq(accessionSamples.sampleid, sampleid),
           with: {
             order: true,
-            patient: true,
           },
         });
 
         if (sample?.order?.workspaceid) {
           // Get test results for this sample to include in notification
-          const results = await db.query.testResults.findMany({
+          const sampleResults = await db.query.testResults.findMany({
             where: eq(testResults.sampleid, sampleid),
-            limit: 5, // Include up to 5 tests in the notification
+            limit: 5,
           });
 
-          const testNames = results.map(r => r.testname).filter(Boolean).join(", ");
-          const patientName = sample.patient 
-            ? `${sample.patient.firstname} ${sample.patient.lastname}`
-            : "Unknown Patient";
+          const testNames = sampleResults.map(r => r.testname).filter(Boolean).join(", ");
+
+          // Fetch patient name separately with type cast (patientid is text, patients.patientid is uuid)
+          let patientName = "Unknown Patient";
+          if (sample.patientid) {
+            const [patient] = await db
+              .select({ firstname: patients.firstname, lastname: patients.lastname })
+              .from(patients)
+              .where(sql`${patients.patientid}::text = ${sample.patientid}`)
+              .limit(1);
+            if (patient) {
+              patientName = `${patient.firstname} ${patient.lastname}`;
+            }
+          }
 
           const { notifyDoctorOnResultRelease } = await import("@/lib/notifications");
           
