@@ -244,35 +244,20 @@ export async function notifyDoctorOnResultRelease({
       patientName: resolvedPatientName,
     };
 
-    if (orderingDoctorId) {
-      // Notify the specific ordering doctor
-      await createUserNotification({
-        workspaceid,
-        userid: orderingDoctorId,
-        type: "RESULTS_RELEASED" as any,
-        title: notificationTitle,
-        message: notificationMessage,
-        relatedentityid: resultid,
-        relatedentitytype: "test_result",
-        metadata: notificationMeta,
-        priority: "high",
-      });
-      return { success: true, notifiedDoctor: orderingDoctorId };
-    } else {
-      // Fallback: notify all doctors in the workspace
-      const result = await createRoleNotification({
-        workspaceid,
-        role: "doctor",
-        type: "RESULTS_RELEASED" as any,
-        title: notificationTitle,
-        message: notificationMessage,
-        relatedentityid: resultid,
-        relatedentitytype: "test_result",
-        metadata: notificationMeta,
-        priority: "high",
-      });
-      return { success: true, notifiedDoctorCount: result.count };
-    }
+    // Always notify all doctors in the workspace (not just ordering doctor)
+    // This ensures all doctors can see lab results for their patients
+    const result = await createRoleNotification({
+      workspaceid,
+      role: "doctor",
+      type: "RESULTS_RELEASED" as any,
+      title: notificationTitle,
+      message: notificationMessage,
+      relatedentityid: resultid,
+      relatedentitytype: "test_result",
+      metadata: notificationMeta,
+      priority: "high",
+    });
+    return { success: true, notifiedDoctorCount: result.count, orderingDoctorId };
   } catch (error) {
     console.error("Error notifying doctor on result release:", error);
     return { success: false, error };
