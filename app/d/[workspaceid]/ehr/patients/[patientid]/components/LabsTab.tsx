@@ -163,8 +163,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
   
-  const [currentIndexByTest, setCurrentIndexByTest] = useState<Map<string, number>>(new Map());
-  const [showHistoryByTest, setShowHistoryByTest] = useState<Map<string, boolean>>(new Map());
+  const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
   const [expandedTestHistory, setExpandedTestHistory] = useState<Set<string>>(new Set());
   
   const [showLabOrderForm, setShowLabOrderForm] = useState(false);
@@ -327,12 +326,38 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
             No lab results found.
           </div>
         ) : (
-          <div className="space-y-6">
-            {labResultRecords.map(([orderKey, results]) => {
-              const currentIndex = currentIndexByTest.get(orderKey) || 0;
-              const showHistory = showHistoryByTest.get(orderKey) || false;
-              const currentResult = results[currentIndex];
-              const hasMultipleResults = results.length > 1;
+          <div>
+            {/* Order Navigation - Both buttons on right */}
+            {labResultRecords.length > 1 && (
+              <div className="flex items-center justify-between mb-4 p-3 bg-muted/30 rounded-lg">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Order {currentOrderIndex + 1} of {labResultRecords.length}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentOrderIndex(Math.max(0, currentOrderIndex - 1))}
+                    disabled={currentOrderIndex === 0}
+                    className="h-8 px-3 text-xs"
+                  >
+                    ← Previous Order
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentOrderIndex(Math.min(labResultRecords.length - 1, currentOrderIndex + 1))}
+                    disabled={currentOrderIndex === labResultRecords.length - 1}
+                    className="h-8 px-3 text-xs"
+                  >
+                    Next Order →
+                  </Button>
+                </div>
+              </div>
+            )}
+            {(() => {
+              const [orderKey, results] = labResultRecords[currentOrderIndex];
+              const currentResult = results[0];
               const samples = (currentResult as any).samples || [];
               const hasSamples = samples.length > 0;
 
@@ -341,7 +366,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                   key={orderKey}
                   className="border rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
-                  {/* Header with Navigation */}
+                  {/* Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -358,67 +383,31 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             {samples.length} sample{samples.length > 1 ? 's' : ''}
                           </span>
                         )}
-                        {hasMultipleResults && (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                            {currentIndex + 1} of {results.length}
-                          </span>
-                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {currentResult.laboratory_name}
                       </p>
                     </div>
-                    <div className="text-right flex flex-col items-end gap-2">
-                      <div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            currentResult.overall_test_status === "final"
-                              ? "bg-green-100 text-green-800"
-                              : currentResult.overall_test_status === "preliminary"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : currentResult.overall_test_status === "amended"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {currentResult.overall_test_status
-                            .charAt(0)
-                            .toUpperCase() +
-                            currentResult.overall_test_status.slice(1)}
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(currentResult.report_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      {/* Navigation Buttons */}
-                      {hasMultipleResults && (
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const newIndex = Math.max(0, currentIndex - 1);
-                              setCurrentIndexByTest(new Map(currentIndexByTest.set(orderKey, newIndex)));
-                            }}
-                            disabled={currentIndex === 0}
-                            className="h-7 px-2 text-xs"
-                          >
-                            Previous
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const newIndex = Math.min(results.length - 1, currentIndex + 1);
-                              setCurrentIndexByTest(new Map(currentIndexByTest.set(orderKey, newIndex)));
-                            }}
-                            disabled={currentIndex === results.length - 1}
-                            className="h-7 px-2 text-xs"
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      )}
+                    <div className="text-right">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          currentResult.overall_test_status === "final"
+                            ? "bg-green-100 text-green-800"
+                            : currentResult.overall_test_status === "preliminary"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : currentResult.overall_test_status === "amended"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {currentResult.overall_test_status
+                          .charAt(0)
+                          .toUpperCase() +
+                          currentResult.overall_test_status.slice(1)}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(currentResult.report_date).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
 
@@ -495,15 +484,6 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                           <th className="p-2 text-left text-xs font-medium">
                             Current Result
                           </th>
-                          {hasMultipleResults && (
-                            <>
-                              {results.slice(1, 4).map((histResult, histIdx) => (
-                                <th key={histIdx} className="p-2 text-left text-xs font-medium text-muted-foreground">
-                                  {new Date(histResult.report_date).toLocaleDateString('sv-SE')}
-                                </th>
-                              ))}
-                            </>
-                          )}
                           <th className="p-2 text-left text-xs font-medium">
                             Status
                           </th>
@@ -556,11 +536,6 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                                 );
                               })()}
                             </td>
-                            {hasMultipleResults && historicalValues.map((histValue, histIdx) => (
-                              <td key={histIdx} className="p-2 text-sm text-muted-foreground">
-                                {histValue !== '-' ? String(histValue) : '-'}
-                              </td>
-                            ))}
                             <td className="p-2 text-sm">
                               <span
                                 className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -703,20 +678,6 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {hasMultipleResults && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          const newMap = new Map(showHistoryByTest);
-                          newMap.set(orderKey, !showHistory);
-                          setShowHistoryByTest(newMap);
-                        }}
-                        className="h-7 px-2 text-xs"
-                      >
-                        {showHistory ? 'Hide History' : 'Show History'}
-                      </Button>
-                    )}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -862,60 +823,9 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                   </div>
                 </div>
 
-                {/* History Section */}
-                {hasMultipleResults && showHistory && (
-                  <div className="mt-4 border-t pt-4">
-                    <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Previous Results</h4>
-                    <div className="space-y-2">
-                      {results.slice(1).map((historyResult, idx) => (
-                        <div
-                          key={historyResult.composition_uid}
-                          className="border rounded p-3 bg-muted/20 hover:bg-muted/30 cursor-pointer"
-                          onClick={() => {
-                            setCurrentIndexByTest(new Map(currentIndexByTest.set(orderKey, idx + 1)));
-                            setShowHistoryByTest(new Map(showHistoryByTest.set(orderKey, false)));
-                          }}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="text-sm font-medium">
-                              {new Date(historyResult.report_date).toLocaleDateString()}
-                            </div>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                historyResult.overall_test_status === "final"
-                                  ? "bg-green-100 text-green-800"
-                                  : historyResult.overall_test_status === "preliminary"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {historyResult.overall_test_status.charAt(0).toUpperCase() +
-                                historyResult.overall_test_status.slice(1)}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            {historyResult.test_results.slice(0, 4).map((analyte: LabTestAnalyte, i: number) => (
-                              <div key={i} className="flex justify-between">
-                                <span className="text-muted-foreground">{analyte.analyte_name}:</span>
-                                <span className="font-medium">
-                                  {analyte.result_value} {analyte.result_unit}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          {historyResult.test_results.length > 4 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              +{historyResult.test_results.length - 4} more results
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
               );
-            })}
+            })()}
           </div>
         )}
       </CardContent>
