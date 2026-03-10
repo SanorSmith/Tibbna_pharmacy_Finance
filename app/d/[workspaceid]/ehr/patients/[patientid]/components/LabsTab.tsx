@@ -207,30 +207,30 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
     },
   });
 
-  // Combine both sources and group by test name
+  // Combine both sources - API already groups LIMS results by order
   const allLabResults = [...openEHRLabResults, ...dummyLabResults];
   const loadingLabResults = loadingDummyResults || loadingOpenEHRResults;
 
-  // Group lab results by test name
-  const labResultsByTest = new Map<string, LabTestResult[]>();
+  // Sort by date (newest first) - each entry is an order
+  const sortedLabResults = [...allLabResults].sort(
+    (a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime()
+  );
+
+  // Group by composition_uid (order) for navigation - each order is one entry
+  const labResultsByOrder = new Map<string, LabTestResult[]>();
   
-  allLabResults.forEach((result) => {
-    const testKey = result.test_name.toLowerCase().trim();
-    const existing = labResultsByTest.get(testKey);
+  sortedLabResults.forEach((result) => {
+    const orderKey = result.composition_uid;
+    const existing = labResultsByOrder.get(orderKey);
     if (existing) {
       existing.push(result);
     } else {
-      labResultsByTest.set(testKey, [result]);
+      labResultsByOrder.set(orderKey, [result]);
     }
   });
 
-  // Sort each test group by date (newest first)
-  labResultsByTest.forEach((results) => {
-    results.sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
-  });
-
   // Convert to array for rendering
-  const labResultRecords = Array.from(labResultsByTest.entries());
+  const labResultRecords = Array.from(labResultsByOrder.entries());
 
   const saveLabOrder = async () => {
     if (!labOrderForm.service_name || !labOrderForm.clinical_indication) {
@@ -312,15 +312,17 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
           </div>
         ) : (
           <div className="space-y-6">
-            {labResultRecords.map(([testName, results]) => {
-              const currentIndex = currentIndexByTest.get(testName) || 0;
-              const showHistory = showHistoryByTest.get(testName) || false;
+            {labResultRecords.map(([orderKey, results]) => {
+              const currentIndex = currentIndexByTest.get(orderKey) || 0;
+              const showHistory = showHistoryByTest.get(orderKey) || false;
               const currentResult = results[currentIndex];
               const hasMultipleResults = results.length > 1;
+              const samples = (currentResult as any).samples || [];
+              const hasSamples = samples.length > 0;
 
               return (
                 <div
-                  key={testName}
+                  key={orderKey}
                   className="border rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
                   {/* Header with Navigation */}
@@ -335,15 +337,17 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             OpenEHR
                           </span>
                         )}
+                        {hasSamples && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                            {samples.length} sample{samples.length > 1 ? 's' : ''}
+                          </span>
+                        )}
                         {hasMultipleResults && (
                           <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                             {currentIndex + 1} of {results.length}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Protocol: {currentResult.protocol}
-                      </p>
                       <p className="text-sm text-muted-foreground">
                         {currentResult.laboratory_name}
                       </p>
@@ -378,7 +382,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             variant="outline"
                             onClick={() => {
                               const newIndex = Math.max(0, currentIndex - 1);
-                              setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, newIndex)));
+                              setCurrentIndexByTest(new Map(currentIndexByTest.set(orderKey, newIndex)));
                             }}
                             disabled={currentIndex === 0}
                             className="h-7 px-2 text-xs"
@@ -390,7 +394,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             variant="outline"
                             onClick={() => {
                               const newIndex = Math.min(results.length - 1, currentIndex + 1);
-                              setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, newIndex)));
+                              setCurrentIndexByTest(new Map(currentIndexByTest.set(orderKey, newIndex)));
                             }}
                             disabled={currentIndex === results.length - 1}
                             className="h-7 px-2 text-xs"
@@ -402,8 +406,33 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                     </div>
                   </div>
 
-                {/* Specimen Details */}
-                {currentResult.specimen_type && (
+                {/* Samples in this order */}
+                {hasSamples && (
+                  <div className="mb-3 p-2 bg-muted/30 rounded">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      Specimens ({samples.length})
+                    </p>
+                    <div className="space-y-1">
+                      {samples.map((sample: any) => (
+                        <div key={sample.sampleid} className="flex items-center gap-4 text-sm">
+                          <span className="font-medium">{sample.samplenumber}</span>
+                          <span className="text-muted-foreground">{sample.sampletype}</span>
+                          {sample.labcategory && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{sample.labcategory}</span>
+                          )}
+                          {sample.collectiondate && (
+                            <span className="text-xs text-muted-foreground">
+                              Collected: {new Date(sample.collectiondate).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Non-LIMS specimen details (OpenEHR / dummy) */}
+                {!hasSamples && currentResult.specimen_type && (
                   <div className="mb-3 p-2 bg-muted/30 rounded">
                     <p className="text-xs font-medium text-muted-foreground mb-1">
                       Specimen Details
@@ -439,6 +468,11 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                           <th className="p-2 text-left text-xs font-medium">
                             Analyte
                           </th>
+                          {hasSamples && (
+                            <th className="p-2 text-left text-xs font-medium">
+                              Sample
+                            </th>
+                          )}
                           <th className="p-2 text-left text-xs font-medium">
                             Result
                           </th>
@@ -459,6 +493,11 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             <td className="p-2 text-sm font-medium">
                               {analyte.analyte_name}
                             </td>
+                            {hasSamples && (
+                              <td className="p-2 text-xs text-muted-foreground">
+                                {(analyte as any).samplenumber || '-'}
+                              </td>
+                            )}
                             <td className="p-2 text-sm font-semibold">
                               {(() => {
                                 const status = getResultStatus(analyte);
@@ -569,7 +608,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                         variant="ghost"
                         onClick={() => {
                           const newMap = new Map(showHistoryByTest);
-                          newMap.set(testName, !showHistory);
+                          newMap.set(orderKey, !showHistory);
                           setShowHistoryByTest(newMap);
                         }}
                         className="h-7 px-2 text-xs"
@@ -667,8 +706,8 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                           key={historyResult.composition_uid}
                           className="border rounded p-3 bg-muted/20 hover:bg-muted/30 cursor-pointer"
                           onClick={() => {
-                            setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, idx + 1)));
-                            setShowHistoryByTest(new Map(showHistoryByTest.set(testName, false)));
+                            setCurrentIndexByTest(new Map(currentIndexByTest.set(orderKey, idx + 1)));
+                            setShowHistoryByTest(new Map(showHistoryByTest.set(orderKey, false)));
                           }}
                         >
                           <div className="flex justify-between items-start mb-2">

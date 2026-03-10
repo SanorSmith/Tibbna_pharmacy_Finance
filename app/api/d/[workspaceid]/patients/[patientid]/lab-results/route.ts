@@ -3,8 +3,9 @@ import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { db } from "@/lib/db";
 import { eq, and, desc } from "drizzle-orm";
-import { testResults, accessionSamples, users, workspaces } from "@/lib/db/schema";
+import { testResults, accessionSamples, patients, users, workspaces } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
+import { getOpenEHREHRBySubjectId, getOpenEHRTestOrdersWithCancelled } from "@/lib/openehr/openehr";
 
 // In-memory storage for lab results (dummy data)
 // In production, this would be stored in EHRbase or a database
@@ -411,14 +412,80 @@ export async function GET(
     // Get facility name once
     const facilityName = membership.workspace.name || "Laboratory";
 
-    // Group LIMS results by sample into LabTestResult format
-    const sampleMap = new Map<string, any>();
+    // Fetch OpenEHR test orders to group results by order
+    let testOrders: any[] = [];
+    try {
+      const [patient] = await db
+        .select({ nationalid: patients.nationalid })
+        .from(patients)
+        .where(eq(patients.patientid, patientid))
+        .limit(1);
+
+      let ehrId: string | null = null;
+      if (patient?.nationalid) {
+        ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+      }
+      if (!ehrId) {
+        ehrId = await getOpenEHREHRBySubjectId(patientid);
+      }
+      if (ehrId) {
+        testOrders = await getOpenEHRTestOrdersWithCancelled(ehrId);
+      }
+    } catch (err) {
+      console.error("[lab-results] Error fetching OpenEHR test orders:", err);
+    }
+
+    // Build order info and a list of test names per order for fuzzy matching
+    const orderInfoMap = new Map<string, { service_name: string; recorded_time: string; request_status: string; testNames: string[] }>();
+
+    for (const order of testOrders) {
+      const orderTestNames = (order.service_name || "")
+        .split(",")
+        .map((t: string) => t.trim().toLowerCase())
+        .filter(Boolean);
+      
+      orderInfoMap.set(order.composition_uid, {
+        service_name: order.service_name,
+        recorded_time: order.recorded_time,
+        request_status: order.request_status,
+        testNames: orderTestNames,
+      });
+    }
+
+    // Fuzzy match: find which order a LIMS test result belongs to
+    function findMatchingOrderId(testName: string): string | null {
+      const normalized = testName.toLowerCase().trim();
+      for (const [orderId, info] of orderInfoMap) {
+        for (const orderTestName of info.testNames) {
+          // Exact match
+          if (orderTestName === normalized) return orderId;
+          // Partial match: LIMS test name contained in order test name or vice versa
+          if (orderTestName.includes(normalized) || normalized.includes(orderTestName)) return orderId;
+          // Word-based match: first significant word matches (e.g., "sputum" in "sputum culture" matches "sputum c/s (automated)")
+          const orderWords = orderTestName.split(/[\s\/\(\),]+/).filter(w => w.length > 2);
+          const testWords = normalized.split(/[\s\/\(\),]+/).filter(w => w.length > 2);
+          const commonWords = testWords.filter(w => orderWords.includes(w));
+          if (commonWords.length > 0 && commonWords.length >= Math.min(testWords.length, orderWords.length) * 0.5) {
+            return orderId;
+          }
+        }
+      }
+      return null;
+    }
+
+    // Group LIMS results by their matched ORDER
+    const orderMap = new Map<string, any>();
+    
     for (const r of limsResults) {
-      if (!sampleMap.has(r.sampleid)) {
-        sampleMap.set(r.sampleid, {
-          composition_uid: `lims-${r.sampleid}`,
+      // Match this test result to an order by test name (fuzzy)
+      const matchedOrderId = findMatchingOrderId(r.testname || "") || `unmatched-${r.sampleid}`;
+      const orderInfo = orderInfoMap.get(matchedOrderId);
+      
+      if (!orderMap.has(matchedOrderId)) {
+        orderMap.set(matchedOrderId, {
+          composition_uid: matchedOrderId,
           recorded_time: r.analyzeddate?.toISOString() || new Date().toISOString(),
-          test_name: r.labcategory || "Laboratory Tests",
+          test_name: orderInfo?.service_name || r.labcategory || "Laboratory Tests",
           protocol: r.samplenumber,
           specimen_type: r.sampletype,
           specimen_collection_time: r.collectiondate?.toISOString(),
@@ -429,7 +496,29 @@ export async function GET(
           report_date: r.releaseddate?.toISOString() || r.analyzeddate?.toISOString() || new Date().toISOString(),
           source: "lims",
           sampleid: r.sampleid,
+          orderid: matchedOrderId,
+          samples: [] as { sampleid: string; samplenumber: string; sampletype: string; collectiondate: string | null; barcode: string | null; labcategory: string | null }[],
         });
+      }
+
+      const order = orderMap.get(matchedOrderId);
+      
+      // Track unique samples within this order
+      if (!order.samples.find((s: any) => s.sampleid === r.sampleid)) {
+        order.samples.push({
+          sampleid: r.sampleid,
+          samplenumber: r.samplenumber,
+          sampletype: r.sampletype,
+          collectiondate: r.collectiondate?.toISOString() || null,
+          barcode: r.barcode,
+          labcategory: r.labcategory,
+        });
+      }
+
+      // Update overall status - if any result is not released, the order is not final
+      const resultTestStatus = r.status === "released" ? "final" : r.status === "validated" ? "preliminary" : "registered";
+      if (resultTestStatus !== "final") {
+        order.overall_test_status = resultTestStatus;
       }
 
       const refRange =
@@ -451,7 +540,7 @@ export async function GET(
         ? "L"
         : "N";
 
-      sampleMap.get(r.sampleid).test_results.push({
+      order.test_results.push({
         analyte_name: r.testname,
         analyte_code: r.testcode,
         result_value: r.resultvalue || "-",
@@ -459,42 +548,17 @@ export async function GET(
         reference_range: refRange,
         result_status: resultStatus,
         result_flag: resultFlag,
+        specimen_type: r.sampletype,
+        samplenumber: r.samplenumber,
       });
     }
 
-    const limsLabResults = Array.from(sampleMap.values());
+    const limsLabResults = Array.from(orderMap.values());
 
     // Merge: LIMS results first (real data), then dummy data
-    let allResults = [...limsLabResults, ...patientLabResults];
+    const allResults = [...limsLabResults, ...patientLabResults];
 
-    // Keep only the latest result per unique test name (for patient dashboard overview)
-    // Group by test name and keep the most recent one
-    const latestResultsMap = new Map<string, any>();
-    
-    for (const result of allResults) {
-      // For each test result in the composition
-      for (const testResult of result.test_results || []) {
-        const testName = testResult.analyte_name;
-        const resultDate = new Date(result.recorded_time || result.report_date);
-        
-        if (!latestResultsMap.has(testName)) {
-          latestResultsMap.set(testName, { ...result, test_results: [testResult] });
-        } else {
-          const existing = latestResultsMap.get(testName);
-          const existingDate = new Date(existing.recorded_time || existing.report_date);
-          
-          // Replace if this result is newer
-          if (resultDate > existingDate) {
-            latestResultsMap.set(testName, { ...result, test_results: [testResult] });
-          }
-        }
-      }
-    }
-    
-    // Convert back to array - only latest results
-    const uniqueLatestResults = Array.from(latestResultsMap.values());
-
-    return NextResponse.json({ labResults: uniqueLatestResults });
+    return NextResponse.json({ labResults: allResults });
   } catch (error) {
     console.error("Error fetching lab results:", error);
     return NextResponse.json(
