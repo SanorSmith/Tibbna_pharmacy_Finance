@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -162,9 +163,9 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
   
-  // State for navigation and history per test
   const [currentIndexByTest, setCurrentIndexByTest] = useState<Map<string, number>>(new Map());
   const [showHistoryByTest, setShowHistoryByTest] = useState<Map<string, boolean>>(new Map());
+  const [expandedTestHistory, setExpandedTestHistory] = useState<Set<string>>(new Set());
   
   const [showLabOrderForm, setShowLabOrderForm] = useState(false);
   const [labOrderForm, setLabOrderForm] = useState({
@@ -219,6 +220,33 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
 
   // Convert to array for rendering
   const labResultRecords = Array.from(labResultsByOrder.entries());
+
+  // Build test history: collect all values for each test across all orders
+  const buildTestHistory = (testName: string) => {
+    const history: Array<{ date: string; value: any; unit?: string; status: string; orderKey: string }> = [];
+    
+    // Search through all orders for this test
+    for (const [orderKey, results] of labResultsByOrder) {
+      for (const result of results) {
+        const matchingTests = result.test_results.filter(
+          (t: LabTestAnalyte) => t.analyte_name === testName
+        );
+        
+        for (const test of matchingTests) {
+          history.push({
+            date: result.report_date,
+            value: test.result_value,
+            unit: test.result_unit,
+            status: test.result_status || 'normal',
+            orderKey: orderKey
+          });
+        }
+      }
+    }
+    
+    // Sort by date descending (newest first)
+    return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
 
   const saveLabOrder = async () => {
     if (!labOrderForm.service_name || !labOrderForm.clinical_indication) {
@@ -446,7 +474,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                   </div>
                 )}
 
-                {/* Test Results with Traffic Light Colors */}
+                {/* Test Results with Traffic Light Colors and History */}
                 <div className="mb-3">
                   <p className="text-sm font-medium mb-2">Test Results</p>
                   <div className="rounded-md border overflow-x-auto">
@@ -456,30 +484,49 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                           <th className="p-2 text-left text-xs font-medium">
                             Analyte
                           </th>
+                          <th className="p-2 text-left text-xs font-medium">
+                            Reference Range
+                          </th>
                           {hasSamples && (
                             <th className="p-2 text-left text-xs font-medium">
                               Sample
                             </th>
                           )}
                           <th className="p-2 text-left text-xs font-medium">
-                            Result
+                            Current Result
                           </th>
-                          <th className="p-2 text-left text-xs font-medium">
-                            Range
-                          </th>
+                          {hasMultipleResults && (
+                            <>
+                              {results.slice(1, 4).map((histResult, histIdx) => (
+                                <th key={histIdx} className="p-2 text-left text-xs font-medium text-muted-foreground">
+                                  {new Date(histResult.report_date).toLocaleDateString('sv-SE')}
+                                </th>
+                              ))}
+                            </>
+                          )}
                           <th className="p-2 text-left text-xs font-medium">
                             Status
+                          </th>
+                          <th className="p-2 text-left text-xs font-medium">
+                            History
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {currentResult.test_results.map((analyte: LabTestAnalyte, idx: number) => (
-                          <tr
-                            key={idx}
-                            className="border-b last:border-0 hover:bg-muted/30"
-                          >
+                        {currentResult.test_results.map((analyte: LabTestAnalyte, idx: number) => {
+                          // Get full history for this test across all orders
+                          const testHistory = buildTestHistory(analyte.analyte_name);
+                          const hasHistory = testHistory.length > 1;
+                          const historyKey = `${orderKey}-${analyte.analyte_name}`;
+                          const isHistoryExpanded = expandedTestHistory.has(historyKey);
+                          
+                          return (<React.Fragment key={idx}>
+                            <tr className="border-b last:border-0 hover:bg-muted/30">
                             <td className="p-2 text-sm font-medium">
                               {analyte.analyte_name}
+                            </td>
+                            <td className="p-2 text-xs text-muted-foreground">
+                              {analyte.reference_range || "N/A"}
                             </td>
                             {hasSamples && (
                               <td className="p-2 text-xs text-muted-foreground">
@@ -504,13 +551,16 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                                     {analyte.result_value !== undefined && analyte.result_value !== null
                                       ? String(analyte.result_value)
                                       : "-"}
+                                    {analyte.result_unit && ` ${analyte.result_unit}`}
                                   </span>
                                 );
                               })()}
                             </td>
-                            <td className="p-2 text-sm text-muted-foreground">
-                              {analyte.reference_range || "N/A"}
-                            </td>
+                            {hasMultipleResults && historicalValues.map((histValue, histIdx) => (
+                              <td key={histIdx} className="p-2 text-sm text-muted-foreground">
+                                {histValue !== '-' ? String(histValue) : '-'}
+                              </td>
+                            ))}
                             <td className="p-2 text-sm">
                               <span
                                 className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -538,8 +588,71 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                                 })()}
                               </span>
                             </td>
+                            <td className="p-2 text-sm">
+                              {hasHistory && (
+                                <button
+                                  onClick={() => {
+                                    const newSet = new Set(expandedTestHistory);
+                                    if (isHistoryExpanded) {
+                                      newSet.delete(historyKey);
+                                    } else {
+                                      newSet.add(historyKey);
+                                    }
+                                    setExpandedTestHistory(newSet);
+                                  }}
+                                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  {isHistoryExpanded ? 'Hide' : 'View'} History ({testHistory.length})
+                                </button>
+                              )}
+                            </td>
                           </tr>
-                        ))}
+                          
+                          {/* Expandable history row */}
+                          {isHistoryExpanded && (
+                            <tr className="bg-blue-50">
+                              <td colSpan={hasSamples ? 6 : 5} className="p-3">
+                                <div className="text-xs font-semibold mb-2 text-blue-900">
+                                  Test History for {analyte.analyte_name}
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-blue-200">
+                                        <th className="p-2 text-left">Date</th>
+                                        <th className="p-2 text-left">Result</th>
+                                        <th className="p-2 text-left">Reference</th>
+                                        <th className="p-2 text-left">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {testHistory.map((hist, histIdx) => (
+                                        <tr key={histIdx} className="border-b border-blue-100 last:border-0">
+                                          <td className="p-2">{new Date(hist.date).toLocaleDateString('sv-SE')}</td>
+                                          <td className="p-2 font-semibold">
+                                            {hist.value} {hist.unit || ''}
+                                          </td>
+                                          <td className="p-2 text-muted-foreground">{analyte.reference_range || 'N/A'}</td>
+                                          <td className="p-2">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                              hist.status === 'normal' ? 'bg-green-100 text-green-800' :
+                                              hist.status === 'abnormal' ? 'bg-red-100 text-red-800' :
+                                              hist.status === 'critical' ? 'bg-red-100 text-red-800 font-bold' :
+                                              'bg-gray-100 text-gray-800'
+                                            }`}>
+                                              {hist.status.toUpperCase()}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>);
+                        })}
                       </tbody>
                     </table>
                   </div>
