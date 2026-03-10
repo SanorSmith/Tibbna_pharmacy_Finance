@@ -214,8 +214,28 @@ export default function DoctorDashboard({
     return incomingReferrals.length + outgoingReferrals.length;
   }, [doctorReferrals]);
 
+  // Fetch lab result notifications
+  const { data: labNotifications = [] } = useQuery({
+    queryKey: ["lab-notifications", workspaceid],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/lims/notifications?workspaceid=${workspaceid}`);
+        if (res.ok) {
+          const data = await res.json();
+          return (data.notifications || []).filter((n: any) => 
+            n.notification_type === 'RESULTS_RELEASED' && !n.is_read
+          );
+        }
+        return [];
+      } catch (error) {
+        console.error("Error fetching lab notifications:", error);
+        return [];
+      }
+    },
+  });
+
   // Calculate total notifications
-  const totalNotifications = overduePatients + totalReferrals;
+  const totalNotifications = overduePatients + totalReferrals + labNotifications.length;
 
   const loading =
     loadingAppts ||
@@ -476,9 +496,11 @@ export default function DoctorDashboard({
               </div>
               <div className="text-xs opacity-75 mt-2">
                 {overduePatients > 0 && `${overduePatients} overdue${overduePatients === 1 ? ' patient' : ' patients'}`}
-                {overduePatients > 0 && totalReferrals > 0 && ' • '}
+                {overduePatients > 0 && (totalReferrals > 0 || labNotifications.length > 0) && ' • '}
                 {totalReferrals > 0 && `${totalReferrals} referral${totalReferrals === 1 ? '' : 's'}`}
-                {overduePatients === 0 && totalReferrals === 0 && 'All caught up!'}
+                {(overduePatients > 0 || totalReferrals > 0) && labNotifications.length > 0 && ' • '}
+                {labNotifications.length > 0 && `${labNotifications.length} lab result${labNotifications.length === 1 ? '' : 's'}`}
+                {overduePatients === 0 && totalReferrals === 0 && labNotifications.length === 0 && 'All caught up!'}
               </div>
             </div>
           </CardContent>
