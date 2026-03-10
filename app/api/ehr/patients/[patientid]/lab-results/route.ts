@@ -495,6 +495,12 @@ export async function GET(
 
     const limsLabResults = Array.from(orderMap.values());
 
+    // Debug: log the grouping
+    console.log(`[lab-results] Grouped into ${limsLabResults.length} orders:`);
+    for (const order of limsLabResults) {
+      console.log(`  Order ${order.orderid}: ${order.samples.length} samples, ${order.test_results.length} test results`);
+    }
+
     // Merge: LIMS results first (real data), then dummy data
     const allResults = [...limsLabResults, ...patientLabResults];
 

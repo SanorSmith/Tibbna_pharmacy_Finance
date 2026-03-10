@@ -610,8 +610,79 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                       className="h-7 px-2 text-xs"
                       onClick={async () => {
                         const result = currentResult as any;
-                        if (result.source === 'lims' && result.sampleid) {
-                          // LIMS result: use the lab-report API for a professional report
+                        const orderSamples = result.samples || [];
+                        
+                        console.log('[Print] Order samples:', orderSamples);
+                        console.log('[Print] Result source:', result.source);
+                        console.log('[Print] Result sampleid:', result.sampleid);
+                        
+                        if (result.source === 'lims' && orderSamples.length > 0) {
+                          // LIMS order with multiple samples: print all samples in the order
+                          try {
+                            const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                            const reportHTMLs: string[] = [];
+                            
+                            console.log(`[Print] Fetching reports for ${orderSamples.length} samples`);
+                            
+                            // Fetch all sample reports
+                            for (const sample of orderSamples) {
+                              try {
+                                console.log(`[Print] Fetching report for sample ${sample.samplenumber} (${sample.sampleid})`);
+                                const response = await fetch(`/api/d/${workspaceid}/lab-report/${sample.sampleid}`);
+                                if (response.ok) {
+                                  const { report } = await response.json();
+                                  const html = generateLabReportHTML(report);
+                                  reportHTMLs.push(html);
+                                  console.log(`[Print] Added report for sample ${sample.samplenumber}`);
+                                } else {
+                                  console.error(`[Print] Failed to fetch report for sample ${sample.samplenumber}: ${response.status}`);
+                                }
+                              } catch (err) {
+                                console.error(`Error fetching report for sample ${sample.samplenumber}:`, err);
+                              }
+                            }
+                            
+                            console.log(`[Print] Opening print window with ${reportHTMLs.length} sample reports`);
+                            
+                            // Extract body content from each HTML and combine without page breaks
+                            const parser = new DOMParser();
+                            let combinedBodyContent = '';
+                            
+                            reportHTMLs.forEach((html, index) => {
+                              const doc = parser.parseFromString(html, 'text/html');
+                              const bodyContent = doc.body.innerHTML;
+                              combinedBodyContent += bodyContent;
+                              // Add spacing between samples but no page break
+                              if (index < reportHTMLs.length - 1) {
+                                combinedBodyContent += '<div style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;"></div>';
+                              }
+                            });
+                            
+                            // Get the head content from the first report (they should all have the same styles)
+                            const firstDoc = parser.parseFromString(reportHTMLs[0], 'text/html');
+                            const headContent = firstDoc.head.innerHTML;
+                            
+                            // Create a single combined HTML document
+                            const combinedHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${headContent}
+</head>
+<body>
+  ${combinedBodyContent}
+</body>
+</html>`;
+                            
+                            const printWindow = window.open('', '_blank');
+                            if (printWindow) {
+                              printWindow.document.write(combinedHTML);
+                              printWindow.document.close();
+                            }
+                          } catch (err) {
+                            console.error('Print error:', err);
+                          }
+                        } else if (result.source === 'lims' && result.sampleid) {
+                          // Single LIMS sample (fallback)
                           try {
                             const response = await fetch(`/api/d/${workspaceid}/lab-report/${result.sampleid}`);
                             if (!response.ok) throw new Error('Failed to fetch report');
