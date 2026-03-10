@@ -194,22 +194,10 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
     },
   });
 
-  // Fetch OpenEHR lab results
-  const { data: openEHRLabResults = [], isLoading: loadingOpenEHRResults, refetch: loadLabResults } = useQuery({
-    queryKey: ["lab-results-openehr", workspaceid, patientid],
-    queryFn: async () => {
-      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/openehr-lab-results`);
-      if (!res.ok) {
-        throw new Error("Failed to load OpenEHR lab results");
-      }
-      const data = await res.json();
-      return (data.labResults || []) as LabTestResult[];
-    },
-  });
-
-  // Combine both sources - API already groups LIMS results by order
-  const allLabResults = [...openEHRLabResults, ...dummyLabResults];
-  const loadingLabResults = loadingDummyResults || loadingOpenEHRResults;
+  // lab-results API already groups LIMS results by OpenEHR order
+  const allLabResults = dummyLabResults;
+  const loadingLabResults = loadingDummyResults;
+  const loadLabResults = () => {};
 
   // Sort by date (newest first) - each entry is an order
   const sortedLabResults = [...allLabResults].sort(

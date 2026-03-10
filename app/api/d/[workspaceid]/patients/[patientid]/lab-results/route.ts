@@ -3,9 +3,8 @@ import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { db } from "@/lib/db";
 import { eq, and, desc } from "drizzle-orm";
-import { testResults, accessionSamples, patients, users, workspaces } from "@/lib/db/schema";
+import { testResults, accessionSamples, users, workspaces } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
-import { getOpenEHREHRBySubjectId, getOpenEHRTestOrdersWithCancelled } from "@/lib/openehr/openehr";
 
 // In-memory storage for lab results (dummy data)
 // In production, this would be stored in EHRbase or a database
@@ -374,6 +373,7 @@ export async function GET(
     const patientLabResults = labResultsStore[patientid] || [];
 
     // Also fetch real LIMS results from the database
+    // Include openehrrequestid to group samples by their parent order
     const limsResults = await db
       .select({
         resultid: testResults.resultid,
@@ -398,6 +398,7 @@ export async function GET(
         collectiondate: accessionSamples.collectiondate,
         labcategory: accessionSamples.labcategory,
         barcode: accessionSamples.barcode,
+        openehrrequestid: accessionSamples.openehrrequestid,
       })
       .from(testResults)
       .innerJoin(accessionSamples, eq(testResults.sampleid, accessionSamples.sampleid))
@@ -412,80 +413,19 @@ export async function GET(
     // Get facility name once
     const facilityName = membership.workspace.name || "Laboratory";
 
-    // Fetch OpenEHR test orders to group results by order
-    let testOrders: any[] = [];
-    try {
-      const [patient] = await db
-        .select({ nationalid: patients.nationalid })
-        .from(patients)
-        .where(eq(patients.patientid, patientid))
-        .limit(1);
-
-      let ehrId: string | null = null;
-      if (patient?.nationalid) {
-        ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
-      }
-      if (!ehrId) {
-        ehrId = await getOpenEHREHRBySubjectId(patientid);
-      }
-      if (ehrId) {
-        testOrders = await getOpenEHRTestOrdersWithCancelled(ehrId);
-      }
-    } catch (err) {
-      console.error("[lab-results] Error fetching OpenEHR test orders:", err);
-    }
-
-    // Build order info and a list of test names per order for fuzzy matching
-    const orderInfoMap = new Map<string, { service_name: string; recorded_time: string; request_status: string; testNames: string[] }>();
-
-    for (const order of testOrders) {
-      const orderTestNames = (order.service_name || "")
-        .split(",")
-        .map((t: string) => t.trim().toLowerCase())
-        .filter(Boolean);
-      
-      orderInfoMap.set(order.composition_uid, {
-        service_name: order.service_name,
-        recorded_time: order.recorded_time,
-        request_status: order.request_status,
-        testNames: orderTestNames,
-      });
-    }
-
-    // Fuzzy match: find which order a LIMS test result belongs to
-    function findMatchingOrderId(testName: string): string | null {
-      const normalized = testName.toLowerCase().trim();
-      for (const [orderId, info] of orderInfoMap) {
-        for (const orderTestName of info.testNames) {
-          // Exact match
-          if (orderTestName === normalized) return orderId;
-          // Partial match: LIMS test name contained in order test name or vice versa
-          if (orderTestName.includes(normalized) || normalized.includes(orderTestName)) return orderId;
-          // Word-based match: first significant word matches (e.g., "sputum" in "sputum culture" matches "sputum c/s (automated)")
-          const orderWords = orderTestName.split(/[\s\/\(\),]+/).filter(w => w.length > 2);
-          const testWords = normalized.split(/[\s\/\(\),]+/).filter(w => w.length > 2);
-          const commonWords = testWords.filter(w => orderWords.includes(w));
-          if (commonWords.length > 0 && commonWords.length >= Math.min(testWords.length, orderWords.length) * 0.5) {
-            return orderId;
-          }
-        }
-      }
-      return null;
-    }
-
-    // Group LIMS results by their matched ORDER
+    // Group LIMS results by openehrrequestid (= order ID)
+    // Samples that belong to the same order share the same openehrrequestid
     const orderMap = new Map<string, any>();
     
     for (const r of limsResults) {
-      // Match this test result to an order by test name (fuzzy)
-      const matchedOrderId = findMatchingOrderId(r.testname || "") || `unmatched-${r.sampleid}`;
-      const orderInfo = orderInfoMap.get(matchedOrderId);
+      // Use openehrrequestid as group key; fall back to sampleid if no order link
+      const orderKey = r.openehrrequestid || `no-order-${r.sampleid}`;
       
-      if (!orderMap.has(matchedOrderId)) {
-        orderMap.set(matchedOrderId, {
-          composition_uid: matchedOrderId,
+      if (!orderMap.has(orderKey)) {
+        orderMap.set(orderKey, {
+          composition_uid: orderKey,
           recorded_time: r.analyzeddate?.toISOString() || new Date().toISOString(),
-          test_name: orderInfo?.service_name || r.labcategory || "Laboratory Tests",
+          test_name: "Laboratory Tests",
           protocol: r.samplenumber,
           specimen_type: r.sampletype,
           specimen_collection_time: r.collectiondate?.toISOString(),
@@ -496,12 +436,12 @@ export async function GET(
           report_date: r.releaseddate?.toISOString() || r.analyzeddate?.toISOString() || new Date().toISOString(),
           source: "lims",
           sampleid: r.sampleid,
-          orderid: matchedOrderId,
+          orderid: orderKey,
           samples: [] as { sampleid: string; samplenumber: string; sampletype: string; collectiondate: string | null; barcode: string | null; labcategory: string | null }[],
         });
       }
 
-      const order = orderMap.get(matchedOrderId);
+      const order = orderMap.get(orderKey);
       
       // Track unique samples within this order
       if (!order.samples.find((s: any) => s.sampleid === r.sampleid)) {
