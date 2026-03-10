@@ -600,9 +600,9 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                                     }
                                     setExpandedTestHistory(newSet);
                                   }}
-                                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                  className="text-s text-blue-600 hover:text-blue-800 underline"
                                 >
-                                  {isHistoryExpanded ? 'Hide' : 'View'} History ({testHistory.length})
+                                  {isHistoryExpanded ? 'Hide' : 'View'}
                                 </button>
                               )}
                             </td>
