@@ -73,15 +73,6 @@ export function usePatientData({ workspaceid, patientid }: UsePatientDataProps) 
         },
       },
       {
-        queryKey: ["lab-results-openehr", workspaceid, patientid],
-        queryFn: async () => {
-          const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/openehr-lab-results`);
-          if (!res.ok) throw new Error("Failed to fetch OpenEHR lab results");
-          const data = await res.json();
-          return data.labResults || [];
-        },
-      },
-      {
         queryKey: ["lab-orders-openehr", workspaceid, patientid],
         queryFn: async () => {
           const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/openehr-lab-orders`);
@@ -129,11 +120,9 @@ export function usePatientData({ workspaceid, patientid }: UsePatientDataProps) 
     ],
   });
 
-  // Combine local and OpenEHR lab results
-  const localLabResults = queries[6].data || [];
-  const openEHRLabResults = queries[7].data || [];
-  const openEHRLabOrders = queries[8].data || [];
-  const allLabResults = [...openEHRLabResults, ...localLabResults];
+  // Lab results API already groups by order, no need to combine
+  const labResults = queries[6].data || [];
+  const openEHRLabOrders = queries[7].data || [];
 
   return {
     appointments: queries[0].data || [],
@@ -158,22 +147,22 @@ export function usePatientData({ workspaceid, patientid }: UsePatientDataProps) 
     testOrdersHasMore: queries[5].data?.hasMore || false,
     loadingTestOrders: queries[5].isLoading,
     
-    labResults: allLabResults,
+    labResults: labResults,
     labOrders: openEHRLabOrders,
-    loadingLabResults: queries[6].isLoading || queries[7].isLoading,
-    loadingLabOrders: queries[8].isLoading,
+    loadingLabResults: queries[6].isLoading,
+    loadingLabOrders: queries[7].isLoading,
     
-    prescriptions: queries[9].data || [],
-    loadingPrescriptions: queries[9].isLoading,
+    prescriptions: queries[8].data || [],
+    loadingPrescriptions: queries[8].isLoading,
     
-    referrals: queries[10].data || [],
-    loadingReferrals: queries[10].isLoading,
+    referrals: queries[9].data || [],
+    loadingReferrals: queries[9].isLoading,
     
-    vaccinations: queries[11].data || [],
-    loadingVaccinations: queries[11].isLoading,
+    vaccinations: queries[10].data || [],
+    loadingVaccinations: queries[10].isLoading,
     
-    notes: queries[12].data || [],
-    loadingNotes: queries[12].isLoading,
+    notes: queries[11].data || [],
+    loadingNotes: queries[11].isLoading,
     
     // Overall loading state
     isLoading: queries.some(q => q.isLoading),

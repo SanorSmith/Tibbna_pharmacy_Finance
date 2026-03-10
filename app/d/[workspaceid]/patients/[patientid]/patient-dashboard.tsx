@@ -123,6 +123,9 @@ export default function PatientDashboard({
     return false;
   };
 
+  // Debug: log raw lab results
+  console.log('[Dashboard] Raw labResults:', labResults.length, labResults);
+  
   // Transform lab results to dashboard format (LabRecord)
   const transformedLabResults = labResults.map((result: any) => {
     // Build individual test result items with their abnormal status
@@ -173,9 +176,10 @@ export default function PatientDashboard({
     isOrder: true, // Mark as lab order
   }));
 
-  // Combine lab results and orders, sorted by date (newest first)
+  // Combine lab results and orders, sorted by date (newest first), take only the latest
   const allLabItems = [...transformedLabResults, ...transformedLabOrders]
-    .sort((a, b) => new Date(b.test_date).getTime() - new Date(a.test_date).getTime());
+    .sort((a, b) => new Date(b.test_date).getTime() - new Date(a.test_date).getTime())
+    .slice(0, 1); // Show only the latest lab result/order
 
   // const [loadingMoreDiagnoses, setLoadingMoreDiagnoses] = useState(false);
   const [selectedDiagnosis, setSelectedDiagnosis] =
