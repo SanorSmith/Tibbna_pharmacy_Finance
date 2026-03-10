@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -162,9 +163,8 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState<LabTestResult | null>(null);
   
-  // State for navigation and history per test
-  const [currentIndexByTest, setCurrentIndexByTest] = useState<Map<string, number>>(new Map());
-  const [showHistoryByTest, setShowHistoryByTest] = useState<Map<string, boolean>>(new Map());
+  const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
+  const [expandedTestHistory, setExpandedTestHistory] = useState<Set<string>>(new Set());
   
   const [showLabOrderForm, setShowLabOrderForm] = useState(false);
   const [labOrderForm, setLabOrderForm] = useState({
@@ -194,43 +194,58 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
     },
   });
 
-  // Fetch OpenEHR lab results
-  const { data: openEHRLabResults = [], isLoading: loadingOpenEHRResults, refetch: loadLabResults } = useQuery({
-    queryKey: ["lab-results-openehr", workspaceid, patientid],
-    queryFn: async () => {
-      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/openehr-lab-results`);
-      if (!res.ok) {
-        throw new Error("Failed to load OpenEHR lab results");
-      }
-      const data = await res.json();
-      return (data.labResults || []) as LabTestResult[];
-    },
-  });
+  // lab-results API already groups LIMS results by OpenEHR order
+  const allLabResults = dummyLabResults;
+  const loadingLabResults = loadingDummyResults;
+  const loadLabResults = () => {};
 
-  // Combine both sources and group by test name
-  const allLabResults = [...openEHRLabResults, ...dummyLabResults];
-  const loadingLabResults = loadingDummyResults || loadingOpenEHRResults;
+  // Sort by date (newest first) - each entry is an order
+  const sortedLabResults = [...allLabResults].sort(
+    (a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime()
+  );
 
-  // Group lab results by test name
-  const labResultsByTest = new Map<string, LabTestResult[]>();
+  // Group by composition_uid (order) for navigation - each order is one entry
+  const labResultsByOrder = new Map<string, LabTestResult[]>();
   
-  allLabResults.forEach((result) => {
-    const testKey = result.test_name.toLowerCase().trim();
-    const existing = labResultsByTest.get(testKey);
+  sortedLabResults.forEach((result) => {
+    const orderKey = result.composition_uid;
+    const existing = labResultsByOrder.get(orderKey);
     if (existing) {
       existing.push(result);
     } else {
-      labResultsByTest.set(testKey, [result]);
+      labResultsByOrder.set(orderKey, [result]);
     }
   });
 
-  // Sort each test group by date (newest first)
-  labResultsByTest.forEach((results) => {
-    results.sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
-  });
-
   // Convert to array for rendering
-  const labResultRecords = Array.from(labResultsByTest.entries());
+  const labResultRecords = Array.from(labResultsByOrder.entries());
+
+  // Build test history: collect all values for each test across all orders
+  const buildTestHistory = (testName: string) => {
+    const history: Array<{ date: string; value: any; unit?: string; status: string; orderKey: string }> = [];
+    
+    // Search through all orders for this test
+    for (const [orderKey, results] of labResultsByOrder) {
+      for (const result of results) {
+        const matchingTests = result.test_results.filter(
+          (t: LabTestAnalyte) => t.analyte_name === testName
+        );
+        
+        for (const test of matchingTests) {
+          history.push({
+            date: result.report_date,
+            value: test.result_value,
+            unit: test.result_unit,
+            status: test.result_status || 'normal',
+            orderKey: orderKey
+          });
+        }
+      }
+    }
+    
+    // Sort by date descending (newest first)
+    return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
 
   const saveLabOrder = async () => {
     if (!labOrderForm.service_name || !labOrderForm.clinical_indication) {
@@ -311,19 +326,47 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
             No lab results found.
           </div>
         ) : (
-          <div className="space-y-6">
-            {labResultRecords.map(([testName, results]) => {
-              const currentIndex = currentIndexByTest.get(testName) || 0;
-              const showHistory = showHistoryByTest.get(testName) || false;
-              const currentResult = results[currentIndex];
-              const hasMultipleResults = results.length > 1;
+          <div>
+            {/* Order Navigation - Both buttons on right */}
+            {labResultRecords.length > 1 && (
+              <div className="flex items-center justify-between mb-4 p-3 bg-muted/30 rounded-lg">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Order {currentOrderIndex + 1} of {labResultRecords.length}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentOrderIndex(Math.max(0, currentOrderIndex - 1))}
+                    disabled={currentOrderIndex === 0}
+                    className="h-8 px-3 text-xs"
+                  >
+                    ← Previous Order
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentOrderIndex(Math.min(labResultRecords.length - 1, currentOrderIndex + 1))}
+                    disabled={currentOrderIndex === labResultRecords.length - 1}
+                    className="h-8 px-3 text-xs"
+                  >
+                    Next Order →
+                  </Button>
+                </div>
+              </div>
+            )}
+            {(() => {
+              const [orderKey, results] = labResultRecords[currentOrderIndex];
+              const currentResult = results[0];
+              const samples = (currentResult as any).samples || [];
+              const hasSamples = samples.length > 0;
 
               return (
                 <div
-                  key={testName}
+                  key={orderKey}
                   className="border rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
-                  {/* Header with Navigation */}
+                  {/* Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -335,75 +378,66 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             OpenEHR
                           </span>
                         )}
-                        {hasMultipleResults && (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                            {currentIndex + 1} of {results.length}
+                        {hasSamples && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                            {samples.length} sample{samples.length > 1 ? 's' : ''}
                           </span>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Protocol: {currentResult.protocol}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
                         {currentResult.laboratory_name}
                       </p>
                     </div>
-                    <div className="text-right flex flex-col items-end gap-2">
-                      <div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            currentResult.overall_test_status === "final"
-                              ? "bg-green-100 text-green-800"
-                              : currentResult.overall_test_status === "preliminary"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : currentResult.overall_test_status === "amended"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {currentResult.overall_test_status
-                            .charAt(0)
-                            .toUpperCase() +
-                            currentResult.overall_test_status.slice(1)}
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(currentResult.report_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      {/* Navigation Buttons */}
-                      {hasMultipleResults && (
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const newIndex = Math.max(0, currentIndex - 1);
-                              setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, newIndex)));
-                            }}
-                            disabled={currentIndex === 0}
-                            className="h-7 px-2 text-xs"
-                          >
-                            Previous
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const newIndex = Math.min(results.length - 1, currentIndex + 1);
-                              setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, newIndex)));
-                            }}
-                            disabled={currentIndex === results.length - 1}
-                            className="h-7 px-2 text-xs"
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      )}
+                    <div className="text-right">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          currentResult.overall_test_status === "final"
+                            ? "bg-green-100 text-green-800"
+                            : currentResult.overall_test_status === "preliminary"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : currentResult.overall_test_status === "amended"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {currentResult.overall_test_status
+                          .charAt(0)
+                          .toUpperCase() +
+                          currentResult.overall_test_status.slice(1)}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(currentResult.report_date).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
 
-                {/* Specimen Details */}
-                {currentResult.specimen_type && (
+                {/* Samples in this order */}
+                {hasSamples && (
+                  <div className="mb-3 p-2 bg-muted/30 rounded">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      Specimens ({samples.length})
+                    </p>
+                    <div className="space-y-1">
+                      {samples.map((sample: any) => (
+                        <div key={sample.sampleid} className="flex items-center gap-4 text-sm">
+                          <span className="font-medium">{sample.samplenumber}</span>
+                          <span className="text-muted-foreground">{sample.sampletype}</span>
+                          {sample.labcategory && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{sample.labcategory}</span>
+                          )}
+                          {sample.collectiondate && (
+                            <span className="text-xs text-muted-foreground">
+                              Collected: {new Date(sample.collectiondate).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Non-LIMS specimen details (OpenEHR / dummy) */}
+                {!hasSamples && currentResult.specimen_type && (
                   <div className="mb-3 p-2 bg-muted/30 rounded">
                     <p className="text-xs font-medium text-muted-foreground mb-1">
                       Specimen Details
@@ -429,7 +463,7 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                   </div>
                 )}
 
-                {/* Test Results with Traffic Light Colors */}
+                {/* Test Results with Traffic Light Colors and History */}
                 <div className="mb-3">
                   <p className="text-sm font-medium mb-2">Test Results</p>
                   <div className="rounded-md border overflow-x-auto">
@@ -440,25 +474,45 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                             Analyte
                           </th>
                           <th className="p-2 text-left text-xs font-medium">
-                            Result
+                            Reference Range
                           </th>
+                          {hasSamples && (
+                            <th className="p-2 text-left text-xs font-medium">
+                              Sample
+                            </th>
+                          )}
                           <th className="p-2 text-left text-xs font-medium">
-                            Range
+                            Current Result
                           </th>
                           <th className="p-2 text-left text-xs font-medium">
                             Status
                           </th>
+                          <th className="p-2 text-left text-xs font-medium">
+                            History
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {currentResult.test_results.map((analyte: LabTestAnalyte, idx: number) => (
-                          <tr
-                            key={idx}
-                            className="border-b last:border-0 hover:bg-muted/30"
-                          >
+                        {currentResult.test_results.map((analyte: LabTestAnalyte, idx: number) => {
+                          // Get full history for this test across all orders
+                          const testHistory = buildTestHistory(analyte.analyte_name);
+                          const hasHistory = testHistory.length > 1;
+                          const historyKey = `${orderKey}-${analyte.analyte_name}`;
+                          const isHistoryExpanded = expandedTestHistory.has(historyKey);
+                          
+                          return (<React.Fragment key={idx}>
+                            <tr className="border-b last:border-0 hover:bg-muted/30">
                             <td className="p-2 text-sm font-medium">
                               {analyte.analyte_name}
                             </td>
+                            <td className="p-2 text-xs text-muted-foreground">
+                              {analyte.reference_range || "N/A"}
+                            </td>
+                            {hasSamples && (
+                              <td className="p-2 text-xs text-muted-foreground">
+                                {(analyte as any).samplenumber || '-'}
+                              </td>
+                            )}
                             <td className="p-2 text-sm font-semibold">
                               {(() => {
                                 const status = getResultStatus(analyte);
@@ -477,12 +531,10 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                                     {analyte.result_value !== undefined && analyte.result_value !== null
                                       ? String(analyte.result_value)
                                       : "-"}
+                                    {analyte.result_unit && ` ${analyte.result_unit}`}
                                   </span>
                                 );
                               })()}
-                            </td>
-                            <td className="p-2 text-sm text-muted-foreground">
-                              {analyte.reference_range || "N/A"}
                             </td>
                             <td className="p-2 text-sm">
                               <span
@@ -511,8 +563,71 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                                 })()}
                               </span>
                             </td>
+                            <td className="p-2 text-sm">
+                              {hasHistory && (
+                                <button
+                                  onClick={() => {
+                                    const newSet = new Set(expandedTestHistory);
+                                    if (isHistoryExpanded) {
+                                      newSet.delete(historyKey);
+                                    } else {
+                                      newSet.add(historyKey);
+                                    }
+                                    setExpandedTestHistory(newSet);
+                                  }}
+                                  className="text-s text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  {isHistoryExpanded ? 'Hide' : 'View'}
+                                </button>
+                              )}
+                            </td>
                           </tr>
-                        ))}
+                          
+                          {/* Expandable history row */}
+                          {isHistoryExpanded && (
+                            <tr className="bg-blue-50">
+                              <td colSpan={hasSamples ? 6 : 5} className="p-3">
+                                <div className="text-xs font-semibold mb-2 text-blue-900">
+                                  Test History for {analyte.analyte_name}
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-blue-200">
+                                        <th className="p-2 text-left">Date</th>
+                                        <th className="p-2 text-left">Result</th>
+                                        <th className="p-2 text-left">Reference</th>
+                                        <th className="p-2 text-left">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {testHistory.map((hist, histIdx) => (
+                                        <tr key={histIdx} className="border-b border-blue-100 last:border-0">
+                                          <td className="p-2">{new Date(hist.date).toLocaleDateString('sv-SE')}</td>
+                                          <td className="p-2 font-semibold">
+                                            {hist.value} {hist.unit || ''}
+                                          </td>
+                                          <td className="p-2 text-muted-foreground">{analyte.reference_range || 'N/A'}</td>
+                                          <td className="p-2">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                              hist.status === 'normal' ? 'bg-green-100 text-green-800' :
+                                              hist.status === 'abnormal' ? 'bg-red-100 text-red-800' :
+                                              hist.status === 'critical' ? 'bg-red-100 text-red-800 font-bold' :
+                                              'bg-gray-100 text-gray-800'
+                                            }`}>
+                                              {hist.status.toUpperCase()}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>);
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -563,28 +678,79 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {hasMultipleResults && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          const newMap = new Map(showHistoryByTest);
-                          newMap.set(testName, !showHistory);
-                          setShowHistoryByTest(newMap);
-                        }}
-                        className="h-7 px-2 text-xs"
-                      >
-                        {showHistory ? 'Hide History' : 'Show History'}
-                      </Button>
-                    )}
                     <Button
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2 text-xs"
                       onClick={async () => {
                         const result = currentResult as any;
-                        if (result.source === 'lims' && result.sampleid) {
-                          // LIMS result: use the lab-report API for a professional report
+                        const orderSamples = result.samples || [];
+                        
+                        console.log('[Print] Order samples:', orderSamples);
+                        console.log('[Print] Result source:', result.source);
+                        console.log('[Print] Result sampleid:', result.sampleid);
+                        
+                        if (result.source === 'lims' && orderSamples.length > 0) {
+                          // LIMS order with multiple samples: fetch all reports and combine into one
+                          try {
+                            console.log(`[Print] Fetching reports for ${orderSamples.length} samples`);
+                            
+                            const reports: any[] = [];
+                            // Fetch all sample reports
+                            for (const sample of orderSamples) {
+                              try {
+                                console.log(`[Print] Fetching report for sample ${sample.samplenumber} (${sample.sampleid})`);
+                                const response = await fetch(`/api/d/${workspaceid}/lab-report/${sample.sampleid}`);
+                                if (response.ok) {
+                                  const { report } = await response.json();
+                                  reports.push(report);
+                                  console.log(`[Print] Added report data for sample ${sample.samplenumber}`);
+                                }
+                              } catch (err) {
+                                console.error(`Error fetching report for sample ${sample.samplenumber}:`, err);
+                              }
+                            }
+                            
+                            if (reports.length === 0) {
+                              console.error('[Print] No reports fetched');
+                              return;
+                            }
+                            
+                            console.log(`[Print] Generating combined report for ${reports.length} samples`);
+                            
+                            // Generate a single combined report HTML
+                            const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
+                            
+                            // Use the first report's facility and patient info
+                            const firstReport = reports[0];
+                            
+                            // Combine all test results from all samples
+                            const allResults = reports.flatMap(r => r.results || []);
+                            
+                            // Create a combined report with all samples
+                            const combinedReport = {
+                              facility: firstReport.facility,
+                              patient: firstReport.patient,
+                              sample: {
+                                ...firstReport.sample,
+                                samplenumber: orderSamples.map((s: any) => s.samplenumber).join(', '),
+                                sampletype: 'Multiple Specimens',
+                              },
+                              results: allResults,
+                              generatedAt: new Date().toISOString(),
+                            };
+                            
+                            const html = generateLabReportHTML(combinedReport);
+                            const printWindow = window.open('', '_blank');
+                            if (printWindow) {
+                              printWindow.document.write(html);
+                              printWindow.document.close();
+                            }
+                          } catch (err) {
+                            console.error('Print error:', err);
+                          }
+                        } else if (result.source === 'lims' && result.sampleid) {
+                          // Single LIMS sample (fallback)
                           try {
                             const response = await fetch(`/api/d/${workspaceid}/lab-report/${result.sampleid}`);
                             if (!response.ok) throw new Error('Failed to fetch report');
@@ -657,60 +823,9 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                   </div>
                 </div>
 
-                {/* History Section */}
-                {hasMultipleResults && showHistory && (
-                  <div className="mt-4 border-t pt-4">
-                    <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Previous Results</h4>
-                    <div className="space-y-2">
-                      {results.slice(1).map((historyResult, idx) => (
-                        <div
-                          key={historyResult.composition_uid}
-                          className="border rounded p-3 bg-muted/20 hover:bg-muted/30 cursor-pointer"
-                          onClick={() => {
-                            setCurrentIndexByTest(new Map(currentIndexByTest.set(testName, idx + 1)));
-                            setShowHistoryByTest(new Map(showHistoryByTest.set(testName, false)));
-                          }}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="text-sm font-medium">
-                              {new Date(historyResult.report_date).toLocaleDateString()}
-                            </div>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                historyResult.overall_test_status === "final"
-                                  ? "bg-green-100 text-green-800"
-                                  : historyResult.overall_test_status === "preliminary"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {historyResult.overall_test_status.charAt(0).toUpperCase() +
-                                historyResult.overall_test_status.slice(1)}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            {historyResult.test_results.slice(0, 4).map((analyte: LabTestAnalyte, i: number) => (
-                              <div key={i} className="flex justify-between">
-                                <span className="text-muted-foreground">{analyte.analyte_name}:</span>
-                                <span className="font-medium">
-                                  {analyte.result_value} {analyte.result_unit}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          {historyResult.test_results.length > 4 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              +{historyResult.test_results.length - 4} more results
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
               );
-            })}
+            })()}
           </div>
         )}
       </CardContent>

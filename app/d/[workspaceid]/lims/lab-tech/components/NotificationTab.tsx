@@ -24,7 +24,7 @@ interface Notification {
 
 export default function NotificationTab({ workspaceid }: { workspaceid: string }) {
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [filter, setFilter] = useState<"all" | "unread">("unread");
 
   // Fetch notifications
   const { data, isLoading, error } = useQuery({

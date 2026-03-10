@@ -373,6 +373,7 @@ export async function GET(
     const patientLabResults = labResultsStore[patientid] || [];
 
     // Also fetch real LIMS results from the database
+    // Include openehrrequestid to group samples by their parent order
     const limsResults = await db
       .select({
         resultid: testResults.resultid,
@@ -397,6 +398,7 @@ export async function GET(
         collectiondate: accessionSamples.collectiondate,
         labcategory: accessionSamples.labcategory,
         barcode: accessionSamples.barcode,
+        openehrrequestid: accessionSamples.openehrrequestid,
       })
       .from(testResults)
       .innerJoin(accessionSamples, eq(testResults.sampleid, accessionSamples.sampleid))
@@ -411,14 +413,19 @@ export async function GET(
     // Get facility name once
     const facilityName = membership.workspace.name || "Laboratory";
 
-    // Group LIMS results by sample into LabTestResult format
-    const sampleMap = new Map<string, any>();
+    // Group LIMS results by openehrrequestid (= order ID)
+    // Samples that belong to the same order share the same openehrrequestid
+    const orderMap = new Map<string, any>();
+    
     for (const r of limsResults) {
-      if (!sampleMap.has(r.sampleid)) {
-        sampleMap.set(r.sampleid, {
-          composition_uid: `lims-${r.sampleid}`,
+      // Use openehrrequestid as group key; fall back to sampleid if no order link
+      const orderKey = r.openehrrequestid || `no-order-${r.sampleid}`;
+      
+      if (!orderMap.has(orderKey)) {
+        orderMap.set(orderKey, {
+          composition_uid: orderKey,
           recorded_time: r.analyzeddate?.toISOString() || new Date().toISOString(),
-          test_name: r.labcategory || "Laboratory Tests",
+          test_name: "Laboratory Tests",
           protocol: r.samplenumber,
           specimen_type: r.sampletype,
           specimen_collection_time: r.collectiondate?.toISOString(),
@@ -429,7 +436,29 @@ export async function GET(
           report_date: r.releaseddate?.toISOString() || r.analyzeddate?.toISOString() || new Date().toISOString(),
           source: "lims",
           sampleid: r.sampleid,
+          orderid: orderKey,
+          samples: [] as { sampleid: string; samplenumber: string; sampletype: string; collectiondate: string | null; barcode: string | null; labcategory: string | null }[],
         });
+      }
+
+      const order = orderMap.get(orderKey);
+      
+      // Track unique samples within this order
+      if (!order.samples.find((s: any) => s.sampleid === r.sampleid)) {
+        order.samples.push({
+          sampleid: r.sampleid,
+          samplenumber: r.samplenumber,
+          sampletype: r.sampletype,
+          collectiondate: r.collectiondate?.toISOString() || null,
+          barcode: r.barcode,
+          labcategory: r.labcategory,
+        });
+      }
+
+      // Update overall status - if any result is not released, the order is not final
+      const resultTestStatus = r.status === "released" ? "final" : r.status === "validated" ? "preliminary" : "registered";
+      if (resultTestStatus !== "final") {
+        order.overall_test_status = resultTestStatus;
       }
 
       const refRange =
@@ -451,7 +480,7 @@ export async function GET(
         ? "L"
         : "N";
 
-      sampleMap.get(r.sampleid).test_results.push({
+      order.test_results.push({
         analyte_name: r.testname,
         analyte_code: r.testcode,
         result_value: r.resultvalue || "-",
@@ -459,10 +488,18 @@ export async function GET(
         reference_range: refRange,
         result_status: resultStatus,
         result_flag: resultFlag,
+        specimen_type: r.sampletype,
+        samplenumber: r.samplenumber,
       });
     }
 
-    const limsLabResults = Array.from(sampleMap.values());
+    const limsLabResults = Array.from(orderMap.values());
+
+    // Debug: log the grouping
+    console.log(`[lab-results] Grouped into ${limsLabResults.length} orders:`);
+    for (const order of limsLabResults) {
+      console.log(`  Order ${order.orderid}: ${order.samples.length} samples, ${order.test_results.length} test results`);
+    }
 
     // Merge: LIMS results first (real data), then dummy data
     const allResults = [...limsLabResults, ...patientLabResults];
