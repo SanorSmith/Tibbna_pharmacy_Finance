@@ -465,9 +465,36 @@ export async function GET(
     const limsLabResults = Array.from(sampleMap.values());
 
     // Merge: LIMS results first (real data), then dummy data
-    const allResults = [...limsLabResults, ...patientLabResults];
+    let allResults = [...limsLabResults, ...patientLabResults];
 
-    return NextResponse.json({ labResults: allResults });
+    // Keep only the latest result per unique test name (for patient dashboard overview)
+    // Group by test name and keep the most recent one
+    const latestResultsMap = new Map<string, any>();
+    
+    for (const result of allResults) {
+      // For each test result in the composition
+      for (const testResult of result.test_results || []) {
+        const testName = testResult.analyte_name;
+        const resultDate = new Date(result.recorded_time || result.report_date);
+        
+        if (!latestResultsMap.has(testName)) {
+          latestResultsMap.set(testName, { ...result, test_results: [testResult] });
+        } else {
+          const existing = latestResultsMap.get(testName);
+          const existingDate = new Date(existing.recorded_time || existing.report_date);
+          
+          // Replace if this result is newer
+          if (resultDate > existingDate) {
+            latestResultsMap.set(testName, { ...result, test_results: [testResult] });
+          }
+        }
+      }
+    }
+    
+    // Convert back to array - only latest results
+    const uniqueLatestResults = Array.from(latestResultsMap.values());
+
+    return NextResponse.json({ labResults: uniqueLatestResults });
   } catch (error) {
     console.error("Error fetching lab results:", error);
     return NextResponse.json(
