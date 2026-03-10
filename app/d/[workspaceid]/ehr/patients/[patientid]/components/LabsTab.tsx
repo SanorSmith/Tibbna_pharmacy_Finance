@@ -617,13 +617,11 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                         console.log('[Print] Result sampleid:', result.sampleid);
                         
                         if (result.source === 'lims' && orderSamples.length > 0) {
-                          // LIMS order with multiple samples: print all samples in the order
+                          // LIMS order with multiple samples: fetch all reports and combine into one
                           try {
-                            const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
-                            const reportHTMLs: string[] = [];
-                            
                             console.log(`[Print] Fetching reports for ${orderSamples.length} samples`);
                             
+                            const reports: any[] = [];
                             // Fetch all sample reports
                             for (const sample of orderSamples) {
                               try {
@@ -631,51 +629,47 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                                 const response = await fetch(`/api/d/${workspaceid}/lab-report/${sample.sampleid}`);
                                 if (response.ok) {
                                   const { report } = await response.json();
-                                  const html = generateLabReportHTML(report);
-                                  reportHTMLs.push(html);
-                                  console.log(`[Print] Added report for sample ${sample.samplenumber}`);
-                                } else {
-                                  console.error(`[Print] Failed to fetch report for sample ${sample.samplenumber}: ${response.status}`);
+                                  reports.push(report);
+                                  console.log(`[Print] Added report data for sample ${sample.samplenumber}`);
                                 }
                               } catch (err) {
                                 console.error(`Error fetching report for sample ${sample.samplenumber}:`, err);
                               }
                             }
                             
-                            console.log(`[Print] Opening print window with ${reportHTMLs.length} sample reports`);
+                            if (reports.length === 0) {
+                              console.error('[Print] No reports fetched');
+                              return;
+                            }
                             
-                            // Extract body content from each HTML and combine without page breaks
-                            const parser = new DOMParser();
-                            let combinedBodyContent = '';
+                            console.log(`[Print] Generating combined report for ${reports.length} samples`);
                             
-                            reportHTMLs.forEach((html, index) => {
-                              const doc = parser.parseFromString(html, 'text/html');
-                              const bodyContent = doc.body.innerHTML;
-                              combinedBodyContent += bodyContent;
-                              // Add spacing between samples but no page break
-                              if (index < reportHTMLs.length - 1) {
-                                combinedBodyContent += '<div style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;"></div>';
-                              }
-                            });
+                            // Generate a single combined report HTML
+                            const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
                             
-                            // Get the head content from the first report (they should all have the same styles)
-                            const firstDoc = parser.parseFromString(reportHTMLs[0], 'text/html');
-                            const headContent = firstDoc.head.innerHTML;
+                            // Use the first report's facility and patient info
+                            const firstReport = reports[0];
                             
-                            // Create a single combined HTML document
-                            const combinedHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  ${headContent}
-</head>
-<body>
-  ${combinedBodyContent}
-</body>
-</html>`;
+                            // Combine all test results from all samples
+                            const allResults = reports.flatMap(r => r.results || []);
                             
+                            // Create a combined report with all samples
+                            const combinedReport = {
+                              facility: firstReport.facility,
+                              patient: firstReport.patient,
+                              sample: {
+                                ...firstReport.sample,
+                                samplenumber: orderSamples.map((s: any) => s.samplenumber).join(', '),
+                                sampletype: 'Multiple Specimens',
+                              },
+                              results: allResults,
+                              generatedAt: new Date().toISOString(),
+                            };
+                            
+                            const html = generateLabReportHTML(combinedReport);
                             const printWindow = window.open('', '_blank');
                             if (printWindow) {
-                              printWindow.document.write(combinedHTML);
+                              printWindow.document.write(html);
                               printWindow.document.close();
                             }
                           } catch (err) {
