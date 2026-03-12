@@ -159,12 +159,14 @@ export default function PharmacyOrderDetailPage({
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href={`/d/${workspaceid}/pharmacy/orders`}>
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        </Link>
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={() => router.push(`/d/${workspaceid}/pharmacy/dashboard?tab=orders`)}
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Orders
+        </Button>
         <div className="flex-1">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Pill className="h-5 w-5" />

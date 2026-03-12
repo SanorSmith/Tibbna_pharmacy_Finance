@@ -11,8 +11,9 @@ import {
   pharmacyOrderItems,
   patients,
   drugs,
+  users,
 } from "@/lib/db/schema";
-import { eq, and, desc, ilike } from "drizzle-orm";
+import { eq, and, desc, ilike, sql, inArray } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
 
@@ -47,14 +48,53 @@ export async function GET(
         updatedat: pharmacyOrders.updatedat,
         patientfirst: patients.firstname,
         patientlast: patients.lastname,
+        prescriberid: pharmacyOrders.prescriberid,
+        prescribername: users.name,
+        metadata: pharmacyOrders.metadata,
       })
       .from(pharmacyOrders)
       .leftJoin(patients, eq(pharmacyOrders.patientid, patients.patientid))
+      .leftJoin(users, eq(pharmacyOrders.prescriberid, users.userid))
       .where(and(...conditions))
       .orderBy(desc(pharmacyOrders.createdat))
       .limit(200);
 
-    return NextResponse.json({ orders });
+    // Fetch order items for each order
+    const orderIds = orders.map(o => o.orderid);
+    const items = orderIds.length > 0 ? await db
+      .select({
+        orderid: pharmacyOrderItems.orderid,
+        drugname: pharmacyOrderItems.drugname,
+        quantity: pharmacyOrderItems.quantity,
+        unitprice: pharmacyOrderItems.unitprice,
+      })
+      .from(pharmacyOrderItems)
+      .where(inArray(pharmacyOrderItems.orderid, orderIds)) : [];
+
+    // Group items by order
+    const itemsByOrder = items.reduce((acc, item) => {
+      if (!acc[item.orderid]) acc[item.orderid] = [];
+      acc[item.orderid].push(item);
+      return acc;
+    }, {} as Record<string, typeof items>);
+
+    // Calculate payment status and add items to orders
+    const ordersWithDetails = orders.map(order => {
+      const orderItems = itemsByOrder[order.orderid] || [];
+      const totalAmount = orderItems.reduce((sum, item) => 
+        sum + (parseFloat(item.unitprice || "0") * item.quantity), 0
+      );
+      const isPaid = order.status === "DISPENSED" && totalAmount > 0;
+      
+      return {
+        ...order,
+        items: orderItems,
+        totalAmount,
+        paymentStatus: isPaid ? "PAID" : totalAmount > 0 ? "PENDING" : "N/A",
+      };
+    });
+
+    return NextResponse.json({ orders: ordersWithDetails });
   } catch (error) {
     console.error("[Pharmacy Orders GET]", error);
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });

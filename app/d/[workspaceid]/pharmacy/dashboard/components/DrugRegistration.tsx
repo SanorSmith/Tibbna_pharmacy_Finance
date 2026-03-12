@@ -103,9 +103,12 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
     queryFn: async () => {
       const qs = search ? `?search=${encodeURIComponent(search)}` : "";
       const res = await fetch(`/api/d/${workspaceid}/pharmacy-drugs${qs}`);
-      if (!res.ok) throw new Error("Failed to fetch");
+      if (!res.ok) throw new Error("Failed to fetch drugs");
       return res.json();
     },
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const saveMutation = useMutation({

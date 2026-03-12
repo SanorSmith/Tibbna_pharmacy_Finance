@@ -57,7 +57,8 @@ export const pharmacyOrders = pgTable(
     prescriberid: uuid("prescriberid"), // doctor who prescribed
     status: text("status").notNull().$type<PharmacyOrderStatus>().default("PENDING"),
     source: text("source").notNull().default("manual"), // "openehr" | "manual"
-    openehrorderid: text("openehrorderid"), // external openEHR composition UID
+    openehrorderid: text("openehrorderid"), // external openEHR composition UID (INSTRUCTION.medication_order)
+    dispensecompositionuid: text("dispensecompositionuid"), // openEHR dispense event UID (ACTION.medication)
     priority: text("priority").notNull().default("routine"), // routine | urgent | stat
     notes: text("notes"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
@@ -71,6 +72,7 @@ export const pharmacyOrders = pgTable(
     patientIdx: index("pharmacy_orders_patient_idx").on(table.patientid),
     statusIdx: index("pharmacy_orders_status_idx").on(table.status),
     openehrIdx: index("pharmacy_orders_openehr_idx").on(table.openehrorderid),
+    dispenseIdx: index("pharmacy_orders_dispense_idx").on(table.dispensecompositionuid),
   })
 );
 
