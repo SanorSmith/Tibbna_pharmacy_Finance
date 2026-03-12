@@ -1157,6 +1157,27 @@ export async function getOpenEHRTemplates(): Promise<
   return response.data as OpenEHRTemplateResponse[];
 }
 
+export async function uploadOpenEHRTemplate(optContent: string): Promise<void> {
+  const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/definition/template/adl1.4`;
+  try {
+    const response = await axios.post(url, optContent, {
+      headers: {
+        "Content-Type": "application/xml",
+        "X-API-Key": process.env.EHRBASE_API_KEY!,
+        Authorization: `Basic ${basicAuth}`,
+      },
+    });
+    console.log("✅ Template uploaded successfully:", response.status);
+  } catch (error) {
+    console.error("❌ Template upload failed:", error);
+    if (axios.isAxiosError(error)) {
+      console.error("Response data:", error.response?.data);
+      console.error("Response status:", error.response?.status);
+    }
+    throw error;
+  }
+}
+
 export async function createOpenEHREHR(subjectId: string): Promise<string> {
   const newEHRRequest: OpenEHREHRNewRequest = {
     archetype_node_id: "openEHR-EHR-EHR_STATUS.generic.v1",

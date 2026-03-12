@@ -27,3 +27,15 @@ curl -X POST https://base.tibbna.com/ehrbase/rest/openehr/v1/definition/template
   -H "Authorization: Basic $(echo -n 'auto-speed-ranting:KivLWsQgN4f8aiHAvwuq' | base64)" \
   -H "Content-Type: application/xml" \
   --data-binary @template_referral_v1.opt
+
+curl -X POST https://base.tibbna.com/ehrbase/rest/openehr/v1/definition/template/adl1.4 \
+  -H "X-API-Key: BgMxGMZk5isfCWezE5CF" \
+  -H "Authorization: Basic $(echo -n 'auto-speed-ranting:KivLWsQgN4f8aiHAvwuq' | base64)" \
+  -H "Content-Type: application/xml" \
+  --data-binary @template_medication_dispense_v1.opt
+
+curl -X POST https://base.tibbna.com/ehrbase/rest/openehr/v1/definition/template/adl1.4 \
+  -H "X-API-Key: BgMxGMZk5isfCWezE5CF" \
+  -H "Authorization: Basic $(echo -n 'auto-speed-ranting:KivLWsQgN4f8aiHAvwuq' | base64)" \
+  -H "Content-Type: application/xml" \
+  --data-binary @template_medication_summary_v1.opt

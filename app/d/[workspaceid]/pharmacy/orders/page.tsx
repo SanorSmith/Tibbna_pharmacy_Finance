@@ -24,9 +24,5 @@ export default async function PharmacyOrdersServerPage({ params }: PageProps) {
     redirect(`/d/${workspaceid}`);
   }
 
-  return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-      <PharmacyOrdersPage workspaceid={workspaceid} />
-    </div>
-  );
+  return <PharmacyOrdersPage workspaceid={workspaceid} />;
 }

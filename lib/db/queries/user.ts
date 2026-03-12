@@ -94,7 +94,9 @@ export async function getActiveSession(
 
     return session[0] || null;
   } catch (error) {
-    console.error("Error getting active session:", error);
+    if (error) {
+      console.error("Error getting active session:", error);
+    }
     return null;
   }
 }
@@ -102,6 +104,11 @@ export async function getActiveSession(
 export async function updateSessionActivity(
   sessionToken: string,
 ): Promise<boolean> {
+  // Silently skip if no session token provided
+  if (!sessionToken) {
+    return false;
+  }
+
   try {
     // First check if the session exists
     const existingSession = await db
@@ -111,10 +118,7 @@ export async function updateSessionActivity(
       .limit(1);
 
     if (existingSession.length === 0) {
-      console.warn(
-        "Session not found for activity update:",
-        sessionToken.substring(0, 8) + "...",
-      );
+      // Session doesn't exist - this is normal during logout or expired sessions
       return false;
     }
 
@@ -133,7 +137,10 @@ export async function updateSessionActivity(
 
     return true;
   } catch (error) {
-    console.error("Error updating session activity:", error);
+    // Only log actual errors, not null/undefined
+    if (error !== null && error !== undefined) {
+      console.error("Error updating session activity:", error);
+    }
     return false;
   }
 }

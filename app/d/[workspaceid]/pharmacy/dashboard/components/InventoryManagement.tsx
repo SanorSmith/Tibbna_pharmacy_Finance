@@ -111,13 +111,16 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
     queryKey: ["pharmacy-inventory", workspaceid, search, filter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      if (filter !== "all") params.set("filter", filter);
-      const res = await fetch(`/api/d/${workspaceid}/pharmacy-inventory?${params}`);
+      if (search) params.append("search", search);
+      if (filter !== "all") params.append("filter", filter);
+      const res = await fetch(`/api/d/${workspaceid}/pharmacy-inventory?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
+    staleTime: 30000,
     refetchInterval: 60000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const reorderMutation = useMutation({

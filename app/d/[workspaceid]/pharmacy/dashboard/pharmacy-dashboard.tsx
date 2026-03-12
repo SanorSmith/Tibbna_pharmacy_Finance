@@ -4,7 +4,8 @@
  * - Tabs: Dashboard, Orders, Drug registration, HR, Inventory, Billing, Insurance, To Do
  */
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +48,16 @@ export default function PharmacyDashboard({
   workspaceid: string;
   userName: string;
 }) {
-  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(["dashboard"]));
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") || "dashboard";
+  const [activeTab, setActiveTab] = useState(tabParam);
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set([tabParam]));
+
+  useEffect(() => {
+    const tab = searchParams.get("tab") || "dashboard";
+    setActiveTab(tab);
+    setLoadedTabs((prev) => new Set(prev).add(tab));
+  }, [searchParams]);
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["pharmacy-dashboard", workspaceid],
@@ -56,7 +66,10 @@ export default function PharmacyDashboard({
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    refetchInterval: 60000,
+    staleTime: 30000, // Data stays fresh for 30 seconds
+    refetchInterval: 60000, // Auto-refetch every 60 seconds
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnMount: false, // Don't refetch on component mount if data exists
   });
 
   const handleTabChange = (tabValue: string) => {
@@ -64,55 +77,55 @@ export default function PharmacyDashboard({
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Tabs */}
-      <div className="px-4 pt-2 pb-1">
-        <Tabs
-          defaultValue="dashboard"
-          className="w-full"
-          onValueChange={handleTabChange}
-        >
-          <TabsList className="flex w-full flex-wrap gap-1 h-auto bg-transparent p-0">
-            <TabsTrigger
-              value="dashboard"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger
-              value="orders"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
-            >
-              <ClipboardList className="h-4 w-4" />
-              Orders
-            </TabsTrigger>
-            <TabsTrigger
-              value="drug-registration"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
-            >
-              <Pill className="h-4 w-4" />
-              Drug registration
-            </TabsTrigger>
-            <TabsTrigger
-              value="todo"
-              className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
-            >
-              <ListTodo className="h-4 w-4" />
-              To Do
-            </TabsTrigger>
-          </TabsList>
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => {
+        setActiveTab(value);
+        handleTabChange(value);
+      }}
+      className="flex flex-col flex-1 overflow-hidden"
+    >
+      <div className="flex-shrink-0 px-4 pt-2 pb-1">
+        <TabsList className="flex w-full flex-wrap gap-1 h-auto bg-transparent p-0">
+          <TabsTrigger
+            value="dashboard"
+            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger
+            value="orders"
+            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Orders
+          </TabsTrigger>
+          <TabsTrigger
+            value="drug-registration"
+            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <Pill className="h-4 w-4" />
+            Drug registration
+          </TabsTrigger>
+          <TabsTrigger
+            value="todo"
+            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <ListTodo className="h-4 w-4" />
+            To Do
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
-          {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="mt-3">
-            <h2 className="text-lg font-bold mb-3">Dashboard</h2>
-
-            {isLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-              </div>
-            ) : (
-              <div className="space-y-4">
+      {/* Dashboard Tab */}
+      <TabsContent value="dashboard" className="mt-3 px-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+          </div>
+        ) : (
+          <div className="space-y-4">
                 {/* Top summary cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Card className="shadow-sm">
@@ -325,53 +338,31 @@ export default function PharmacyDashboard({
                 </Card>
               </div>
             )}
-          </TabsContent>
+      </TabsContent>
 
-          {/* Orders Tab */}
-          <TabsContent value="orders" className="mt-4">
-            {loadedTabs.has("orders") && (
-              <div className="space-y-6">
-                {/* Order Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="shadow-sm bg-purple-100 border-purple-200">
-                    <CardContent className="pt-6 pb-6 px-6 text-center">
-                      <p className="text-lg font-semibold text-purple-900">Total orders {stats?.orders.total ?? 0}</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="shadow-sm bg-green-100 border-green-200">
-                    <CardContent className="pt-6 pb-6 px-6 text-center">
-                      <p className="text-lg font-semibold text-green-900">Complete orders {stats?.orders.dispensed ?? 0}</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="shadow-sm bg-yellow-100 border-yellow-200">
-                    <CardContent className="pt-6 pb-6 px-6 text-center">
-                      <p className="text-lg font-semibold text-yellow-900">Pending orders {stats?.orders.pending ?? 0}</p>
-                    </CardContent>
-                  </Card>
-                </div>
+      {/* Orders Tab */}
+      <TabsContent value="orders" className="mt-0 flex-1 flex flex-col overflow-hidden px-4">
+        {loadedTabs.has("orders") && (
+          <div className="flex-1 overflow-hidden">
+            <PharmacyOrdersPage workspaceid={workspaceid} />
+          </div>
+        )}
+      </TabsContent>
 
-                <div className="border-t pt-3">
-                  <PharmacyOrdersPage workspaceid={workspaceid} />
-                </div>
-              </div>
-            )}
-          </TabsContent>
+      {/* Drug Registration Tab */}
+      <TabsContent value="drug-registration" className="mt-4 px-4">
+        {loadedTabs.has("drug-registration") && (
+          <DrugRegistration workspaceid={workspaceid} />
+        )}
+      </TabsContent>
 
-          {/* Placeholder Tabs */}
-          <TabsContent value="drug-registration" className="mt-4">
-            {loadedTabs.has("drug-registration") && (
-              <DrugRegistration workspaceid={workspaceid} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="todo" className="mt-4">
-            {loadedTabs.has("todo") && (
-              <PlaceholderTab title="To Do" description="Task management and reminders" icon={<ListTodo className="h-12 w-12 text-gray-300" />} />
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+      {/* To Do Tab */}
+      <TabsContent value="todo" className="mt-4 px-4">
+        {loadedTabs.has("todo") && (
+          <PlaceholderTab title="To Do" description="Task management and reminders" icon={<ListTodo className="h-12 w-12 text-gray-300" />} />
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }
 
