@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Link from "next/link";
+import OrderDetailsModal from "./components/OrderDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,8 @@ export default function PharmacyOrdersPage({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -322,11 +324,17 @@ export default function PharmacyOrdersPage({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Link href={`/d/${workspaceid}/pharmacy/orders/${order.orderid}`}>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setSelectedOrder(order.orderid);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -337,6 +345,17 @@ export default function PharmacyOrdersPage({
         </CardContent>
       </Card>
       </div>
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        workspaceid={workspaceid}
+        orderid={selectedOrder || ""}
+        open={isModalOpen && selectedOrder !== null}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedOrder(null);
+        }}
+      />
     </div>
   );
 }
