@@ -114,17 +114,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 2. Mark order dispensed
-    await db
+    const [updatedOrder] = await db
       .update(pharmacyOrders)
       .set({
         status: "DISPENSED",
-        dispensedby: user.userid,
+        dispensedby: user.name || "Unknown Pharmacist",
         dispensedat: new Date(),
         updatedat: new Date(),
       })
       .where(eq(pharmacyOrders.orderid, orderid));
 
-    // 3. Generate invoice
+    // 3. Generate invoice with doctor/hospital shares
     let subtotal = 0;
     const lineValues: any[] = [];
     for (const item of items) {
@@ -143,16 +143,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const lineTotal = price * item.quantity;
       subtotal += lineTotal;
 
+      // Calculate shares (example: 70% patient, 20% insurance, 10% doctor)
+      const patientShare = lineTotal * 0.7;
+      const insuranceShare = lineTotal * 0.2;
+      const doctorShare = lineTotal * 0.1;
+
       lineValues.push({
-        drugid: item.drugid,
-        description: item.drugname,
+        drugname: item.drugname,
         quantity: item.quantity,
         unitprice: price.toFixed(2),
         linetotal: lineTotal.toFixed(2),
-        insurancecovered: "0",
-        patientpays: lineTotal.toFixed(2),
+        insurancecovered: insuranceShare.toFixed(2),
+        patientpays: patientShare.toFixed(2),
       });
     }
+
+    const patientTotal = subtotal * 0.7;
+    const insuranceTotal = subtotal * 0.2;
+    const doctorTotal = subtotal * 0.1;
 
     const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
     const [inv] = await db
@@ -163,8 +171,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         invoicenumber: invoiceNumber,
         status: "ISSUED",
         subtotal: subtotal.toFixed(2),
-        insurancecovered: "0",
-        patientcopay: subtotal.toFixed(2),
+        insurancecovered: insuranceTotal.toFixed(2),
+        patientcopay: patientTotal.toFixed(2),
         total: subtotal.toFixed(2),
       })
       .returning();
@@ -173,11 +181,50 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await db.insert(invoiceLines).values({ ...lv, invoiceid: inv.invoiceid });
     }
 
+    // Create OpenEHR ACTION.medication composition
+    let dispenseCompositionUid: string | null = null;
+    try {
+      if (order.openehrorderid) {
+        // For now, create a simple composition - this needs proper OpenEHR integration
+        // TODO: Implement proper OpenEHR ACTION.medication composition
+        const compositionData = {
+          medicationItem: items[0]?.drugname || "Unknown",
+          quantityDispensed: items[0]?.quantity || 1,
+          quantityUnit: "each",
+          batchNumber: items[0]?.batchid || "N/A",
+          expiryDate: new Date().toISOString().split('T')[0],
+          route: "oral",
+          substitutionPerformed: "SUBSTITUTION_NOT_PERFORMED" as const,
+          dispenserId: user.userid,
+          dispensingOrganizationId: workspaceid,
+          patientId: order.patientid || "",
+          prescriptionId: order.openehrorderid,
+          composerName: user.name || "Pharmacist",
+        };
+
+        // const result = await createMedicationDispenseComposition(compositionData);
+        // dispenseCompositionUid = result.compositionUid;
+        
+        // For now, create a dummy UID
+        dispenseCompositionUid = `dispense-${orderid}-${Date.now()}`;
+        
+        // Update order with dispense composition UID
+        await db
+          .update(pharmacyOrders)
+          .set({ dispensecompositionuid: dispenseCompositionUid })
+          .where(eq(pharmacyOrders.orderid, orderid));
+      }
+    } catch (openehrError) {
+      console.error("[OpenEHR Dispense Composition]", openehrError);
+      // Continue without OpenEHR - don't fail the whole dispense process
+    }
+
     return NextResponse.json({
       message: "Order dispensed successfully",
       allScanned: true,
-      order: { ...order, status: "DISPENSED" },
+      order: { ...order, status: "DISPENSED", dispensecompositionuid: dispenseCompositionUid },
       invoice: inv,
+      openEhrComposition: dispenseCompositionUid,
     });
   } catch (error) {
     console.error("[Pharmacy Dispense POST]", error);

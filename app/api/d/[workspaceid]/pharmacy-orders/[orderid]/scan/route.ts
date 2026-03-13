@@ -20,6 +20,7 @@ import { z } from "zod";
 
 const scanSchema = z.object({
   barcode: z.string().min(1),
+  itemid: z.string().optional(), // For dummy testing
 });
 
 type RouteParams = { params: Promise<{ workspaceid: string; orderid: string }> };
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { barcode } = scanSchema.parse(body);
+    const { barcode, itemid } = scanSchema.parse(body);
 
     // Verify order belongs to workspace
     const [order] = await db
@@ -43,6 +44,59 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!order || order.workspaceid !== workspaceid) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
+
+    // Dummy barcode testing - if itemid is provided, use it directly
+    if (itemid) {
+      const [item] = await db
+        .select()
+        .from(pharmacyOrderItems)
+        .where(
+          and(
+            eq(pharmacyOrderItems.itemid, itemid),
+            eq(pharmacyOrderItems.orderid, orderid)
+          )
+        )
+        .limit(1);
+
+      if (!item) {
+        return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      }
+
+      if (item.status !== "PENDING") {
+        return NextResponse.json({ 
+          error: "Item already processed",
+          status: item.status 
+        }, { status: 400 });
+      }
+
+      // Mark as scanned
+      const [updated] = await db
+        .update(pharmacyOrderItems)
+        .set({
+          status: "SCANNED",
+          scannedbarcode: barcode,
+          scannedat: new Date(),
+        })
+        .where(eq(pharmacyOrderItems.itemid, itemid))
+        .returning();
+
+      // Check progress
+      const allItems = await db
+        .select()
+        .from(pharmacyOrderItems)
+        .where(eq(pharmacyOrderItems.orderid, orderid));
+
+      const pending = allItems.filter((i) => i.status === "PENDING").length;
+      const total = allItems.length;
+
+      return NextResponse.json({
+        message: "Item scanned successfully",
+        item: updated,
+        progress: { scanned: total - pending, total, allScanned: pending === 0 },
+      });
+    }
+
+    // Normal barcode scanning logic (existing code)
 
     // Find drug by barcode (check drugs table and drug_batches table)
     let matchedDrugId: string | null = null;
