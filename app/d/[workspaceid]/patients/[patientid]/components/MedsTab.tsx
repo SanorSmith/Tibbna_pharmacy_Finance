@@ -3,6 +3,7 @@ import { useState } from "react";
 import { History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,8 @@ interface MedsTabProps {
 export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescriptions, loadPrescriptions }: MedsTabProps) {
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showMedicationSummary, setShowMedicationSummary] = useState(false);
+  const [medicationSummaryData, setMedicationSummaryData] = useState<any>(null);
   const [selectedPrescription, setSelectedPrescription] =
     useState<PrescriptionRecord | null>(null);
   const [prescriptionForm, setPrescriptionForm] = useState({
@@ -127,6 +130,23 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
   // Whether we are viewing active prescriptions or history (expired)
   const [showHistory, setShowHistory] = useState(false);
 
+  // Fetch medication summary from OpenEHR
+  const fetchMedicationSummary = async () => {
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/medications`);
+      if (res.ok) {
+        const data = await res.json();
+        setMedicationSummaryData(data);
+        setShowMedicationSummary(true);
+      } else {
+        alert("Failed to fetch medication summary");
+      }
+    } catch (error) {
+      console.error("Error fetching medication summary:", error);
+      alert("Error fetching medication summary");
+    }
+  };
+
   return (
     <>
        <Card className="bg-card-bg">
@@ -136,6 +156,13 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               {showHistory ? "Prescription History" : "Prescriptions"}
             </CardTitle>
             <div className="flex items-center gap-2">
+              <Button
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                size="sm"
+                onClick={fetchMedicationSummary}
+              >
+                System → Medication Summary
+              </Button>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
@@ -857,6 +884,95 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                   onClick={() => setShowDetails(false)}
                   className="bg-blue-200/90 hover:bg-blue-300"
                 >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Medication Summary Modal */}
+      <Dialog
+        open={showMedicationSummary}
+        onOpenChange={setShowMedicationSummary}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              System → Medication Summary (generated)
+            </DialogTitle>
+            <DialogDescription>
+              Complete medication history and current active medications from OpenEHR system
+            </DialogDescription>
+          </DialogHeader>
+
+          {medicationSummaryData && (
+            <div className="space-y-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Total Events</h4>
+                  <p className="text-2xl font-bold">{medicationSummaryData.totalEvents}</p>
+                </Card>
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Active Medications</h4>
+                  <p className="text-2xl font-bold text-green-600">{medicationSummaryData.activeMedications}</p>
+                </Card>
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Patient ID</h4>
+                  <p className="text-lg font-semibold">{medicationSummaryData.patientName}</p>
+                </Card>
+              </div>
+
+              {/* Medication Timeline */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Medication Timeline</h3>
+                <div className="space-y-3">
+                  {Object.entries(medicationSummaryData.timeline || {}).map(([medication, events]: [string, any]) => (
+                    <Card key={medication} className="p-4">
+                      <h4 className="font-medium text-blue-600 mb-2">{medication}</h4>
+                      <div className="space-y-2">
+                        {events.map((event: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{event.actionState}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(event.time).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Route: {event.route} | Quantity: {event.quantity} {event.unit}
+                              </div>
+                              {event.batchNumber && (
+                                <div className="text-xs text-muted-foreground">
+                                  Batch: {event.batchNumber} | Expires: {event.expiryDate}
+                                </div>
+                              )}
+                              {event.composer && (
+                                <div className="text-xs text-muted-foreground">
+                                  By: {event.composer}
+                                </div>
+                              )}
+                            </div>
+                            <Badge 
+                              variant={event.actionState.includes("dispensed") ? "default" : "outline"}
+                              className="text-xs"
+                            >
+                              {event.actionState}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={() => setShowMedicationSummary(false)}>
                   Close
                 </Button>
               </div>

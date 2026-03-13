@@ -9,18 +9,13 @@
  *  - Creates stock movements and generates invoice
  */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import {
-  pharmacyOrders,
-  pharmacyOrderItems,
-  stockLevels,
-  stockMovements,
-  invoices,
-  invoiceLines,
-  drugBatches,
-} from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { getUser } from "@/lib/user";
+import { db } from "@/lib/db";
+import { pharmacyOrders, pharmacyOrderItems, invoices, invoiceLines } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { createMedicationDispenseComposition, MEDICATION_DISPENSE_ACTION_STATES } from "@/lib/openehr/medication-dispense";
+import { createOpenEHRComposition } from "@/lib/openehr/openehr";
+import { patients } from "@/lib/db/tables/patient";
 
 type RouteParams = { params: Promise<{ workspaceid: string; orderid: string }> };
 
@@ -184,39 +179,73 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Create OpenEHR ACTION.medication composition
     let dispenseCompositionUid: string | null = null;
     try {
-      if (order.openehrorderid) {
-        // For now, create a simple composition - this needs proper OpenEHR integration
-        // TODO: Implement proper OpenEHR ACTION.medication composition
-        const compositionData = {
-          medicationItem: items[0]?.drugname || "Unknown",
-          quantityDispensed: items[0]?.quantity || 1,
-          quantityUnit: "each",
-          batchNumber: items[0]?.batchid || "N/A",
-          expiryDate: new Date().toISOString().split('T')[0],
-          route: "oral",
-          substitutionPerformed: "SUBSTITUTION_NOT_PERFORMED" as const,
-          dispenserId: user.userid,
-          dispensingOrganizationId: workspaceid,
-          patientId: order.patientid || "",
-          prescriptionId: order.openehrorderid,
-          composerName: user.name || "Pharmacist",
-        };
+      if (order.openehrorderid && order.patientid) {
+        // Fetch patient to get EHR ID (national ID)
+        const [patient] = await db
+          .select()
+          .from(patients)
+          .where(eq(patients.patientid, order.patientid))
+          .limit(1);
 
-        // const result = await createMedicationDispenseComposition(compositionData);
-        // dispenseCompositionUid = result.compositionUid;
-        
-        // For now, create a dummy UID
-        dispenseCompositionUid = `dispense-${orderid}-${Date.now()}`;
-        
-        // Update order with dispense composition UID
-        await db
-          .update(pharmacyOrders)
-          .set({ dispensecompositionuid: dispenseCompositionUid })
-          .where(eq(pharmacyOrders.orderid, orderid));
+        if (patient?.nationalid) {
+          // Extract route from first item's dosage (e.g., "Route: Oral, Dose: 500mg")
+          const firstItem = items[0];
+          let route = "oral"; // default
+          if (firstItem?.dosage) {
+            const routeMatch = firstItem.dosage.match(/Route:\s*([^,]+)/i);
+            if (routeMatch) {
+              route = routeMatch[1].trim().toLowerCase();
+            }
+          }
+
+          // Create the medication dispense composition data
+          const compositionData = createMedicationDispenseComposition({
+            medicationItem: firstItem?.drugname || "Unknown Medication",
+            quantityDispensed: firstItem?.quantity || 1,
+            quantityUnit: "each",
+            batchNumber: firstItem?.batchid || "BATCH-" + Date.now(),
+            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year from now
+            route: route,
+            substitutionPerformed: "SUBSTITUTION_NOT_PERFORMED",
+            actionState: "PRESCRIPTION_DISPENSED",
+            comment: `Dispensed by ${user.name || "Pharmacist"} for order ${orderid}`,
+            timing: new Date().toISOString(),
+            composerName: user.name || "Pharmacist",
+          });
+
+          // Submit to OpenEHR
+          const compositionUid = await createOpenEHRComposition(
+            patient.nationalid, // EHR ID
+            "template_medication_dispense_v1", // Template ID
+            compositionData
+          );
+
+          dispenseCompositionUid = compositionUid;
+          
+          console.log("[OpenEHR] Medication dispense composition created:", compositionUid);
+
+          // Update order with dispense composition UID
+          await db
+            .update(pharmacyOrders)
+            .set({ dispensecompositionuid: dispenseCompositionUid })
+            .where(eq(pharmacyOrders.orderid, orderid));
+        } else {
+          console.warn("[OpenEHR] Patient has no national ID, skipping OpenEHR integration");
+          dispenseCompositionUid = `dispense-${orderid}-${Date.now()}-no-ehr`;
+        }
+      } else {
+        console.warn("[OpenEHR] No openEHR order ID or patient ID, skipping OpenEHR integration");
       }
     } catch (openehrError) {
-      console.error("[OpenEHR Dispense Composition]", openehrError);
-      // Continue without OpenEHR - don't fail the whole dispense process
+      console.error("[OpenEHR Dispense Composition Error]", openehrError);
+      // Create fallback UID but continue - don't fail the whole dispense process
+      dispenseCompositionUid = `dispense-${orderid}-${Date.now()}-fallback`;
+      
+      // Still update the order with fallback UID for traceability
+      await db
+        .update(pharmacyOrders)
+        .set({ dispensecompositionuid: dispenseCompositionUid })
+        .where(eq(pharmacyOrders.orderid, orderid));
     }
 
     return NextResponse.json({
