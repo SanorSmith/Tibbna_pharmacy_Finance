@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { History } from "lucide-react";
+import { History, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DrugAutocomplete } from "@/components/ui/drug-autocomplete";
 
 // Prescriptions interfaces (openEHR compliant)
 export interface PrescriptionRecord {
@@ -70,6 +71,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
   const [medicationSummaryData, setMedicationSummaryData] = useState<any>(null);
   const [selectedPrescription, setSelectedPrescription] =
     useState<PrescriptionRecord | null>(null);
+  const [medicationsList, setMedicationsList] = useState<typeof prescriptionForm[]>([]);
   const [prescriptionForm, setPrescriptionForm] = useState({
     // Medication Item (with terminology support)
     medicationItem: "",
@@ -144,6 +146,130 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
     } catch (error) {
       console.error("Error fetching medication summary:", error);
       alert("Error fetching medication summary");
+    }
+  };
+
+  // Add medication to list
+  const handleAddToList = () => {
+    if (
+      !prescriptionForm.medicationItem ||
+      !prescriptionForm.route ||
+      !prescriptionForm.doseAmount ||
+      !prescriptionForm.doseUnit ||
+      !prescriptionForm.timingDirections
+    ) {
+      alert(
+        "Please fill in all required fields (Medication Item, Route, Dose Amount, Dose Unit, Timing Directions)"
+      );
+      return;
+    }
+
+    setMedicationsList([...medicationsList, { ...prescriptionForm }]);
+    
+    // Reset form
+    setPrescriptionForm({
+      medicationItem: "",
+      medicationItemCode: "",
+      medicationItemTerminology: "SNOMED-CT",
+      doseAmount: "",
+      doseUnit: "",
+      doseFormula: "",
+      route: "",
+      routeCode: "",
+      bodySite: "",
+      bodySiteCode: "",
+      administrationMethod: "",
+      administrationMethodCode: "",
+      timingDirections: "",
+      frequency: "",
+      interval: "",
+      asRequired: false,
+      asRequiredCriterion: "",
+      directionDuration: "",
+      usage: "",
+      validUntil: "",
+      clinicalIndication: "",
+      clinicalIndicationCode: "",
+      clinicalIndicationTerminology: "ICD-10",
+      medicationSafety: "",
+      maximumDoseAmount: "",
+      maximumDoseUnit: "",
+      maximumDosePeriod: "",
+      additionalInstruction: "",
+      patientInstruction: "",
+      orderType: "dose-based",
+      comment: "",
+    });
+  };
+
+  // Remove medication from list
+  const handleRemoveFromList = (index: number) => {
+    setMedicationsList(medicationsList.filter((_, i) => i !== index));
+  };
+
+  // Submit all medications
+  const handleSubmitPrescriptions = async () => {
+    if (medicationsList.length === 0) {
+      alert("Please add at least one medication to the list");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/prescriptions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prescriptions: medicationsList,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        await loadPrescriptions();
+        setShowPrescriptionForm(false);
+        setMedicationsList([]);
+        setPrescriptionForm({
+          medicationItem: "",
+          medicationItemCode: "",
+          medicationItemTerminology: "SNOMED-CT",
+          doseAmount: "",
+          doseUnit: "",
+          doseFormula: "",
+          route: "",
+          routeCode: "",
+          bodySite: "",
+          bodySiteCode: "",
+          administrationMethod: "",
+          administrationMethodCode: "",
+          timingDirections: "",
+          frequency: "",
+          interval: "",
+          asRequired: false,
+          asRequiredCriterion: "",
+          directionDuration: "",
+          usage: "",
+          validUntil: "",
+          clinicalIndication: "",
+          clinicalIndicationCode: "",
+          clinicalIndicationTerminology: "ICD-10",
+          medicationSafety: "",
+          maximumDoseAmount: "",
+          maximumDoseUnit: "",
+          maximumDosePeriod: "",
+          additionalInstruction: "",
+          patientInstruction: "",
+          orderType: "dose-based",
+          comment: "",
+        });
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to create prescriptions");
+      }
+    } catch (error) {
+      console.error("Error creating prescriptions:", error);
+      alert("Error creating prescriptions");
     }
   };
 
@@ -337,25 +463,40 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Medication Name */}
+            {/* Medication Name with Autocomplete */}
             <div>
               <label className="text-sm font-medium">
                 Medication Name *
               </label>
-              <input
-                type="text"
-                className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                placeholder="e.g., Amoxicillin, Metformin"
-                value={prescriptionForm.medicationItem}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    medicationItem: e.target.value,
-                  })
-                }
-                aria-label="Medication name"
-                title="Enter the medication name"
-              />
+              <div className="mt-1.5">
+                <DrugAutocomplete
+                  workspaceid={workspaceid}
+                  value={prescriptionForm.medicationItem}
+                  onChange={(value) =>
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medicationItem: value,
+                    })
+                  }
+                  onSelect={(drug) => {
+                    // Auto-populate form fields from selected drug
+                    const route = drug.route?.match(/Route:\s*([^,]+)/i)?.[1]?.trim() || "";
+                    
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medicationItem: drug.name,
+                      route: route.charAt(0).toUpperCase() + route.slice(1),
+                      doseUnit: drug.unit === "tablet" || drug.unit === "capsule" ? drug.unit : "mg",
+                      // Pre-fill strength as dose amount if it's numeric
+                      doseAmount: drug.strength.match(/^\d+/)?.[0] || "",
+                    });
+                  }}
+                  placeholder="Type to search medications (e.g., Amoxicillin, Metformin)"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Start typing to see suggestions. Select a drug to auto-fill form fields.
+              </p>
             </div>
 
             {/* Dose & Route */}
@@ -578,12 +719,59 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               />
             </div>
 
+            {/* Add to List Button */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddToList}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add to Prescription List
+              </Button>
+            </div>
+
+            {/* Medications List */}
+            {medicationsList.length > 0 && (
+              <div className="space-y-2 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold">
+                    Medications to Prescribe ({medicationsList.length})
+                  </label>
+                </div>
+                <div className="border rounded-md divide-y max-h-64 overflow-y-auto">
+                  {medicationsList.map((med, index) => (
+                    <div key={index} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                      <div className="flex-1">
+                        <div className="font-medium">{med.medicationItem}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {med.doseAmount} {med.doseUnit} • {med.route} • {med.timingDirections}
+                          {med.directionDuration && ` • ${med.directionDuration}`}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFromList(index)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowPrescriptionForm(false);
+                  setMedicationsList([]);
                   setPrescriptionForm({
                     medicationItem: "",
                     medicationItemCode: "",
@@ -623,79 +811,10 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               </Button>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={async () => {
-                  if (
-                    !prescriptionForm.medicationItem ||
-                    !prescriptionForm.route ||
-                    !prescriptionForm.doseAmount ||
-                    !prescriptionForm.doseUnit ||
-                    !prescriptionForm.timingDirections
-                  ) {
-                    alert(
-                      "Please fill in all required fields (Medication Item, Route, Dose Amount, Dose Unit, Timing Directions)"
-                    );
-                    return;
-                  }
-
-                  try {
-                    const res = await fetch(
-                      `/api/d/${workspaceid}/patients/${patientid}/prescriptions`,
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          prescription: prescriptionForm,
-                        }),
-                      }
-                    );
-
-                    if (res.ok) {
-                      await loadPrescriptions();
-                      setShowPrescriptionForm(false);
-                      setPrescriptionForm({
-                        medicationItem: "",
-                        medicationItemCode: "",
-                        medicationItemTerminology: "SNOMED-CT",
-                        doseAmount: "",
-                        doseUnit: "",
-                        doseFormula: "",
-                        route: "",
-                        routeCode: "",
-                        bodySite: "",
-                        bodySiteCode: "",
-                        administrationMethod: "",
-                        administrationMethodCode: "",
-                        timingDirections: "",
-                        frequency: "",
-                        interval: "",
-                        asRequired: false,
-                        asRequiredCriterion: "",
-                        directionDuration: "",
-                        usage: "",
-                        validUntil: "",
-                        clinicalIndication: "",
-                        clinicalIndicationCode: "",
-                        clinicalIndicationTerminology: "ICD-10",
-                        medicationSafety: "",
-                        maximumDoseAmount: "",
-                        maximumDoseUnit: "",
-                        maximumDosePeriod: "",
-                        additionalInstruction: "",
-                        patientInstruction: "",
-                        orderType: "dose-based",
-                        comment: "",
-                      });
-                    } else {
-                      const error = await res.json();
-                      alert(`Failed to save prescription: ${error.error}`);
-                    }
-                  } catch (error) {
-                    console.error("Error saving prescription:", error);
-                    alert("Failed to save prescription");
-                  }
-                }}
+                onClick={handleSubmitPrescriptions}
+                disabled={medicationsList.length === 0}
               >
-                Save Prescription
+                Submit {medicationsList.length > 0 ? `${medicationsList.length} Prescription${medicationsList.length > 1 ? 's' : ''}` : 'Prescriptions'}
               </Button>
             </div>
           </div>

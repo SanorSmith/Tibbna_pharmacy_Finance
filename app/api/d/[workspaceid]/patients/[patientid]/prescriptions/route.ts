@@ -114,52 +114,34 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { prescription } = body as {
-      // align with MedsTab form shape
-      prescription: {
-        medicationItem: string;
-        medicationItemCode?: string;
-        productName?: string;
-        activeIngredient?: string;
-        usage?: string;
-        validUntil?: string;
-        doseAmount: string;
-        doseUnit: string;
-        route: string;
-        timingDirections: string;
-        directionDuration?: string;
-        asRequired?: boolean;
-        asRequiredCriterion?: string;
-        additionalInstruction?: string;
-        clinicalIndication?: string;
-        maximumDoseAmount?: string;
-        maximumDoseUnit?: string;
-        dispenseInstruction?: string;
-        comment?: string;
-      };
-    };
-
-    if (!prescription) {
+    
+    // Support both single prescription and multiple prescriptions
+    const prescriptions = body.prescriptions || (body.prescription ? [body.prescription] : []);
+    
+    if (prescriptions.length === 0) {
       return NextResponse.json(
-        { error: "Prescription data is required" },
+        { error: "No prescriptions provided" },
         { status: 400 }
       );
     }
 
-    if (
-      !prescription.medicationItem ||
-      !prescription.route ||
-      !prescription.doseAmount ||
-      !prescription.doseUnit ||
-      !prescription.timingDirections
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Medication item, route, dose amount, dose unit and timing directions are required",
-        },
-        { status: 400 }
-      );
+    // Validate all prescriptions
+    for (const prescription of prescriptions) {
+      if (
+        !prescription.medicationItem ||
+        !prescription.route ||
+        !prescription.doseAmount ||
+        !prescription.doseUnit ||
+        !prescription.timingDirections
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "All prescriptions must have: medication item, route, dose amount, dose unit and timing directions",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Fetch patient to get National ID
@@ -189,8 +171,14 @@ export async function POST(
       );
     }
 
-    // Build FLAT composition data for medication_order section using v1 template
-    const compositionData: Record<string, unknown> = {
+    // Create OpenEHR composition for each prescription
+    const compositionUids: string[] = [];
+    const errors: string[] = [];
+
+    for (const prescription of prescriptions) {
+      try {
+        // Build FLAT composition data for medication_order section using v1 template
+        const compositionData: Record<string, unknown> = {
       "template_clinical_encounter_v1/language|code": "en",
       "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
       "template_clinical_encounter_v1/territory|code": "US",
@@ -321,16 +309,38 @@ export async function POST(
       overallDirections ||
       "Prescription created from clinical encounter";
 
-    const compositionUid = await createOpenEHRComposition(
-      ehrId,
-      "template_clinical_encounter_v1",
-      compositionData
-    );
+        const compositionUid = await createOpenEHRComposition(
+          ehrId,
+          "template_clinical_encounter_v1",
+          compositionData
+        );
+
+        compositionUids.push(compositionUid);
+      } catch (error) {
+        console.error(`[POST /prescriptions] Error creating composition for ${prescription.medicationItem}:`, error);
+        errors.push(`Failed to create prescription for ${prescription.medicationItem}`);
+      }
+    }
+
+    // Return results
+    if (compositionUids.length === 0) {
+      return NextResponse.json(
+        { 
+          error: "Failed to create any prescriptions in OpenEHR",
+          details: errors 
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       {
-        message: "Prescription created successfully in OpenEHR",
-        composition_uid: compositionUid,
+        message: `${compositionUids.length} prescription(s) created successfully in OpenEHR`,
+        composition_uids: compositionUids,
+        total: prescriptions.length,
+        successful: compositionUids.length,
+        failed: errors.length,
+        errors: errors.length > 0 ? errors : undefined,
       },
       { status: 201 }
     );
