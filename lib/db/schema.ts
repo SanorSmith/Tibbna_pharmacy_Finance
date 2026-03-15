@@ -24,6 +24,7 @@ export * from "./tables/suppliers";
 export * from "./tables/laboratory-types";
 export * from "./tables/shop-orders";
 export * from "./tables/notifications";
+export * from "./tables/global-drugs";
 export * from "./tables/pharmacy-drugs";
 export * from "./tables/pharmacy-stock";
 export * from "./tables/pharmacy-orders";

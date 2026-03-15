@@ -1,7 +1,7 @@
 /**
  * Pharmacy Drug Catalog & Batch tables (Drizzle ORM)
  *
- * - drugs: master drug catalog (name, ATC code, form, strength, barcode, etc.)
+ * - drugs: workspace-specific drug inventory (links to global catalog)
  * - drug_batches: individual batches with lot number, expiry, and purchase price
  */
 import {
@@ -16,6 +16,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 import { workspaces } from "./workspace";
+import { globalDrugs } from "./global-drugs";
 
 // ── Drug master catalog ───────────────────────────────────────────────
 export const drugs = pgTable(
@@ -25,6 +26,9 @@ export const drugs = pgTable(
     workspaceid: uuid("workspaceid")
       .notNull()
       .references(() => workspaces.workspaceid, { onDelete: "cascade" }),
+    // Link to global drug catalog (Phase 2 hybrid model)
+    globaldrugid: uuid("globaldrugid")
+      .references(() => globalDrugs.drugid, { onDelete: "set null" }),
     name: text("name").notNull(),
     genericname: text("genericname"),
     atccode: text("atccode"),
@@ -53,6 +57,7 @@ export const drugs = pgTable(
   },
   (table) => ({
     workspaceIdx: index("drugs_workspace_idx").on(table.workspaceid),
+    globalDrugIdx: index("drugs_global_drug_idx").on(table.globaldrugid),
     barcodeIdx: index("drugs_barcode_idx").on(table.barcode),
     atcIdx: index("drugs_atc_idx").on(table.atccode),
   })
