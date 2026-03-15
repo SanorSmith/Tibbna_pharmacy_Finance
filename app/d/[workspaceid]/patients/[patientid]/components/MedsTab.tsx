@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
-import { History } from "lucide-react";
+import { History, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DrugAutocomplete } from "@/components/ui/drug-autocomplete";
 
 // Prescriptions interfaces (openEHR compliant)
 export interface PrescriptionRecord {
@@ -65,8 +67,11 @@ interface MedsTabProps {
 export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescriptions, loadPrescriptions }: MedsTabProps) {
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showMedicationSummary, setShowMedicationSummary] = useState(false);
+  const [medicationSummaryData, setMedicationSummaryData] = useState<any>(null);
   const [selectedPrescription, setSelectedPrescription] =
     useState<PrescriptionRecord | null>(null);
+  const [medicationsList, setMedicationsList] = useState<typeof prescriptionForm[]>([]);
   const [prescriptionForm, setPrescriptionForm] = useState({
     // Medication Item (with terminology support)
     medicationItem: "",
@@ -127,6 +132,147 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
   // Whether we are viewing active prescriptions or history (expired)
   const [showHistory, setShowHistory] = useState(false);
 
+  // Fetch medication summary from OpenEHR
+  const fetchMedicationSummary = async () => {
+    try {
+      const res = await fetch(`/api/d/${workspaceid}/patients/${patientid}/medications`);
+      if (res.ok) {
+        const data = await res.json();
+        setMedicationSummaryData(data);
+        setShowMedicationSummary(true);
+      } else {
+        alert("Failed to fetch medication summary");
+      }
+    } catch (error) {
+      console.error("Error fetching medication summary:", error);
+      alert("Error fetching medication summary");
+    }
+  };
+
+  // Add medication to list
+  const handleAddToList = () => {
+    if (
+      !prescriptionForm.medicationItem ||
+      !prescriptionForm.route ||
+      !prescriptionForm.doseAmount ||
+      !prescriptionForm.doseUnit ||
+      !prescriptionForm.timingDirections
+    ) {
+      alert(
+        "Please fill in all required fields (Medication Item, Route, Dose Amount, Dose Unit, Timing Directions)"
+      );
+      return;
+    }
+
+    setMedicationsList([...medicationsList, { ...prescriptionForm }]);
+    
+    // Reset form
+    setPrescriptionForm({
+      medicationItem: "",
+      medicationItemCode: "",
+      medicationItemTerminology: "SNOMED-CT",
+      doseAmount: "",
+      doseUnit: "",
+      doseFormula: "",
+      route: "",
+      routeCode: "",
+      bodySite: "",
+      bodySiteCode: "",
+      administrationMethod: "",
+      administrationMethodCode: "",
+      timingDirections: "",
+      frequency: "",
+      interval: "",
+      asRequired: false,
+      asRequiredCriterion: "",
+      directionDuration: "",
+      usage: "",
+      validUntil: "",
+      clinicalIndication: "",
+      clinicalIndicationCode: "",
+      clinicalIndicationTerminology: "ICD-10",
+      medicationSafety: "",
+      maximumDoseAmount: "",
+      maximumDoseUnit: "",
+      maximumDosePeriod: "",
+      additionalInstruction: "",
+      patientInstruction: "",
+      orderType: "dose-based",
+      comment: "",
+    });
+  };
+
+  // Remove medication from list
+  const handleRemoveFromList = (index: number) => {
+    setMedicationsList(medicationsList.filter((_, i) => i !== index));
+  };
+
+  // Submit all medications
+  const handleSubmitPrescriptions = async () => {
+    if (medicationsList.length === 0) {
+      alert("Please add at least one medication to the list");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/d/${workspaceid}/patients/${patientid}/prescriptions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prescriptions: medicationsList,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        await loadPrescriptions();
+        setShowPrescriptionForm(false);
+        setMedicationsList([]);
+        setPrescriptionForm({
+          medicationItem: "",
+          medicationItemCode: "",
+          medicationItemTerminology: "SNOMED-CT",
+          doseAmount: "",
+          doseUnit: "",
+          doseFormula: "",
+          route: "",
+          routeCode: "",
+          bodySite: "",
+          bodySiteCode: "",
+          administrationMethod: "",
+          administrationMethodCode: "",
+          timingDirections: "",
+          frequency: "",
+          interval: "",
+          asRequired: false,
+          asRequiredCriterion: "",
+          directionDuration: "",
+          usage: "",
+          validUntil: "",
+          clinicalIndication: "",
+          clinicalIndicationCode: "",
+          clinicalIndicationTerminology: "ICD-10",
+          medicationSafety: "",
+          maximumDoseAmount: "",
+          maximumDoseUnit: "",
+          maximumDosePeriod: "",
+          additionalInstruction: "",
+          patientInstruction: "",
+          orderType: "dose-based",
+          comment: "",
+        });
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to create prescriptions");
+      }
+    } catch (error) {
+      console.error("Error creating prescriptions:", error);
+      alert("Error creating prescriptions");
+    }
+  };
+
   return (
     <>
        <Card className="bg-card-bg">
@@ -136,6 +282,13 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               {showHistory ? "Prescription History" : "Prescriptions"}
             </CardTitle>
             <div className="flex items-center gap-2">
+              <Button
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                size="sm"
+                onClick={fetchMedicationSummary}
+              >
+                System → Medication Summary
+              </Button>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
@@ -310,25 +463,40 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Medication Name */}
+            {/* Medication Name with Autocomplete */}
             <div>
               <label className="text-sm font-medium">
                 Medication Name *
               </label>
-              <input
-                type="text"
-                className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                placeholder="e.g., Amoxicillin, Metformin"
-                value={prescriptionForm.medicationItem}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    medicationItem: e.target.value,
-                  })
-                }
-                aria-label="Medication name"
-                title="Enter the medication name"
-              />
+              <div className="mt-1.5">
+                <DrugAutocomplete
+                  workspaceid={workspaceid}
+                  value={prescriptionForm.medicationItem}
+                  onChange={(value) =>
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medicationItem: value,
+                    })
+                  }
+                  onSelect={(drug) => {
+                    // Auto-populate form fields from selected drug
+                    const route = drug.route?.match(/Route:\s*([^,]+)/i)?.[1]?.trim() || "";
+                    
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medicationItem: drug.name,
+                      route: route.charAt(0).toUpperCase() + route.slice(1),
+                      doseUnit: drug.unit === "tablet" || drug.unit === "capsule" ? drug.unit : "mg",
+                      // Pre-fill strength as dose amount if it's numeric
+                      doseAmount: drug.strength.match(/^\d+/)?.[0] || "",
+                    });
+                  }}
+                  placeholder="Type to search medications (e.g., Amoxicillin, Metformin)"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Start typing to see suggestions. Select a drug to auto-fill form fields.
+              </p>
             </div>
 
             {/* Dose & Route */}
@@ -551,12 +719,59 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               />
             </div>
 
+            {/* Add to List Button */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddToList}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add to Prescription List
+              </Button>
+            </div>
+
+            {/* Medications List */}
+            {medicationsList.length > 0 && (
+              <div className="space-y-2 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold">
+                    Medications to Prescribe ({medicationsList.length})
+                  </label>
+                </div>
+                <div className="border rounded-md divide-y max-h-64 overflow-y-auto">
+                  {medicationsList.map((med, index) => (
+                    <div key={index} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                      <div className="flex-1">
+                        <div className="font-medium">{med.medicationItem}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {med.doseAmount} {med.doseUnit} • {med.route} • {med.timingDirections}
+                          {med.directionDuration && ` • ${med.directionDuration}`}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFromList(index)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowPrescriptionForm(false);
+                  setMedicationsList([]);
                   setPrescriptionForm({
                     medicationItem: "",
                     medicationItemCode: "",
@@ -596,79 +811,10 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               </Button>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={async () => {
-                  if (
-                    !prescriptionForm.medicationItem ||
-                    !prescriptionForm.route ||
-                    !prescriptionForm.doseAmount ||
-                    !prescriptionForm.doseUnit ||
-                    !prescriptionForm.timingDirections
-                  ) {
-                    alert(
-                      "Please fill in all required fields (Medication Item, Route, Dose Amount, Dose Unit, Timing Directions)"
-                    );
-                    return;
-                  }
-
-                  try {
-                    const res = await fetch(
-                      `/api/d/${workspaceid}/patients/${patientid}/prescriptions`,
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          prescription: prescriptionForm,
-                        }),
-                      }
-                    );
-
-                    if (res.ok) {
-                      await loadPrescriptions();
-                      setShowPrescriptionForm(false);
-                      setPrescriptionForm({
-                        medicationItem: "",
-                        medicationItemCode: "",
-                        medicationItemTerminology: "SNOMED-CT",
-                        doseAmount: "",
-                        doseUnit: "",
-                        doseFormula: "",
-                        route: "",
-                        routeCode: "",
-                        bodySite: "",
-                        bodySiteCode: "",
-                        administrationMethod: "",
-                        administrationMethodCode: "",
-                        timingDirections: "",
-                        frequency: "",
-                        interval: "",
-                        asRequired: false,
-                        asRequiredCriterion: "",
-                        directionDuration: "",
-                        usage: "",
-                        validUntil: "",
-                        clinicalIndication: "",
-                        clinicalIndicationCode: "",
-                        clinicalIndicationTerminology: "ICD-10",
-                        medicationSafety: "",
-                        maximumDoseAmount: "",
-                        maximumDoseUnit: "",
-                        maximumDosePeriod: "",
-                        additionalInstruction: "",
-                        patientInstruction: "",
-                        orderType: "dose-based",
-                        comment: "",
-                      });
-                    } else {
-                      const error = await res.json();
-                      alert(`Failed to save prescription: ${error.error}`);
-                    }
-                  } catch (error) {
-                    console.error("Error saving prescription:", error);
-                    alert("Failed to save prescription");
-                  }
-                }}
+                onClick={handleSubmitPrescriptions}
+                disabled={medicationsList.length === 0}
               >
-                Save Prescription
+                Submit {medicationsList.length > 0 ? `${medicationsList.length} Prescription${medicationsList.length > 1 ? 's' : ''}` : 'Prescriptions'}
               </Button>
             </div>
           </div>
@@ -857,6 +1003,95 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                   onClick={() => setShowDetails(false)}
                   className="bg-blue-200/90 hover:bg-blue-300"
                 >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Medication Summary Modal */}
+      <Dialog
+        open={showMedicationSummary}
+        onOpenChange={setShowMedicationSummary}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              System → Medication Summary (generated)
+            </DialogTitle>
+            <DialogDescription>
+              Complete medication history and current active medications from OpenEHR system
+            </DialogDescription>
+          </DialogHeader>
+
+          {medicationSummaryData && (
+            <div className="space-y-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Total Events</h4>
+                  <p className="text-2xl font-bold">{medicationSummaryData.totalEvents}</p>
+                </Card>
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Active Medications</h4>
+                  <p className="text-2xl font-bold text-green-600">{medicationSummaryData.activeMedications}</p>
+                </Card>
+                <Card className="p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Patient ID</h4>
+                  <p className="text-lg font-semibold">{medicationSummaryData.patientName}</p>
+                </Card>
+              </div>
+
+              {/* Medication Timeline */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Medication Timeline</h3>
+                <div className="space-y-3">
+                  {Object.entries(medicationSummaryData.timeline || {}).map(([medication, events]: [string, any]) => (
+                    <Card key={medication} className="p-4">
+                      <h4 className="font-medium text-blue-600 mb-2">{medication}</h4>
+                      <div className="space-y-2">
+                        {events.map((event: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{event.actionState}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(event.time).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Route: {event.route} | Quantity: {event.quantity} {event.unit}
+                              </div>
+                              {event.batchNumber && (
+                                <div className="text-xs text-muted-foreground">
+                                  Batch: {event.batchNumber} | Expires: {event.expiryDate}
+                                </div>
+                              )}
+                              {event.composer && (
+                                <div className="text-xs text-muted-foreground">
+                                  By: {event.composer}
+                                </div>
+                              )}
+                            </div>
+                            <Badge 
+                              variant={event.actionState.includes("dispensed") ? "default" : "outline"}
+                              className="text-xs"
+                            >
+                              {event.actionState}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={() => setShowMedicationSummary(false)}>
                   Close
                 </Button>
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import OrderDetailsModal from "./components/OrderDetailsModal";
+import CreateOrderModal from "./components/CreateOrderModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,7 @@ export default function PharmacyOrdersPage({
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -121,8 +123,13 @@ export default function PharmacyOrdersPage({
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    // Auto-sync on initial load to fetch latest prescriptions from OpenEHR
+    const autoSync = async () => {
+      await handleSync();
+      await fetchOrders();
+    };
+    autoSync();
+  }, [workspaceid]); // Only run once on mount
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -188,6 +195,13 @@ export default function PharmacyOrdersPage({
             >
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Syncing..." : "Sync from OpenEHR"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="gap-2 bg-teal-600 hover:bg-teal-700"
+            >
+              Add an Order
             </Button>
           </div>
         </div>
@@ -354,6 +368,17 @@ export default function PharmacyOrdersPage({
         onClose={() => {
           setIsModalOpen(false);
           setSelectedOrder(null);
+        }}
+      />
+
+      {/* Create Order Modal */}
+      <CreateOrderModal
+        workspaceid={workspaceid}
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => {
+          fetchOrders();
+          setIsCreateModalOpen(false);
         }}
       />
     </div>

@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DrugAutocomplete } from "@/components/ui/drug-autocomplete";
 
 // Prescriptions interfaces (openEHR compliant)
 export interface PrescriptionRecord {
@@ -310,25 +311,40 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Medication Name */}
+            {/* Medication Name with Autocomplete */}
             <div>
               <label className="text-sm font-medium">
                 Medication Name *
               </label>
-              <input
-                type="text"
-                className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                placeholder="e.g., Amoxicillin, Metformin"
-                value={prescriptionForm.medicationItem}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    medicationItem: e.target.value,
-                  })
-                }
-                aria-label="Medication name"
-                title="Enter the medication name"
-              />
+              <div className="mt-1.5">
+                <DrugAutocomplete
+                  workspaceid={workspaceid}
+                  value={prescriptionForm.medicationItem}
+                  onChange={(value) =>
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medicationItem: value,
+                    })
+                  }
+                  onSelect={(drug) => {
+                    // Auto-populate form fields from selected drug
+                    const route = drug.route?.match(/Route:\s*([^,]+)/i)?.[1]?.trim() || "";
+                    
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medicationItem: drug.name,
+                      route: route.charAt(0).toUpperCase() + route.slice(1),
+                      doseUnit: drug.unit === "tablet" || drug.unit === "capsule" ? drug.unit : "mg",
+                      // Pre-fill strength as dose amount if it's numeric
+                      doseAmount: drug.strength.match(/^\d+/)?.[0] || "",
+                    });
+                  }}
+                  placeholder="Type to search medications (e.g., Amoxicillin, Metformin)"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Start typing to see suggestions. Select a drug to auto-fill form fields.
+              </p>
             </div>
 
             {/* Dose & Route */}
