@@ -32,11 +32,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Search,
   Plus,
   Pencil,
   Loader2,
   X,
+  Trash2,
 } from "lucide-react";
 
 interface DrugRecord {
@@ -236,57 +243,97 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
               No drugs registered. Click &quot;New registration&quot; to add one.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-blue-50">
-                    <TableHead className="text-xs font-semibold w-10">#</TableHead>
-                    <TableHead className="text-xs font-semibold">Drug</TableHead>
-                    <TableHead className="text-xs font-semibold">National Code</TableHead>
-                    <TableHead className="text-xs font-semibold">Category</TableHead>
-                    <TableHead className="text-xs font-semibold">Dose Form</TableHead>
-                    <TableHead className="text-xs font-semibold">Strength</TableHead>
-                    <TableHead className="text-xs font-semibold">Insurance</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">Edit</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">Delete</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {drugList.map((drug, idx) => (
-                    <TableRow key={drug.drugid} className="hover:bg-gray-50">
-                      <TableCell className="text-sm text-blue-600 font-medium">{idx + 1}</TableCell>
-                      <TableCell className="text-sm font-medium">{drug.name}</TableCell>
-                      <TableCell className="text-sm">{drug.nationalcode || "—"}</TableCell>
-                      <TableCell className="text-sm">{drug.category || "—"}</TableCell>
-                      <TableCell className="text-sm">{drug.form}</TableCell>
-                      <TableCell className="text-sm">{drug.strength}</TableCell>
-                      <TableCell>
-                        {drug.insuranceapproved ? (
-                          <Badge className="text-[10px] bg-green-500">Yes</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px]">No</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleOpenEdit(drug)}>
-                          <Pencil className="h-3.5 w-3.5 text-blue-500" />
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => { setDrugToDelete(drug); setDeleteDialogOpen(true); }}
-                        >
-                          <X className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
+            <TooltipProvider>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-blue-50">
+                      <TableHead className="text-[10px] font-semibold w-8 py-1.5 px-2">#</TableHead>
+                      <TableHead className="text-[10px] font-semibold min-w-[50px] max-w-[70px] py-1.5 px-2">Drug Name</TableHead>
+                      <TableHead className="text-[10px] font-semibold w-20 py-1.5 px-2">NDL Code</TableHead>
+                      <TableHead className="text-[10px] font-semibold w-16 py-1.5 px-2">ATC</TableHead>
+                      <TableHead className="text-[10px] font-semibold w-24 py-1.5 px-2">Category</TableHead>
+                      <TableHead className="text-[10px] font-semibold w-16 py-1.5 px-2">Form</TableHead>
+                      <TableHead className="text-[10px] font-semibold w-20 py-1.5 px-2">Strength</TableHead>
+                      <TableHead className="text-[10px] font-semibold w-14 py-1.5 px-2 text-center">Ins.</TableHead>
+                      <TableHead className="text-[10px] font-semibold text-center w-14 py-1.5 px-2">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {drugList.map((drug, idx) => (
+                      <TableRow key={drug.drugid} className="hover:bg-gray-50">
+                        <TableCell className="text-[11px] text-blue-600 font-medium py-1.5 px-2">{idx + 1}</TableCell>
+                        <TableCell className="min-w-[50px] max-w-[70px] py-1.5 px-2">
+                          {drug.name.length > 15 ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-[12px] font-medium truncate cursor-help">
+                                  {drug.name}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-md">
+                                <p className="text-xs">{drug.name}</p>
+                                {drug.genericname && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Generic: {drug.genericname}
+                                  </p>
+                                )}
+                                {drug.atccode && (
+                                  <p className="text-xs text-blue-600 mt-1">
+                                    ATC: {drug.atccode}
+                                  </p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <div className="text-[12px] font-medium">{drug.name}</div>
+                          )}
+                          {drug.genericname && drug.genericname !== drug.name && (
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              {drug.genericname}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-[10px] py-1.5 px-2">{drug.nationalcode || "—"}</TableCell>
+                        <TableCell className="text-[10px] py-1.5 px-2 font-mono">{drug.atccode || "—"}</TableCell>
+                        <TableCell className="text-[10px] truncate py-1.5 px-2" title={drug.category || ""}>
+                          {drug.category || "—"}
+                        </TableCell>
+                        <TableCell className="text-[10px] py-1.5 px-2">{drug.form}</TableCell>
+                        <TableCell className="text-[10px] py-1.5 px-2">{drug.strength}</TableCell>
+                        <TableCell className="py-1.5 px-2 text-center">
+                          {drug.insuranceapproved ? (
+                            <Badge className="text-[9px] px-1 py-0 bg-green-500">Y</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0">N</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center py-1.5 px-1">
+                          <div className="flex items-center justify-center gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleOpenEdit(drug)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => { setDrugToDelete(drug); setDeleteDialogOpen(true); }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TooltipProvider>
           )}
         </CardContent>
       </Card>
