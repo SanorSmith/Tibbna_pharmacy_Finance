@@ -72,8 +72,12 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 export default function PharmacyOrdersPage({
   workspaceid,
+  userName,
+  userId,
 }: {
   workspaceid: string;
+  userName: string;
+  userId: string;
 }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -282,7 +286,7 @@ export default function PharmacyOrdersPage({
                 <TableRow>
                   <TableHead className="bg-muted/50">Order ID</TableHead>
                   <TableHead className="bg-muted/50">Patient</TableHead>
-                  <TableHead className="bg-muted/50">Doctor</TableHead>
+                  <TableHead className="bg-muted/50">Prescriber</TableHead>
                   <TableHead className="bg-muted/50">Products</TableHead>
                   <TableHead className="bg-muted/50">Date</TableHead>
                   <TableHead className="bg-muted/50">Payment Status</TableHead>
@@ -374,6 +378,8 @@ export default function PharmacyOrdersPage({
       {/* Create Order Modal */}
       <CreateOrderModal
         workspaceid={workspaceid}
+        userName={userName}
+        userId={userId}
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => {
