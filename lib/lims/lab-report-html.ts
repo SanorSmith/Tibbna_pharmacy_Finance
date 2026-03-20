@@ -158,6 +158,18 @@ function barcodeSvg(value: string, opts?: { width?: number; height?: number }): 
 }
 
 function getResultClass(result: LabReportResult): string {
+  // Check if flag field is already set with proper values
+  if (result.flag) {
+    const flagLower = result.flag.toLowerCase();
+    // Map common flag values to class names
+    if (flagLower === 'high' || flagLower === 'h') return "abnormal-high";
+    if (flagLower === 'low' || flagLower === 'l') return "abnormal-low";
+    if (flagLower === 'critical' || flagLower === '!!' || flagLower === 'cc') return "critical";
+    if (flagLower === 'abnormal' || flagLower === '*') return "abnormal";
+    if (flagLower === 'abnormal-high') return "abnormal-high";
+    if (flagLower === 'abnormal-low') return "abnormal-low";
+  }
+
   if (result.iscritical) return "critical";
   if (result.isabormal) return "abnormal";
 
@@ -601,6 +613,17 @@ export function generateLabReportHTML(data: LabReportData): string {
         <div class="signature-date">${formatDateTime(results.find(r => r.technicalvalidateddate)?.technicalvalidateddate)}</div>
       </div>
     </div>` : ``}
+
+    <!-- Flag Legend -->
+    <div style="margin-top: 16px; padding: 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px;">
+      <div style="font-size: 10px; font-weight: 600; margin-bottom: 6px; color: #333;">Flag Interpretation:</div>
+      <div style="display: flex; gap: 20px; font-size: 9px; color: #666;">
+        <div><strong style="color: #c0392b;">H</strong> = High (above reference range)</div>
+        <div><strong style="color: #2874a6;">L</strong> = Low (below reference range)</div>
+        <div><strong style="color: #d35400;">*</strong> = Abnormal</div>
+        <div><strong style="color: #c0392b;">!!</strong> = Critical value</div>
+      </div>
+    </div>
 
     <div class="footer">
       <div>Generated ${escapeHtml(savedDateTime)}</div>

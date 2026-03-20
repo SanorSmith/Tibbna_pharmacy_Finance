@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getUser } from "@/lib/user";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ interface OrderItem {
   asRequiredCriterion?: string;
   additionalInstruction?: string;
   clinicalIndication?: string;
+  pharmacistNotes?: string;
 }
 
 interface CreateOrderModalProps {
@@ -54,6 +56,8 @@ interface CreateOrderModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  userName: string;
+  userId: string;
 }
 
 export default function CreateOrderModal({
@@ -61,6 +65,8 @@ export default function CreateOrderModal({
   open,
   onClose,
   onSuccess,
+  userName,
+  userId,
 }: CreateOrderModalProps) {
   const [loading, setLoading] = useState(false);
   const [searchingPatient, setSearchingPatient] = useState(false);
@@ -84,10 +90,8 @@ export default function CreateOrderModal({
     asRequiredCriterion: "",
     additionalInstruction: "",
     clinicalIndication: "",
+    pharmacistNotes: "",
   });
-  
-  const [priority, setPriority] = useState("routine");
-  const [notes, setNotes] = useState("");
 
   // Search patients
   useEffect(() => {
@@ -157,6 +161,7 @@ export default function CreateOrderModal({
       asRequiredCriterion: "",
       additionalInstruction: "",
       clinicalIndication: "",
+      pharmacistNotes: "",
     });
   };
 
@@ -176,9 +181,9 @@ export default function CreateOrderModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientid: selectedPatient.patientid,
+          prescriberid: userId, // Use logged-in user's ID
+          prescriberName: userName, // Use logged-in user's name
           items: orderItems,
-          priority,
-          notes,
           source: "PHARMACY",
         }),
       });
@@ -218,15 +223,14 @@ export default function CreateOrderModal({
       asRequiredCriterion: "",
       additionalInstruction: "",
       clinicalIndication: "",
+      pharmacistNotes: "",
     });
-    setPriority("routine");
-    setNotes("");
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[90vw] max-w-[1400px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add an Order</DialogTitle>
           <DialogDescription>
@@ -304,148 +308,288 @@ export default function CreateOrderModal({
           <div className="space-y-3">
             <Label className="text-base font-semibold">Add Medications</Label>
             
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <Label>Medication Name *</Label>
-                <DrugAutocomplete
-                  workspaceid={workspaceid}
-                  value={currentItem.drugname}
-                  onChange={(value) =>
-                    setCurrentItem({ ...currentItem, drugname: value })
-                  }
-                  onSelect={(drug) => {
-                    const route = drug.route?.match(/Route:\s*([^,]+)/i)?.[1]?.trim() || "";
-                    const strengthMatch = drug.strength.match(/^(\d+)/);
-                    setCurrentItem({
-                      ...currentItem,
-                      drugid: drug.drugid,
-                      drugname: drug.name,
-                      route: route.charAt(0).toUpperCase() + route.slice(1),
-                      doseAmount: strengthMatch ? strengthMatch[1] : "",
-                      doseUnit: drug.unit === "tablet" || drug.unit === "capsule" ? drug.unit : "mg",
-                    });
-                  }}
-                  placeholder="Search for medication..."
-                />
+            <div className="space-y-3">
+              {/* Single Row: Medication Name, Quantity, Dose Amount, Dose Unit */}
+              <div className="grid grid-cols-5 gap-2">
+                <div className="col-span-2">
+                  <Label className="text-xs">Medication Name *</Label>
+                  <DrugAutocomplete
+                    workspaceid={workspaceid}
+                    value={currentItem.drugname}
+                    onChange={(value) =>
+                      setCurrentItem({ ...currentItem, drugname: value })
+                    }
+                    onSelect={(drug) => {
+                      console.log("Selected drug:", drug); // Debug log
+                      
+                      // Handle different route data formats
+                      let route = "";
+                      
+                      if (drug.route) {
+                        if (typeof drug.route === 'string') {
+                          // If route is already a simple string like "oral"
+                          if (!drug.route.includes('Route:')) {
+                            route = drug.route.toLowerCase();
+                          } else {
+                            // If route is in format "Route: Oral"
+                            const routeMatch = drug.route.match(/Route:\s*([^,]+)/i);
+                            route = routeMatch ? routeMatch[1].trim().toLowerCase() : drug.route.toLowerCase();
+                          }
+                        }
+                      }
+                      
+                      // Map route names to dropdown values
+                      const routeMapping: { [key: string]: string } = {
+                        'oral': 'Oral',
+                        'parenteral': 'Parenteral', 
+                        'nasal': 'Nasal',
+                        'rectal': 'Rectal',
+                        'vaginal': 'Vaginal',
+                        'implant': 'Implant',
+                        'inhalation': 'Inhalation',
+                        'instillation': 'Instillation',
+                        'sublingual': 'Sublingual',
+                        'buccal': 'Sublingual',
+                        'oromucosal': 'Sublingual',
+                        'transdermal': 'Transdermal',
+                        'intravenous': 'Parenteral',
+                        'intramuscular': 'Parenteral',
+                        'subcutaneous': 'Parenteral',
+                        'topical': 'Transdermal'
+                      };
+                      
+                      const formattedRoute = routeMapping[route] || route.charAt(0).toUpperCase() + route.slice(1);
+                      const strengthMatch = drug.strength?.match(/^(\d+)/);
+                      
+                      // Improved dose unit logic
+                      let doseUnit = "mg"; // default
+                      if (drug.unit) {
+                        // Use the unit from the drug data directly
+                        doseUnit = drug.unit.toLowerCase();
+                        // Normalize common units
+                        if (doseUnit === 'tablet' || doseUnit === 'capsule') {
+                          doseUnit = 'mg';
+                        } else if (doseUnit === 'microgram') {
+                          doseUnit = 'mcg';
+                        } else if (doseUnit === 'milliliter') {
+                          doseUnit = 'ml';
+                        } else if (doseUnit === 'gram') {
+                          doseUnit = 'g';
+                        }
+                      }
+                      
+                      console.log("Setting doseUnit to:", doseUnit); // Debug log
+                      
+                      setCurrentItem({
+                        ...currentItem,
+                        drugid: drug.drugid,
+                        drugname: drug.name,
+                        route: formattedRoute,
+                        doseAmount: strengthMatch ? strengthMatch[1] : "",
+                        doseUnit: doseUnit,
+                        pharmacistNotes: "",
+                      });
+                    }}
+                    placeholder="Search medication..."
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Quantity *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={currentItem.quantity}
+                    onChange={(e) =>
+                      setCurrentItem({
+                        ...currentItem,
+                        quantity: parseInt(e.target.value) || 1,
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Dose Amount *</Label>
+                  <Input
+                    placeholder="e.g., 500"
+                    value={currentItem.doseAmount}
+                    onChange={(e) =>
+                      setCurrentItem({ ...currentItem, doseAmount: e.target.value })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Dose Unit *</Label>
+                  <Select
+                    value={currentItem.doseUnit}
+                    onValueChange={(value) =>
+                      setCurrentItem({ ...currentItem, doseUnit: value })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="mg">mg</SelectItem>
+                      <SelectItem value="mcg">mcg</SelectItem>
+                      <SelectItem value="U">U</SelectItem>
+                      <SelectItem value="TU">TU</SelectItem>
+                      <SelectItem value="MU">MU</SelectItem>
+                      <SelectItem value="mmol">mmol</SelectItem>
+                      <SelectItem value="ml">ml</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div>
-                <Label>Quantity *</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={currentItem.quantity}
-                  onChange={(e) =>
-                    setCurrentItem({
-                      ...currentItem,
-                      quantity: parseInt(e.target.value) || 1,
-                    })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Dose Amount *</Label>
-                <Input
-                  placeholder="e.g., 500"
-                  value={currentItem.doseAmount}
-                  onChange={(e) =>
-                    setCurrentItem({ ...currentItem, doseAmount: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Dose Unit *</Label>
-                <Select
-                  value={currentItem.doseUnit}
-                  onValueChange={(value) =>
-                    setCurrentItem({ ...currentItem, doseUnit: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mg">mg</SelectItem>
-                    <SelectItem value="g">g</SelectItem>
-                    <SelectItem value="mcg">mcg</SelectItem>
-                    <SelectItem value="ml">ml</SelectItem>
-                    <SelectItem value="tablet">tablet(s)</SelectItem>
-                    <SelectItem value="capsule">capsule(s)</SelectItem>
-                    <SelectItem value="puff">puff(s)</SelectItem>
+              {/* Single Row: Route, Timing, Duration, Instructions, Usage, Valid Until */}
+              <div className="grid grid-cols-6 gap-2">
+                <div>
+                  <Label className="text-xs">Route *</Label>
+                  <Select
+                    value={currentItem.route}
+                    onValueChange={(value) =>
+                      setCurrentItem({ ...currentItem, route: value })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Implant">Implant</SelectItem>
+                      <SelectItem value="Inhalation">Inhalation</SelectItem>
+                      <SelectItem value="Instillation">Instillation</SelectItem>
+                      <SelectItem value="Nasal">Nasal</SelectItem>
+                      <SelectItem value="Oral">Oral</SelectItem>
+                      <SelectItem value="Parenteral">Parenteral</SelectItem>
+                      <SelectItem value="Rectal">Rectal</SelectItem>
+                      <SelectItem value="Sublingual">Sublingual</SelectItem>
+                      <SelectItem value="Transdermal">Transdermal</SelectItem>
+                      <SelectItem value="Vaginal">Vaginal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Timing *</Label>
+                  <Select
+                    value={currentItem.timingDirections}
+                    onValueChange={(value) =>
+                      setCurrentItem({ ...currentItem, timingDirections: value })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Timing..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Once daily">Once daily</SelectItem>
+                      <SelectItem value="Twice daily">Twice daily</SelectItem>
+                      <SelectItem value="Three times daily">Three times daily</SelectItem>
+                      <SelectItem value="Four times daily">Four times daily</SelectItem>
+                      <SelectItem value="Every 6 hours">Every 6 hours</SelectItem>
+                      <SelectItem value="Every 8 hours">Every 8 hours</SelectItem>
+                      <SelectItem value="Every 12 hours">Every 12 hours</SelectItem>
+                      <SelectItem value="As needed">As needed</SelectItem>
+                      <SelectItem value="When in pain">When in pain</SelectItem>
+                      <SelectItem value="When fever rises">When fever rises</SelectItem>
+                      <SelectItem value="Before sleep">Before sleep</SelectItem>
+                      <SelectItem value="After meals">After meals</SelectItem>
+                      <SelectItem value="Before meals">Before meals</SelectItem>
                   </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Route *</Label>
-                <Select
-                  value={currentItem.route}
-                  onValueChange={(value) =>
-                    setCurrentItem({ ...currentItem, route: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Oral">Oral</SelectItem>
-                    <SelectItem value="Intravenous">IV</SelectItem>
-                    <SelectItem value="Intramuscular">IM</SelectItem>
-                    <SelectItem value="Subcutaneous">SC</SelectItem>
-                    <SelectItem value="Topical">Topical</SelectItem>
-                    <SelectItem value="Inhalation">Inhalation</SelectItem>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Duration</Label>
+                  <Select
+                    value={currentItem.directionDuration}
+                    onValueChange={(value) =>
+                      setCurrentItem({ ...currentItem, directionDuration: value })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Duration..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3 days">3 days</SelectItem>
+                      <SelectItem value="5 days">5 days</SelectItem>
+                      <SelectItem value="7 days">7 days</SelectItem>
+                      <SelectItem value="10 days">10 days</SelectItem>
+                      <SelectItem value="2 weeks">2 weeks</SelectItem>
+                      <SelectItem value="1 month">1 month</SelectItem>
+                      <SelectItem value="Until finished">Until finished</SelectItem>
                   </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Timing Directions *</Label>
-                <Input
-                  placeholder="e.g., Three times daily"
-                  value={currentItem.timingDirections}
-                  onChange={(e) =>
-                    setCurrentItem({ ...currentItem, timingDirections: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Duration</Label>
-                <Input
-                  placeholder="e.g., 7 days"
-                  value={currentItem.directionDuration}
-                  onChange={(e) =>
-                    setCurrentItem({ ...currentItem, directionDuration: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Valid Until</Label>
-                <Input
-                  type="date"
-                  value={currentItem.validUntil}
-                  onChange={(e) =>
-                    setCurrentItem({ ...currentItem, validUntil: e.target.value })
-                  }
-                />
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Instructions</Label>
+                  <Select
+                    value={currentItem.additionalInstruction}
+                    onValueChange={(value) =>
+                      setCurrentItem({ ...currentItem, additionalInstruction: value })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Instructions..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Take with food">Take with food</SelectItem>
+                      <SelectItem value="Take before meals">Take before meals</SelectItem>
+                      <SelectItem value="Take after meals">Take after meals</SelectItem>
+                      <SelectItem value="Take with plenty of water">Take with plenty of water</SelectItem>
+                      <SelectItem value="Swallow whole, do not crush">Swallow whole, do not crush</SelectItem>
+                      <SelectItem value="Chew well before swallowing">Chew well before swallowing</SelectItem>
+                      <SelectItem value="Dissolve under tongue">Dissolve under tongue</SelectItem>
+                      <SelectItem value="Shake well before use">Shake well before use</SelectItem>
+                      <SelectItem value="Avoid driving after taking">Avoid driving after taking</SelectItem>
+                      <SelectItem value="Avoid alcohol during treatment">Avoid alcohol during treatment</SelectItem>
+                  </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Usage</Label>
+                  <Select
+                    value={currentItem.usage}
+                    onValueChange={(value) =>
+                      setCurrentItem({ ...currentItem, usage: value })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Usage..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="For headache">For headache</SelectItem>
+                      <SelectItem value="For fever">For fever</SelectItem>
+                      <SelectItem value="For high blood pressure">For high blood pressure</SelectItem>
+                      <SelectItem value="For diabetes">For diabetes</SelectItem>
+                      <SelectItem value="For infection">For infection</SelectItem>
+                      <SelectItem value="For asthma">For asthma</SelectItem>
+                      <SelectItem value="For allergies">For allergies</SelectItem>
+                      <SelectItem value="For stomach pain">For stomach pain</SelectItem>
+                      <SelectItem value="For diarrhea">For diarrhea</SelectItem>
+                      <SelectItem value="For anxiety">For anxiety</SelectItem>
+                      <SelectItem value="For anemia">For anemia</SelectItem>
+                      <SelectItem value="For vitamin deficiency">For vitamin deficiency</SelectItem>
+                  </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Valid Until</Label>
+                  <Input
+                    type="date"
+                    value={currentItem.validUntil}
+                    onChange={(e) =>
+                      setCurrentItem({ ...currentItem, validUntil: e.target.value })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Additional Fields */}
+            
+            {/* PRN & Clinical Indication */}
             <div className="space-y-3">
-              <div>
-                <Label>Usage</Label>
-                <Input
-                  placeholder="e.g., 1 tablet in the evening"
-                  value={currentItem.usage}
-                  onChange={(e) =>
-                    setCurrentItem({ ...currentItem, usage: e.target.value })
-                  }
-                />
-              </div>
 
               <div className="flex items-center gap-2">
                 <input
@@ -472,29 +616,46 @@ export default function CreateOrderModal({
                 </div>
               )}
 
-              <div>
-                <Label>Instructions</Label>
-                <Input
-                  placeholder="e.g., Take with food"
-                  value={currentItem.additionalInstruction}
-                  onChange={(e) =>
-                    setCurrentItem({ ...currentItem, additionalInstruction: e.target.value })
-                  }
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Instructions</Label>
+                  <Input
+                    placeholder="e.g., Take with food"
+                    value={currentItem.additionalInstruction}
+                    onChange={(e) =>
+                      setCurrentItem({ ...currentItem, additionalInstruction: e.target.value })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Clinical Indication</Label>
+                  <Input
+                    placeholder="e.g., Bacterial infection"
+                    value={currentItem.clinicalIndication}
+                    onChange={(e) =>
+                      setCurrentItem({ ...currentItem, clinicalIndication: e.target.value })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
 
+              {/* Pharmacist Notes */}
               <div>
-                <Label>Clinical Indication</Label>
+                <Label className="text-xs">Pharmacist Notes</Label>
                 <Input
-                  placeholder="e.g., Bacterial infection"
-                  value={currentItem.clinicalIndication}
+                  placeholder="Add pharmacist notes for this medication..."
+                  value={currentItem.pharmacistNotes}
                   onChange={(e) =>
-                    setCurrentItem({ ...currentItem, clinicalIndication: e.target.value })
+                    setCurrentItem({ ...currentItem, pharmacistNotes: e.target.value })
                   }
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
 
+            
             <Button
               type="button"
               variant="outline"
@@ -520,6 +681,11 @@ export default function CreateOrderModal({
                       <div className="text-sm text-muted-foreground">
                         Qty: {item.quantity} • {item.doseAmount} {item.doseUnit} • {item.route} • {item.timingDirections}
                       </div>
+                      {item.pharmacistNotes && (
+                        <div className="text-sm text-muted-foreground">
+                          Pharmacist Notes: {item.pharmacistNotes}
+                        </div>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
@@ -535,45 +701,19 @@ export default function CreateOrderModal({
             </div>
           )}
 
-          {/* Order Details */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="routine">Routine</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="stat">STAT</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={handleClose} disabled={loading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading || !selectedPatient || orderItems.length === 0}
+            >
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Order
+            </Button>
           </div>
-
-          <div>
-            <Label>Notes (Optional)</Label>
-            <Input
-              placeholder="Additional instructions or notes..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={loading || !selectedPatient || orderItems.length === 0}
-          >
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Create Order
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

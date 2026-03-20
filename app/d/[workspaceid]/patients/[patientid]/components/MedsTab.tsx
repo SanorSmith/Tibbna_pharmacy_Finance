@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { History, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,11 +67,29 @@ interface MedsTabProps {
 export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescriptions, loadPrescriptions }: MedsTabProps) {
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [showMedicationSummary, setShowMedicationSummary] = useState(false);
-  const [medicationSummaryData, setMedicationSummaryData] = useState<any>(null);
   const [selectedPrescription, setSelectedPrescription] =
     useState<PrescriptionRecord | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [medicationSummaryData, setMedicationSummaryData] = useState<any>(null);
+  const [showMedicationSummary, setShowMedicationSummary] = useState(false);
   const [medicationsList, setMedicationsList] = useState<typeof prescriptionForm[]>([]);
+
+  // Fetch current user data
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('User data:', userData); // Debug: log user data structure
+          setCurrentUser(userData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      }
+    };
+    fetchUser();
+  }, []);
   const [prescriptionForm, setPrescriptionForm] = useState({
     // Medication Item (with terminology support)
     medicationItem: "",
@@ -141,11 +159,13 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
         setMedicationSummaryData(data);
         setShowMedicationSummary(true);
       } else {
-        alert("Failed to fetch medication summary");
+        const error = await res.json();
+        console.error("Failed to fetch medication summary:", error);
+        alert(`Failed to fetch medication summary: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error("Error fetching medication summary:", error);
-      alert("Error fetching medication summary");
+      alert("Error fetching medication summary. Please check console for details.");
     }
   };
 
@@ -283,11 +303,11 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white !important"
                 size="sm"
                 onClick={fetchMedicationSummary}
               >
-                System → Medication Summary
+                Medication Summary
               </Button>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -297,7 +317,6 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                 + New Prescription
               </Button>
               <Button
-                variant={showHistory ? "outline" : "secondary"}
                 size="sm"
                 onClick={() => setShowHistory((prev) => !prev)}
                 className="bg-orange-500 hover:bg-orange-600 text-white hover:text-white flex items-center gap-1"
@@ -453,7 +472,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
         open={showPrescriptionForm}
         onOpenChange={setShowPrescriptionForm}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[90vw] max-w-[1200px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               New Prescription
@@ -480,13 +499,49 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                   }
                   onSelect={(drug) => {
                     // Auto-populate form fields from selected drug
-                    const route = drug.route?.match(/Route:\s*([^,]+)/i)?.[1]?.trim() || "";
+                    let route = "";
+                    
+                    // Handle different route data formats
+                    if (drug.route) {
+                      if (typeof drug.route === 'string') {
+                        // If route is already a simple string like "oral"
+                        if (!drug.route.includes('Route:')) {
+                          route = drug.route.toLowerCase();
+                        } else {
+                          // If route is in format "Route: Oral"
+                          const routeMatch = drug.route.match(/Route:\s*([^,]+)/i);
+                          route = routeMatch ? routeMatch[1].trim().toLowerCase() : drug.route.toLowerCase();
+                        }
+                      }
+                    }
+                    
+                    // Map route names to dropdown values
+                    const routeMapping: { [key: string]: string } = {
+                      'oral': 'Oral',
+                      'parenteral': 'Parenteral', 
+                      'nasal': 'Nasal',
+                      'rectal': 'Rectal',
+                      'vaginal': 'Vaginal',
+                      'implant': 'Implant',
+                      'inhalation': 'Inhalation',
+                      'instillation': 'Instillation',
+                      'sublingual': 'Sublingual',
+                      'buccal': 'Sublingual',
+                      'oromucosal': 'Sublingual',
+                      'transdermal': 'Transdermal',
+                      'intravenous': 'Parenteral',
+                      'intramuscular': 'Parenteral',
+                      'subcutaneous': 'Parenteral',
+                      'topical': 'Transdermal'
+                    };
+                    
+                    const formattedRoute = routeMapping[route] || route.charAt(0).toUpperCase() + route.slice(1);
                     
                     setPrescriptionForm({
                       ...prescriptionForm,
                       medicationItem: drug.name,
-                      route: route.charAt(0).toUpperCase() + route.slice(1),
-                      doseUnit: drug.unit === "tablet" || drug.unit === "capsule" ? drug.unit : "mg",
+                      route: formattedRoute,
+                      doseUnit: "mg", // Default to mg for all medications
                       // Pre-fill strength as dose amount if it's numeric
                       doseAmount: drug.strength.match(/^\d+/)?.[0] || "",
                     });
@@ -533,13 +588,14 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                   title="Select the dose unit"
                 >
                   <option value="">Select...</option>
-                  <option value="mg">mg</option>
-                  <option value="g">g</option>
-                  <option value="mcg">mcg</option>
-                  <option value="ml">ml</option>
-                  <option value="tablet">tablet(s)</option>
-                  <option value="capsule">capsule(s)</option>
-                  <option value="puff">puff(s)</option>
+                  <option value="g">g (gram)</option>
+                  <option value="mg">mg (milligram)</option>
+                  <option value="mcg">mcg (microgram)</option>
+                  <option value="U">U (unit)</option>
+                  <option value="TU">TU (thousand units)</option>
+                  <option value="MU">MU (million units)</option>
+                  <option value="mmol">mmol (millimole)</option>
+                  <option value="ml">ml (milliliter)</option>
                 </select>
               </div>
               <div>
@@ -557,24 +613,86 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                   title="Select the route of administration"
                 >
                   <option value="">Select...</option>
-                  <option value="Oral">Oral</option>
-                  <option value="Intravenous">IV</option>
-                  <option value="Intramuscular">IM</option>
-                  <option value="Subcutaneous">SC</option>
-                  <option value="Topical">Topical</option>
+                  <option value="Implant">Implant</option>
                   <option value="Inhalation">Inhalation</option>
+                  <option value="Instillation">Instillation</option>
+                  <option value="Nasal">Nasal</option>
+                  <option value="Oral">Oral</option>
+                  <option value="Parenteral">Parenteral</option>
+                  <option value="Rectal">Rectal</option>
+                  <option value="Sublingual">Sublingual</option>
+                  <option value="Transdermal">Transdermal</option>
+                  <option value="Vaginal">Vaginal</option>
                 </select>
               </div>
             </div>
 
-            {/* Frequency & Duration */}
+            {/* Instructions & Usage */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Instructions</label>
+                <select
+                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                  value={prescriptionForm.additionalInstruction}
+                  onChange={(e) =>
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      additionalInstruction: e.target.value,
+                    })
+                  }
+                  aria-label="Instructions"
+                  title="Select specific instructions"
+                >
+                  <option value="">Select...</option>
+                  <option value="Take with food">Take with food</option>
+                  <option value="Take before meals">Take before meals</option>
+                  <option value="Take after meals">Take after meals</option>
+                  <option value="Take with plenty of water">Take with plenty of water</option>
+                  <option value="Swallow whole, do not crush">Swallow whole, do not crush</option>
+                  <option value="Chew well before swallowing">Chew well before swallowing</option>
+                  <option value="Dissolve under tongue">Dissolve under tongue</option>
+                  <option value="Shake well before use">Shake well before use</option>
+                  <option value="Avoid driving after taking">Avoid driving after taking</option>
+                  <option value="Avoid alcohol during treatment">Avoid alcohol during treatment</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Usage</label>
+                <select
+                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
+                  value={prescriptionForm.usage}
+                  onChange={(e) =>
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      usage: e.target.value,
+                    })
+                  }
+                  aria-label="Usage"
+                  title="Select the usage purpose"
+                >
+                  <option value="">Select...</option>
+                  <option value="For headache">For headache</option>
+                  <option value="For fever">For fever</option>
+                  <option value="For high blood pressure">For high blood pressure</option>
+                  <option value="For diabetes">For diabetes</option>
+                  <option value="For infection">For infection</option>
+                  <option value="For asthma">For asthma</option>
+                  <option value="For allergies">For allergies</option>
+                  <option value="For stomach pain">For stomach pain</option>
+                  <option value="For diarrhea">For diarrhea</option>
+                  <option value="For anxiety">For anxiety</option>
+                  <option value="For anemia">For anemia</option>
+                  <option value="For vitamin deficiency">For vitamin deficiency</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Timing Directions, Duration & Valid Until */}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-sm font-medium">Timing Directions *</label>
-                <input
-                  type="text"
+                <select
                   className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  placeholder="e.g., Three times daily"
                   value={prescriptionForm.timingDirections}
                   onChange={(e) =>
                     setPrescriptionForm({
@@ -583,15 +701,28 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                     })
                   }
                   aria-label="Timing Directions"
-                  title="Enter the timing directions"
-                />
+                  title="Select the timing directions"
+                >
+                  <option value="">Select...</option>
+                  <option value="Once daily">Once daily</option>
+                  <option value="Twice daily">Twice daily</option>
+                  <option value="Three times daily">Three times daily</option>
+                  <option value="Four times daily">Four times daily</option>
+                  <option value="Every 6 hours">Every 6 hours</option>
+                  <option value="Every 8 hours">Every 8 hours</option>
+                  <option value="Every 12 hours">Every 12 hours</option>
+                  <option value="As needed">As needed</option>
+                  <option value="When in pain">When in pain</option>
+                  <option value="When fever rises">When fever rises</option>
+                  <option value="Before sleep">Before sleep</option>
+                  <option value="After meals">After meals</option>
+                  <option value="Before meals">Before meals</option>
+                </select>
               </div>
               <div>
                 <label className="text-sm font-medium">Duration</label>
-                <input
-                  type="text"
+                <select
                   className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  placeholder="e.g., 7 days"
                   value={prescriptionForm.directionDuration}
                   onChange={(e) =>
                     setPrescriptionForm({
@@ -600,8 +731,17 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                     })
                   }
                   aria-label="Duration"
-                  title="Enter the duration of treatment"
-                />
+                  title="Select the duration"
+                >
+                  <option value="">Select...</option>
+                  <option value="3 days">3 days</option>
+                  <option value="5 days">5 days</option>
+                  <option value="7 days">7 days</option>
+                  <option value="10 days">10 days</option>
+                  <option value="2 weeks">2 weeks</option>
+                  <option value="1 month">1 month</option>
+                  <option value="Until finished">Until finished</option>
+                </select>
               </div>
               <div>
                 <label className="text-sm font-medium">Valid until</label>
@@ -831,7 +971,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
           }
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedPrescription?.product_name ||
@@ -844,63 +984,56 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
           </DialogHeader>
 
           {selectedPrescription && (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-3 text-sm">
               {/* Medication Information */}
               <div>
-                <h4 className="font-medium">Medication Information</h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
+                <h4 className="font-medium mb-2">Medication Information</h4>
+                <div className="grid grid-cols-4 gap-x-4 gap-y-2">
                   <div>
                     <span className="text-xs text-gray-500">Medication:</span>
-                    <p className="font-medium">
-                      {selectedPrescription.medication_item}
-                    </p>
+                    <p className="font-medium text-sm">{selectedPrescription.medication_item}</p>
                   </div>
-                  {selectedPrescription.product_name && (
-                    <div>
-                      <span className="text-xs text-gray-500">
-                        Product name:
-                      </span>
-                      <p className="font-medium">
-                        {selectedPrescription.product_name}
-                      </p>
-                    </div>
-                  )}
-                  {selectedPrescription.active_ingredient && (
-                    <div>
-                      <span className="text-xs text-gray-500">
-                        Active ingredient:
-                      </span>
-                      <p className="font-medium">
-                        {selectedPrescription.active_ingredient}
-                      </p>
-                    </div>
-                  )}
                   <div>
                     <span className="text-xs text-gray-500">Dosage:</span>
-                    <p className="font-medium">
-                      {selectedPrescription.dose_amount ||
-                        selectedPrescription.timing_directions ||
-                        "-"}
+                    <p className="font-medium text-sm">
+                      {(() => {
+                        // Extract dosage with unit from timing_directions or dose_amount
+                        if (selectedPrescription.timing_directions) {
+                          const doseMatch = selectedPrescription.timing_directions.match(/(\d+)\s*(mg|g|mcg|ml|U|TU|MU|mmol)/i);
+                          if (doseMatch) return `${doseMatch[1]} ${doseMatch[2]}`;
+                        }
+                        if (selectedPrescription.dose_amount && selectedPrescription.dose_unit) {
+                          return `${selectedPrescription.dose_amount} ${selectedPrescription.dose_unit}`;
+                        }
+                        return selectedPrescription.dose_amount || "-";
+                      })()}
                     </p>
                   </div>
                   <div>
                     <span className="text-xs text-gray-500">Route:</span>
-                    <p className="font-medium">
-                      {selectedPrescription.route}
-                    </p>
+                    <p className="font-medium text-sm">{selectedPrescription.route}</p>
                   </div>
                   <div>
                     <span className="text-xs text-gray-500">Timing:</span>
-                    <p className="font-medium">
-                      {selectedPrescription.timing_directions || "-"}
+                    <p className="font-medium text-sm">
+                      {(() => {
+                        // Extract only frequency and duration from timing_directions
+                        if (!selectedPrescription.timing_directions) return "-";
+                        const timing = selectedPrescription.timing_directions;
+                        // Remove dosage amount, unit, and route
+                        const parts = timing.split(',').map((p: string) => p.trim());
+                        const relevantParts = parts.filter((p: string) => 
+                          !p.match(/^\d+\s*(mg|g|mcg|ml|U|TU|MU|mmol)/i) && 
+                          !['Oral', 'Intravenous', 'Subcutaneous', 'Intramuscular', 'Topical', 'Rectal', 'Sublingual', 'Inhalation'].includes(p)
+                        );
+                        return relevantParts.join(', ') || timing;
+                      })()}
                     </p>
                   </div>
                   {selectedPrescription.usage && (
                     <div className="col-span-2">
                       <span className="text-xs text-gray-500">Usage:</span>
-                      <p className="mt-1">
-                        {selectedPrescription.usage}
-                      </p>
+                      <p className="text-sm">{selectedPrescription.usage}</p>
                     </div>
                   )}
                 </div>
@@ -908,61 +1041,37 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
 
               {/* Clinical Information */}
               <div>
-                <h4 className="font-medium">Clinical Information</h4>
-                <div className="mt-2 space-y-2">
+                <h4 className="font-medium mb-2">Clinical Information</h4>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-2">
                   <div>
-                    <span className="text-xs text-gray-500">
-                      Date of issue:
-                    </span>
-                    <p className="mt-1">
-                      {new Date(
-                        selectedPrescription.recorded_time
-                      ).toLocaleDateString()}
+                    <span className="text-xs text-gray-500">Date of issue:</span>
+                    <p className="text-sm">
+                      {new Date(selectedPrescription.recorded_time).toLocaleDateString()}
                     </p>
                   </div>
-                  {selectedPrescription.valid_until && (
-                    <div>
-                      <span className="text-xs text-gray-500">
-                        Valid until:
-                      </span>
-                      <p className="mt-1">
-                        {selectedPrescription.valid_until}
-                      </p>
-                    </div>
-                  )}
-                  {selectedPrescription.clinical_indication && (
-                    <div>
-                      <span className="text-xs text-gray-500">
-                        Clinical indication:
-                      </span>
-                      <p className="mt-1">
-                        {selectedPrescription.clinical_indication}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-xs text-gray-500">Valid until:</span>
+                    <p className="text-sm">{selectedPrescription.valid_until || "-"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500">Clinical indication:</span>
+                    <p className="text-sm">{selectedPrescription.clinical_indication || "-"}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Provider Information */}
               <div>
-                <h4 className="font-medium">Provider Information</h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
+                <h4 className="font-medium mb-2">Provider Information</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                   <div>
-                    <span className="text-xs text-gray-500">
-                      Prescribed by:
-                    </span>
-                    <p className="font-medium">
-                      {selectedPrescription.prescribed_by}
-                    </p>
+                    <span className="text-xs text-gray-500">Prescribed by:</span>
+                    <p className="font-medium text-sm">{selectedPrescription.prescribed_by}</p>
                   </div>
-                  {selectedPrescription.issued_from && (
-                    <div>
-                      <span className="text-xs text-gray-500">Workplace:</span>
-                      <p className="font-medium">
-                        {selectedPrescription.issued_from}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-xs text-gray-500">Workplace:</span>
+                    <p className="font-medium text-sm">{selectedPrescription.issued_from || "-"}</p>
+                  </div>
                 </div>
               </div>
 
@@ -1011,87 +1120,155 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
         </DialogContent>
       </Dialog>
 
-      {/* Medication Summary Modal */}
+      {/* Medication Summary Dialog */}
       <Dialog
         open={showMedicationSummary}
         onOpenChange={setShowMedicationSummary}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="w-5 h-5" />
-              System → Medication Summary (generated)
+            <DialogTitle className="text-center">
+              <div className="text-2xl font-bold">Medication List</div>
+              <div className="text-lg font-normal mt-1">{new Date().toLocaleDateString('en-US')}</div>
             </DialogTitle>
-            <DialogDescription>
-              Complete medication history and current active medications from OpenEHR system
-            </DialogDescription>
           </DialogHeader>
 
           {medicationSummaryData && (
             <div className="space-y-4">
-              {/* Summary Stats */}
-              <div className="grid grid-cols-3 gap-4">
-                <Card className="p-4">
-                  <h4 className="text-sm font-medium text-muted-foreground">Total Events</h4>
-                  <p className="text-2xl font-bold">{medicationSummaryData.totalEvents}</p>
-                </Card>
-                <Card className="p-4">
-                  <h4 className="text-sm font-medium text-muted-foreground">Active Medications</h4>
-                  <p className="text-2xl font-bold text-green-600">{medicationSummaryData.activeMedications}</p>
-                </Card>
-                <Card className="p-4">
-                  <h4 className="text-sm font-medium text-muted-foreground">Patient ID</h4>
-                  <p className="text-lg font-semibold">{medicationSummaryData.patientName}</p>
-                </Card>
+              {/* Header with Patient and Hospital Info */}
+              <div className="flex justify-between items-start print:block">
+                {/* Hospital Info - Left */}
+                <div className="text-sm space-y-1 print:mb-4">
+                  <div className="font-bold text-lg print:text-base">
+                    {currentUser?.workspaces?.find(w => w.workspace.workspaceid === workspaceid)?.workspace?.name || 
+                     currentUser?.name || currentUser?.email || 'Healthcare Center'}
+                  </div>
+                  <div className="print:block">
+                    {currentUser?.workspaces?.find(w => w.workspace.workspaceid === workspaceid)?.workspace?.address || 
+                     'Address not available'}
+                  </div>
+                  <div className="print:block">
+                    Tel: {currentUser?.workspaces?.find(w => w.workspace.workspaceid === workspaceid)?.workspace?.phone || 
+                    'Phone not available'}
+                  </div>
+                  <div className="print:block">
+                    {currentUser?.workspaces?.find(w => w.workspace.workspaceid === workspaceid)?.workspace?.website || 
+                    currentUser?.email || 'Website not available'}
+                  </div>
+                </div>
+
+                {/* Patient Info - Right */}
+                <div className="text-sm space-y-1 text-right print:text-left print:mt-4">
+                  <div className="font-bold">Patient Information</div>
+                  <div className="print:block"><strong>Name:</strong> {medicationSummaryData.patientName}</div>
+                  <div className="print:block"><strong>ID:</strong> {medicationSummaryData.nationalId || 'N/A'}</div>
+                  <div className="print:block"><strong>Date:</strong> {new Date().toLocaleDateString('en-US')}</div>
+                  <div className="print:block"><strong>Prescribed by:</strong> {currentUser?.name || currentUser?.email || 'N/A'}</div>
+                </div>
               </div>
 
-              {/* Medication Timeline */}
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Medication Timeline</h3>
-                <div className="space-y-3">
-                  {Object.entries(medicationSummaryData.timeline || {}).map(([medication, events]: [string, any]) => (
-                    <Card key={medication} className="p-4">
-                      <h4 className="font-medium text-blue-600 mb-2">{medication}</h4>
-                      <div className="space-y-2">
-                        {events.map((event: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium">{event.actionState}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(event.time).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Route: {event.route} | Quantity: {event.quantity} {event.unit}
-                              </div>
-                              {event.batchNumber && (
-                                <div className="text-xs text-muted-foreground">
-                                  Batch: {event.batchNumber} | Expires: {event.expiryDate}
+              {/* Medication List */}
+              <div className="border rounded-lg overflow-hidden">
+                <h3 className="text-lg font-semibold p-4 bg-muted border-b">Regular Medications</h3>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b">
+                      <tr>
+                        <th className="text-left p-3 font-medium border-r">Valid from</th>
+                        <th className="text-left p-3 font-medium border-r">Valid until</th>
+                        <th className="text-left p-3 font-medium border-r">Medication</th>
+                        <th className="text-left p-3 font-medium border-r">Treatment reason</th>
+                        <th className="text-left p-3 font-medium border-r">Dosing</th>
+                        <th className="text-left p-3 font-medium">Dosing instructions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {medicationSummaryData.events && medicationSummaryData.events.length > 0 ? (
+                        medicationSummaryData.events.map((event: any, index: number) => (
+                          <tr key={index} className="border-b hover:bg-muted/20">
+                            <td className="p-3 border-r align-top">
+                              {new Date(event.time).toLocaleDateString('sv-SE')}
+                            </td>
+                            <td className="p-3 border-r align-top">
+                              {event.validUntil ? new Date(event.validUntil).toLocaleDateString('sv-SE') : '-'}
+                            </td>
+                            <td className="p-3 border-r align-top">
+                              <div className="font-medium">{event.medication_item}</div>
+                              {event.route && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {event.route}
                                 </div>
                               )}
-                              {event.composer && (
-                                <div className="text-xs text-muted-foreground">
-                                  By: {event.composer}
+                            </td>
+                            <td className="p-3 border-r align-top">
+                              <div className="text-sm">
+                                {event.comment || '-'}
+                              </div>
+                            </td>
+                            <td className="p-3 border-r align-top">
+                              {event.timingDirections ? (
+                                <div className="text-sm">
+                                  {/* Extract tablet count based on frequency, not dosage amount */}
+                                  {(() => {
+                                    const timing = event.timingDirections;
+                                    const frequencyMatch = timing.match(/(once|twice|three times|four times|1|2|3|4)\s*(daily|a day)/i);
+                                    
+                                    if (frequencyMatch) {
+                                      let freq = frequencyMatch[1].toLowerCase();
+                                      
+                                      // Use reasonable tablet counts (1 tablet per dose by default)
+                                      // Could be enhanced to use actual tablet count from prescription data
+                                      if (freq === 'once' || freq === '1') return '1 st';
+                                      if (freq === 'twice' || freq === '2') return '1 + 1 st';
+                                      if (freq === 'three times' || freq === '3') return '1 + 1 + 1 st';
+                                      if (freq === 'four times' || freq === '4') return '1 + 1 + 1 + 1 st';
+                                    }
+                                    
+                                    // If no clear frequency, default to 1 tablet
+                                    return '1 st';
+                                  })()}
                                 </div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground">-</div>
                               )}
-                            </div>
-                            <Badge 
-                              variant={event.actionState.includes("dispensed") ? "default" : "outline"}
-                              className="text-xs"
-                            >
-                              {event.actionState}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  ))}
+                            </td>
+                            <td className="p-3 align-top">
+                              <div className="text-sm">
+                                {event.timingDirections ? (
+                                  // Extract only the frequency and duration (e.g., "Three times daily, for 5 days")
+                                  // Remove dosage amount, unit, and route from the beginning
+                                  (() => {
+                                    const parts = event.timingDirections.split(',').map((p: string) => p.trim());
+                                    // Skip first part if it contains dosage (e.g., "652 mg")
+                                    // Skip route part (e.g., "Oral")
+                                    const relevantParts = parts.filter((p: string) => 
+                                      !p.match(/^\d+\s*(mg|g|mcg|ml|U|TU|MU|mmol)/i) && 
+                                      !['Oral', 'Intravenous', 'Subcutaneous', 'Intramuscular', 'Topical', 'Rectal', 'Sublingual', 'Inhalation'].includes(p)
+                                    );
+                                    return relevantParts.join(', ') || '-';
+                                  })()
+                                ) : '-'}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                            No medications found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={() => setShowMedicationSummary(false)}>
+                <Button onClick={() => setShowMedicationSummary(false)}
+                  className="bg-blue-200/90 hover:bg-blue-300"
+                  >
                   Close
                 </Button>
               </div>

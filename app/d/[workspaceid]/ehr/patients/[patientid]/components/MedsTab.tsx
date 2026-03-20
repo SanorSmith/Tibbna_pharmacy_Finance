@@ -11,6 +11,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DrugAutocomplete } from "@/components/ui/drug-autocomplete";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Prescriptions interfaces (openEHR compliant)
 export interface PrescriptionRecord {
@@ -110,6 +119,11 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
     clinicalIndicationCode: "",
     clinicalIndicationTerminology: "ICD-10", // ICD-10 or SNOMED-CT
 
+    // Pharmacy matching fields
+    quantity: 1,
+    additionalInstruction: "",
+    pharmacistNotes: "",
+
     // Medication Safety
     medicationSafety: "",
     maximumDoseAmount: "",
@@ -117,7 +131,6 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
     maximumDosePeriod: "",
 
     // Additional Instructions
-    additionalInstruction: "",
     patientInstruction: "",
 
     // Order Details
@@ -301,7 +314,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
         open={showPrescriptionForm}
         onOpenChange={setShowPrescriptionForm}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[90vw] max-w-[1200px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               New Prescription
@@ -310,182 +323,268 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               Create a medication order for this patient
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Medication Name with Autocomplete */}
-            <div>
-              <label className="text-sm font-medium">
-                Medication Name *
-              </label>
-              <div className="mt-1.5">
-                <DrugAutocomplete
-                  workspaceid={workspaceid}
-                  value={prescriptionForm.medicationItem}
-                  onChange={(value) =>
-                    setPrescriptionForm({
-                      ...prescriptionForm,
-                      medicationItem: value,
-                    })
-                  }
-                  onSelect={(drug) => {
-                    // Auto-populate form fields from selected drug
-                    const route = drug.route?.match(/Route:\s*([^,]+)/i)?.[1]?.trim() || "";
-                    
-                    setPrescriptionForm({
-                      ...prescriptionForm,
-                      medicationItem: drug.name,
-                      route: route.charAt(0).toUpperCase() + route.slice(1),
-                      doseUnit: drug.unit === "tablet" || drug.unit === "capsule" ? drug.unit : "mg",
-                      // Pre-fill strength as dose amount if it's numeric
-                      doseAmount: drug.strength.match(/^\d+/)?.[0] || "",
-                    });
-                  }}
-                  placeholder="Type to search medications (e.g., Amoxicillin, Metformin)"
-                />
+          <div className="space-y-3 py-4">
+            <Label className="text-base font-semibold">Add Medications</Label>
+            
+            <div className="space-y-3">
+              {/* Single Row: Medication Name, Quantity, Dose Amount, Dose Unit */}
+              <div className="grid grid-cols-5 gap-2">
+                <div className="col-span-2">
+                  <Label className="text-xs">Medication Name *</Label>
+                  <DrugAutocomplete
+                    workspaceid={workspaceid}
+                    value={prescriptionForm.medicationItem}
+                    onChange={(value) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        medicationItem: value,
+                      })
+                    }
+                    onSelect={(drug) => {
+                      // Auto-populate form fields from selected drug
+                      const route = drug.route?.match(/Route:\s*([^,]+)/i)?.[1]?.trim() || "";
+                      
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        medicationItem: drug.name,
+                        route: route.charAt(0).toUpperCase() + route.slice(1),
+                        doseUnit: drug.unit === "tablet" || drug.unit === "capsule" ? drug.unit : "mg",
+                        // Pre-fill strength as dose amount if it's numeric
+                        doseAmount: drug.strength.match(/^\d+/)?.[0] || "",
+                      });
+                    }}
+                    placeholder="Search medication..."
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Quantity *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={prescriptionForm.quantity || 1}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        quantity: parseInt(e.target.value) || 1,
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Dose Amount *</Label>
+                  <Input
+                    placeholder="e.g., 500"
+                    value={prescriptionForm.doseAmount}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        doseAmount: e.target.value,
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Dose Unit *</Label>
+                  <Select
+                    value={prescriptionForm.doseUnit}
+                    onValueChange={(value) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        doseUnit: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="mg">mg</SelectItem>
+                      <SelectItem value="mcg">mcg</SelectItem>
+                      <SelectItem value="U">U</SelectItem>
+                      <SelectItem value="TU">TU</SelectItem>
+                      <SelectItem value="MU">MU</SelectItem>
+                      <SelectItem value="mmol">mmol</SelectItem>
+                      <SelectItem value="ml">ml</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Start typing to see suggestions. Select a drug to auto-fill form fields.
-              </p>
-            </div>
 
-            {/* Dose & Route */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-sm font-medium">Dose Amount *</label>
-                <input
-                  type="text"
-                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  placeholder="e.g., 500"
-                  value={prescriptionForm.doseAmount}
-                  onChange={(e) =>
-                    setPrescriptionForm({
-                      ...prescriptionForm,
-                      doseAmount: e.target.value,
-                    })
-                  }
-                  aria-label="Dose amount"
-                  title="Enter the dose amount"
-                />
+              {/* Single Row: Route, Timing Directions, Duration, Instructions, Usage, Valid Until */}
+              <div className="grid grid-cols-6 gap-2">
+                <div>
+                  <Label className="text-xs">Route *</Label>
+                  <Select
+                    value={prescriptionForm.route}
+                    onValueChange={(value) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        route: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Implant">Implant</SelectItem>
+                      <SelectItem value="Inhalation">Inhalation</SelectItem>
+                      <SelectItem value="Instillation">Instillation</SelectItem>
+                      <SelectItem value="Nasal">Nasal</SelectItem>
+                      <SelectItem value="Oral">Oral</SelectItem>
+                      <SelectItem value="Parenteral">Parenteral</SelectItem>
+                      <SelectItem value="Rectal">Rectal</SelectItem>
+                      <SelectItem value="Sublingual">Sublingual</SelectItem>
+                      <SelectItem value="Transdermal">Transdermal</SelectItem>
+                      <SelectItem value="Vaginal">Vaginal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Timing *</Label>
+                  <Select
+                    value={prescriptionForm.timingDirections}
+                    onValueChange={(value) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        timingDirections: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Timing..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Once daily">Once daily</SelectItem>
+                      <SelectItem value="Twice daily">Twice daily</SelectItem>
+                      <SelectItem value="Three times daily">Three times daily</SelectItem>
+                      <SelectItem value="Four times daily">Four times daily</SelectItem>
+                      <SelectItem value="Every 6 hours">Every 6 hours</SelectItem>
+                      <SelectItem value="Every 8 hours">Every 8 hours</SelectItem>
+                      <SelectItem value="Every 12 hours">Every 12 hours</SelectItem>
+                      <SelectItem value="As needed">As needed</SelectItem>
+                      <SelectItem value="Before meals">Before meals</SelectItem>
+                      <SelectItem value="After meals">After meals</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Duration</Label>
+                  <Select
+                    value={prescriptionForm.directionDuration}
+                    onValueChange={(value) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        directionDuration: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Duration..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3 days">3 days</SelectItem>
+                      <SelectItem value="5 days">5 days</SelectItem>
+                      <SelectItem value="7 days">7 days</SelectItem>
+                      <SelectItem value="10 days">10 days</SelectItem>
+                      <SelectItem value="2 weeks">2 weeks</SelectItem>
+                      <SelectItem value="1 month">1 month</SelectItem>
+                      <SelectItem value="Until finished">Until finished</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Instructions</Label>
+                  <Select
+                    value={prescriptionForm.additionalInstruction}
+                    onValueChange={(value) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        additionalInstruction: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Instructions..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Take with food">Take with food</SelectItem>
+                      <SelectItem value="Take before meals">Take before meals</SelectItem>
+                      <SelectItem value="Take after meals">Take after meals</SelectItem>
+                      <SelectItem value="Take with plenty of water">Take with plenty of water</SelectItem>
+                      <SelectItem value="Swallow whole, do not crush">Swallow whole, do not crush</SelectItem>
+                      <SelectItem value="Chew well before swallowing">Chew well before swallowing</SelectItem>
+                      <SelectItem value="Dissolve under tongue">Dissolve under tongue</SelectItem>
+                      <SelectItem value="Shake well before use">Shake well before use</SelectItem>
+                      <SelectItem value="Avoid driving after taking">Avoid driving after taking</SelectItem>
+                      <SelectItem value="Avoid alcohol during treatment">Avoid alcohol during treatment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Usage</Label>
+                  <Select
+                    value={prescriptionForm.usage}
+                    onValueChange={(value) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        usage: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Usage..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="For headache">For headache</SelectItem>
+                      <SelectItem value="For fever">For fever</SelectItem>
+                      <SelectItem value="For high blood pressure">For high blood pressure</SelectItem>
+                      <SelectItem value="For diabetes">For diabetes</SelectItem>
+                      <SelectItem value="For infection">For infection</SelectItem>
+                      <SelectItem value="For asthma">For asthma</SelectItem>
+                      <SelectItem value="For allergies">For allergies</SelectItem>
+                      <SelectItem value="For stomach pain">For stomach pain</SelectItem>
+                      <SelectItem value="For diarrhea">For diarrhea</SelectItem>
+                      <SelectItem value="For anxiety">For anxiety</SelectItem>
+                      <SelectItem value="For anemia">For anemia</SelectItem>
+                      <SelectItem value="For vitamin deficiency">For vitamin deficiency</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Valid Until</Label>
+                  <Input
+                    type="date"
+                    value={prescriptionForm.validUntil}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        validUntil: e.target.value,
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Unit *</label>
-                <select
-                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  value={prescriptionForm.doseUnit}
-                  onChange={(e) =>
-                    setPrescriptionForm({
-                      ...prescriptionForm,
-                      doseUnit: e.target.value,
-                    })
-                  }
-                  aria-label="Dose unit"
-                  title="Select the dose unit"
-                >
-                  <option value="">Select...</option>
-                  <option value="mg">mg</option>
-                  <option value="g">g</option>
-                  <option value="mcg">mcg</option>
-                  <option value="ml">ml</option>
-                  <option value="tablet">tablet(s)</option>
-                  <option value="capsule">capsule(s)</option>
-                  <option value="puff">puff(s)</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Route *</label>
-                <select
-                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  value={prescriptionForm.route}
-                  onChange={(e) =>
-                    setPrescriptionForm({
-                      ...prescriptionForm,
-                      route: e.target.value,
-                    })
-                  }
-                  aria-label="Route of administration"
-                  title="Select the route of administration"
-                >
-                  <option value="">Select...</option>
-                  <option value="Oral">Oral</option>
-                  <option value="Intravenous">IV</option>
-                  <option value="Intramuscular">IM</option>
-                  <option value="Subcutaneous">SC</option>
-                  <option value="Topical">Topical</option>
-                  <option value="Inhalation">Inhalation</option>
-                </select>
-              </div>
-            </div>
 
-            {/* Frequency & Duration */}
-            <div className="grid grid-cols-3 gap-3">
+              {/* Pharmacist Notes */}
               <div>
-                <label className="text-sm font-medium">Timing Directions *</label>
-                <input
-                  type="text"
-                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  placeholder="e.g., Three times daily"
-                  value={prescriptionForm.timingDirections}
+                <Label className="text-xs">Pharmacist Notes</Label>
+                <Input
+                  placeholder="Add pharmacist notes for this medication..."
+                  value={prescriptionForm.pharmacistNotes || ""}
                   onChange={(e) =>
                     setPrescriptionForm({
                       ...prescriptionForm,
-                      timingDirections: e.target.value,
+                      pharmacistNotes: e.target.value,
                     })
                   }
-                  aria-label="Timing Directions"
-                  title="Enter the timing directions"
+                  className="h-8 text-xs"
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">Duration</label>
-                <input
-                  type="text"
-                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  placeholder="e.g., 7 days"
-                  value={prescriptionForm.directionDuration}
-                  onChange={(e) =>
-                    setPrescriptionForm({
-                      ...prescriptionForm,
-                      directionDuration: e.target.value,
-                    })
-                  }
-                  aria-label="Duration"
-                  title="Enter the duration of treatment"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Valid until</label>
-                <input
-                  type="date"
-                  className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                  value={prescriptionForm.validUntil}
-                  onChange={(e) =>
-                    setPrescriptionForm({
-                      ...prescriptionForm,
-                      validUntil: e.target.value,
-                    })
-                  }
-                  aria-label="Valid until"
-                  title="Last date this prescription is valid"
-                />
-              </div>
-            </div>
-
-            {/* Usage / course description */}
-            <div>
-              <label className="text-sm font-medium">Usage</label>
-              <textarea
-                className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                rows={2}
-                placeholder="e.g., 1 tablet in the evening, 3 days/week."
-                value={prescriptionForm.usage}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    usage: e.target.value,
-                  })
-                }
-                aria-label="Usage"
-                title="How the patient should take the medicine"
-              />
             </div>
 
             {/* PRN */}
@@ -597,11 +696,13 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                     clinicalIndication: "",
                     clinicalIndicationCode: "",
                     clinicalIndicationTerminology: "ICD-10",
+                    quantity: 1,
+                    additionalInstruction: "",
+                    pharmacistNotes: "",
                     medicationSafety: "",
                     maximumDoseAmount: "",
                     maximumDoseUnit: "",
                     maximumDosePeriod: "",
-                    additionalInstruction: "",
                     patientInstruction: "",
                     orderType: "dose-based",
                     comment: "",
@@ -665,11 +766,13 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                         clinicalIndication: "",
                         clinicalIndicationCode: "",
                         clinicalIndicationTerminology: "ICD-10",
+                        quantity: 1,
+                        additionalInstruction: "",
+                        pharmacistNotes: "",
                         medicationSafety: "",
                         maximumDoseAmount: "",
                         maximumDoseUnit: "",
                         maximumDosePeriod: "",
-                        additionalInstruction: "",
                         patientInstruction: "",
                         orderType: "dose-based",
                         comment: "",

@@ -137,9 +137,10 @@ export async function updateSessionActivity(
 
     return true;
   } catch (error) {
-    // Only log actual errors, not null/undefined
-    if (error !== null && error !== undefined) {
-      console.error("Error updating session activity:", error);
+    // Silently handle session activity errors - this is non-critical functionality
+    // Only log in development mode for debugging
+    if (process.env.NODE_ENV === 'development' && error instanceof Error) {
+      console.debug("Session activity update failed:", error.message);
     }
     return false;
   }

@@ -769,8 +769,19 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                           // OpenEHR / dummy result: generate report from existing data
                           const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
                           const reportData = {
-                            facility: { name: currentResult.laboratory_name || 'Laboratory' },
-                            patient: null,
+                            facility: { 
+                              name: currentResult.laboratory_name || 'Laboratory',
+                              address: 'Hospital Address',
+                              phone: 'Hospital Phone'
+                            },
+                            patient: {
+                              patientid: patientid,
+                              firstname: 'Patient',
+                              lastname: 'Name',
+                              nationalid: 'N/A',
+                              address: 'Patient Address',
+                              phone: 'Patient Phone'
+                            },
                             sample: {
                               sampleid: currentResult.specimen_id || currentResult.composition_uid,
                               samplenumber: currentResult.protocol || currentResult.specimen_id || '-',
@@ -780,7 +791,9 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                               currentstatus: currentResult.overall_test_status,
                               barcode: '-',
                             },
-                            results: currentResult.test_results.map((a: LabTestAnalyte) => ({
+                            results: currentResult.test_results.map((a: LabTestAnalyte) => {
+                              const status = (a.result_status || 'normal').toLowerCase();
+                              return {
                               resultid: '',
                               testcode: a.analyte_code || '',
                               testname: a.analyte_name,
@@ -789,13 +802,14 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                               referencemin: null,
                               referencemax: null,
                               referencerange: a.reference_range || null,
-                              flag: a.result_flag || 'normal',
-                              isabormal: a.result_status !== 'normal',
-                              iscritical: a.result_status === 'critical',
+                              flag: status === 'high' ? 'abnormal-high' : status === 'low' ? 'abnormal-low' : status,
+                              isabormal: status !== 'normal',
+                              iscritical: status === 'critical',
                               status: currentResult.overall_test_status,
                               releasedbyname: currentResult.verified_by || null,
                               releaseddate: currentResult.report_date || null,
-                            })),
+                            };
+                            }),
                             generatedAt: new Date().toISOString(),
                           };
                           const html = generateLabReportHTML(reportData as any);
@@ -954,8 +968,19 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                     // OpenEHR / dummy: build report data from existing fields
                     const { generateLabReportHTML } = await import('@/lib/lims/lab-report-html');
                     const reportData = {
-                      facility: { name: selectedTest.laboratory_name || 'Laboratory' },
-                      patient: null,
+                      facility: { 
+                        name: selectedTest.laboratory_name || 'Laboratory',
+                        address: 'Hospital Address',
+                        phone: 'Hospital Phone'
+                      },
+                      patient: {
+                        patientid: patientid,
+                        firstname: 'Patient',
+                        lastname: 'Name',
+                        nationalid: 'N/A',
+                        address: 'Patient Address',
+                        phone: 'Patient Phone'
+                      },
                       sample: {
                         sampleid: selectedTest.specimen_id || selectedTest.composition_uid,
                         samplenumber: selectedTest.protocol || selectedTest.specimen_id || '-',
@@ -965,7 +990,9 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                         currentstatus: selectedTest.overall_test_status,
                         barcode: '-',
                       },
-                      results: selectedTest.test_results.map((a: LabTestAnalyte) => ({
+                      results: selectedTest.test_results.map((a: LabTestAnalyte) => {
+                        const status = (a.result_status || 'normal').toLowerCase();
+                        return {
                         resultid: '',
                         testcode: a.analyte_code || '',
                         testname: a.analyte_name,
@@ -974,13 +1001,14 @@ export function LabsTab({ workspaceid, patientid }: LabsTabProps) {
                         referencemin: null,
                         referencemax: null,
                         referencerange: a.reference_range || null,
-                        flag: a.result_flag || 'normal',
-                        isabormal: a.result_status !== 'normal',
-                        iscritical: a.result_status === 'critical',
+                        flag: status === 'high' ? 'abnormal-high' : status === 'low' ? 'abnormal-low' : status,
+                        isabormal: status !== 'normal',
+                        iscritical: status === 'critical',
                         status: selectedTest.overall_test_status,
                         releasedbyname: selectedTest.verified_by || null,
                         releaseddate: selectedTest.report_date || null,
-                      })),
+                      };
+                      }),
                       generatedAt: new Date().toISOString(),
                     };
                     const html = generateLabReportHTML(reportData as any);

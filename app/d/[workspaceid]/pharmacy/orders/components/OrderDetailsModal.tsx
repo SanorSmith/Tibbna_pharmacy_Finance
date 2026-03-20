@@ -349,7 +349,7 @@ export default function OrderDetailsModal({
                   `${Math.floor((new Date().getTime() - new Date(patient.dateofbirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))}y` : 
                   "N/A"} | {patient?.gender || "N/A"}
               </div>
-              <div className="text-muted-foreground">Doctor: {order.notes?.match(/Prescribed by:\s*(.*?)(?=\s*\||$)/i)?.[1] || order.doctorname || order.prescribingdoctor || order.orderedby || order.createdby || order.doctorid || order.physician || "N/A"}</div>
+              <div className="text-muted-foreground">Prescriber: {order.prescribername || order.doctorname || order.prescribingdoctor || order.orderedby || order.createdby || "N/A"}</div>
               <div className="text-muted-foreground">Priority: <Badge variant={order.priority === "HIGH" ? "destructive" : "secondary"} className="text-xs">{order.priority}</Badge></div>
             </div>
           </div>
@@ -361,30 +361,63 @@ export default function OrderDetailsModal({
             <h3 className="font-medium text-lg">Medications</h3>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {items.map((item: any) => {
-                    const { dose, route } = parseDosageInfo(item.dosage);
+                    // Parse dosage string to extract structured information
+                    const parseDosageDetails = (dosageStr: string) => {
+                      if (!dosageStr) return {};
+                      
+                      const details: any = {};
+                      const parts = dosageStr.split('|').map(p => p.trim());
+                      
+                      parts.forEach(part => {
+                        // Dose amount and unit (e.g., "500 mg", "1 tablet")
+                        const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
+                        if (doseMatch) {
+                          details.doseamount = doseMatch[1];
+                          details.doseunit = doseMatch[2];
+                        }
+                        
+                        // Route (Oral, Parenteral, etc.)
+                        if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
+                          details.route = part;
+                        }
+                        
+                        // Timing directions
+                        if (/daily|times|hours|needed|pain|fever|sleep|meals/i.test(part)) {
+                          details.timingdirections = part;
+                        }
+                        
+                        // Duration
+                        if (/\d+\s*(day|week|month)|until finished/i.test(part)) {
+                          details.duration = part;
+                        }
+                        
+                        // Instructions
+                        if (/with food|before meals|after meals|with water|swallow|chew|dissolve|shake|avoid/i.test(part)) {
+                          details.instructions = part;
+                        }
+                        
+                        // Usage
+                        if (/for (headache|fever|pain|diabetes|infection|asthma|allerg|stomach|diarrhea|anxiety|anemia|vitamin)/i.test(part)) {
+                          details.usage = part;
+                        }
+                      });
+                      
+                      return details;
+                    };
+                    
+                    const doseInfo = parseDosageDetails(item.dosage || '');
+                    
                     return (
-                <Card key={item.itemid} className="p-2 min-w-[300px] flex-shrink-0">
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <h4 
-                          className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
-                          onClick={() => handleDrugClick(item.drugid, item.drugname)}
-                        >
-                          {item.drugname}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">{item.quantity ? `x${item.quantity}` : ""}</p>
-                      </div>
-                      {route && (
-                        <Badge variant="secondary" className="text-xs">
-                          Route: {route}
-                        </Badge>
-                      )}
-                      {dose && (
-                        <Badge variant="outline" className="text-xs">
-                          Dose: {dose}
-                        </Badge>
-                      )}
+                <Card key={item.itemid} className="p-3 min-w-[320px] flex-shrink-0">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <h4 
+                        className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
+                        onClick={() => handleDrugClick(item.drugid, item.drugname)}
+                      >
+                        {item.drugname}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">{item.quantity ? `x${item.quantity}` : ""}</p>
                     </div>
                     <span
                       className={`px-2 py-1 rounded text-xs ${
@@ -394,6 +427,53 @@ export default function OrderDetailsModal({
                       {item.status}
                     </span>
                   </div>
+                  
+                  {/* Dose Information */}
+                  {Object.keys(doseInfo).length > 0 && (
+                    <div className="space-y-1 text-sm mb-2">
+                      {doseInfo.doseamount && doseInfo.doseunit && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Dose:</span>
+                          <Badge variant="outline" className="text-xs">
+                            {doseInfo.doseamount} {doseInfo.doseunit}
+                          </Badge>
+                        </div>
+                      )}
+                      {doseInfo.route && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Route:</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {doseInfo.route}
+                          </Badge>
+                        </div>
+                      )}
+                      {doseInfo.timingdirections && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Timing:</span>
+                          <span className="text-xs">{doseInfo.timingdirections}</span>
+                        </div>
+                      )}
+                      {doseInfo.duration && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Duration:</span>
+                          <span className="text-xs">{doseInfo.duration}</span>
+                        </div>
+                      )}
+                      {doseInfo.instructions && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Instructions:</span>
+                          <span className="text-xs">{doseInfo.instructions}</span>
+                        </div>
+                      )}
+                      {doseInfo.usage && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Usage:</span>
+                          <span className="text-xs">{doseInfo.usage}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {item.notes && <div className="text-sm text-muted-foreground"><strong>Notes:</strong> {item.notes}</div>}
                   {item.alternativemedicine && <div className="text-sm text-muted-foreground"><strong>Alternative:</strong> {item.alternativemedicine}</div>}
                   {item.interaction && item.interaction !== "None" && <div className="text-sm text-red-600"><strong>Interaction:</strong> {item.interaction}</div>}

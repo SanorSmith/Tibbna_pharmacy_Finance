@@ -42,11 +42,12 @@ interface DashboardStats {
 
 export default function PharmacyDashboard({
   workspaceid,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userName,
+  userId,
 }: {
   workspaceid: string;
   userName: string;
+  userId: string;
 }) {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") || "dashboard";
@@ -66,10 +67,10 @@ export default function PharmacyDashboard({
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    staleTime: 30000, // Data stays fresh for 30 seconds
-    refetchInterval: 60000, // Auto-refetch every 60 seconds
+    staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: false, // Don't refetch on component mount if data exists
+    refetchOnMount: true, // Only fetch on initial mount
+    enabled: !!workspaceid, // Only run query when workspaceid is available
   });
 
   const handleTabChange = (tabValue: string) => {
@@ -344,7 +345,11 @@ export default function PharmacyDashboard({
       <TabsContent value="orders" className="mt-0 flex-1 flex flex-col overflow-hidden px-4">
         {loadedTabs.has("orders") && (
           <div className="flex-1 overflow-hidden">
-            <PharmacyOrdersPage workspaceid={workspaceid} />
+            <PharmacyOrdersPage 
+              workspaceid={workspaceid}
+              userName={userName}
+              userId={userId}
+            />
           </div>
         )}
       </TabsContent>

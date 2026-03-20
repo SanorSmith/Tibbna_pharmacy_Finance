@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { patients } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { UserWorkspace } from "@/lib/db/tables/workspace";
-import { queryOpenEHR } from "@/lib/openehr/openehr";
+import { queryOpenEHR, getOpenEHRPrescriptions, getOpenEHREHRBySubjectId } from "@/lib/openehr/openehr";
 
 interface MedicationEvent {
   time: string;
@@ -20,6 +20,8 @@ interface MedicationEvent {
   comment: string;
   composer: string;
   composition_uid: string;
+  timing_directions?: string;
+  valid_until?: string;
 }
 
 /**
@@ -59,12 +61,33 @@ export async function GET(
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
-    if (!patient.nationalid) {
-      return NextResponse.json({ error: "Patient has no national ID" }, { status: 400 });
+    // Find EHR ID by National ID or patient UUID
+    let ehrId: string | null = null;
+    if (patient.nationalid) {
+      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
+    }
+    if (!ehrId) {
+      ehrId = await getOpenEHREHRBySubjectId(patientid);
     }
 
-    // Query OpenEHR for medication events
-    const aqlQuery = `
+    if (!ehrId) {
+      // No EHR found, return empty data
+      return NextResponse.json({
+        patientId: patientid,
+        patientName: `${patient.firstname} ${patient.lastname}`,
+        nationalId: patient.nationalid,
+        totalEvents: 0,
+        activeMedications: 0,
+        timeline: {},
+        events: [],
+      });
+    }
+
+    // Get prescription orders using existing function
+    const prescriptions = await getOpenEHRPrescriptions(ehrId);
+
+    // Query for medication dispense events
+    const dispenseQuery = `
       SELECT
         a/time/value as time,
         a/description[at0017]/items[at0020]/value/value as medication_item,
@@ -78,13 +101,36 @@ export async function GET(
         a/description[at0017]/items[at0024]/value/value as comment,
         c/composer/name as composer,
         c/uid/value as composition_uid
-      FROM EHR e[ehr_id/value='${patient.nationalid}']
+      FROM EHR e[ehr_id/value='${ehrId}']
       CONTAINS COMPOSITION c[openEHR-EHR-COMPOSITION.medication_dispense.v1]
       CONTAINS ACTION a[openEHR-EHR-ACTION.medication.v1]
       ORDER BY a/time/value DESC
     `;
 
-    const medicationEvents = await queryOpenEHR<MedicationEvent>(aqlQuery);
+    const dispenseEvents = await queryOpenEHR<MedicationEvent>(dispenseQuery);
+    
+    // Convert prescriptions to medication events format
+    const orderEvents: MedicationEvent[] = prescriptions.map(rx => ({
+      time: rx.recorded_time,
+      medication_item: rx.medication_item,
+      action_state: "Prescription ordered",
+      route: rx.route || "",
+      quantity: 0,
+      unit: "",
+      batch_number: "",
+      expiry_date: "",
+      substitution_performed: "",
+      comment: rx.usage || "",
+      composer: rx.prescribed_by || "",
+      composition_uid: rx.composition_uid,
+      timing_directions: rx.timing_directions || "",
+      valid_until: rx.valid_until || "",
+    }));
+    
+    // Combine both types of events
+    const medicationEvents = [...dispenseEvents, ...orderEvents].sort((a, b) => 
+      new Date(b.time).getTime() - new Date(a.time).getTime()
+    );
 
     // Group events by medication
     const medicationTimeline = medicationEvents.reduce((acc, event) => {
@@ -104,6 +150,8 @@ export async function GET(
         comment: event.comment,
         composer: event.composer,
         compositionUid: event.composition_uid,
+        timingDirections: event.timing_directions,
+        validUntil: event.valid_until,
       });
       return acc;
     }, {} as Record<string, any[]>);
@@ -113,6 +161,24 @@ export async function GET(
       (event) => event.action_state === "Prescription dispensed" || event.action_state === "Medication course commenced"
     );
 
+    // Transform events to camelCase for UI consistency
+    const transformedEvents = medicationEvents.map(event => ({
+      time: event.time,
+      medication_item: event.medication_item,
+      actionState: event.action_state,
+      route: event.route,
+      quantity: event.quantity,
+      unit: event.unit,
+      batchNumber: event.batch_number,
+      expiryDate: event.expiry_date,
+      substitutionPerformed: event.substitution_performed,
+      comment: event.comment,
+      composer: event.composer,
+      compositionUid: event.composition_uid,
+      timingDirections: event.timing_directions,
+      validUntil: event.valid_until,
+    }));
+
     return NextResponse.json({
       patientId: patientid,
       patientName: `${patient.firstname} ${patient.lastname}`,
@@ -120,7 +186,7 @@ export async function GET(
       totalEvents: medicationEvents.length,
       activeMedications: activeMedications.length,
       timeline: medicationTimeline,
-      events: medicationEvents,
+      events: transformedEvents,
     });
 
   } catch (error) {
