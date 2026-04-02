@@ -176,7 +176,7 @@ export default function PharmaciesPage({
             </p>
           </div>
           <Button onClick={handleOpenAdd}
-          className="bg-blue-500 hover:bg-blue-600 ">
+          className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900">
             <Plus className="h-4 w-4 mr-2" />
             Add Pharmacy
           </Button>

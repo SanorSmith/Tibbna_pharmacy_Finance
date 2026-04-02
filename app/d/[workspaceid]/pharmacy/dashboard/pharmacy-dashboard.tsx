@@ -29,7 +29,7 @@ import {
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
 
-const TEAL = "#2BBCB3";
+const PRIMARY = "#618FF5";
 
 interface DashboardStats {
   lowStock: { count: number; threshold: number; items: { drugid: string; drugname: string; strength: string; form: string; totalQuantity: number }[] };
@@ -90,28 +90,28 @@ export default function PharmacyDashboard({
         <TabsList className="flex w-full flex-wrap gap-1 h-auto bg-transparent p-0">
           <TabsTrigger
             value="dashboard"
-            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
           >
             <LayoutDashboard className="h-4 w-4" />
             Dashboard
           </TabsTrigger>
           <TabsTrigger
             value="orders"
-            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
           >
             <ClipboardList className="h-4 w-4" />
             Orders
           </TabsTrigger>
           <TabsTrigger
             value="drug-registration"
-            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
           >
             <Pill className="h-4 w-4" />
             Drug registration
           </TabsTrigger>
           <TabsTrigger
             value="todo"
-            className="rounded-md data-[state=active]:bg-teal-700 data-[state=active]:text-white bg-[#2BBCB3] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
           >
             <ListTodo className="h-4 w-4" />
             To Do
@@ -123,7 +123,7 @@ export default function PharmacyDashboard({
       <TabsContent value="dashboard" className="mt-3 px-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#618FF5]" />
           </div>
         ) : (
           <div className="space-y-4">
@@ -136,12 +136,12 @@ export default function PharmacyDashboard({
                           <p className="text-xs text-muted-foreground">Total Orders</p>
                           <p className="text-2xl font-bold">{stats?.orders.total ?? 0}</p>
                         </div>
-                        <div className="h-10 w-10 rounded-full bg-teal-50 flex items-center justify-center">
-                          <BarChart3 className="h-5 w-5 text-teal-600" />
+                        <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+                          <BarChart3 className="h-5 w-5 text-[#618FF5]" />
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        <span className="text-teal-600 font-medium">{stats?.orders.todayCount ?? 0}</span> today
+                        <span className="text-[#618FF5] font-medium">{stats?.orders.todayCount ?? 0}</span> today
                       </p>
                     </CardContent>
                   </Card>
@@ -154,7 +154,7 @@ export default function PharmacyDashboard({
                           <p className="text-2xl font-bold">{stats?.customers.todayVisits ?? 0}</p>
                         </div>
                         <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-                          <UserCheck className="h-5 w-5 text-blue-600" />
+                          <UserCheck className="h-5 w-5 text-[#618FF5]" />
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-1">Unique patients today</p>
@@ -236,10 +236,10 @@ export default function PharmacyDashboard({
                   <Card className="shadow-sm">
                     <CardHeader className="pb-2 pt-4 px-4">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <BellRing className="h-4 w-4 text-blue-500" />
+                        <BellRing className="h-4 w-4 text-[#618FF5]" />
                         Doctor Notifications
                         {(stats?.notifications.count ?? 0) > 0 && (
-                          <Badge className="text-[10px] px-1.5 py-0 bg-blue-500">
+                          <Badge className="text-[10px] px-1.5 py-0 bg-[#618FF5]">
                             {stats?.notifications.count}
                           </Badge>
                         )}
@@ -313,7 +313,7 @@ export default function PharmacyDashboard({
                   <Card className="shadow-sm">
                     <CardHeader className="pb-2 pt-4 px-4">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-teal-500" />
+                        <TrendingUp className="h-4 w-4 text-[#618FF5]" />
                         Order Status
                       </CardTitle>
                     </CardHeader>
@@ -330,7 +330,7 @@ export default function PharmacyDashboard({
                 {/* Drug Interaction card */}
                 <Card
                   className="shadow-sm hover:shadow-md transition-shadow cursor-pointer text-white"
-                  style={{ backgroundColor: TEAL }}
+                  style={{ backgroundColor: PRIMARY }}
                 >
                   <CardContent className="flex items-center justify-center py-6">
                     <FlaskConical className="h-6 w-6 text-white/80 mr-3" />

@@ -226,7 +226,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
             <h3 className="font-semibold text-sm">Medication List</h3>
             <Button
               size="sm"
-              className="h-8 bg-teal-600 hover:bg-teal-700 text-xs"
+              className="h-8 bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900 text-xs"
               onClick={handleOpenNew}
             >
               <Plus className="h-3 w-3 mr-1" />
@@ -236,7 +236,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
 
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
+              <Loader2 className="h-6 w-6 animate-spin text-[#618FF5]" />
             </div>
           ) : drugList.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
@@ -247,7 +247,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-blue-50">
+                    <TableRow className="bg-[#618FF5]/10">
                       <TableHead className="text-[10px] font-semibold w-8 py-1.5 px-2">#</TableHead>
                       <TableHead className="text-[10px] font-semibold min-w-[50px] max-w-[70px] py-1.5 px-2">Drug Name</TableHead>
                       <TableHead className="text-[10px] font-semibold w-20 py-1.5 px-2">NDL Code</TableHead>
@@ -313,7 +313,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              className="h-6 w-6 p-0 text-[#618FF5] hover:text-[#4a6fd4] hover:bg-blue-50"
                               onClick={() => handleOpenEdit(drug)}
                             >
                               <Pencil className="h-3 w-3" />
@@ -455,7 +455,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-teal-600 hover:bg-teal-700"
+                  className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
                   onClick={handleSave}
                   disabled={saveMutation.isPending || !formData.name || !formData.form || !formData.strength}
                 >

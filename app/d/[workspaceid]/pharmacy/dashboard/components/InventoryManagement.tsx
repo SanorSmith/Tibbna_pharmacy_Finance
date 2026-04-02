@@ -180,7 +180,7 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#618FF5]" />
       </div>
     );
   }
@@ -189,11 +189,11 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
     <div className="space-y-4">
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <SummaryCard label="Total Drugs" value={summary?.totalDrugs ?? 0} icon={<Package className="h-4 w-4 text-teal-500" />} />
+        <SummaryCard label="Total Drugs" value={summary?.totalDrugs ?? 0} icon={<Package className="h-4 w-4 text-[#618FF5]" />} />
         <SummaryCard label="Low Stock" value={summary?.lowStock ?? 0} icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} alert={!!summary?.lowStock} />
         <SummaryCard label="Out of Stock" value={summary?.outOfStock ?? 0} icon={<PackageX className="h-4 w-4 text-red-500" />} alert={!!summary?.outOfStock} />
         <SummaryCard label="Expiring Soon" value={summary?.expiringSoon ?? 0} icon={<CalendarClock className="h-4 w-4 text-orange-500" />} alert={!!summary?.expiringSoon} />
-        <SummaryCard label="Reorder Needed" value={summary?.reorderNeeded ?? 0} icon={<ShoppingCart className="h-4 w-4 text-blue-500" />} alert={!!summary?.reorderNeeded} />
+        <SummaryCard label="Reorder Needed" value={summary?.reorderNeeded ?? 0} icon={<ShoppingCart className="h-4 w-4 text-[#618FF5]" />} alert={!!summary?.reorderNeeded} />
       </div>
 
       {/* Filters + Auto-reorder */}
@@ -224,7 +224,7 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
           </Button>
           <Button
             size="sm"
-            className="h-9 text-xs bg-teal-600 hover:bg-teal-700"
+            className="h-9 text-xs bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
             onClick={handleAutoReorder}
             disabled={selectedForReorder.size === 0 || reorderMutation.isPending}
           >
@@ -340,7 +340,7 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
                         <TableCell>{statusBadge(item)}</TableCell>
                         <TableCell className="text-center">
                           {item.reorderSuggested ? (
-                            <span className="text-sm font-medium text-blue-600">{item.suggestedReorderQty}</span>
+                            <span className="text-sm font-medium text-[#618FF5]">{item.suggestedReorderQty}</span>
                           ) : (
                             <span className="text-sm text-muted-foreground">—</span>
                           )}
