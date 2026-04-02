@@ -37,6 +37,7 @@ import {
   FileText,
   Shield,
   ArrowRightLeft,
+  AlertTriangle,
   X,
 } from "lucide-react";
 
@@ -79,6 +80,14 @@ export default function OrderDetailsModal({
       if (!res.ok) throw new Error("Failed to fetch");
       const json = await res.json();
       setData(json);
+
+      // Initialize scannedItems with items that are already scanned
+      const alreadyScanned = new Set<string>(
+        (json.items || [])
+          .filter((item: any) => item.status === "SCANNED" || item.status === "DISPENSED")
+          .map((item: any) => item.itemid as string)
+      );
+      setScannedItems(alreadyScanned);
     } catch (err) {
       console.error("Failed to fetch order:", err);
       // Set empty data structure to prevent blank display
@@ -161,6 +170,14 @@ export default function OrderDetailsModal({
     const unscannedItem = items.find((item: any) => 
       !scannedItems.has(item.itemid) && item.status === "PENDING"
     );
+
+    // Debug logging
+    console.log("Scan Debug:", {
+      totalItems: items.length,
+      scannedItemsCount: scannedItems.size,
+      scannedItems: Array.from(scannedItems),
+      itemStatuses: items.map((item: any) => ({ id: item.itemid, status: item.status, name: item.drugname }))
+    });
 
     if (!unscannedItem) {
       setScanMessage("✅ All items have been scanned!");
@@ -366,7 +383,11 @@ export default function OrderDetailsModal({
                       if (!dosageStr) return {};
                       
                       const details: any = {};
-                      const parts = dosageStr.split('|').map(p => p.trim());
+                      
+                      // Handle both pipe-separated and comma-separated dosage strings
+                      const parts = dosageStr.includes('|') 
+                        ? dosageStr.split('|').map(p => p.trim())
+                        : dosageStr.split(',').map(p => p.trim());
                       
                       parts.forEach(part => {
                         // Dose amount and unit (e.g., "500 mg", "1 tablet")
@@ -381,23 +402,23 @@ export default function OrderDetailsModal({
                           details.route = part;
                         }
                         
-                        // Timing directions
-                        if (/daily|times|hours|needed|pain|fever|sleep|meals/i.test(part)) {
+                        // Timing directions - more specific to avoid conflicts
+                        if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
                           details.timingdirections = part;
                         }
                         
-                        // Duration
-                        if (/\d+\s*(day|week|month)|until finished/i.test(part)) {
-                          details.duration = part;
+                        // Duration - more specific pattern to avoid conflicts
+                        if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
+                          details.duration = part.replace(/^for\s+/i, '');
                         }
                         
                         // Instructions
-                        if (/with food|before meals|after meals|with water|swallow|chew|dissolve|shake|avoid/i.test(part)) {
+                        if (/^(with food|before meals|after meals|with water|swallow whole|chew|dissolve|shake well|avoid alcohol)/i.test(part)) {
                           details.instructions = part;
                         }
                         
-                        // Usage
-                        if (/for (headache|fever|pain|diabetes|infection|asthma|allerg|stomach|diarrhea|anxiety|anemia|vitamin)/i.test(part)) {
+                        // Usage - more specific to avoid conflicts
+                        if (/^for (headache|fever|pain|high blood pressure|diabetes|infection|asthma|allergies|stomach pain|diarrhea|anxiety|anemia|vitamin deficiency)$/i.test(part)) {
                           details.usage = part;
                         }
                       });
@@ -726,6 +747,10 @@ export default function OrderDetailsModal({
                   <span className="text-sm font-medium">
                     Progress: {scannedItems.size} / {items.length}
                   </span>
+                  {/* Debug info */}
+                  <div className="text-xs text-muted-foreground">
+                    Debug: {scannedItems.size} === {items.length} = {scannedItems.size === items.length ? "YES" : "NO"}
+                  </div>
                   <div className="flex gap-1">
                     {items.map((item: any) => (
                       <div
@@ -797,25 +822,47 @@ export default function OrderDetailsModal({
                 </div>
 
                 {/* Complete Dispensing */}
-                {scannedItems.size === items.length && (
-                  <Button 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
-                    onClick={handleCompleteDispensing}
-                    disabled={dispensing}
-                  >
-                    {dispensing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Completing Dispensing...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="h-4 w-4" />
-                        Complete Dispensing
-                      </>
-                    )}
-                  </Button>
-                )}
+                <div className="space-y-2">
+                  {scannedItems.size === items.length && (
+                    <Button 
+                      className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
+                      onClick={handleCompleteDispensing}
+                      disabled={dispensing}
+                    >
+                      {dispensing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Completing Dispensing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-4 w-4" />
+                          Complete Dispensing
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  
+                  {/* Manual override button */}
+                  {scannedItems.size < items.length && (
+                    <Button 
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        console.log("Manual override - current state:", {
+                          scannedItems: Array.from(scannedItems),
+                          items: items.map((item: any) => ({ id: item.itemid, status: item.status, name: item.drugname }))
+                        });
+                        // Force complete dispensing anyway
+                        handleCompleteDispensing();
+                      }}
+                      disabled={dispensing}
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      Force Complete Dispensing ({scannedItems.size}/{items.length} items)
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
