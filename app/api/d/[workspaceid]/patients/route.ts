@@ -6,8 +6,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { patients } from "@/lib/db/schema";
-import { eq, asc, or, ilike, and } from "drizzle-orm";
+import { patients, workspaces } from "@/lib/db/schema";
+import { eq, and, asc, ilike, or, isNull } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { createOpenEHREHR, getOpenEHREHRBySubjectId } from "@/lib/openehr/openehr";
@@ -30,28 +30,79 @@ export async function GET(
     const searchTerm = searchParams.get("search");
 
     // Build query conditions
-    const conditions = [eq(patients.workspaceid, workspaceid)];
+    const includeGlobal = searchParams.get("includeGlobal") === "true";
+    const conditions = includeGlobal 
+      ? [
+          or(
+            eq(patients.workspaceid, workspaceid),
+            isNull(patients.workspaceid)
+          )!
+        ]
+      : [eq(patients.workspaceid, workspaceid)];
     
     // Add search filter if provided
     if (searchTerm && searchTerm.trim().length > 0) {
       const searchPattern = `%${searchTerm.trim()}%`;
-      conditions.push(
-        or(
-          ilike(patients.firstname, searchPattern),
-          ilike(patients.lastname, searchPattern),
-          ilike(patients.nationalid, searchPattern)
-        )!
-      );
+      const searchCondition = or(
+        ilike(patients.firstname, searchPattern),
+        ilike(patients.lastname, searchPattern),
+        ilike(patients.nationalid, searchPattern)
+      )!;
+      
+      // Apply search to the base conditions
+      if (includeGlobal) {
+        conditions[0] = and(
+          or(
+            eq(patients.workspaceid, workspaceid),
+            isNull(patients.workspaceid)
+          )!,
+          searchCondition
+        )!;
+      } else {
+        conditions.push(searchCondition);
+      }
     }
 
-    // Fetch patients with filters
+    // Fetch patients with workspace info
     const rows = await db
-      .select()
+      .select({
+        patientid: patients.patientid,
+        firstname: patients.firstname,
+        middlename: patients.middlename,
+        lastname: patients.lastname,
+        nationalid: patients.nationalid,
+        dateofbirth: patients.dateofbirth,
+        gender: patients.gender,
+        bloodgroup: patients.bloodgroup,
+        phone: patients.phone,
+        email: patients.email,
+        address: patients.address,
+        ehrid: patients.ehrid,
+        medicalhistory: patients.medicalhistory,
+        createdat: patients.createdat,
+        updatedat: patients.updatedat,
+        workspaceid: patients.workspaceid,
+        workspaceName: workspaces.name,
+        isGlobal: isNull(patients.workspaceid),
+      })
       .from(patients)
+      .leftJoin(workspaces, eq(patients.workspaceid, workspaces.workspaceid))
       .where(and(...conditions))
       .orderBy(asc(patients.createdat));
+
+    // Separate workspace and global patients for summary
+    const workspacePatients = rows.filter(p => !p.isGlobal);
+    const globalPatients = rows.filter(p => p.isGlobal);
     
-    return NextResponse.json({ patients: rows });
+    return NextResponse.json({ 
+      patients: rows,
+      summary: {
+        total: rows.length,
+        workspaceSpecific: workspacePatients.length,
+        global: globalPatients.length,
+        includeGlobal,
+      }
+    });
   } catch (e) {
     // Surface the error server-side and return a generic message to clients
     console.error("[patients][GET] error:", e);
@@ -140,8 +191,16 @@ export async function POST(
       medicalhistory: body.medicalhistory ?? {},
     } as const;
 
-    // First create the local patient row
-    const [inserted] = await db.insert(patients).values(values).returning();
+    // Check if this should be a global patient
+    const isGlobal = body.isGlobal === true;
+    
+    // Create patient (workspace-specific or global)
+    const patientValues = {
+      ...values,
+      workspaceid: isGlobal ? null : workspaceid, // NULL for global patients
+    };
+
+    const [inserted] = await db.insert(patients).values(patientValues).returning();
 
     // Create EHR in EHRbase using the patient's National ID as subject id
     // Fall back to patient UUID if National ID is not provided
@@ -204,7 +263,12 @@ export async function POST(
       updated = row ?? inserted;
     }
 
-    return NextResponse.json({ patient: updated }, { status: 201 });
+    return NextResponse.json({ 
+      patient: updated, 
+      message: isGlobal 
+        ? "Global patient created successfully" 
+        : "Workspace-specific patient created successfully"
+    }, { status: 201 });
   } catch (e) {
     // Catch any unexpected error in the create flow
     console.error(e);

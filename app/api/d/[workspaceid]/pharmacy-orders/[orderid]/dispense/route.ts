@@ -259,14 +259,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let dispenseCompositionUid: string | null = null;
     try {
       if (order.openehrorderid && order.patientid && isValidUUID(order.patientid)) {
-        // Fetch patient to get EHR ID (national ID)
+        // Fetch patient to get EHR ID
         const [patient] = await db
           .select()
           .from(patients)
           .where(eq(patients.patientid, order.patientid))
           .limit(1);
 
-        if (patient?.nationalid) {
+        // Use ehrid if available, fallback to nationalid
+        const ehrId = patient?.ehrid || patient?.nationalid;
+        
+        if (ehrId) {
           // Extract route from first item's dosage (e.g., "Route: Oral, Dose: 500mg")
           const firstItem = items[0];
           let route = "oral"; // default
@@ -294,7 +297,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
           // Submit to OpenEHR
           const compositionUid = await createOpenEHRComposition(
-            patient.nationalid, // EHR ID
+            ehrId, // Use proper EHR ID (ehrid or fallback to nationalid)
             "template_medication_dispense_v1", // Template ID
             compositionData
           );
