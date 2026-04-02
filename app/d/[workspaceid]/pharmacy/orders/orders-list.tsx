@@ -203,7 +203,7 @@ export default function PharmacyOrdersPage({
             <Button
               size="sm"
               onClick={() => setIsCreateModalOpen(true)}
-              className="gap-2 bg-teal-600 hover:bg-teal-700"
+              className="gap-2 bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
             >
               Add an Order
             </Button>

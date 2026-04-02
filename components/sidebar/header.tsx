@@ -7,10 +7,7 @@ export function Header({
   rightSlot?: React.ReactNode;
   userRole?: string;
 }) {
-  const headerBg =
-    userRole === "pharmacist"
-      ? "bg-[#2BBCB3]"
-      : "bg-[#618FF5]";
+  const headerBg = "bg-[#618FF5]";
 
   const headerTitle =
     userRole === "admin" || userRole === "administrator"
@@ -22,7 +19,7 @@ export function Header({
       : "Tibbna-EHR";
 
   return (
-    <header className={`flex h-16 shrink-0 items-center ${headerBg} ${userRole === "pharmacist" ? "text-[#2B2D2F]" : "text-white"} justify-between mt-8 gap-4 px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12`}>
+    <header className={`flex h-16 shrink-0 items-center ${headerBg} text-white justify-between mt-8 gap-4 px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12`}>
       <div className="flex items-center flex-1 min-w-0">
         {/* <SidebarTrigger className="-ml-1" /> */}
         <h1 className="text-xl font-bold whitespace-nowrap mr-8">

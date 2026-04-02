@@ -281,7 +281,7 @@ export default function PharmacyOrderDetailPage({
           {order.status !== "DISPENSED" && order.status !== "CANCELLED" && (
             <div className="flex gap-3">
               <Link href={`/d/${workspaceid}/pharmacy/orders/${orderid}/dispense`}>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+                <Button className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900 gap-2">
                   <ScanBarcode className="h-4 w-4" />
                   Open Scanner
                 </Button>

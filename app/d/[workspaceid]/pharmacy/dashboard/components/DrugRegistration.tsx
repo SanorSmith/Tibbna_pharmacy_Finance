@@ -44,6 +44,8 @@ import {
   Loader2,
   X,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface DrugRecord {
@@ -200,7 +202,12 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const PAGE_SIZE = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+
   const drugList = data?.drugs || [];
+  const totalPages = Math.ceil(drugList.length / PAGE_SIZE);
+  const paginatedDrugs = drugList.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="space-y-4">
@@ -212,7 +219,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
             <Input
               placeholder="Search with product Drug or name"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               className="pl-9 h-9"
             />
           </div>
@@ -226,7 +233,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
             <h3 className="font-semibold text-sm">Medication List</h3>
             <Button
               size="sm"
-              className="h-8 bg-teal-600 hover:bg-teal-700 text-xs"
+              className="h-8 bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900 text-xs"
               onClick={handleOpenNew}
             >
               <Plus className="h-3 w-3 mr-1" />
@@ -236,7 +243,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
 
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
+              <Loader2 className="h-6 w-6 animate-spin text-[#618FF5]" />
             </div>
           ) : drugList.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
@@ -247,7 +254,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-blue-50">
+                    <TableRow className="bg-[#618FF5]/10">
                       <TableHead className="text-[10px] font-semibold w-8 py-1.5 px-2">#</TableHead>
                       <TableHead className="text-[10px] font-semibold min-w-[50px] max-w-[70px] py-1.5 px-2">Drug Name</TableHead>
                       <TableHead className="text-[10px] font-semibold w-20 py-1.5 px-2">NDL Code</TableHead>
@@ -260,9 +267,9 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {drugList.map((drug, idx) => (
+                    {paginatedDrugs.map((drug, idx) => (
                       <TableRow key={drug.drugid} className="hover:bg-gray-50">
-                        <TableCell className="text-[11px] text-blue-600 font-medium py-1.5 px-2">{idx + 1}</TableCell>
+                        <TableCell className="text-[11px] text-blue-600 font-medium py-1.5 px-2">{(currentPage - 1) * PAGE_SIZE + idx + 1}</TableCell>
                         <TableCell className="min-w-[50px] max-w-[70px] py-1.5 px-2">
                           {drug.name.length > 15 ? (
                             <Tooltip>
@@ -313,7 +320,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              className="h-6 w-6 p-0 text-[#618FF5] hover:text-[#4a6fd4] hover:bg-blue-50"
                               onClick={() => handleOpenEdit(drug)}
                             >
                               <Pencil className="h-3 w-3" />
@@ -333,6 +340,59 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, drugList.length)} of {drugList.length} drugs
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                      .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                        if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("...");
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, i) =>
+                        p === "..." ? (
+                          <span key={`ellipsis-${i}`} className="text-xs px-1 text-muted-foreground">…</span>
+                        ) : (
+                          <Button
+                            key={p}
+                            variant={currentPage === p ? "default" : "outline"}
+                            size="sm"
+                            className={`h-7 w-7 p-0 text-xs ${
+                              currentPage === p ? "bg-[#618FF5] text-white hover:bg-[#618FF5]" : ""
+                            }`}
+                            onClick={() => setCurrentPage(p as number)}
+                          >
+                            {p}
+                          </Button>
+                        )
+                      )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </TooltipProvider>
           )}
         </CardContent>
@@ -455,7 +515,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-teal-600 hover:bg-teal-700"
+                  className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
                   onClick={handleSave}
                   disabled={saveMutation.isPending || !formData.name || !formData.form || !formData.strength}
                 >
