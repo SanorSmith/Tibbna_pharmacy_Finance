@@ -1,7 +1,9 @@
 /**
  * Patients table (Drizzle ORM)
- * - Stores patient demographic and contact info, scoped by workspace.
+ * - Stores patient demographic and contact info, can be global or workspace-specific.
  * - Foreign key: workspaceid -> workspaces.workspaceid (cascade on delete).
+ * - When workspaceid is NULL, patient is globally accessible by all workspaces.
+ * - When workspaceid is set, patient is restricted to that workspace only.
  * - EHR linkage: optional `ehrid` stores the EHRbase EHR identifier created for this patient.
  * - Exposes select/insert types for use throughout the app.
  */
@@ -11,8 +13,7 @@ import { workspaces } from "./workspace";
 export const patients = pgTable("patients", {
   patientid: uuid("patientid").primaryKey().defaultRandom(),
   workspaceid: uuid("workspaceid")
-    .notNull()
-    .references(() => workspaces.workspaceid, { onDelete: "cascade" }),
+    .references(() => workspaces.workspaceid, { onDelete: "cascade" }), // Made nullable for global access
   firstname: text("firstname").notNull(),
   middlename: text("middlename"),
   lastname: text("lastname").notNull(),
