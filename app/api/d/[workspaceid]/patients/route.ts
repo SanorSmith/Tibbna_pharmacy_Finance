@@ -30,15 +30,17 @@ export async function GET(
     const searchTerm = searchParams.get("search");
 
     // Build query conditions
-    const includeGlobal = searchParams.get("includeGlobal") === "true";
-    const conditions = includeGlobal 
-      ? [
+    // Default: always include both workspace-specific AND global patients (workspaceid IS NULL)
+    // Pass ?workspaceOnly=true to restrict to workspace patients only
+    const workspaceOnly = searchParams.get("workspaceOnly") === "true";
+    const conditions = workspaceOnly
+      ? [eq(patients.workspaceid, workspaceid)]
+      : [
           or(
             eq(patients.workspaceid, workspaceid),
             isNull(patients.workspaceid)
           )!
-        ]
-      : [eq(patients.workspaceid, workspaceid)];
+        ];
     
     // Add search filter if provided
     if (searchTerm && searchTerm.trim().length > 0) {
@@ -50,7 +52,7 @@ export async function GET(
       )!;
       
       // Apply search to the base conditions
-      if (includeGlobal) {
+      if (!workspaceOnly) {
         conditions[0] = and(
           or(
             eq(patients.workspaceid, workspaceid),
@@ -100,7 +102,7 @@ export async function GET(
         total: rows.length,
         workspaceSpecific: workspacePatients.length,
         global: globalPatients.length,
-        includeGlobal,
+        workspaceOnly,
       }
     });
   } catch (e) {
