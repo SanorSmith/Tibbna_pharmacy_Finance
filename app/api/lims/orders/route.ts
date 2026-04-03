@@ -381,7 +381,8 @@ export async function GET(request: NextRequest) {
             .limit(1);
           
           if (patient.length > 0) {
-            patientName = [patient[0].firstname, patient[0].middlename, patient[0].lastname].filter(Boolean).join(' ');
+            const resolvedName = [patient[0].firstname, patient[0].middlename, patient[0].lastname].filter(Boolean).join(' ');
+            if (resolvedName) patientName = resolvedName;
             
             // Calculate age from date of birth
             if (patient[0].dateofbirth) {
@@ -433,11 +434,11 @@ export async function GET(request: NextRequest) {
     // Try to fetch openEHR orders, but don't fail if OpenEHR is unavailable
     const openEHROrders: any[] = [];
     try {
-      // Get all patients in workspace with EHR IDs
+      // Get all patients with EHR IDs across all workspaces
+      // (lab tech workspace may differ from doctor/patient workspace)
       const patientsQuery = await db
         .select()
-        .from(patients)
-        .where(eq(patients.workspaceid, workspaceId));
+        .from(patients);
       
       const patientsWithEhr = patientsQuery.filter(p => p.ehrid);
 
