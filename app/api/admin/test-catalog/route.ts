@@ -65,6 +65,9 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const activeFilter = searchParams.get("active");
 
+    console.log("[admin/test-catalog] workspaceid:", workspaceid);
+    console.log("[admin/test-catalog] user:", user?.userid, user?.name);
+
     const conditions = [eq(labTestCatalog.workspaceid, workspaceid)];
     if (activeFilter === "true") conditions.push(eq(labTestCatalog.isactive, true));
     if (activeFilter === "false") conditions.push(eq(labTestCatalog.isactive, false));
@@ -93,6 +96,7 @@ export async function GET(request: NextRequest) {
         .orderBy(labTestCatalog.testcategory, labTestCatalog.testname);
     }
 
+    console.log("[admin/test-catalog] query returned", tests.length, "tests");
     return NextResponse.json({ tests, total: tests.length });
   } catch (e) {
     console.error("[admin/test-catalog][GET]", e);

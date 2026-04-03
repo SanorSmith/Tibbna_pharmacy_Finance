@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload, ChevronDown, History } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Search, Eye, Upload, ChevronDown, History, ChevronLeft, ChevronRight } from "lucide-react";
 import { LAB_TYPES, TEST_GROUPS, getAllTestGroupNames } from "@/lib/test-groups-and-lab-types";
 import {
   Dialog,
@@ -109,6 +109,10 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
   const [labtypeFilter, setLabtypeFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [filterAgeGroup, setFilterAgeGroup] = useState("ALL");
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   // Combo-box dropdown states
   const [showLabTypeDropdown, setShowLabTypeDropdown] = useState(false);
@@ -145,6 +149,7 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
 
   useEffect(() => {
     applyFilters();
+    setCurrentPage(1); // Reset to page 1 when filters change
   }, [ranges, searchTerm, labtypeFilter, groupFilter, filterAgeGroup]);
 
   const fetchRanges = async () => {
@@ -495,7 +500,13 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                   </tr>
                 </thead>
                 <TableBody>
-                  {filteredRanges.map((range) => (
+                  {(() => {
+                    const totalPages = Math.max(1, Math.ceil(filteredRanges.length / PAGE_SIZE));
+                    const startIdx = (currentPage - 1) * PAGE_SIZE;
+                    const endIdx = startIdx + PAGE_SIZE;
+                    const paginatedRanges = filteredRanges.slice(startIdx, endIdx);
+                    return paginatedRanges;
+                  })().map((range) => (
                     <TableRow key={range.rangeid} className="hover:bg-gray-50 text-xs">
                       <TableCell className="font-medium px-1 py-1.5">{range.testcode}</TableCell>
                       <TableCell className="font-medium px-1 py-1.5">
@@ -608,6 +619,78 @@ export default function TestReferenceManager({ workspaceid }: TestReferenceManag
                   ))}
                 </TableBody>
               </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && filteredRanges.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-2 py-1.5 border-t flex-shrink-0">
+            <div className="text-[11px] text-muted-foreground">
+              Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredRanges.length)} to {Math.min(currentPage * PAGE_SIZE, filteredRanges.length)} of {filteredRanges.length}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              {(() => {
+                const totalPages = Math.max(1, Math.ceil(filteredRanges.length / PAGE_SIZE));
+                return Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (p) =>
+                      p === 1 ||
+                      p === totalPages ||
+                      Math.abs(p - currentPage) <= 1
+                  )
+                  .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                    if (i > 0 && (p as number) - (arr[i - 1] as number) > 1)
+                      acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "..." ? (
+                      <span
+                        key={`ellipsis-${i}`}
+                        className="text-xs px-1 text-muted-foreground"
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={currentPage === p ? "default" : "outline"}
+                        size="sm"
+                        className={`h-7 w-7 p-0 text-xs ${
+                          currentPage === p
+                            ? "bg-[#618FF5] text-white hover:bg-[#618FF5]"
+                            : ""
+                        }`}
+                        onClick={() => setCurrentPage(p as number)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  );
+              })()}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => {
+                  const totalPages = Math.max(1, Math.ceil(filteredRanges.length / PAGE_SIZE));
+                  setCurrentPage((p) => Math.min(totalPages, p + 1));
+                }}
+                disabled={currentPage >= Math.ceil(filteredRanges.length / PAGE_SIZE)}
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
 
