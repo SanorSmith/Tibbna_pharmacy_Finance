@@ -13,7 +13,7 @@
  * - FHIR ServiceRequest compatibility
  */
 
-import { pgTable, text, timestamp, uuid, index, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, boolean, timestamp, integer, decimal, index, unique, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./user";
 
@@ -130,7 +130,7 @@ export const labTestCatalog = pgTable(
     testid: uuid("testid").primaryKey().defaultRandom(),
     
     // Test identification
-    testcode: text("testcode").notNull().unique(), // LOINC or internal code
+    testcode: text("testcode").notNull(), // LOINC or internal code
     testname: text("testname").notNull(),
     testdescription: text("testdescription"),
     
@@ -166,7 +166,7 @@ export const labTestCatalog = pgTable(
     updatedat: timestamp("updatedat", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    codeIdx: index("lab_test_catalog_code_idx").on(table.testcode),
+    codeWorkspaceUnique: unique("lab_test_catalog_code_workspace_unique").on(table.testcode, table.workspaceid),
     categoryIdx: index("lab_test_catalog_category_idx").on(table.testcategory),
     activeIdx: index("lab_test_catalog_active_idx").on(table.isactive),
     workspaceIdx: index("lab_test_catalog_workspace_idx").on(table.workspaceid),

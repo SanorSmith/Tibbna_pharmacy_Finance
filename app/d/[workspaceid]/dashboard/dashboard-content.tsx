@@ -30,6 +30,7 @@ import {
   Shield,
   CreditCard,
   CheckSquare,
+  BookOpen,
 } from "lucide-react";
 import {
   Table,
@@ -513,6 +514,21 @@ export default function DashboardContent({
                 <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <Settings className="h-4 w-4 mr-2" />
                   Manage Inventory
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-base">Test Catalog</CardTitle>
+              <CardDescription>Manage laboratory test types</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={`/d/${workspaceid}/lims/management`}>
+                <Button className="w-full bg-blue-500 hover:bg-blue-600">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Manage Test Catalog
                 </Button>
               </Link>
             </CardContent>

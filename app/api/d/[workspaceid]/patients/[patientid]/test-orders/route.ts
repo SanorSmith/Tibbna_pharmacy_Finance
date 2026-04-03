@@ -203,7 +203,7 @@ export async function POST(
     ] = eventTime;
     compositionData[
       "template_clinical_encounter_v1/service_request/request/requesting_provider"
-    ] = requesting_provider || "Dr. Unknown";
+    ] = requesting_provider || user.name || "Dr. Unknown";
     compositionData[
       "template_clinical_encounter_v1/service_request/request/receiving_provider"
     ] = receiving_provider || "Clinical Laboratory";

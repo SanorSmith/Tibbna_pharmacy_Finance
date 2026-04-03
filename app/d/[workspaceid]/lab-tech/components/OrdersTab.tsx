@@ -824,38 +824,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
-  // Group orders by test and keep only the latest one for each test
-  const latestOrdersByTest = new Map<string, LimsOrder>();
-  
-  baseFilteredOrders.forEach((order: LimsOrder) => {
-    // Create a unique key for each test (test name + patient)
-    const testInfo = order.source === "openEHR" 
-      ? order.service_name 
-      : order.tests?.map((t: any) => t.testName).join(", ") || "N/A";
-    
-    const patientId = order.subjectidentifier || order.patientId || "";
-    const testKey = `${testInfo}_${patientId}`;
-    
-    const orderDate = order.source === "openEHR" 
-      ? new Date(order.recorded_time || "")
-      : new Date(order.createdat || "");
-    
-    // If this test doesn't exist yet, or if this order is newer, keep it
-    const existingOrder = latestOrdersByTest.get(testKey);
-    if (!existingOrder) {
-      latestOrdersByTest.set(testKey, order);
-    } else {
-      const existingDate = existingOrder.source === "openEHR" 
-        ? new Date(existingOrder.recorded_time || "")
-        : new Date(existingOrder.createdat || "");
-      
-      if (orderDate > existingDate) {
-        latestOrdersByTest.set(testKey, order);
-      }
-    }
-  });
-
-  const filteredOrders = Array.from(latestOrdersByTest.values()).sort((a, b) => {
+  const filteredOrders = [...baseFilteredOrders].sort((a, b) => {
     const dateA = a.source === "openEHR" 
       ? new Date(a.recorded_time || "").getTime()
       : new Date(a.createdat || "").getTime();
