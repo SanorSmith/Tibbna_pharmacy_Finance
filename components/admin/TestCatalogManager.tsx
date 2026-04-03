@@ -95,20 +95,7 @@ const EMPTY_FORM: FormData = {
   isactive: true,
 };
 
-const CATEGORIES = [
-  "Hematology",
-  "Biochemistry",
-  "Microbiology",
-  "Immunology",
-  "Histopathology",
-  "Endocrinology",
-  "Serology",
-  "Urinalysis",
-  "Coagulation",
-  "Clinical Chemistry",
-  "Molecular Biology",
-  "Cytology",
-];
+// Categories and panels are now built dynamically from the database
 
 const SPECIMEN_TYPES = [
   "Blood",
@@ -171,11 +158,20 @@ export default function TestCatalogManager({ workspaceid }: TestCatalogManagerPr
     }
   }, [workspaceid, activeFilter, search]);
 
+  // Debug: log workspaceid
+  console.log("[TestCatalogManager] workspaceid:", workspaceid);
+
   useEffect(() => {
     fetchTests();
   }, [fetchTests]);
 
   const uniqueCategories = Array.from(new Set(tests.map((t) => t.testcategory))).sort();
+  const uniquePanels = Array.from(new Set(tests.map((t) => t.testpanel).filter(Boolean))).sort();
+  
+  // Get panels for selected category
+  const panelsForCategory = form.testcategory
+    ? Array.from(new Set(tests.filter(t => t.testcategory === form.testcategory).map(t => t.testpanel).filter(Boolean))).sort()
+    : uniquePanels;
 
   const filtered = tests.filter((t) =>
     categoryFilter === "all" ? true : t.testcategory === categoryFilter,
@@ -661,24 +657,59 @@ export default function TestCatalogManager({ workspaceid }: TestCatalogManagerPr
               />
             </div>
 
-            {/* Category */}
+            {/* Laboratory Type (Category) */}
             <div className="space-y-1.5">
               <Label htmlFor="testcategory" className="text-xs font-medium">
-                Category *
+                Laboratory Type *
               </Label>
-              <Select
+              <Input
+                id="testcategory"
+                placeholder="e.g. Biochemistry, Microbiology"
+                className="h-8 text-sm"
                 value={form.testcategory}
-                onValueChange={(v) => setField("testcategory", v)}
-              >
-                <SelectTrigger id="testcategory" className="h-8 text-sm">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c} className="text-sm">{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(e) => {
+                  setField("testcategory", e.target.value);
+                  // Clear panel if category changes
+                  if (form.testpanel && !panelsForCategory.includes(form.testpanel)) {
+                    setField("testpanel", "");
+                  }
+                }}
+                list="category-suggestions"
+              />
+              <datalist id="category-suggestions">
+                {uniqueCategories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              <p className="text-[10px] text-muted-foreground">
+                Type or select: {uniqueCategories.slice(0, 3).join(", ")}{uniqueCategories.length > 3 ? "..." : ""}
+              </p>
+            </div>
+
+            {/* Test Panel/Group */}
+            <div className="space-y-1.5">
+              <Label htmlFor="testpanel" className="text-xs font-medium">
+                Panel / Group
+              </Label>
+              <Input
+                id="testpanel"
+                placeholder="e.g. Hormone, Hematology"
+                className="h-8 text-sm"
+                value={form.testpanel || ""}
+                onChange={(e) => setField("testpanel", e.target.value)}
+                list="panel-suggestions"
+                disabled={!form.testcategory}
+              />
+              <datalist id="panel-suggestions">
+                {panelsForCategory.filter((p): p is string => p !== null).map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+              {form.testcategory && panelsForCategory.length > 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  Available: {panelsForCategory.slice(0, 3).join(", ")}{panelsForCategory.length > 3 ? "..." : ""}
+                </p>
+              )}
             </div>
 
             {/* Specimen Type */}
