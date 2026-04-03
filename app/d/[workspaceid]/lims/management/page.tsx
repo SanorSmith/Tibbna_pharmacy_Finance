@@ -4,16 +4,19 @@
  * Provides comprehensive laboratory inventory management interface
  * Integrates equipment, materials, and suppliers management components
  */
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Beaker, Wrench, Building, ShoppingCart, Home, FlaskConical } from "lucide-react";
+import { Package, Beaker, Wrench, Building, ShoppingCart, Home, FlaskConical, BookOpen } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/user";
+import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import EquipmentManagement from "@/components/admin/EquipmentManagement";
 import MaterialsManagement from "@/components/admin/MaterialsManagement";
 import SuppliersManagement from "@/components/admin/SuppliersManagement";
 import LaboratoryTypeManagement from "@/components/admin/LaboratoryTypeManagement";
 import ShopListManagement from "@/components/admin/ShopListManagement";
+import TestCatalogManager from "@/components/admin/TestCatalogManager";
 import TestReferenceManager from "./components/TestReferenceManager";
 
 interface PageProps {
@@ -22,6 +25,29 @@ interface PageProps {
 
 export default async function LabManagementPage({ params }: PageProps) {
   const { workspaceid } = await params;
+
+  const user = await getUser();
+  if (!user) redirect("/");
+
+  const workspaces = await getUserWorkspaces(user.userid);
+  const membership = workspaces.find((w) => w.workspace.workspaceid === workspaceid);
+
+  const normalizePerms = (perms: unknown): string[] => {
+    try {
+      if (Array.isArray(perms)) return perms as string[];
+      if (typeof perms === "string") {
+        const t = perms.trim();
+        const d = t.startsWith("'") && t.endsWith("'") ? t.slice(1, -1) : t;
+        const p = JSON.parse(d);
+        if (Array.isArray(p)) return p as string[];
+      }
+    } catch {}
+    return [];
+  };
+
+  const isAdmin =
+    membership?.role === "administrator" ||
+    normalizePerms(user.permissions).includes("admin");
 
   return (
     <div className="container mx-auto px-4 pt-2 pb-2 space-y-1">
@@ -42,7 +68,7 @@ export default async function LabManagementPage({ params }: PageProps) {
 
       {/* Management Tabs */}
       <Tabs defaultValue="test-references" className="space-y-1">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className={`grid w-full ${isAdmin ? "grid-cols-7" : "grid-cols-6"}`}>
           <TabsTrigger value="test-references" className="flex items-center gap-2">
             <FlaskConical className="h-4 w-4" />
             Test References
@@ -67,6 +93,12 @@ export default async function LabManagementPage({ params }: PageProps) {
             <ShoppingCart className="h-4 w-4" />
             Shop List
           </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="test-catalog" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Test Catalog
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="test-references" className="space-y-4">
@@ -92,6 +124,12 @@ export default async function LabManagementPage({ params }: PageProps) {
         <TabsContent value="shop-list" className="space-y-4">
           <ShopListManagement workspaceid={workspaceid} />
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="test-catalog" className="space-y-4">
+            <TestCatalogManager workspaceid={workspaceid} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

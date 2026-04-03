@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { testReferenceRanges } from "@/lib/db/schema/test-reference-ranges";
+import { labTestCatalog } from "@/lib/db/tables/lims-order";
 import { eq, and } from "drizzle-orm";
+
+function slug(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,128 +13,100 @@ export async function GET(request: NextRequest) {
     const workspaceid = searchParams.get("workspaceid");
 
     if (!workspaceid) {
-      return NextResponse.json(
-        { error: "Missing workspaceid" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing workspaceid" }, { status: 400 });
     }
 
-    // Fetch all active test reference ranges
+    // Fetch all active tests from the admin-managed catalog
     const tests = await db
       .select()
-      .from(testReferenceRanges)
-      .where(
-        and(
-          eq(testReferenceRanges.workspaceid, workspaceid),
-          eq(testReferenceRanges.isactive, "Y")
-        )
-      );
+      .from(labTestCatalog)
+      .where(and(eq(labTestCatalog.workspaceid, workspaceid), eq(labTestCatalog.isactive, true)));
 
-    // Group tests by lab type and create test packages
-    const testsByLabType: Record<string, any[]> = {};
+    // ── Individual tests ────────────────────────────────────────────────────
+    // Use testcode slug as the stable ID so the order form can resolve codes
     const individualTests: Record<string, any> = {};
+    const testsByLabType: Record<string, any[]> = {};
 
     tests.forEach((test) => {
-      const labType = test.labtype || "General";
-      
-      if (!testsByLabType[labType]) {
-        testsByLabType[labType] = [];
-      }
-
-      // Create individual test entry
-      const testItem = {
-        id: test.testcode.toLowerCase().replace(/\s+/g, "-"),
+      const id = slug(test.testcode);
+      const item = {
+        id,
         name: test.testname,
         code: test.testcode,
-        category: labType,
-        material: test.sampletype || "Blood",
-        unit: test.unit,
-        referenceMin: test.referencemin,
-        referenceMax: test.referencemax,
-        referenceText: test.referencetext,
-        panicLow: test.paniclow,
-        panicHigh: test.panichigh,
-        ageGroup: test.agegroup,
-        sex: test.sex,
-        groupTests: test.grouptests,
-        sampleType: test.sampletype,
-        containerType: test.containertype,
+        category: test.testcategory,
+        material: test.specimentype,
+        description: test.testdescription,
+        snomedCode: test.snomedcode,
+        loincCode: test.loinccode,
+        fastingRequired: test.fastingrequired ?? false,
+        turnaroundTime: test.turnaroundtime,
+        specimenVolume: test.specimenvolume,
+        containerType: test.specimencontainer,
       };
+      individualTests[id] = item;
 
-      testsByLabType[labType].push(testItem);
-      individualTests[testItem.id] = testItem;
+      if (!testsByLabType[test.testcategory]) testsByLabType[test.testcategory] = [];
+      testsByLabType[test.testcategory].push(item);
     });
 
-    // Create test packages based on group tests
+    // ── Test packages ────────────────────────────────────────────────────────
+    // Panel-based packages (tests with testpanel set)
+    const panelMap: Record<string, { category: string; panelName: string; testIds: string[] }> = {};
+    tests.forEach((test) => {
+      if (test.testpanel) {
+        const key = `${test.testcategory}::${test.testpanel}`;
+        if (!panelMap[key]) {
+          panelMap[key] = { category: test.testcategory, panelName: test.testpanel, testIds: [] };
+        }
+        panelMap[key].testIds.push(slug(test.testcode));
+      }
+    });
+
     const testPackages: Record<string, any> = {};
-    // Key by "labtype::groupName" to avoid collisions (e.g. "General" exists in both Biochemistry and Histopathology)
-    const groupedTests: Record<string, { labtype: string; groupName: string; testCodes: string[] }> = {};
-
-    tests.forEach((test) => {
-      if (test.grouptests) {
-        const labType = test.labtype || "General";
-        const compositeKey = `${labType}::${test.grouptests}`;
-        if (!groupedTests[compositeKey]) {
-          groupedTests[compositeKey] = { labtype: labType, groupName: test.grouptests, testCodes: [] };
-        }
-        groupedTests[compositeKey].testCodes.push(test.testcode.toLowerCase().replace(/\s+/g, "-"));
-      }
-    });
-
-    // Create packages from grouped tests
-    Object.values(groupedTests).forEach(({ labtype, groupName, testCodes }) => {
-      // Include labtype in the ID to avoid collisions between departments
-      const packageId = `${labtype.toLowerCase().replace(/\s+/g, "-")}-${groupName.toLowerCase().replace(/\s+/g, "-")}`;
-      
-      testPackages[packageId] = {
-        id: packageId,
-        name: groupName,
-        category: labtype,
-        description: `${testCodes.length} test${testCodes.length > 1 ? 's' : ''}`,
-        tests: testCodes,
+    Object.values(panelMap).forEach(({ category, panelName, testIds }) => {
+      const pkgId = `${slug(category)}-${slug(panelName)}`;
+      testPackages[pkgId] = {
+        id: pkgId,
+        name: panelName,
+        category,
+        description: `${testIds.length} test${testIds.length !== 1 ? "s" : ""}`,
+        tests: testIds,
       };
     });
 
-    // Create virtual "Standalone Tests" packages for tests without groups
-    const standaloneTestsByLab: Record<string, string[]> = {};
+    // Standalone packages per category (tests with no testpanel)
+    const standaloneByCategory: Record<string, string[]> = {};
     tests.forEach((test) => {
-      if (!test.grouptests) {
-        const labType = test.labtype || "General";
-        if (!standaloneTestsByLab[labType]) {
-          standaloneTestsByLab[labType] = [];
-        }
-        standaloneTestsByLab[labType].push(test.testcode.toLowerCase().replace(/\s+/g, "-"));
+      if (!test.testpanel) {
+        if (!standaloneByCategory[test.testcategory]) standaloneByCategory[test.testcategory] = [];
+        standaloneByCategory[test.testcategory].push(slug(test.testcode));
       }
     });
-
-    // Add standalone test packages for each lab type
-    Object.entries(standaloneTestsByLab).forEach(([labType, testCodes]) => {
-      if (testCodes.length > 0) {
-        const packageId = `${labType.toLowerCase().replace(/\s+/g, "-")}-standalone-tests`;
-        testPackages[packageId] = {
-          id: packageId,
-          name: `${labType} — Individual Tests`,
-          category: labType,
-          description: `${testCodes.length} test${testCodes.length > 1 ? 's' : ''}`,
-          tests: testCodes,
-          isStandalone: true,
-        };
-      }
+    Object.entries(standaloneByCategory).forEach(([category, testIds]) => {
+      const pkgId = `${slug(category)}-standalone-tests`;
+      testPackages[pkgId] = {
+        id: pkgId,
+        name: `${category} — Individual Tests`,
+        category,
+        description: `${testIds.length} test${testIds.length !== 1 ? "s" : ""}`,
+        tests: testIds,
+        isStandalone: true,
+      };
     });
 
-    // Create laboratory information
+    // ── Laboratories ─────────────────────────────────────────────────────────
     const laboratories: Record<string, any> = {};
-    const uniqueLabTypes = [...new Set(tests.map(t => t.labtype).filter(Boolean))];
-
-    uniqueLabTypes.forEach((labType) => {
-      const labId = labType!.toLowerCase().replace(/\s+/g, "-");
+    const uniqueCategories = [...new Set(tests.map((t) => t.testcategory))];
+    uniqueCategories.forEach((category) => {
+      const labId = slug(category);
+      const catTests = tests.filter((t) => t.testcategory === category);
       laboratories[labId] = {
         id: labId,
-        name: labType,
+        name: category,
         address: "Laboratory Department",
         phone: "(555) 123-4567",
         email: `${labId}@hospital.com`,
-        specialties: [...new Set(tests.filter(t => t.labtype === labType).map(t => t.grouptests).filter(Boolean))],
+        specialties: [...new Set(catTests.map((t) => t.testpanel).filter(Boolean))],
         turnaround: "Routine: 24-48 hours, STAT: 4-6 hours",
       };
     });
