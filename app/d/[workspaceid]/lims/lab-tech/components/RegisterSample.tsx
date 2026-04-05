@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock, Activity } from "lucide-react";
 import { calculateTAT, getTATStatusColor, getTATStatusLabel, formatDuration } from "@/lib/lims/tat-tracking";
 import BarcodePrint from "./BarcodePrint";
+import { SampleNumberDisplay } from "@/components/lab/SampleNumberDisplay";
 import { getDialogClasses } from "@/lib/ui-constants";
 import { LABORATORIES } from "@/lib/test-catalog";
 
@@ -711,7 +712,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                             }}
                           >
                             <TableCell className="font-mono font-medium text-blue-600">
-                              {sample.samplenumber}
+                              <SampleNumberDisplay sampleNumber={sample.samplenumber} />
                             </TableCell>
                             <TableCell className="font-mono text-xs">
                               {sample.orderid ? (
@@ -812,7 +813,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
               <div className="p-4 bg-gray-50 rounded-md space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Sample Number:</span>
-                  <span className="text-sm font-mono">{accessionedSample.sampleNumber}</span>
+                  <SampleNumberDisplay sampleNumber={accessionedSample.sampleNumber} showDetails={true} />
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Sample ID:</span>
