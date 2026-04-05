@@ -17,9 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, QrCode, Plus, Search, Clock, Activity } from "lucide-react";
 import { calculateTAT, getTATStatusColor, getTATStatusLabel, formatDuration } from "@/lib/lims/tat-tracking";
 import BarcodePrint from "./BarcodePrint";
+import { SampleNumberDisplay } from "@/components/lab/SampleNumberDisplay";
 import { getDialogClasses } from "@/lib/ui-constants";
 import { LABORATORIES } from "@/lib/test-catalog";
 
@@ -544,6 +545,33 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
     window.print();
   };
 
+  const handleProcessSample = async (sample: AccessionedSample) => {
+    if (!sample) return;
+    
+    try {
+      const response = await fetch('/api/lims/samples/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sampleid: sample.sampleid,
+          workspaceid: workspaceid
+        })
+      });
+      
+      if (response.ok) {
+        showAlert('Success', `Sample ${sample.samplenumber} is now being processed. Status updated in EHR.`, 'success');
+        setShowSampleDetail(false);
+        // Refresh the samples list
+        queryClient.invalidateQueries({ queryKey: ["accessioned-samples", workspaceid] });
+      } else {
+        const error = await response.json();
+        showAlert('Error', `Failed to process sample: ${error.error || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      showAlert('Error', `Failed to process sample: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full gap-2">
       {/* Header */}
@@ -684,7 +712,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                             }}
                           >
                             <TableCell className="font-mono font-medium text-blue-600">
-                              {sample.samplenumber}
+                              <SampleNumberDisplay sampleNumber={sample.samplenumber} />
                             </TableCell>
                             <TableCell className="font-mono text-xs">
                               {sample.orderid ? (
@@ -785,7 +813,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
               <div className="p-4 bg-gray-50 rounded-md space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Sample Number:</span>
-                  <span className="text-sm font-mono">{accessionedSample.sampleNumber}</span>
+                  <SampleNumberDisplay sampleNumber={accessionedSample.sampleNumber} showDetails={true} />
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Sample ID:</span>
@@ -815,7 +843,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
         <DialogContent className="w-[70vw] max-w-[70vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Sample Details</DialogTitle>
-            <p className="text-sm text-muted-foreground font-mono">{selectedSample?.samplenumber}</p>
+            <p className="text-sm text-muted-foreground font-mono">Sample ID: {selectedSample?.samplenumber}</p>
           </DialogHeader>
 
           {selectedSample && (
@@ -892,17 +920,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => {
-                    setShowStorageDialog(true);
-                    setShowSampleDetail(false);
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Storage
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
                   disabled={!!selectedSample?.worklistname}
                   title={selectedSample?.worklistname ? `Already in worklist: ${selectedSample.worklistname}` : 'Add to worklist'}
                   onClick={() => {
@@ -912,6 +929,16 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   {selectedSample?.worklistname ? `In: ${selectedSample.worklistname}` : 'Worklist'}
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  disabled={selectedSample?.currentstatus === 'IN_PROCESS' || selectedSample?.currentstatus === 'ANALYZED' || selectedSample?.currentstatus === 'DISPOSED'}
+                  onClick={() => handleProcessSample(selectedSample)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  Process Sample
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowSampleDetail(false)}>Close</Button>
               </div>

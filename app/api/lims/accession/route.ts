@@ -36,6 +36,7 @@ import {
   generateQRCodePayload,
   validateAccessionData,
 } from "@/lib/lims/accession-utils";
+import { generateEnhancedSampleNumber } from "@/lib/lims/enhanced-sample-number-generator";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
@@ -85,8 +86,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate sample identifiers
-    const sampleNumber = await generateSampleNumber();
+    // Generate sample identifiers with enhanced format
+    const testCodes = Array.isArray(tests) ? tests : [];
+    const sampleNumber = await generateEnhancedSampleNumber(testCodes, workspaceId);
     const sampleId = crypto.randomUUID();
     const barcode = generateBarcode(sampleId);
     const qrcode = generateQRCodePayload(
