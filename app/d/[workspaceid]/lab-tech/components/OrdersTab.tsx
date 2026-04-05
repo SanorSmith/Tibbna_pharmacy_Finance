@@ -1903,7 +1903,28 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
                             return acc;
                           }, {} as Record<string, boolean>);
                           const totalGroups = Object.keys(specimenGroupsForProgress).length;
-                          const collectedCount = Object.keys(collectedSpecimenTypes).filter(s => specimenGroupsForProgress[s]).length;
+                          
+                          // Count specimens collected in current session
+                          const sessionCollectedCount = Object.keys(collectedSpecimenTypes).filter(s => specimenGroupsForProgress[s]).length;
+                          
+                          // Count specimens already collected from database
+                          const dbCollectedSpecimens = new Set<string>();
+                          if (orderSamples && orderSamples.length > 0) {
+                            orderSamples.forEach((sample: any) => {
+                              const sampleType = sample.sampletype || sample.specimenType;
+                              if (sampleType && specimenGroupsForProgress[sampleType]) {
+                                dbCollectedSpecimens.add(sampleType);
+                              }
+                            });
+                          }
+                          
+                          // Combine both counts (use Set to avoid double-counting)
+                          const allCollectedSpecimens = new Set([
+                            ...Object.keys(collectedSpecimenTypes).filter(s => specimenGroupsForProgress[s]),
+                            ...Array.from(dbCollectedSpecimens)
+                          ]);
+                          const collectedCount = allCollectedSpecimens.size;
+                          
                           if (totalGroups > 1) {
                             return (
                               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${collectedCount === totalGroups ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>

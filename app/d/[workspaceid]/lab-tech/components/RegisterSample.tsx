@@ -730,6 +730,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                                   <Badge
                                     variant="outline"
                                     className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}
+                                    title={`Elapsed: ${tat.elapsedDisplay} | Expected: ${tat.expectedDisplay} | ${tat.percentUsed}% used`}
                                   >
                                     <Clock className="h-3 w-3 mr-1" />
                                     {tat.elapsedDisplay}
@@ -889,17 +890,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
               {/* Action Buttons - right aligned like Image 2 */}
               <div className="flex justify-end gap-2 pt-1">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setShowStorageDialog(true);
-                    setShowSampleDetail(false);
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Storage
-                </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
