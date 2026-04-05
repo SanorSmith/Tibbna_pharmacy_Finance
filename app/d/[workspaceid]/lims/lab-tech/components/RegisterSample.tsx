@@ -815,7 +815,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
         <DialogContent className="w-[70vw] max-w-[70vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Sample Details</DialogTitle>
-            <p className="text-sm text-muted-foreground font-mono">{selectedSample?.samplenumber}</p>
+            <p className="text-sm text-muted-foreground font-mono">Sample ID: {selectedSample?.samplenumber}</p>
           </DialogHeader>
 
           {selectedSample && (
@@ -889,17 +889,6 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
 
               {/* Action Buttons - right aligned like Image 2 */}
               <div className="flex justify-end gap-2 pt-1">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setShowStorageDialog(true);
-                    setShowSampleDetail(false);
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Storage
-                </Button>
                 <Button 
                   variant="outline" 
                   size="sm"

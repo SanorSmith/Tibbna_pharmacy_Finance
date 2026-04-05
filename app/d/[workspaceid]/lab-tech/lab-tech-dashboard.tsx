@@ -23,7 +23,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import OrdersTab from "./components/OrdersTab";
-import RegisterSample from "./components/RegisterSample";
+import RegisterSample from "../lims/lab-tech/components/RegisterSample";
 import WorklistsTab from "./components/WorklistsTab";
 import ValidationTab from "./components/ValidationTab";
 import SampleManagementTab from "./components/SampleManagementTab";
