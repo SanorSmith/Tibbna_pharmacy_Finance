@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -41,6 +41,8 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
   
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [doctors, setDoctors] = useState<Array<{ userid: string; name: string; email: string }>>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [formData, setFormData] = useState({
     starttime: "",
     appointmentName: "",
@@ -50,6 +52,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
     unit: "",
     location: "",
     status: "scheduled",
+    doctorid: "",
   });
   
   const handleAddAppointment = async () => {
@@ -88,6 +91,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
         unit: "",
         location: "",
         status: "scheduled",
+        doctorid: "",
       });
       
       if (onAppointmentAdded) {
@@ -101,6 +105,22 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
     }
   };
   
+  // Fetch doctors when dialog opens
+  useEffect(() => {
+    if (showAddDialog && doctors.length === 0) {
+      setLoadingDoctors(true);
+      fetch(`/api/d/${workspaceid}/doctors`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.doctors) {
+            setDoctors(data.doctors);
+          }
+        })
+        .catch(err => console.error('Failed to load doctors:', err))
+        .finally(() => setLoadingDoctors(false));
+    }
+  }, [showAddDialog, workspaceid, doctors.length]);
+
   const formatDateTime = (datetime: string) => {
     try {
       const date = new Date(datetime);
@@ -268,6 +288,26 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
                 <SelectItem value="visiting">Visiting</SelectItem>
                 <SelectItem value="video_call">Video Call</SelectItem>
                 <SelectItem value="home_visit">Home Visit</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="doctorid">Assign Doctor *</Label>
+            <Select
+              value={formData.doctorid}
+              onValueChange={(value) => setFormData({ ...formData, doctorid: value })}
+              disabled={loadingDoctors}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingDoctors ? "Loading doctors..." : "Select a doctor"} />
+              </SelectTrigger>
+              <SelectContent>
+                {doctors.map((doctor) => (
+                  <SelectItem key={doctor.userid} value={doctor.userid}>
+                    {doctor.name} ({doctor.email})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -29,7 +29,6 @@ import { NotesTab } from "./components/NotesTab";
 import * as DashboardTypes from "./components/DashboardTab";
 import AppointmentsTab from "./components/AppointmentsTab";
 import ImagingTab from "./components/ImagingTab";
-import { PaymentStatus } from "@/components/patient/PaymentStatus";
 
 type Patient = {
   patientid: string;
@@ -470,13 +469,6 @@ export default function PatientDashboard({
             >
               Imaging
             </TabsTrigger>
-
-            <TabsTrigger
-              value="billing"
-              className="rounded-md data-[state=active]:bg-orange-500 data-[state=active]:text-white bg-[#4684c2] text-white border-[0.5px] border-gray-400 font-bold"
-            >
-              Billing
-            </TabsTrigger>
           </TabsList>
 
           {/* Dashboard Tab */}
@@ -712,16 +704,6 @@ export default function PatientDashboard({
               <NotesTab
                 workspaceid={workspaceid}
                 patientid={patient.patientid}
-              />
-            )}
-          </TabsContent>
-
-          {/* Billing Tab - Real-time payment tracking */}
-          <TabsContent value="billing" className="space-y-4">
-            {loadedTabs.has("billing") && (
-              <PaymentStatus
-                patientId={patient.patientid}
-                workspaceid={workspaceid}
               />
             )}
           </TabsContent>
