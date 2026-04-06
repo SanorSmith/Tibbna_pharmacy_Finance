@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -41,6 +41,8 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
   
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [doctors, setDoctors] = useState<Array<{ userid: string; name: string; email: string }>>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [formData, setFormData] = useState({
     starttime: "",
     appointmentName: "",
@@ -50,6 +52,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
     unit: "",
     location: "",
     status: "scheduled",
+    doctorid: "",
   });
   
   const handleAddAppointment = async () => {
@@ -88,6 +91,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
         unit: "",
         location: "",
         status: "scheduled",
+        doctorid: "",
       });
       
       if (onAppointmentAdded) {
@@ -101,6 +105,22 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
     }
   };
   
+  // Fetch doctors when dialog opens
+  useEffect(() => {
+    if (showAddDialog && doctors.length === 0) {
+      setLoadingDoctors(true);
+      fetch(`/api/d/${workspaceid}/doctors`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.doctors) {
+            setDoctors(data.doctors);
+          }
+        })
+        .catch(err => console.error('Failed to load doctors:', err))
+        .finally(() => setLoadingDoctors(false));
+    }
+  }, [showAddDialog, workspaceid, doctors.length]);
+
   const formatDateTime = (datetime: string) => {
     try {
       const date = new Date(datetime);
@@ -218,7 +238,7 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
 
     {/* Add Appointment Dialog */}
     <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-      <DialogContent className="max-w-[65vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[55vw] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Appointment</DialogTitle>
           <DialogDescription>
@@ -226,90 +246,126 @@ export default function AppointmentsTab({ appointments, loading, workspaceid, pa
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="starttime">Date & Time *</Label>
+        <div className="space-y-3 py-2">
+          {/* Row 1: Date & Time */}
+          <div className="space-y-1.5">
+            <Label htmlFor="starttime" className="text-sm">Date & Time *</Label>
             <Input
               id="starttime"
               type="datetime-local"
               value={formData.starttime}
               onChange={(e) => setFormData({ ...formData, starttime: e.target.value })}
+              className="h-9"
             />
             <p className="text-xs text-muted-foreground">Duration: 45 minutes</p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="appointmentName">Appointment Name *</Label>
-            <Select
-              value={formData.appointmentName}
-              onValueChange={(value) => setFormData({ ...formData, appointmentName: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select appointment name" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new_patient">New Patient</SelectItem>
-                <SelectItem value="re_visit">Re-visit</SelectItem>
-                <SelectItem value="follow_up">Follow Up</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Row 2: Appointment Name & Type */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="appointmentName" className="text-sm">Appointment Name *</Label>
+              <Select
+                value={formData.appointmentName}
+                onValueChange={(value) => setFormData({ ...formData, appointmentName: value })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select name" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new_patient">New Patient</SelectItem>
+                  <SelectItem value="re_visit">Re-visit</SelectItem>
+                  <SelectItem value="follow_up">Follow Up</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="appointmentType" className="text-sm">Type *</Label>
+              <Select
+                value={formData.appointmentType}
+                onValueChange={(value) => setFormData({ ...formData, appointmentType: value })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="visiting">Visiting</SelectItem>
+                  <SelectItem value="video_call">Video Call</SelectItem>
+                  <SelectItem value="home_visit">Home Visit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="appointmentType">Appointment Type *</Label>
-            <Select
-              value={formData.appointmentType}
-              onValueChange={(value) => setFormData({ ...formData, appointmentType: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select appointment type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="visiting">Visiting</SelectItem>
-                <SelectItem value="video_call">Video Call</SelectItem>
-                <SelectItem value="home_visit">Home Visit</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Row 3: Doctor & Clinical Indication */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="doctorid" className="text-sm">Assign Doctor *</Label>
+              <Select
+                value={formData.doctorid}
+                onValueChange={(value) => setFormData({ ...formData, doctorid: value })}
+                disabled={loadingDoctors}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={loadingDoctors ? "Loading..." : "Select doctor"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctors.map((doctor) => (
+                    <SelectItem key={doctor.userid} value={doctor.userid}>
+                      {doctor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="clinicalIndication" className="text-sm">Clinical Indication</Label>
+              <Input
+                id="clinicalIndication"
+                placeholder="e.g., Chest pain"
+                value={formData.clinicalIndication}
+                onChange={(e) => setFormData({ ...formData, clinicalIndication: e.target.value })}
+                className="h-9"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="clinicalIndication">Clinical Indication</Label>
-            <Input
-              id="clinicalIndication"
-              placeholder="e.g., Chest pain, Diabetes follow-up"
-              value={formData.clinicalIndication}
-              onChange={(e) => setFormData({ ...formData, clinicalIndication: e.target.value })}
-            />
+          {/* Row 4: Unit & Location */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="unit" className="text-sm">Unit/Department</Label>
+              <Input
+                id="unit"
+                placeholder="e.g., Cardiology"
+                value={formData.unit}
+                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="location" className="text-sm">Location</Label>
+              <Input
+                id="location"
+                placeholder="e.g., Room 101"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="h-9"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reasonForRequest">Reason for Request</Label>
+          {/* Row 5: Reason for Request */}
+          <div className="space-y-1.5">
+            <Label htmlFor="reasonForRequest" className="text-sm">Reason for Request</Label>
             <Textarea
               id="reasonForRequest"
               placeholder="Describe the reason for this appointment..."
-              rows={3}
+              rows={2}
               value={formData.reasonForRequest}
               onChange={(e) => setFormData({ ...formData, reasonForRequest: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="unit">Unit/Department</Label>
-            <Input
-              id="unit"
-              placeholder="e.g., Cardiology, General Medicine"
-              value={formData.unit}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              placeholder="e.g., Room 101, Building A"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              className="text-sm"
             />
           </div>
         </div>

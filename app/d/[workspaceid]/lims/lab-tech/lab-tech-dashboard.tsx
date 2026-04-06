@@ -61,7 +61,31 @@ export default function LabTechDashboard({
 
   return (
     <div className="flex flex-col h-full overflow-hidden pt-3">
-    
+      {/* Header with Management Button */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Link href={`/d/${workspaceid}`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
+            >
+              <Home className="h-4 w-4 mr-1" />
+              Dashboard
+            </Button>
+          </Link>
+          <Link href={`/d/${workspaceid}/lims/management`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 bg-green-600 border-green-400 text-white hover:bg-green-700 hover:border-green-900"
+            >
+              <ClipboardCheck className="h-4 w-4 mr-1" />
+              Lab Management
+            </Button>
+          </Link>
+        </div>
+      </div>
 
       <Tabs
         defaultValue="orders"

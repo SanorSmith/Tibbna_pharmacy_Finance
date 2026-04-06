@@ -288,9 +288,15 @@ export function NavMain() {
           icon: Pill,
         },
         {
-          title: ttt("Lab"),
-          url: `${base}/lab`,
-          icon: TestTube,
+          title: ttt("LIMS"),
+          url: `${base}/lims`,
+          icon: Microscope,
+          items: [
+            { title: ttt("Dashboard"), url: `${base}/lims/lab-tech` },
+            { title: ttt("Sample Registration"), url: `${base}/lims/lab-tech` },
+            { title: ttt("Lab Management"), url: `${base}/lims/management` },
+            { title: ttt("Quality Control"), url: `${base}/lims/quality-control` },
+          ],
         },
         {
           title: ttt("Department"),
@@ -333,39 +339,30 @@ export function NavMain() {
       lab_technician: [
         {
           title: ttt("Dashboard"),
-          url: `${base}/lab-tech`,
+          url: `${base}/lims/lab-tech`,
           icon: Home,
           isActive: true,
         },
         {
-          title: ttt("Lab Orders"),
-          url: "/d/orders",
-          icon: TestTube,
+          title: "Sample Registration",
+          url: `${base}/lims/lab-tech`,
+          icon: FlaskConical,
+        },
+        {
+          title: "Lab Management",
+          url: `${base}/lims/management`,
+          icon: Microscope,
           items: [
-            { title: ttt("Pending Orders"), url: "/d/orders/pending" },
-            { title: ttt("In Progress"), url: "/d/orders/progress" },
-            { title: ttt("Completed"), url: "/d/orders/completed" },
+            { title: "Test References", url: `${base}/lims/management` },
+            { title: "Equipment", url: `${base}/lims/management` },
+            { title: "Materials", url: `${base}/lims/management` },
+            { title: "Suppliers", url: `${base}/lims/management` },
           ],
         },
         {
-          title: "Sample Processing",
-          url: "/d/samples",
+          title: "Quality Control",
+          url: `${base}/lims/quality-control`,
           icon: TestTube,
-          items: [
-            { title: "Sample Queue", url: "/d/samples/queue" },
-            { title: "Processing Status", url: "/d/samples/status" },
-            { title: "Quality Checks", url: "/d/samples/quality" },
-          ],
-        },
-        {
-          title: "Results Entry",
-          url: "/d/results",
-          icon: FileSearch,
-          items: [
-            { title: "Enter Results", url: "/d/results/enter" },
-            { title: "Review Results", url: "/d/results/review" },
-            { title: ttt("Critical Values"), url: "/d/results/critical" },
-          ],
         },
         {
           title: ttt("Settings"),
