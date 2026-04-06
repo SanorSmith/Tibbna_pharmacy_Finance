@@ -288,9 +288,15 @@ export function NavMain() {
           icon: Pill,
         },
         {
-          title: ttt("Lab"),
-          url: `${base}/lab`,
-          icon: TestTube,
+          title: ttt("LIMS"),
+          url: `${base}/lims`,
+          icon: Microscope,
+          items: [
+            { title: ttt("Dashboard"), url: `${base}/lims/lab-tech` },
+            { title: ttt("Sample Registration"), url: `${base}/lims/lab-tech` },
+            { title: ttt("Lab Management"), url: `${base}/lims/management` },
+            { title: ttt("Quality Control"), url: `${base}/lims/quality-control` },
+          ],
         },
         {
           title: ttt("Department"),
