@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { db } from "@/lib/db";
-import { patients } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { patients, pharmacyOrders, pharmacyOrderItems, users } from "@/lib/db/schema";
+import { eq, ilike } from "drizzle-orm";
 import { UserWorkspace } from "@/lib/db/tables/workspace";
 import {
   getOpenEHREHRBySubjectId,
   createOpenEHRComposition,
   getOpenEHRPrescriptions,
 } from "@/lib/openehr/openehr";
+import { ensurePatientEHR } from "@/lib/openehr/ensure-ehr";
 
 /**
  * GET /api/d/[workspaceid]/patients/[patientid]/prescriptions
@@ -158,21 +159,10 @@ export async function POST(
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
-    // Find EHR by National ID or patient UUID
-    let ehrId: string | null = null;
-    if (patient.nationalid) {
-      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
-    }
-    if (!ehrId) {
-      ehrId = await getOpenEHREHRBySubjectId(patientid);
-    }
-
-    if (!ehrId) {
-      return NextResponse.json(
-        { error: "No EHR found for this patient" },
-        { status: 404 }
-      );
-    }
+    // Ensure patient has a valid EHR in OpenEHR
+    // This will create the EHR if it doesn't exist, using the stored ehrid if available
+    const ehrId = await ensurePatientEHR(patientid);
+    console.log("[POST /prescriptions] Using EHR ID:", ehrId);
 
     // Create OpenEHR composition for each prescription
     const compositionUids: string[] = [];

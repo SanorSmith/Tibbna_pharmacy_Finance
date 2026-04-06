@@ -1334,6 +1334,28 @@ export async function getOpenEHREHRBySubjectId(
   return results.length > 0 ? results[0].ehr_id : null;
 }
 
+/**
+ * Check if an EHR exists by making a direct request to the EHR endpoint
+ * This is more reliable than searching by subject ID
+ */
+export async function checkEHRExists(ehrId: string): Promise<boolean> {
+  try {
+    const url = `${process.env.EHRBASE_URL}/ehrbase/rest/openehr/v1/ehr/${ehrId}`;
+    const response = await axios.get(url, {
+      headers: {
+        "X-API-Key": process.env.EHRBASE_API_KEY!,
+        Authorization: `Basic ${basicAuth}`,
+      },
+    });
+    return response.status === 200;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return false; // EHR doesn't exist
+    }
+    throw error; // Re-throw other errors
+  }
+}
+
 export async function getOpenEHRCompositions(
   ehrId: string
 ): Promise<OpenEHRCompositionsResponse[]> {

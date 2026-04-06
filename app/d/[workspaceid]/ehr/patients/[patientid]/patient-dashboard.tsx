@@ -265,10 +265,13 @@ export default function PatientDashboard({
       )
     : null;
 
-  // Placeholder functions for pagination (will be enhanced later if needed)
-  const loadVitalSigns = async () => {
-    // Data is already loaded via usePatientData hook
-    console.log("Vital signs already loaded from cache");
+  // Proper function to refresh vital signs data
+  const loadVitalSigns = async (reset = false) => {
+    console.log("Refreshing vital signs data...");
+    // Invalidate the vital signs query to force a refetch
+    await queryClient.invalidateQueries({
+      queryKey: ["vital-signs", workspaceid, patient.patientid]
+    });
   };
 
   const loadDiagnoses = async () => {

@@ -10,6 +10,7 @@ import {
   createOpenEHRComposition,
   getOpenEHRTestOrdersWithCancelled,
 } from "@/lib/openehr/openehr";
+import { ensurePatientEHR } from "@/lib/openehr/ensure-ehr";
 
 export async function GET(
   request: NextRequest,
@@ -54,20 +55,9 @@ export async function GET(
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
-    // Find EHR by National ID or patient UUID
-    let ehrId: string | null = null;
-    if (patient.nationalid) {
-      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
-    }
-    if (!ehrId) {
-      ehrId = await getOpenEHREHRBySubjectId(patientid);
-    }
-
-    // If no EHR exists, return empty array instead of 404
-    // This allows the UI to display "No test orders" instead of an error
-    if (!ehrId) {
-      return NextResponse.json({ testOrders: [], hasMore: false });
-    }
+    // Ensure patient has a valid EHR in OpenEHR
+    // This will create the EHR if it doesn't exist, using the stored ehrid if available
+    const ehrId = await ensurePatientEHR(patientid);
 
     // Use optimized AQL query to fetch test orders directly (including cancelled for doctors)
     const validTestOrders = await getOpenEHRTestOrdersWithCancelled(ehrId);
@@ -152,21 +142,9 @@ export async function POST(
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
-    // Find EHR by National ID or patient UUID
-    let ehrId: string | null = null;
-    if (patient.nationalid) {
-      ehrId = await getOpenEHREHRBySubjectId(patient.nationalid);
-    }
-    if (!ehrId) {
-      ehrId = await getOpenEHREHRBySubjectId(patientid);
-    }
-
-    if (!ehrId) {
-      return NextResponse.json(
-        { error: "No EHR found for this patient" },
-        { status: 404 }
-      );
-    }
+    // Ensure patient has a valid EHR in OpenEHR
+    // This will create the EHR if it doesn't exist, using the stored ehrid if available
+    const ehrId = await ensurePatientEHR(patientid);
 
     // Create composition data in FLAT format using template_clinical_encounter_v1
     const compositionData: Record<string, unknown> = {
