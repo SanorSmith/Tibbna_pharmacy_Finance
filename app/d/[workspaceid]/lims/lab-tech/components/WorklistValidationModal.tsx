@@ -513,12 +513,14 @@ export default function WorklistValidationModal({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600">Sample ID:</span>
-                        <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
+                        <span className="font-medium font-mono">{currentItem.sample?.samplenumber || (currentItem as any).samplenumber || "-"}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600">TAT:</span>
                         {(() => {
-                          const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
+                          const collectionDate = currentItem.sample?.collectiondate || (currentItem as any).collectiondate;
+                          if (!collectionDate) return <span className="text-xs text-muted-foreground">N/A</span>;
+                          const tat = calculateTAT(collectionDate, null, "ROUTINE");
                           return (
                             <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
                               <Clock className="h-3 w-3 mr-1" />
@@ -620,7 +622,7 @@ export default function WorklistValidationModal({
                           return (
                             <TableRow key={index}>
                               <TableCell className="font-mono text-sm">
-                                {currentItem.sample.samplenumber}
+                                {currentItem.sample?.samplenumber || (currentItem as any).samplenumber || "-"}
                               </TableCell>
                               <TableCell className="font-medium">
                                 {result.testname}
@@ -919,7 +921,7 @@ export default function WorklistValidationModal({
                               
                               // Validate and release the entire sample
                               releaseMutation.mutate({
-                                sampleid: currentItem.sample.sampleid,
+                                sampleid: currentItem.sample?.sampleid || currentItem.sampleid,
                                 resultids
                               });
                             }}

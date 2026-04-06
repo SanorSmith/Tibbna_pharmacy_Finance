@@ -23,6 +23,7 @@ import BarcodePrint from "./BarcodePrint";
 import { SampleNumberDisplay } from "@/components/lab/SampleNumberDisplay";
 import { getDialogClasses } from "@/lib/ui-constants";
 import { LABORATORIES } from "@/lib/test-catalog";
+import WorklistValidationModal from "./WorklistValidationModal";
 
 // Storage Location interface
 interface StorageLocation {
@@ -196,6 +197,7 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
   const handleSpecimenInfo = useCallback((info: { sampletype: string | null; containertype: string | null }) => setTestSpecimenInfo(info), []);
   const [showStorageDialog, setShowStorageDialog] = useState(false);
   const [storageLocation, setStorageLocation] = useState('');
+  const [showValidationModal, setShowValidationModal] = useState(false);
   const [showWorklistDialog, setShowWorklistDialog] = useState(false);
   const [showCreateWorklistDialog, setShowCreateWorklistDialog] = useState(false);
   const [showBarcodePrintDialog, setShowBarcodePrintDialog] = useState(false);
@@ -940,6 +942,19 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                   <Activity className="h-4 w-4 mr-2" />
                   Process Sample
                 </Button>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  disabled={selectedSample?.currentstatus !== 'IN_PROCESS' && selectedSample?.currentstatus !== 'ANALYZED'}
+                  onClick={() => {
+                    setShowSampleDetail(false);
+                    setShowValidationModal(true);
+                  }}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Validation
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowSampleDetail(false)}>Close</Button>
               </div>
             </div>
@@ -1285,6 +1300,15 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Validation Modal */}
+      <WorklistValidationModal
+        workspaceid={workspaceid}
+        worklistid={null}
+        selectedSample={selectedSample}
+        open={showValidationModal}
+        onOpenChange={setShowValidationModal}
+      />
     </div>
   );
 }
