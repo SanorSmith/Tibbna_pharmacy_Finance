@@ -922,8 +922,18 @@ export default function RegisterSample({ workspaceid }: AccessioningTabProps) {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  disabled={!!selectedSample?.worklistname}
-                  title={selectedSample?.worklistname ? `Already in worklist: ${selectedSample.worklistname}` : 'Add to worklist'}
+                  disabled={
+                    !!selectedSample?.worklistname || 
+                    selectedSample?.currentstatus === 'ANALYZED' || 
+                    selectedSample?.currentstatus === 'DISPOSED'
+                  }
+                  title={
+                    selectedSample?.worklistname 
+                      ? `Already in worklist: ${selectedSample.worklistname}` 
+                      : selectedSample?.currentstatus === 'ANALYZED' || selectedSample?.currentstatus === 'DISPOSED'
+                      ? 'Cannot add analyzed/disposed samples to worklist'
+                      : 'Add to worklist'
+                  }
                   onClick={() => {
                     setShowSampleDetail(false);
                     setShowWorklistDialog(true);
