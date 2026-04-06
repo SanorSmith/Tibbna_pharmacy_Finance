@@ -299,7 +299,14 @@ export default function PharmacyOrdersPage({
                   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
                   const StatusIcon = cfg.icon;
                   return (
-                    <TableRow key={order.orderid}>
+                    <TableRow 
+                      key={order.orderid}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedOrder(order.orderid);
+                        setIsModalOpen(true);
+                      }}
+                    >
                       <TableCell className="font-mono text-xs">
                         {order.orderid.slice(0, 8)}…
                       </TableCell>
@@ -346,7 +353,8 @@ export default function PharmacyOrdersPage({
                           size="sm" 
                           variant="ghost" 
                           className="h-8 w-8 p-0"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedOrder(order.orderid);
                             setIsModalOpen(true);
                           }}
