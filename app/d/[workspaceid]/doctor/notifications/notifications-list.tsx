@@ -7,6 +7,7 @@
  * - Doctor comments
  */
 "use client";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ import {
   FileText,
   Home,
   Users,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -70,6 +73,10 @@ type Notification = {
 };
 
 export default function NotificationsList({ workspaceid }: Notification) {
+  // Pagination state for overdue patients
+  const [overduePage, setOverduePage] = useState(1);
+  const overduePageSize = 10;
+
   const { data: allPatients = [], isLoading: loading } = useQuery({
     queryKey: ["patients", workspaceid],
     queryFn: async () => {
@@ -324,9 +331,12 @@ export default function NotificationsList({ workspaceid }: Notification) {
         <TabsContent value="overdue">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-orange-600" />
-                Patients with Overdue Visits (90+ days)
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-orange-600" />
+                  Patients with Overdue Visits (90+ days)
+                </div>
+                <Badge variant="secondary">{overduePatients.length} total</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -337,64 +347,100 @@ export default function NotificationsList({ workspaceid }: Notification) {
                   All patients have recent visits.
                 </p>
               ) : (
-                <div className="rounded-md border">
-                  <table className="w-full">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Patient Name
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Patient ID
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Last Visit
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Days Since Visit
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Phone
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {overduePatients.map((patient) => (
-                        <tr
-                          key={patient.patientid}
-                          className="border-t hover:bg-muted/50"
-                        >
-                          <td className="py-3 px-4 font-medium">
-                            {patient.firstname} {patient.lastname}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {patient.nationalid || patient.patientid}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {formatDate(patient.lastvisit || null)}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {getDaysSinceVisit(patient.lastvisit || null)}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {patient.phone || "-"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <Link
-                              href={`/d/${workspaceid}/patients/${patient.patientid}`}
-                            >
-                              <Button size="sm" variant="outline">
-                                View
-                              </Button>
-                            </Link>
-                          </td>
+                <div className="space-y-4">
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Patient Name
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Patient ID
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Last Visit
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Days Since Visit
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Phone
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium">
+                            Actions
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {overduePatients
+                          .slice((overduePage - 1) * overduePageSize, overduePage * overduePageSize)
+                          .map((patient) => (
+                          <tr
+                            key={patient.patientid}
+                            className="border-t hover:bg-muted/50"
+                          >
+                            <td className="py-3 px-4 font-medium">
+                              {patient.firstname} {patient.lastname}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {patient.nationalid || patient.patientid}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {formatDate(patient.lastvisit || null)}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {getDaysSinceVisit(patient.lastvisit || null)}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {patient.phone || "-"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Link
+                                href={`/d/${workspaceid}/patients/${patient.patientid}`}
+                              >
+                                <Button size="sm" variant="outline">
+                                  View
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* Pagination Controls */}
+                  {overduePatients.length > overduePageSize && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {((overduePage - 1) * overduePageSize) + 1} to {Math.min(overduePage * overduePageSize, overduePatients.length)} of {overduePatients.length} patients
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOverduePage(p => Math.max(1, p - 1))}
+                          disabled={overduePage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </Button>
+                        <span className="text-sm">
+                          Page {overduePage} of {Math.ceil(overduePatients.length / overduePageSize)}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOverduePage(p => Math.min(Math.ceil(overduePatients.length / overduePageSize), p + 1))}
+                          disabled={overduePage >= Math.ceil(overduePatients.length / overduePageSize)}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
