@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { patients, pharmacyOrders, pharmacyOrderItems, users } from "@/lib/db/schema";
-import { eq, ilike } from "drizzle-orm";
+import { eq, ilike, or, isNull } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getOpenEHREHRBySubjectId, getOpenEHRPrescriptions } from "@/lib/openehr/openehr";
 
@@ -23,11 +23,16 @@ export async function POST(
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // 1. Get patients in this workspace only (with EHR IDs)
+    // 1. Get patients in this workspace AND global patients (workspaceid IS NULL)
     const workspacePatients = await db
       .select()
       .from(patients)
-      .where(eq(patients.workspaceid, workspaceid));
+      .where(
+        or(
+          eq(patients.workspaceid, workspaceid),
+          isNull(patients.workspaceid)
+        )
+      );
 
     // Filter to only patients with EHR IDs to avoid unnecessary API calls
     const patientsWithEHR = workspacePatients.filter(p => p.ehrid || p.nationalid);
@@ -48,8 +53,6 @@ export async function POST(
     let skipped = 0;
     const errors: string[] = [];
 
-    console.log(`[Pharmacy Sync] ${patientsWithEHR.length} patients with EHR IDs in workspace (${workspacePatients.length} total), ${existingIds.size} existing orders`);
-
     // 3. For each patient with EHR ID, fetch prescriptions from openEHR
     for (const patient of patientsWithEHR) {
       let ehrId: string | null = null;
@@ -64,13 +67,10 @@ export async function POST(
           ehrId = await getOpenEHREHRBySubjectId(patient.patientid);
         }
         if (!ehrId) {
-          console.log(`[Pharmacy Sync] No EHR ID for patient ${patient.firstname} ${patient.lastname} (nationalid: ${patient.nationalid}, ehrid: ${patient.ehrid})`);
           continue;
         }
 
-        console.log(`[Pharmacy Sync] Fetching prescriptions for ${patient.firstname} ${patient.lastname} (ehrId: ${ehrId})`);
         const prescriptions = await getOpenEHRPrescriptions(ehrId);
-        console.log(`[Pharmacy Sync] Found ${prescriptions.length} prescriptions for ${patient.firstname} ${patient.lastname}`);
 
         for (const rx of prescriptions) {
           // Deduplicate by composition_uid
