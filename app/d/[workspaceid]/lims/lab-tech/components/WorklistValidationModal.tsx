@@ -98,6 +98,7 @@ export default function WorklistValidationModal({
   const [changeComment, setChangeComment] = useState<string>("");
   const [pendingResultUpdate, setPendingResultUpdate] = useState<{resultId: string, newValue: string} | null>(null);
   const [showWorklistCompleteDialog, setShowWorklistCompleteDialog] = useState(false);
+  const [releasedSamples, setReleasedSamples] = useState<Set<string>>(new Set());
 
   // Fetch worklist items with patient and sample data
   const { data: worklistData, isLoading, error } = useQuery({
@@ -220,9 +221,13 @@ export default function WorklistValidationModal({
       
       return releaseResponse.json();
     },
-    onSuccess: async () => {
+    onSuccess: async (data, variables) => {
+      // Mark this sample as released in local state
+      setReleasedSamples(prev => new Set(prev).add(variables.sampleid));
+      
       // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid] });
+      await queryClient.invalidateQueries({ queryKey: ["worklist-detail", worklistid, workspaceid, selectedSample?.sampleid] });
       
       // Refetch the updated worklist data to check if all items are released
       if (worklistid) {
@@ -513,12 +518,14 @@ export default function WorklistValidationModal({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600">Sample ID:</span>
-                        <span className="font-medium font-mono">{currentItem.sample.samplenumber}</span>
+                        <span className="font-medium font-mono">{currentItem.sample?.samplenumber || (currentItem as any).samplenumber || "-"}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600">TAT:</span>
                         {(() => {
-                          const tat = calculateTAT(currentItem.sample.collectiondate, null, "ROUTINE");
+                          const collectionDate = currentItem.sample?.collectiondate || (currentItem as any).collectiondate;
+                          if (!collectionDate) return <span className="text-xs text-muted-foreground">N/A</span>;
+                          const tat = calculateTAT(collectionDate, null, "ROUTINE");
                           return (
                             <Badge variant="outline" className={`text-xs font-medium ${getTATStatusColor(tat.status)}`}>
                               <Clock className="h-3 w-3 mr-1" />
@@ -620,7 +627,7 @@ export default function WorklistValidationModal({
                           return (
                             <TableRow key={index}>
                               <TableCell className="font-mono text-sm">
-                                {currentItem.sample.samplenumber}
+                                {currentItem.sample?.samplenumber || (currentItem as any).samplenumber || "-"}
                               </TableCell>
                               <TableCell className="font-medium">
                                 {result.testname}
@@ -897,20 +904,29 @@ export default function WorklistValidationModal({
                       return value && value !== '-' && value !== '';
                     });
                     
-                    // Use validation state for consistency, but allow release if results have values
-                    const isReleased = currentItem.validationState?.currentstate === "RELEASED";
+                    // Check if results are released - check local state first, then validation state and result status
+                    const isReleasedLocally = releasedSamples.has(currentItem.sampleid);
+                    const isReleased = isReleasedLocally || 
+                                      currentItem.validationState?.currentstate === "RELEASED" || 
+                                      results.some((r: TestResult) => r.status === 'released' || r.status === 'validated');
                     
-                    // For worklist modal: allow release if results have values and not already released
-                    // Clinical validation is not required in this context
-                    const canRelease = !isReleased && allHaveResults;
+                    // Check if any results have been edited (have unsaved changes)
+                    const hasUnsavedEdits = Object.keys(editedResults).some(key => 
+                      key.startsWith(currentItem.sampleid) && editedResults[key]?.trim()
+                    );
+                    
+                    // For worklist modal: allow release if results have values
+                    // If released but has edits, allow re-release
+                    const canRelease = allHaveResults && (!isReleased || hasUnsavedEdits);
+                    const buttonText = isReleased && !hasUnsavedEdits ? "Released Results" : "Release Results";
 
                     return (
                       <>
-                        {/* Release - available when results have values and not yet released */}
-                        {!isReleased && results.length > 0 && (
+                        {/* Release button - always show if there are results */}
+                        {results.length > 0 && (
                           <Button
                             variant="default"
-                            className="bg-green-600 hover:bg-green-700"
+                            className={isReleased && !hasUnsavedEdits ? "bg-green-600 hover:bg-green-700" : "bg-green-600 hover:bg-green-700"}
                             onClick={() => {
                               // Collect all result IDs for validation
                               const resultids = results
@@ -919,7 +935,7 @@ export default function WorklistValidationModal({
                               
                               // Validate and release the entire sample
                               releaseMutation.mutate({
-                                sampleid: currentItem.sample.sampleid,
+                                sampleid: currentItem.sample?.sampleid || currentItem.sampleid,
                                 resultids
                               });
                             }}
@@ -927,16 +943,8 @@ export default function WorklistValidationModal({
                             title={canRelease ? "Release results to OpenEHR" : "All tests must have results before release"}
                           >
                             {releaseMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                            Release Results
+                            {buttonText}
                           </Button>
-                        )}
-
-                        {/* Already released indicator */}
-                        {isReleased && (
-                          <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Released
-                          </Badge>
                         )}
                       </>
                     );
