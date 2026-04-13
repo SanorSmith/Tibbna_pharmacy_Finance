@@ -614,7 +614,7 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
     }
 
     // Check if session is loaded
-    if (!sessionData?.user) {
+    if (!session?.user) {
       setAlertDialog({
         show: true,
         title: "Session Error",
@@ -670,9 +670,9 @@ export default function OrdersTab({ workspaceid }: { workspaceid: string }) {
       encounterId: `ENC-${Date.now()}`,
       requestedTests: testCodes,
       priority: priority,
-      orderingProviderId: sessionData.user.id,
+      orderingProviderId: session.user.id,
       orderingProviderName:
-        sessionData.user.name || sessionData.user.email || "Unknown Provider",
+        session.user.name || session.user.email || "Unknown Provider",
       clinicalIndication: formData.clinical_indication || "",
       clinicalNotes: formData.narrative || "",
       sourceSystem: "LIMS_UI",
