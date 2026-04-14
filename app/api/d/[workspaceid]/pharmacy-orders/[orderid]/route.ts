@@ -13,6 +13,7 @@ import {
   drugs,
   invoices,
   invoiceLines,
+  users,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getUser } from "@/lib/user";
@@ -25,16 +26,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Fetch order
-    const [order] = await db
-      .select()
+    // Fetch order with prescriber name
+    const [orderData] = await db
+      .select({
+        order: pharmacyOrders,
+        prescribername: users.name,
+      })
       .from(pharmacyOrders)
+      .leftJoin(users, eq(pharmacyOrders.prescriberid, users.userid))
       .where(eq(pharmacyOrders.orderid, orderid))
       .limit(1);
 
-    if (!order || order.workspaceid !== workspaceid) {
+    if (!orderData || orderData.order.workspaceid !== workspaceid) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
+
+    const order = { ...orderData.order, prescribername: orderData.prescribername };
 
     // Patient
     let patient = null;
