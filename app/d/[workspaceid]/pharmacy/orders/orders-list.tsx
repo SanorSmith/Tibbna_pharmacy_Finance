@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import OrderDetailsModal from "./components/OrderDetailsModal";
 import CreateOrderModal from "./components/CreateOrderModal";
 import { Button } from "@/components/ui/button";
@@ -79,9 +80,7 @@ export default function PharmacyOrdersPage({
   userName: string;
   userId: string;
 }) {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  const queryClient = useQueryClient();
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
@@ -90,50 +89,42 @@ export default function PharmacyOrdersPage({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    try {
+  // Use React Query to cache orders
+  const { data: orders = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ["pharmacy-orders", workspaceid, statusFilter],
+    queryFn: async () => {
       const qs = statusFilter !== "all" ? `?status=${statusFilter}` : "";
       const res = await fetch(`/api/d/${workspaceid}/pharmacy-orders${qs}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setOrders(data.orders || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceid, statusFilter]);
+      return data.orders || [];
+    },
+    staleTime: 30000, // Cache for 30 seconds
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+  });
 
-  const handleSync = async () => {
-    setSyncing(true);
+  const handleSync = () => {
     setSyncMessage(null);
-    try {
+    syncMutation.mutate();
+  };
+
+  // Sync mutation
+  const syncMutation = useMutation({
+    mutationFn: async () => {
       const res = await fetch(`/api/d/${workspaceid}/pharmacy-orders/sync`, {
         method: "POST",
       });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncMessage(`Synced ${data.synced} new, ${data.skipped} existing`);
-        await fetchOrders();
-      } else {
-        setSyncMessage(data.error || "Sync failed");
-      }
-    } catch {
+      if (!res.ok) throw new Error("Sync failed");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setSyncMessage(`Synced ${data.synced} new, ${data.skipped} existing`);
+      queryClient.invalidateQueries({ queryKey: ["pharmacy-orders", workspaceid] });
+    },
+    onError: () => {
       setSyncMessage("Network error during sync");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  useEffect(() => {
-    // Auto-sync on initial load to fetch latest prescriptions from OpenEHR
-    const autoSync = async () => {
-      await handleSync();
-      await fetchOrders();
-    };
-    autoSync();
-  }, [workspaceid]); // Only run once on mount
+    },
+  });
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -194,11 +185,11 @@ export default function PharmacyOrdersPage({
               variant="outline"
               size="sm"
               onClick={handleSync}
-              disabled={syncing}
+              disabled={syncMutation.isPending}
               className="gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Syncing..." : "Sync from OpenEHR"}
+              <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+              {syncMutation.isPending ? "Syncing..." : "Sync from OpenEHR"}
             </Button>
             <Button
               size="sm"
@@ -391,7 +382,7 @@ export default function PharmacyOrdersPage({
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => {
-          fetchOrders();
+          queryClient.invalidateQueries({ queryKey: ["pharmacy-orders", workspaceid] });
           setIsCreateModalOpen(false);
         }}
       />
