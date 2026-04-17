@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
     WHERE i.is_active = true
       AND (
         i.inventorycategory = 'pharmacy'
+        OR i.inventory_category = 'pharmacy'
         OR ist.warehouse_id = ANY($1::uuid[])
       )
     AND (
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
         OR i.name ILIKE $2
         OR i.generic_name ILIKE $2
         OR i.itemcode ILIKE $2
+        OR i.item_code ILIKE $2
       )
     GROUP BY
       i.id, i.itemcode, i.name, i.generic_name, i.itemtype,
