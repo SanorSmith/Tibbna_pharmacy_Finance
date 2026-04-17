@@ -523,7 +523,7 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
         <div style={{padding:"16px 24px",borderTop:"1px solid #f3f4f6",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <button onClick={onClose} style={{...s.btn("ghost"),border:"1px solid #e5e7eb"}}>Cancel</button>
           <button onClick={handleSubmit} disabled={loading} style={{...s.btn(isUpdate?"green":"purple"),display:"flex",alignItems:"center",gap:6}}>
-            {loading?"Saving...":isUpdate?<><Icon d={icons.check} size={13} color="#fff"/> Update Stock</>:<><Icon d={icons.check} size={13} color="#fff"/> Add Medicine</>}
+            {loading?"Saving...":isUpdate?<><Icon d={icons.check} size={13} color="#fff"/> Update Stock</>:<><Icon d={icons.check} size={13} color="#fff"/> Add {entryType === "item" ? "Item" : "Medicine"}</>}
           </button>
         </div>
       </div>
