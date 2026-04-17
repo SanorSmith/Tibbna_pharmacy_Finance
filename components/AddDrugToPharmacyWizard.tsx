@@ -362,7 +362,19 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
               onSelectExisting={(item)=>{
                 setIsUpdate(true);
                 setExistingItem(item);
-                setForm(f=>({...f,name:item.name,uom:item.uom??f.uom,unit_cost:String(item.unitCost??""),selling_price:String(item.sellingPrice??"")}));
+                setForm(f=>({
+                  ...f,
+                  name: item.name,
+                  genericname: item.genericName ?? f.genericname,
+                  form: item.itemType ?? f.form,
+                  strength: item.strength ?? f.strength,
+                  unit: item.uom ?? f.unit,
+                  uom: item.uom ?? f.uom,
+                  manufacturer: item.manufacturer ?? f.manufacturer,
+                  barcode: item.barcode ?? f.barcode,
+                  unit_cost: String(item.unitCost ?? ""),
+                  selling_price: String(item.sellingPrice ?? ""),
+                }));
               }}
             />
           )}
