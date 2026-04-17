@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
 });
 
 const WORKSPACE_ID = "cec4d702-6dae-4ea5-9a30-ef17842c00fd";

@@ -15,11 +15,11 @@ export async function GET(req: NextRequest) {
 
     const result = await globalPool.query(
       `SELECT
-        id as drugid,
+        drugid,
         name,
-        generic_name as genericname,
-        atc_code as atccode,
-        national_code as nationalcode,
+        genericname,
+        atccode,
+        nationalcode,
         form,
         strength,
         unit,
@@ -28,20 +28,20 @@ export async function GET(req: NextRequest) {
         indication,
         interaction,
         warning,
-        side_effect as sideeffect,
-        storage_type as storagetype,
+        sideeffect,
+        storagetype,
         traffic,
         pregnancy,
-        requires_prescription as requiresprescription,
-        is_active as isactive
+        requiresprescription,
+        isactive
       FROM global_drugs
       WHERE
-        is_active = true
+        isactive = true
         AND (
           name ILIKE $1
-          OR generic_name ILIKE $1
-          OR atc_code ILIKE $1
-          OR national_code ILIKE $1
+          OR genericname ILIKE $1
+          OR atccode ILIKE $1
+          OR nationalcode ILIKE $1
         )
       ORDER BY
         CASE WHEN name ILIKE $2 THEN 0 ELSE 1 END,

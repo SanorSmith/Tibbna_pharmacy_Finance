@@ -2,7 +2,7 @@ import { Pool } from "pg";
 
 import { NextRequest, NextResponse } from "next/server";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const WS = "cec4d702-6dae-4ea5-9a30-ef17842c00fd";
 
 export async function GET(req: NextRequest) {
@@ -11,15 +11,15 @@ export async function GET(req: NextRequest) {
     const r = await pool.query(
       `SELECT 
         ws.id,
-        ws.section_name as name,
+        ws.sectionname as name,
         ws.location,
         ws.capacity,
         w.name as warehouse_name
       FROM warehouse_sections ws
       JOIN warehouses w ON w.id = ws.warehouse_id
       WHERE w.warehouse_type = 'pharmacy'
-        AND ($1 = '' OR ws.section_name ILIKE $1 OR ws.location ILIKE $1)
-      ORDER BY ws.section_name`,
+        AND ($1 = '' OR ws.sectionname ILIKE $1 OR ws.location ILIKE $1)
+      ORDER BY ws.sectionname`,
       [`%${search}%`]
     );
     return NextResponse.json(r.rows);
