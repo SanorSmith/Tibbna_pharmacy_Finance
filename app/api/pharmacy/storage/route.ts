@@ -12,13 +12,14 @@ export async function GET(req: NextRequest) {
       `SELECT 
         ws.id,
         ws.sectionname as name,
-        ws.location,
-        ws.capacity,
+        ws.binlocation as location,
+        ws.sectiontype as type,
+        ws.temperaturecontrolled as temperature_controlled,
         w.name as warehouse_name
       FROM warehouse_sections ws
       JOIN warehouses w ON w.id = ws.warehouse_id
       WHERE w.warehouse_type = 'pharmacy'
-        AND ($1 = '' OR ws.sectionname ILIKE $1 OR ws.location ILIKE $1)
+        AND ($1 = '' OR ws.sectionname ILIKE $1 OR ws.binlocation ILIKE $1)
       ORDER BY ws.sectionname`,
       [`%${search}%`]
     );
