@@ -25,9 +25,11 @@ import {
   DollarSign,
   Loader2,
   FlaskConical,
+  Warehouse,
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
+import PharmacyInventory from "./components/PharmacyInventory";
 
 const PRIMARY = "#618FF5";
 
@@ -108,6 +110,13 @@ export default function PharmacyDashboard({
           >
             <Pill className="h-4 w-4" />
             Drug registration
+          </TabsTrigger>
+          <TabsTrigger
+            value="inventory"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <Warehouse className="h-4 w-4" />
+            Inventory
           </TabsTrigger>
           <TabsTrigger
             value="todo"
@@ -358,6 +367,13 @@ export default function PharmacyDashboard({
       <TabsContent value="drug-registration" className="mt-4 px-4">
         {loadedTabs.has("drug-registration") && (
           <DrugRegistration workspaceid={workspaceid} />
+        )}
+      </TabsContent>
+
+      {/* Inventory Tab */}
+      <TabsContent value="inventory" className="mt-4 px-4">
+        {loadedTabs.has("inventory") && (
+          <PharmacyInventory workspaceid={workspaceid} />
         )}
       </TabsContent>
 
