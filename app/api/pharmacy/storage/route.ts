@@ -6,13 +6,27 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejec
 const WS = "cec4d702-6dae-4ea5-9a30-ef17842c00fd";
 
 export async function GET(req: NextRequest) {
-  const search = req.nextUrl.searchParams.get("search") ?? "";
-  const r = await pool.query(
-    `SELECT * FROM pharmacy_storage_locations WHERE workspace_id=$1 AND isactive=true
-     AND ($2='' OR name ILIKE $2 OR location ILIKE $2) ORDER BY name`,
-    [WS, `%${search}%`]
-  );
-  return NextResponse.json(r.rows);
+  try {
+    const search = req.nextUrl.searchParams.get("search") ?? "";
+    const r = await pool.query(
+      `SELECT 
+        ws.id,
+        ws.section_name as name,
+        ws.location,
+        ws.capacity,
+        w.name as warehouse_name
+      FROM warehouse_sections ws
+      JOIN warehouses w ON w.id = ws.warehouse_id
+      WHERE w.warehouse_type = 'pharmacy'
+        AND ($1 = '' OR ws.section_name ILIKE $1 OR ws.location ILIKE $1)
+      ORDER BY ws.section_name`,
+      [`%${search}%`]
+    );
+    return NextResponse.json(r.rows);
+  } catch (error) {
+    console.error("Error fetching storage:", error);
+    return NextResponse.json([], { status: 200 });
+  }
 }
 
 export async function POST(req: NextRequest) {

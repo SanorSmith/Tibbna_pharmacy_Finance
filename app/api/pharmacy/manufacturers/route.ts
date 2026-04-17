@@ -6,15 +6,20 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejec
 const WS = "cec4d702-6dae-4ea5-9a30-ef17842c00fd";
 
 export async function GET(req: NextRequest) {
-  const search = req.nextUrl.searchParams.get("search") ?? "";
-  const r = await pool.query(
-    `SELECT * FROM manufacturers
-     WHERE workspace_id = $1 AND isactive = true
-       AND ($2 = '' OR name ILIKE $2 OR country ILIKE $2 OR code ILIKE $2)
-     ORDER BY name`,
-    [WS, `%${search}%`]
-  );
-  return NextResponse.json(r.rows);
+  try {
+    const search = req.nextUrl.searchParams.get("search") ?? "";
+    const r = await pool.query(
+      `SELECT * FROM manufacturers
+       WHERE workspace_id = $1 AND isactive = true
+         AND ($2 = '' OR name ILIKE $2 OR country ILIKE $2 OR code ILIKE $2)
+       ORDER BY name`,
+      [WS, `%${search}%`]
+    );
+    return NextResponse.json(r.rows);
+  } catch (error) {
+    console.error("Error fetching manufacturers:", error);
+    return NextResponse.json([], { status: 200 });
+  }
 }
 
 export async function POST(req: NextRequest) {
