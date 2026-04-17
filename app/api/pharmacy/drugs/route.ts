@@ -90,12 +90,13 @@ export async function POST(
       .returning();
 
     // Also create item record so it appears in pharmacy inventory
+    const itemCode = body.itemcode || `PHR-${Date.now()}`;
     const [insertedItem] = await db
       .insert(items)
       .values({
         workspaceid,
         drugid: insertedDrug.drugid,
-        itemcode: body.itemcode || `PHR-${Date.now()}`,
+        itemcode: itemCode,  // old camelCase column (NOT NULL)
         name: body.name,
         genericname: body.genericname || null,
         itemtype: body.form || "drug",
