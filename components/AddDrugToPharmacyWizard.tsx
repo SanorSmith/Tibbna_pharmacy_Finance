@@ -203,7 +203,7 @@ interface Props {
 }
 
 export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSuccess }: Props) {
-  const [entryType, setEntryType] = useState<"medicine"|"item"|null>(prefill && prefill.name ? "medicine" : null);
+  const [entryType, setEntryType] = useState<"medicine"|"item"|null>(null);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
   const [suppliers, setSuppliers]     = useState<any[]>([]);
@@ -320,7 +320,7 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:32,height:32,background:"#ede9fe",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon d={icons.pill} size={16} color="#6366f1"/></div>
             <div>
-              <div style={{fontSize:15,fontWeight:700}}>{isUpdate?"Update Medicine Stock":"Add Medicine"}</div>
+              <div style={{fontSize:15,fontWeight:700}}>{isUpdate?"Update Stock":entryType?`Add ${entryType === "medicine" ? "Medicine" : "Item/Supply"}`:"Add Medicine or Item"}</div>
               <div style={{fontSize:12,color:"#6b7280"}}>Fill in the details below</div>
             </div>
           </div>
@@ -369,13 +369,13 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
           {checkingExisting && <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>🔍 Checking pharmacy inventory...</div>}
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            {/* Drug name */}
+            {/* Item/Medicine name */}
             <div style={{gridColumn:"1/-1",...s.fgroup}}>
-              <label style={s.label}>Medicine Name *</label>
-              <input style={s.input} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. Amoxicillin"/>
+              <label style={s.label}>{entryType === "item" ? "Item Name" : "Medicine Name"} *</label>
+              <input style={s.input} value={form.name} onChange={e=>set("name",e.target.value)} placeholder={entryType === "item" ? "e.g. Syringe 10ml" : "e.g. Amoxicillin"}/>
             </div>
 
-            {!isUpdate && <>
+            {!isUpdate && entryType === "medicine" && <>
               <div style={s.fgroup}><label style={s.label}>Generic Name</label><input style={s.input} value={form.genericname} onChange={e=>set("genericname",e.target.value)}/></div>
               <div style={s.fgroup}><label style={s.label}>ATC Code</label><input style={s.input} value={form.atccode} onChange={e=>set("atccode",e.target.value)} placeholder="e.g. J01CA04"/></div>
               <div style={s.fgroup}><label style={s.label}>Form</label>
@@ -391,6 +391,23 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
               </div>
               <div style={s.fgroup}><label style={s.label}>Barcode</label><input style={s.input} value={form.barcode} onChange={e=>set("barcode",e.target.value)}/></div>
               <div style={s.fgroup}><label style={s.label}>Expiry Date</label><input type="date" style={s.input} value={form.expiry_date} onChange={e=>set("expiry_date",e.target.value)}/></div>
+            </>}
+
+            {!isUpdate && entryType === "item" && <>
+              <div style={s.fgroup}><label style={s.label}>Item Type</label>
+                <select style={s.input} value={form.form} onChange={e=>set("form",e.target.value)}>
+                  {["device","consumable","cosmetic","supply","equipment"].map(f=><option key={f} value={f}>{f.charAt(0).toUpperCase()+f.slice(1)}</option>)}
+                </select>
+              </div>
+              <div style={s.fgroup}><label style={s.label}>Description</label><input style={s.input} value={form.genericname} onChange={e=>set("genericname",e.target.value)} placeholder="Brief description"/></div>
+              <div style={s.fgroup}><label style={s.label}>Unit of Measure</label>
+                <select style={s.input} value={form.unit} onChange={e=>{set("unit",e.target.value);set("uom",e.target.value);}}>
+                  {["piece","box","pack","roll","bottle","tube","kit","set","pair"].map(u=><option key={u} value={u}>{u.charAt(0).toUpperCase()+u.slice(1)}</option>)}
+                </select>
+              </div>
+              <div style={s.fgroup}><label style={s.label}>Model/SKU</label><input style={s.input} value={form.strength} onChange={e=>set("strength",e.target.value)} placeholder="Model or SKU number"/></div>
+              <div style={s.fgroup}><label style={s.label}>Barcode</label><input style={s.input} value={form.barcode} onChange={e=>set("barcode",e.target.value)}/></div>
+              <div style={s.fgroup}><label style={s.label}>Expiry Date (if applicable)</label><input type="date" style={s.input} value={form.expiry_date} onChange={e=>set("expiry_date",e.target.value)}/></div>
             </>}
 
             {/* Manufacturer */}
