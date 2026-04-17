@@ -809,3 +809,38 @@ export const batchQuarantineRelations = relations(batchQuarantine, ({ one }) => 
 export const unitConversionsRelations = relations(unitConversions, ({ one }) => ({
   item: one(items, { fields: [unitConversions.itemid], references: [items.id] }),
 }));
+
+// ─── Re-export from modular table files ───────────────────────────────────────
+export * from "./tables/patient";
+export * from "./tables/appointment";
+export * from "./tables/staff";
+export * from "./tables/department";
+export * from "./tables/lab";
+export * from "./tables/pharmacy";
+export * from "./tables/operation";
+export * from "./tables/todo";
+export * from "./tables/sample";
+export * from "./tables/test-result";
+export * from "./tables/validation-state";
+export * from "./tables/audit-log";
+export * from "./tables/accession-sample";
+export * from "./tables/storage-locations";
+export * from "./tables/lims-order";
+export * from "./tables/worklist";
+export * from "./tables/equipment";
+export * from "./tables/qc-run";
+export * from "./tables/sample-storage";
+export * from "./tables/materials";
+export * from "./tables/suppliers";
+export * from "./tables/laboratory-types";
+export * from "./tables/shop-orders";
+export * from "./tables/notifications";
+export * from "./tables/global-drugs";
+export * from "./tables/pharmacy-drugs";
+export * from "./tables/pharmacy-stock";
+export * from "./tables/pharmacy-orders";
+export * from "./tables/pharmacy-insurance";
+export * from "./tables/pharmacy-invoices";
+export * from "./tables/pharmacy-substitutions";
+export * from "./schema/test-reference-ranges";
+export * from "./schema/test-reference-audit-log";

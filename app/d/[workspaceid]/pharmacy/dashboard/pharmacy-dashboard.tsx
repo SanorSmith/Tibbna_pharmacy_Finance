@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
-import PharmacyInventory from "./components/PharmacyInventory";
+import PharmacyInventory from "../../pharmacy-inventory/components/PharmacyInventory";
 
 const PRIMARY = "#618FF5";
 
