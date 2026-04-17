@@ -11,16 +11,17 @@ export async function GET(req: NextRequest) {
     const r = await pool.query(
       `SELECT 
         ws.id,
-        ws.sectionname as name,
-        ws.binlocation as location,
-        ws.sectiontype as type,
-        ws.temperaturecontrolled as temperature_controlled,
+        ws.section_name as name,
+        ws.bin_location as location,
+        ws.section_type as type,
+        ws.temperature_controlled,
         w.name as warehouse_name
       FROM warehouse_sections ws
       JOIN warehouses w ON w.id = ws.warehouse_id
       WHERE w.warehouse_type = 'pharmacy'
-        AND ($1 = '' OR ws.sectionname ILIKE $1 OR ws.binlocation ILIKE $1)
-      ORDER BY ws.sectionname`,
+        AND ws.isactive = true
+        AND ($1 = '' OR ws.section_name ILIKE $1 OR ws.bin_location ILIKE $1)
+      ORDER BY ws.section_name`,
       [`%${search}%`]
     );
     return NextResponse.json(r.rows);
