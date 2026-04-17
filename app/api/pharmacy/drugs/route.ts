@@ -109,6 +109,8 @@ export async function POST(
         isactive: true,
         description: body.description || null,
         barcode: body.barcode || null,
+        batchtracking: true,
+        expirytracking: true,
       })
       .returning();
 
