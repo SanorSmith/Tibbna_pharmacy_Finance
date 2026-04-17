@@ -49,12 +49,13 @@ export async function POST(req: NextRequest) {
     [adjId, itemId, warehouseId, batchId ?? null, parseInt(adjustmentQty), reason, createdBy ?? "Pharmacy"]
   );
 
-  // Update inventory_stock
+  // Update or insert inventory_stock (UPSERT)
   await pool.query(
-    `UPDATE inventory_stock
-    SET quantity = GREATEST(0, quantity + $1)
-     WHERE item_id = $2 AND warehouse_id = $3`,
-    [parseInt(adjustmentQty), itemId, warehouseId]
+    `INSERT INTO inventory_stock (id, item_id, warehouse_id, batch_id, quantity, reserved_quantity)
+     VALUES (gen_random_uuid(), $1, $2, $3, GREATEST(0, $4), 0)
+     ON CONFLICT (item_id, warehouse_id, batch_id)
+     DO UPDATE SET quantity = GREATEST(0, inventory_stock.quantity + $4)`,
+    [itemId, warehouseId, batchId ?? null, parseInt(adjustmentQty)]
   );
 
   // Log transaction
