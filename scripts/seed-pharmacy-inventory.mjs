@@ -1,7 +1,19 @@
 import pg from "pg";
+import dotenv from "dotenv";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from .env.local
+dotenv.config({ path: join(__dirname, '..', '.env.local') });
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('sslmode=require') 
+    ? { rejectUnauthorized: false } 
+    : false,
 });
 
 const WORKSPACE_ID = "cec4d702-6dae-4ea5-9a30-ef17842c00fd";
