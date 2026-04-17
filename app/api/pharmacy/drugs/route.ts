@@ -10,11 +10,9 @@ import { or, ilike, desc } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceid: string }> }
+  request: NextRequest
 ) {
   try {
-    await params; // consume params
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -28,8 +26,7 @@ export async function GET(
         ilike(drugs.name, pattern),
         ilike(drugs.genericname, pattern),
         ilike(drugs.nationalcode, pattern),
-        ilike(drugs.barcode, pattern),
-        ilike(drugs.category, pattern)
+        ilike(drugs.barcode, pattern)
       );
     }
 
@@ -47,11 +44,9 @@ export async function GET(
 }
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceid: string }> }
+  request: NextRequest
 ) {
   try {
-    const { workspaceid } = await params;
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -67,7 +62,7 @@ export async function POST(
     const [inserted] = await db
       .insert(drugs)
       .values({
-        workspaceid,
+        workspaceid: body.workspaceid || "cec4d702-6dae-4ea5-9a30-ef17842c00fd",
         name: body.name,
         genericname: body.genericname || null,
         atccode: body.atccode || null,
@@ -75,9 +70,7 @@ export async function POST(
         strength: body.strength,
         unit: body.unit || "tablet",
         barcode: body.barcode || null,
-        manufacturer: body.manufacturer || null,
         nationalcode: body.nationalcode || null,
-        category: body.category || null,
         description: body.description || null,
         interaction: body.interaction || null,
         warning: body.warning || null,
