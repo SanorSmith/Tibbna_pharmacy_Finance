@@ -203,7 +203,7 @@ interface Props {
 }
 
 export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSuccess }: Props) {
-  const [entryType, setEntryType] = useState<"medicine"|"item"|null>(prefill ? "medicine" : null);
+  const [entryType, setEntryType] = useState<"medicine"|"item"|null>(prefill && prefill.name ? "medicine" : null);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
   const [suppliers, setSuppliers]     = useState<any[]>([]);
