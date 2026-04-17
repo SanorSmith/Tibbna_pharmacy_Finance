@@ -11,27 +11,30 @@ const pool = new Pool({
 const WORKSPACE_ID = "cec4d702-6dae-4ea5-9a30-ef17842c00fd";
 
 export async function GET(req: NextRequest) {
-  const search = req.nextUrl.searchParams.get("search") ?? "";
-  const result = await pool.query(
-    `SELECT
-      s.supplierid     AS id,
-      s.name,
-      s.contactname    AS "contactPerson",
-      s.email,
-      s.phone,
-      s.address,
-      s.isactive       AS "isActive",
-      s.createdat      AS "createdAt",
-      COUNT(DISTINCT ds.drugid)::int AS "drugCount"
-    FROM suppliers s
-    LEFT JOIN drug_suppliers ds ON ds.supplierid = s.supplierid
-    WHERE s.isactive = true
-      AND ($1 = '' OR s.name ILIKE $2 OR s.contactname ILIKE $2 OR s.email ILIKE $2 OR s.phone ILIKE $2)
-    GROUP BY s.supplierid, s.name, s.contactname, s.email, s.phone, s.address, s.isactive, s.createdat
-    ORDER BY s.name`,
-    [search, `%${search}%`]
-  );
-  return NextResponse.json(result.rows);
+  try {
+    const search = req.nextUrl.searchParams.get("search") ?? "";
+    const result = await pool.query(
+      `SELECT
+        v.id,
+        v.name,
+        v.contact_person AS "contactPerson",
+        v.email,
+        v.phone,
+        v.address,
+        v.is_active AS "isActive",
+        v.created_at AS "createdAt",
+        0 AS "drugCount"
+      FROM vendors v
+      WHERE v.is_active = true
+        AND ($1 = '' OR v.name ILIKE $2 OR v.contact_person ILIKE $2 OR v.email ILIKE $2 OR v.phone ILIKE $2)
+      ORDER BY v.name`,
+      [search, `%${search}%`]
+    );
+    return NextResponse.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching suppliers:", error);
+    return NextResponse.json([], { status: 200 }); // Return empty array on error
+  }
 }
 
 export async function POST(req: NextRequest) {
