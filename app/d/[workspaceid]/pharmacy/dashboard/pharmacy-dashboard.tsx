@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
-import PharmacyInventory from "../../pharmacy-inventory/components/PharmacyInventory";
+import PharmacyInventoryPage from "../../pharmacy-inventory/page";
 
 const PRIMARY = "#618FF5";
 
@@ -373,7 +373,7 @@ export default function PharmacyDashboard({
       {/* Inventory Tab */}
       <TabsContent value="inventory" className="mt-4 px-4">
         {loadedTabs.has("inventory") && (
-          <PharmacyInventory workspaceid={workspaceid} />
+          <PharmacyInventoryPage />
         )}
       </TabsContent>
 
