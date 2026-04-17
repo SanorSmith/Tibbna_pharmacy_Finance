@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { drugs } from "@/lib/db/schema";
+import { drugs, items } from "@/lib/db/schema";
 import { or, ilike, desc } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
@@ -59,10 +59,13 @@ export async function POST(
       );
     }
 
-    const [inserted] = await db
+    const workspaceid = body.workspaceid || "cec4d702-6dae-4ea5-9a30-ef17842c00fd";
+    
+    // Create drug record
+    const [insertedDrug] = await db
       .insert(drugs)
       .values({
-        workspaceid: body.workspaceid || "cec4d702-6dae-4ea5-9a30-ef17842c00fd",
+        workspaceid,
         name: body.name,
         genericname: body.genericname || null,
         atccode: body.atccode || null,
@@ -86,7 +89,30 @@ export async function POST(
       })
       .returning();
 
-    return NextResponse.json({ drug: inserted }, { status: 201 });
+    // Also create item record so it appears in pharmacy inventory
+    const [insertedItem] = await db
+      .insert(items)
+      .values({
+        workspaceid,
+        drugid: insertedDrug.drugid,
+        itemcode: body.itemcode || `PHR-${Date.now()}`,
+        name: body.name,
+        genericname: body.genericname || null,
+        itemtype: body.form || "drug",
+        inventorycategory: "pharmacy",
+        uom: body.unit || "tablet",
+        minlevel: body.min_level || 10,
+        reorderlevel: body.reorder_level || 20,
+        maxlevel: body.max_level || 100,
+        controlled: body.controlled || false,
+        manufacturer: body.manufacturer || null,
+        isactive: true,
+        description: body.description || null,
+        barcode: body.barcode || null,
+      })
+      .returning();
+
+    return NextResponse.json({ drug: insertedDrug, item: insertedItem }, { status: 201 });
   } catch (error) {
     console.error("[Pharmacy Drugs POST]", error);
     return NextResponse.json({ error: "Failed to register drug" }, { status: 500 });
