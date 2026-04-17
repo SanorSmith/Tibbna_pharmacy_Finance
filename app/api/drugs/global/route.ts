@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
         form,
         strength,
         unit,
-        manufacturer,
+        category,
         description,
         indication,
         interaction,
