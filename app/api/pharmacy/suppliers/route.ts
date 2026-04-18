@@ -1,6 +1,6 @@
 import { Pool } from "pg";
-
 import { NextRequest, NextResponse } from "next/server";
+import { getUser } from "@/lib/user";
 
 
 const pool = new Pool({
@@ -38,23 +38,31 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, code, contactPerson, email, phone, address, category, type, createdBy } = body;
+  const { name, code, contactPerson, email, phone, address, category, type } = body;
   if (!name?.trim())
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  
+  // Get authenticated user
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
   // Generate defaults for all required NOT NULL fields
   const supplierCode = code || `SUP-${Date.now().toString().slice(-8)}`;
   const supplierCategory = category || "general";
   const supplierType = type || "vendor";
-  const createdById = createdBy || crypto.randomUUID(); // Default to random UUID if not provided
   
-  const result = await pool.query(
-    `INSERT INTO suppliers (supplierid, workspaceid, name, code, contactperson, email, phonenumber, addressline1, category, type, createdby, isactive, createdat)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW())
-     RETURNING supplierid AS id, name, code, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address, category, type`,
-    [crypto.randomUUID(), WORKSPACE_ID, name, supplierCode, contactPerson ?? null, email ?? null, phone ?? null, address ?? null, supplierCategory, supplierType, createdById]
-  );
-  return NextResponse.json(result.rows[0]);
+  try {
+    const result = await pool.query(
+      `INSERT INTO suppliers (supplierid, workspaceid, name, code, contactperson, email, phonenumber, addressline1, category, type, createdby, isactive, createdat)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW())
+       RETURNING supplierid AS id, name, code, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address, category, type`,
+      [crypto.randomUUID(), WORKSPACE_ID, name, supplierCode, contactPerson ?? null, email ?? null, phone ?? null, address ?? null, supplierCategory, supplierType, user.userid]
+    );
+    return NextResponse.json(result.rows[0]);
+  } catch (error: any) {
+    console.error("Error creating supplier:", error);
+    return NextResponse.json({ error: error.message || "Failed to create supplier" }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: NextRequest) {
