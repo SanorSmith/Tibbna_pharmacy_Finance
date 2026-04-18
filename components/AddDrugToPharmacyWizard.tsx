@@ -252,7 +252,8 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
 
   // Check pharmacy inventory as user types
   useEffect(() => {
-    if (!form.name.trim() || isUpdate) return;
+    // Only check for duplicates when adding medicines, not items (to prevent flickering)
+    if (!form.name.trim() || isUpdate || entryType !== "medicine") return;
     const t = setTimeout(async () => {
       setCheckingExisting(true);
       const res = await fetch(`/api/pharmacy/items?search=${encodeURIComponent(form.name)}`);
@@ -261,7 +262,6 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
       if (exact) {
         setExistingItem(exact);
         setIsUpdate(true);
-        setForm(f=>({...f, unit_cost:String(exact.unitCost??""), selling_price:String(exact.sellingPrice??""), uom:exact.uom??f.uom}));
       } else {
         setExistingItem(null);
         setIsUpdate(false);
@@ -269,7 +269,7 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
       setCheckingExisting(false);
     }, 600);
     return () => clearTimeout(t);
-  }, [form.name]);
+  }, [form.name, entryType]);
 
   const fillFromGlobal = (drug:any) => {
     setForm(f=>({...f,
