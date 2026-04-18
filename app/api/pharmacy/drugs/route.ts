@@ -99,7 +99,7 @@ export async function POST(
         itemcode: itemCode,  // old camelCase column (NOT NULL)
         name: body.name,
         genericname: body.genericname || null,
-        itemtype: body.form || "drug",
+        itemtype: "drug",  // Always 'drug' for medicines, not the form
         inventorycategory: "pharmacy",
         uom: body.unit || "tablet",
         minlevel: body.min_level || 10,
