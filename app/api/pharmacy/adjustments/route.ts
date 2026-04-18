@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
+import crypto from "crypto";
+import { db } from "@/lib/db";
+import { stockTransactions } from "@/lib/db/schema";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -124,11 +127,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Log transaction
+  // Log transaction (use STOCK_IN for positive, STOCK_OUT for negative)
+  const transactionType = parseInt(adjustmentQty) > 0 ? 'STOCK_IN' : 'STOCK_OUT';
   await pool.query(
     `INSERT INTO stock_transactions (id, item_id, warehouse_id, batch_id, transaction_type, quantity, notes, created_by, created_at)
-     VALUES ($1, $2, $3, $4, 'ADJUSTMENT', $5, $6, $7, NOW())`,
-    [crypto.randomUUID(), itemId, warehouseId, batchId ?? null, Math.abs(parseInt(adjustmentQty)), reason, createdBy ?? "Pharmacy"]
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+    [crypto.randomUUID(), itemId, warehouseId, batchId ?? null, transactionType, Math.abs(parseInt(adjustmentQty)), reason, createdBy ?? "Pharmacy"]
   );
 
   return NextResponse.json({ success: true, id: adjId });
