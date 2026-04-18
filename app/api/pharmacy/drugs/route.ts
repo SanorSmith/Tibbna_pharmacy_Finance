@@ -115,39 +115,36 @@ export async function POST(
       })
       .returning();
 
-    // Create batch record with pricing if provided
+    // Always create batch record to store pricing
     const warehouseId = body.warehouseid || "22222222-0000-0000-0000-000000000002"; // Pharmacy warehouse
     const initialQty = parseInt(body.initial_quantity) || 0;
+    const batchNumber = body.batch_number || `BATCH-${Date.now()}`;
     
-    if (initialQty > 0 || body.unit_cost || body.selling_price) {
-      const batchNumber = body.batch_number || `BATCH-${Date.now()}`;
-      
-      const [insertedBatch] = await db
-        .insert(itemBatches)
+    const [insertedBatch] = await db
+      .insert(itemBatches)
+      .values({
+        itemid: insertedItem.id,
+        warehouseid: warehouseId,
+        batchnumber: batchNumber,
+        quantity: initialQty,
+        unitcost: body.unit_cost ? parseFloat(body.unit_cost) : null,
+        sellingprice: body.selling_price ? parseFloat(body.selling_price) : null,
+        expirydate: body.expiry_date ? new Date(body.expiry_date) : null,
+        manufacturedate: body.manufacture_date ? new Date(body.manufacture_date) : null,
+      })
+      .returning();
+
+    // Create stock record if quantity > 0
+    if (initialQty > 0) {
+      await db
+        .insert(inventoryStock)
         .values({
           itemid: insertedItem.id,
           warehouseid: warehouseId,
-          batchnumber: batchNumber,
+          batchid: insertedBatch.id,
           quantity: initialQty,
-          unitcost: body.unit_cost ? parseFloat(body.unit_cost) : null,
-          sellingprice: body.selling_price ? parseFloat(body.selling_price) : null,
-          expirydate: body.expiry_date ? new Date(body.expiry_date) : null,
-          manufacturedate: body.manufacture_date ? new Date(body.manufacture_date) : null,
-        })
-        .returning();
-
-      // Create stock record
-      if (initialQty > 0) {
-        await db
-          .insert(inventoryStock)
-          .values({
-            itemid: insertedItem.id,
-            warehouseid: warehouseId,
-            batchid: insertedBatch.id,
-            quantity: initialQty,
-            reservedquantity: 0,
-          });
-      }
+          reservedquantity: 0,
+        });
     }
 
     return NextResponse.json({ drug: insertedDrug, item: insertedItem }, { status: 201 });
