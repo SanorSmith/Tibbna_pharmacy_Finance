@@ -11,17 +11,22 @@ export async function GET(req: NextRequest) {
     const r = await pool.query(
       `SELECT 
         ws.id,
-        ws.section_name as name,
+        ws.sectionname as name,
         ws.bin_location as location,
         ws.section_type as type,
         ws.temperature_controlled,
+        CASE 
+          WHEN ws.temperature_controlled = true THEN 'Yes'
+          ELSE '—'
+        END as temperature,
+        ws.description as notes,
         w.name as warehouse_name
       FROM warehouse_sections ws
       JOIN warehouses w ON w.id = ws.warehouse_id
       WHERE w.warehouse_type = 'pharmacy'
         AND ws.isactive = true
-        AND ($1 = '' OR ws.section_name ILIKE $1 OR ws.bin_location ILIKE $1)
-      ORDER BY ws.section_name`,
+        AND ($1 = '' OR ws.sectionname ILIKE $1 OR ws.bin_location ILIKE $1)
+      ORDER BY ws.sectionname`,
       [`%${search}%`]
     );
     return NextResponse.json(r.rows);
@@ -47,11 +52,14 @@ export async function POST(req: NextRequest) {
     
     const warehouseId = whResult.rows[0].id;
     
+    // Convert temperature to boolean - temperature_controlled expects boolean
+    const isTemperatureControlled = temperature === true || temperature === "true" || temperature === 1;
+    
     const r = await pool.query(
-      `INSERT INTO warehouse_sections (id, warehouse_id, section_name, bin_location, section_type, temperature_controlled, description)
+      `INSERT INTO warehouse_sections (id, warehouse_id, sectionname, bin_location, section_type, temperature_controlled, description)
        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6) 
-       RETURNING id, section_name as name, bin_location as location, section_type as type, temperature_controlled, description as notes`,
-      [warehouseId, name, location||null, type||"shelf", temperature||false, notes||null]
+       RETURNING id, sectionname as name, bin_location as location, section_type as type, temperature_controlled, description as notes`,
+      [warehouseId, name, location||null, type||"shelf", isTemperatureControlled, notes||null]
     );
     return NextResponse.json(r.rows[0]);
   } catch (error) {
