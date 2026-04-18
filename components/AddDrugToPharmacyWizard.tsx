@@ -300,7 +300,6 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
             createdBy: "Pharmacy",
             unitCost: form.unit_cost ? parseFloat(form.unit_cost) : null,
             sellingPrice: form.selling_price ? parseFloat(form.selling_price) : null,
-            itemType: form.form || null,
             manufacturer: form.manufacturer || null,
           })
         });
