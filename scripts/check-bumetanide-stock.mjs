@@ -18,7 +18,7 @@ async function checkBumetanideStock() {
 
     // Find Bumetanide item
     const itemResult = await pool.query(`
-      SELECT id, name, itemcode
+      SELECT id, name, itemcode, manufacturer, itemtype
       FROM items
       WHERE name ILIKE '%bumetanide%'
       LIMIT 1
@@ -31,7 +31,9 @@ async function checkBumetanideStock() {
 
     const item = itemResult.rows[0];
     console.log(`📦 Item: ${item.name} (${item.itemcode})`);
-    console.log(`   ID: ${item.id}\n`);
+    console.log(`   ID: ${item.id}`);
+    console.log(`   Manufacturer: ${item.manufacturer || 'NOT SET'}`);
+    console.log(`   Type: ${item.itemtype || 'NOT SET'}\n`);
 
     // Check inventory stock
     const stockResult = await pool.query(`

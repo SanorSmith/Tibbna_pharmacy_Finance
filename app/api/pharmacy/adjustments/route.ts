@@ -36,18 +36,32 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { itemId, warehouseId, batchId, adjustmentQty, reason, createdBy, unitCost, sellingPrice, batchNumber, expiryDate, itemType } = body;
+  const { itemId, warehouseId, batchId, adjustmentQty, reason, createdBy, unitCost, sellingPrice, batchNumber, expiryDate, itemType, manufacturer } = body;
 
   if (!itemId || !warehouseId || !adjustmentQty || !reason)
     return NextResponse.json({ error: "Item, warehouse, quantity and reason are required" }, { status: 400 });
 
   const adjId = crypto.randomUUID();
 
-  // Update item type if provided
+  // Update item type and manufacturer if provided
+  const updates = [];
+  const values = [];
+  let paramCount = 1;
+
   if (itemType) {
+    updates.push(`itemtype = $${paramCount++}`);
+    values.push(itemType);
+  }
+  if (manufacturer) {
+    updates.push(`manufacturer = $${paramCount++}`);
+    values.push(manufacturer);
+  }
+
+  if (updates.length > 0) {
+    values.push(itemId);
     await pool.query(
-      `UPDATE items SET itemtype = $1 WHERE id = $2`,
-      [itemType, itemId]
+      `UPDATE items SET ${updates.join(', ')} WHERE id = $${paramCount}`,
+      values
     );
   }
 
