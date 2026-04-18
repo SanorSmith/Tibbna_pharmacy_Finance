@@ -52,56 +52,71 @@ export async function POST(
 
     const body = await request.json();
 
-    if (!body.name || !body.form || !body.strength) {
+    if (!body.name) {
       return NextResponse.json(
-        { error: "Drug name, dose form, and strength are required" },
+        { error: "Name is required" },
+        { status: 400 }
+      );
+    }
+    
+    // For medicines, form and strength are required
+    const isMedicine = body.entryType === "medicine" || body.form || body.strength;
+    if (isMedicine && (!body.form || !body.strength)) {
+      return NextResponse.json(
+        { error: "Medicine requires dose form and strength" },
         { status: 400 }
       );
     }
 
     const workspaceid = body.workspaceid || "cec4d702-6dae-4ea5-9a30-ef17842c00fd";
     
-    // Create drug record
-    const [insertedDrug] = await db
-      .insert(drugs)
-      .values({
-        workspaceid,
-        name: body.name,
-        genericname: body.genericname || null,
-        atccode: body.atccode || null,
-        form: body.form,
-        strength: body.strength,
-        unit: body.unit || "tablet",
-        barcode: body.barcode || null,
-        nationalcode: body.nationalcode || null,
-        description: body.description || null,
-        interaction: body.interaction || null,
-        warning: body.warning || null,
-        pregnancy: body.pregnancy || null,
-        sideeffect: body.sideeffect || null,
-        storagetype: body.storagetype || null,
-        indication: body.indication || null,
-        traffic: body.traffic || null,
-        notes: body.notes || null,
-        insuranceapproved: body.insuranceapproved ?? false,
-        requiresprescription: body.requiresprescription ?? true,
-        metadata: body.metadata || {},
-      })
-      .returning();
+    let insertedDrug = null;
+    
+    // Only create drug record for medicines
+    if (isMedicine) {
+      [insertedDrug] = await db
+        .insert(drugs)
+        .values({
+          workspaceid,
+          name: body.name,
+          genericname: body.genericname || null,
+          atccode: body.atccode || null,
+          form: body.form,
+          strength: body.strength,
+          unit: body.unit || "tablet",
+          barcode: body.barcode || null,
+          nationalcode: body.nationalcode || null,
+          description: body.description || null,
+          interaction: body.interaction || null,
+          warning: body.warning || null,
+          pregnancy: body.pregnancy || null,
+          sideeffect: body.sideeffect || null,
+          storagetype: body.storagetype || null,
+          indication: body.indication || null,
+          traffic: body.traffic || null,
+          notes: body.notes || null,
+          insuranceapproved: body.insuranceapproved ?? false,
+          requiresprescription: body.requiresprescription ?? true,
+          metadata: body.metadata || {},
+        })
+        .returning();
+    }
 
-    // Also create item record so it appears in pharmacy inventory
+    // Create item record (for both medicines and items/supplies)
     const itemCode = body.itemcode || `PHR-${Date.now()}`;
+    const itemType = isMedicine ? "drug" : (body.itemtype || "supply");
+    
     const [insertedItem] = await db
       .insert(items)
       .values({
         workspaceid,
-        drugid: insertedDrug.drugid,
-        itemcode: itemCode,  // old camelCase column (NOT NULL)
+        drugid: insertedDrug?.drugid || null,
+        itemcode: itemCode,
         name: body.name,
         genericname: body.genericname || null,
-        itemtype: "drug",  // Always 'drug' for medicines, not the form
+        itemtype: itemType,
         inventorycategory: "pharmacy",
-        uom: body.unit || "tablet",
+        uom: body.unit || body.uom || "piece",
         minlevel: body.min_level || 10,
         reorderlevel: body.reorder_level || 20,
         maxlevel: body.max_level || 100,
@@ -111,7 +126,7 @@ export async function POST(
         description: body.description || null,
         barcode: body.barcode || null,
         batchtracking: true,
-        expirytracking: true,
+        expirytracking: body.expirytracking ?? (isMedicine ? true : false),
       })
       .returning();
 

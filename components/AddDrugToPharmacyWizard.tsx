@@ -307,7 +307,7 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
       } else {
         const res = await fetch("/api/pharmacy/drugs", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify(form)
+          body:JSON.stringify({ ...form, entryType })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error??"Failed");
