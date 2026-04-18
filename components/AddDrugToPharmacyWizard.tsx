@@ -292,7 +292,15 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
       if (isUpdate && existingItem) {
         const res = await fetch("/api/pharmacy/adjustments", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ itemId:existingItem.id, warehouseId:form.warehouseid, adjustmentQty:parseInt(form.initial_quantity)||0, reason:"Stock update via Add Medicine", createdBy:"Pharmacy" })
+          body:JSON.stringify({ 
+            itemId: existingItem.id, 
+            warehouseId: form.warehouseid, 
+            adjustmentQty: parseInt(form.initial_quantity)||0, 
+            reason: "Stock update via Add Medicine", 
+            createdBy: "Pharmacy",
+            unitCost: form.unit_cost ? parseFloat(form.unit_cost) : null,
+            sellingPrice: form.selling_price ? parseFloat(form.selling_price) : null,
+          })
         });
         if (!res.ok) throw new Error("Failed to update stock");
       } else {

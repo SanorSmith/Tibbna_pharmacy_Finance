@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { itemId, warehouseId, batchId, adjustmentQty, reason, createdBy } = body;
+  const { itemId, warehouseId, batchId, adjustmentQty, reason, createdBy, unitCost, sellingPrice, batchNumber, expiryDate } = body;
 
   if (!itemId || !warehouseId || !adjustmentQty || !reason)
     return NextResponse.json({ error: "Item, warehouse, quantity and reason are required" }, { status: 400 });
@@ -49,14 +49,58 @@ export async function POST(req: NextRequest) {
     [adjId, itemId, warehouseId, batchId ?? null, parseInt(adjustmentQty), reason, createdBy ?? "Pharmacy"]
   );
 
-  // Update or insert inventory_stock (UPSERT)
-  await pool.query(
-    `INSERT INTO inventory_stock (id, item_id, warehouse_id, batch_id, quantity, reserved_quantity)
-     VALUES (gen_random_uuid(), $1, $2, $3, GREATEST(0, $4), 0)
-     ON CONFLICT (item_id, warehouse_id, batch_id)
-     DO UPDATE SET quantity = GREATEST(0, inventory_stock.quantity + $4)`,
-    [itemId, warehouseId, batchId ?? null, parseInt(adjustmentQty)]
+  // Update or insert inventory_stock
+  const checkStock = await pool.query(
+    `SELECT id, quantity FROM inventory_stock 
+     WHERE item_id = $1 AND warehouse_id = $2 AND ($3::uuid IS NULL OR batch_id = $3)
+     LIMIT 1`,
+    [itemId, warehouseId, batchId ?? null]
   );
+
+  if (checkStock.rows.length > 0) {
+    // Update existing stock
+    await pool.query(
+      `UPDATE inventory_stock 
+       SET quantity = GREATEST(0, quantity + $1)
+       WHERE id = $2`,
+      [parseInt(adjustmentQty), checkStock.rows[0].id]
+    );
+  } else {
+    // Insert new stock record
+    await pool.query(
+      `INSERT INTO inventory_stock (id, item_id, warehouse_id, batch_id, quantity, reserved_quantity)
+       VALUES (gen_random_uuid(), $1, $2, $3, GREATEST(0, $4), 0)`,
+      [itemId, warehouseId, batchId ?? null, parseInt(adjustmentQty)]
+    );
+  }
+
+  // Update or create batch with pricing if provided
+  if (unitCost !== null || sellingPrice !== null) {
+    const batchCheck = await pool.query(
+      `SELECT id FROM item_batches 
+       WHERE item_id = $1 AND warehouse_id = $2
+       LIMIT 1`,
+      [itemId, warehouseId]
+    );
+
+    if (batchCheck.rows.length > 0) {
+      // Update existing batch pricing
+      await pool.query(
+        `UPDATE item_batches 
+         SET unit_cost = COALESCE($1, unit_cost),
+             selling_price = COALESCE($2, selling_price)
+         WHERE id = $3`,
+        [unitCost, sellingPrice, batchCheck.rows[0].id]
+      );
+    } else {
+      // Create new batch with pricing
+      await pool.query(
+        `INSERT INTO item_batches (id, item_id, warehouse_id, batch_number, quantity, unit_cost, selling_price)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)`,
+        [itemId, warehouseId, `BATCH-${Date.now()}`, parseInt(adjustmentQty), unitCost, sellingPrice]
+      );
+    }
+  }
 
   // Log transaction
   await pool.query(
