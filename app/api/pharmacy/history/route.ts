@@ -42,7 +42,6 @@ export async function GET(req: NextRequest) {
         st.quantity,
         st.reference_type,
         st.reference_id,
-        st.patient_ref,
         st.notes,
         st.created_by,
         st.created_at,
