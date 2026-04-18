@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
   if (!name?.trim())
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   const result = await pool.query(
-    `INSERT INTO suppliers (supplierid, workspaceid, name, contactname, email, phone, address, isactive, createdat)
+    `INSERT INTO suppliers (supplierid, workspaceid, name, contactperson, email, phonenumber, addressline1, isactive, createdat)
      VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW())
-     RETURNING supplierid AS id, name, contactname AS "contactPerson", email, phone, address`,
+     RETURNING supplierid AS id, name, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address`,
     [crypto.randomUUID(), WORKSPACE_ID, name, contactPerson ?? null, email ?? null, phone ?? null, address ?? null]
   );
   return NextResponse.json(result.rows[0]);
@@ -56,13 +56,13 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
   const result = await pool.query(
     `UPDATE suppliers SET
-      name        = COALESCE($1, name),
-      contactname = COALESCE($2, contactname),
-      email       = COALESCE($3, email),
-      phone       = COALESCE($4, phone),
-      address     = COALESCE($5, address)
+      name         = COALESCE($1, name),
+      contactperson = COALESCE($2, contactperson),
+      email        = COALESCE($3, email),
+      phonenumber  = COALESCE($4, phonenumber),
+      addressline1 = COALESCE($5, addressline1)
     WHERE supplierid = $6
-    RETURNING supplierid AS id, name, contactname AS "contactPerson", email, phone, address`,
+    RETURNING supplierid AS id, name, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address`,
     [name, contactPerson, email, phone, address, id]
   );
   if (!result.rows.length)

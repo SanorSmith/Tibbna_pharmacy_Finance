@@ -32,12 +32,30 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, location, type, temperature, notes } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error:"Name required" }, { status:400 });
-  const r = await pool.query(
-    `INSERT INTO pharmacy_storage_locations (id,workspace_id,name,location,type,temperature,notes,isactive,createdat,updatedat)
-     VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,true,NOW(),NOW()) RETURNING *`,
-    [WS, name, location||null, type||"shelf", temperature||null, notes||null]
-  );
-  return NextResponse.json(r.rows[0]);
+  try {
+    const { name, location, type, temperature, notes } = await req.json();
+    if (!name?.trim()) return NextResponse.json({ error:"Name required" }, { status:400 });
+    
+    // Get pharmacy warehouse ID
+    const whResult = await pool.query(
+      `SELECT id FROM warehouses WHERE warehouse_type = 'pharmacy' AND is_active = true LIMIT 1`
+    );
+    
+    if (!whResult.rows.length) {
+      return NextResponse.json({ error: "No pharmacy warehouse found" }, { status: 404 });
+    }
+    
+    const warehouseId = whResult.rows[0].id;
+    
+    const r = await pool.query(
+      `INSERT INTO warehouse_sections (id, warehouse_id, section_name, bin_location, section_type, temperature_controlled, description)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6) 
+       RETURNING id, section_name as name, bin_location as location, section_type as type, temperature_controlled, description as notes`,
+      [warehouseId, name, location||null, type||"shelf", temperature||false, notes||null]
+    );
+    return NextResponse.json(r.rows[0]);
+  } catch (error) {
+    console.error("Error creating storage location:", error);
+    return NextResponse.json({ error: "Failed to create storage location" }, { status: 500 });
+  }
 }
