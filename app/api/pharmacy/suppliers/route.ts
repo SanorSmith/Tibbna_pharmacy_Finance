@@ -38,14 +38,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, contactPerson, email, phone, address } = body;
+  const { name, code, contactPerson, email, phone, address } = body;
   if (!name?.trim())
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  
+  // Generate code if not provided
+  const supplierCode = code || `SUP-${Date.now().toString().slice(-8)}`;
+  
   const result = await pool.query(
-    `INSERT INTO suppliers (supplierid, workspaceid, name, contactperson, email, phonenumber, addressline1, isactive, createdat)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW())
-     RETURNING supplierid AS id, name, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address`,
-    [crypto.randomUUID(), WORKSPACE_ID, name, contactPerson ?? null, email ?? null, phone ?? null, address ?? null]
+    `INSERT INTO suppliers (supplierid, workspaceid, name, code, contactperson, email, phonenumber, addressline1, isactive, createdat)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, NOW())
+     RETURNING supplierid AS id, name, code, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address`,
+    [crypto.randomUUID(), WORKSPACE_ID, name, supplierCode, contactPerson ?? null, email ?? null, phone ?? null, address ?? null]
   );
   return NextResponse.json(result.rows[0]);
 }
