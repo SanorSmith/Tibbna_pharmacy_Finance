@@ -14,19 +14,22 @@ export async function GET(req: NextRequest) {
     const search = req.nextUrl.searchParams.get("search") ?? "";
     const result = await pool.query(
       `SELECT
-        v.id,
-        v.name,
-        v.contact_person AS "contactPerson",
-        v.email,
-        v.phone,
-        v.address,
-        v.is_active AS "isActive",
-        v.created_at AS "createdAt",
+        s.supplierid AS id,
+        s.name,
+        s.code,
+        s.contactperson AS "contactPerson",
+        s.email,
+        s.phonenumber AS phone,
+        s.addressline1 AS address,
+        s.category,
+        s.type,
+        s.isactive AS "isActive",
+        s.createdat AS "createdAt",
         0 AS "drugCount"
-      FROM vendors v
-      WHERE v.is_active = true
-        AND ($1 = '' OR v.name ILIKE $2 OR v.contact_person ILIKE $2 OR v.email ILIKE $2 OR v.phone ILIKE $2)
-      ORDER BY v.name`,
+      FROM suppliers s
+      WHERE s.isactive = true
+        AND ($1 = '' OR s.name ILIKE $2 OR s.contactperson ILIKE $2 OR s.email ILIKE $2 OR s.phonenumber ILIKE $2)
+      ORDER BY s.name`,
       [search, `%${search}%`]
     );
     return NextResponse.json(result.rows);
