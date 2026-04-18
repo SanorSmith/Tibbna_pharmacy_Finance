@@ -36,12 +36,20 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { itemId, warehouseId, batchId, adjustmentQty, reason, createdBy, unitCost, sellingPrice, batchNumber, expiryDate } = body;
+  const { itemId, warehouseId, batchId, adjustmentQty, reason, createdBy, unitCost, sellingPrice, batchNumber, expiryDate, itemType } = body;
 
   if (!itemId || !warehouseId || !adjustmentQty || !reason)
     return NextResponse.json({ error: "Item, warehouse, quantity and reason are required" }, { status: 400 });
 
   const adjId = crypto.randomUUID();
+
+  // Update item type if provided
+  if (itemType) {
+    await pool.query(
+      `UPDATE items SET itemtype = $1 WHERE id = $2`,
+      [itemType, itemId]
+    );
+  }
 
   await pool.query(
     `INSERT INTO stock_adjustments (id, item_id, warehouse_id, batch_id, quantity, reason, created_by, created_at)
