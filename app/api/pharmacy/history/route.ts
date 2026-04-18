@@ -38,19 +38,19 @@ export async function GET(req: NextRequest) {
     const result = await pool.query(
       `SELECT 
         st.id,
-        st.transaction_type,
+        st.transaction_type AS "transactionType",
         st.quantity,
-        st.reference_type,
-        st.reference_id,
+        st.reference_type AS "referenceType",
+        st.reference_id AS "referenceId",
         st.notes,
-        st.created_by,
-        st.created_at,
-        i.name as item_name,
-        i.itemcode as item_code,
+        st.created_by AS "createdBy",
+        st.created_at AS "createdAt",
+        i.name AS "itemName",
+        i.itemcode,
         i.uom,
-        w.name as warehouse_name,
-        ib.batch_number,
-        ib.expiry_date
+        w.name AS "warehouseName",
+        ib.batch_number AS "batchNumber",
+        ib.expiry_date AS "expiryDate"
       FROM stock_transactions st
       JOIN items i ON i.id = st.item_id
       JOIN warehouses w ON w.id = st.warehouse_id
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({
-      transactions: result.rows,
+      rows: result.rows,
       total: parseInt(countResult.rows[0].total),
       page,
       limit,

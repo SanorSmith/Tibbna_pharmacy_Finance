@@ -741,9 +741,6 @@ export default function PharmacyPage() {
 
       {/* Header */}
       <div style={s.header}>
-        <Link href="/" style={{display:"flex",alignItems:"center",color:"#6b7280",textDecoration:"none"}}><Icon d={icons.back} size={15}/></Link>
-        <div style={{width:1,height:20,background:"#e5e7eb"}}/>
-        <div style={{width:32,height:32,background:"#ede9fe",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon d={icons.pill} size={16} color="#6366f1"/></div>
         <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>Pharmacy Inventory</span>
         <div style={{marginLeft:"auto",display:"flex",gap:8}}>
           <button onClick={fetchAll} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",display:"flex",alignItems:"center",gap:5}}><Icon d={icons.refresh} size={13} color="#374151"/></button>
