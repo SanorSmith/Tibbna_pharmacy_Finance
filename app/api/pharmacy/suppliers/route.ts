@@ -38,19 +38,21 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, code, contactPerson, email, phone, address, category } = body;
+  const { name, code, contactPerson, email, phone, address, category, type, createdBy } = body;
   if (!name?.trim())
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   
-  // Generate code if not provided
+  // Generate defaults for all required NOT NULL fields
   const supplierCode = code || `SUP-${Date.now().toString().slice(-8)}`;
   const supplierCategory = category || "general";
+  const supplierType = type || "vendor";
+  const createdById = createdBy || crypto.randomUUID(); // Default to random UUID if not provided
   
   const result = await pool.query(
-    `INSERT INTO suppliers (supplierid, workspaceid, name, code, contactperson, email, phonenumber, addressline1, category, isactive, createdat)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW())
-     RETURNING supplierid AS id, name, code, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address, category`,
-    [crypto.randomUUID(), WORKSPACE_ID, name, supplierCode, contactPerson ?? null, email ?? null, phone ?? null, address ?? null, supplierCategory]
+    `INSERT INTO suppliers (supplierid, workspaceid, name, code, contactperson, email, phonenumber, addressline1, category, type, createdby, isactive, createdat)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW())
+     RETURNING supplierid AS id, name, code, contactperson AS "contactPerson", email, phonenumber AS phone, addressline1 AS address, category, type`,
+    [crypto.randomUUID(), WORKSPACE_ID, name, supplierCode, contactPerson ?? null, email ?? null, phone ?? null, address ?? null, supplierCategory, supplierType, createdById]
   );
   return NextResponse.json(result.rows[0]);
 }
