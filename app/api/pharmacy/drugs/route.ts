@@ -131,8 +131,8 @@ export async function POST(
           quantity: initialQty,
           unitcost: body.unit_cost ? parseFloat(body.unit_cost) : null,
           sellingprice: body.selling_price ? parseFloat(body.selling_price) : null,
-          expirydate: body.expiry_date || null,
-          manufacturedate: body.manufacture_date || null,
+          expirydate: body.expiry_date ? new Date(body.expiry_date) : null,
+          manufacturedate: body.manufacture_date ? new Date(body.manufacture_date) : null,
         })
         .returning();
 
