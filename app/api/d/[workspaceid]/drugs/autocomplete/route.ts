@@ -37,7 +37,6 @@ export async function GET(
     const results = await db
       .select({
         drugid: drugs.drugid,
-        globaldrugid: drugs.globaldrugid,
         name: drugs.name,
         genericname: drugs.genericname,
         form: drugs.form,
@@ -45,7 +44,7 @@ export async function GET(
         unit: drugs.unit,
         route: drugs.description, // Contains route info
         atccode: drugs.atccode,
-        category: drugs.category,
+        categoryid: drugs.categoryid,
         interaction: drugs.interaction,
         warning: drugs.warning,
         nationalcode: drugs.nationalcode,
@@ -67,7 +66,25 @@ export async function GET(
       )
       .limit(10);
 
-    return NextResponse.json({ drugs: results });
+    // Ensure all fields are properly serialized
+    const sanitizedResults = results.map(drug => ({
+      ...drug,
+      genericname: drug.genericname || null,
+      form: drug.form || null,
+      strength: drug.strength || null,
+      unit: drug.unit || null,
+      route: drug.route || null,
+      atccode: drug.atccode || null,
+      categoryid: drug.categoryid || null,
+      interaction: drug.interaction || null,
+      warning: drug.warning || null,
+      nationalcode: drug.nationalcode || null,
+      barcode: drug.barcode || null,
+      manufacturer: drug.manufacturer || null,
+      insuranceapproved: drug.insuranceapproved || false,
+    }));
+
+    return NextResponse.json({ drugs: sanitizedResults });
   } catch (error) {
     console.error("Error in drug autocomplete:", error);
     return NextResponse.json(
