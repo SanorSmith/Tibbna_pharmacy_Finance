@@ -1,0 +1,16 @@
+tibbna-hospital/
+check-my-access.js
+check-user-workspaces.js
+direct-role-update.js
+find-my-workspace.js
+find-workspace.js
+set-password-manual.js
+set-user-password.ts
+setup-sanor-access.js
+update-user-role.js
+yamaha.x86_64
+debug-ali-patient.sql
+update-pharmacist-role.sql
+fix-migration.sql
+create-missing-ehr.ts
+data/
