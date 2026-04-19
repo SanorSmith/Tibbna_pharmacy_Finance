@@ -93,6 +93,14 @@ export default function DashboardContent({
   workspaceid: string;
 }) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [pharmacyStats, setPharmacyStats] = useState({
+    totalItems: 0,
+    lowStock: 0,
+    outOfStock: 0,
+    totalValue: 0,
+    expiringSoon: 0,
+    criticalItems: 0
+  });
   const [patientsList, setPatientsList] = useState<Patient[]>([]);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -150,12 +158,8 @@ export default function DashboardContent({
   }
 
   useEffect(() => {
-    // Prevent duplicate fetches
-    if (hasFetched.current) return;
-
     async function fetchStats() {
       try {
-        hasFetched.current = true;
         // Fetch all data in parallel
         const [
           patientsRes,
@@ -165,6 +169,7 @@ export default function DashboardContent({
           labsRes,
           pharmaciesRes,
           todosRes,
+          pharmacySummaryRes,
         ] = await Promise.all([
           fetch(`/api/d/${workspaceid}/patients`),
           fetch(`/api/d/${workspaceid}/staff`),
@@ -173,9 +178,10 @@ export default function DashboardContent({
           fetch(`/api/d/${workspaceid}/labs`),
           fetch(`/api/d/${workspaceid}/pharmacies`),
           fetch(`/api/d/${workspaceid}/todos`),
+          fetch(`/api/pharmacy/summary?workspaceId=${workspaceid}&_cb=${Date.now()}`),
         ]);
 
-        const [patients, staff, appointments, departments, labs, pharmacies, todosData] =
+        const [patients, staff, appointments, departments, labs, pharmacies, todosData, pharmacySummary] =
           await Promise.all([
             patientsRes.json(),
             staffRes.json(),
@@ -184,6 +190,7 @@ export default function DashboardContent({
             labsRes.json(),
             pharmaciesRes.json(),
             todosRes.json(),
+            pharmacySummaryRes.json(),
           ]);
 
         // Calculate today's appointments
@@ -221,6 +228,11 @@ export default function DashboardContent({
         // Set todos
         const todosList = todosData.todos || [];
         setTodos(todosList);
+
+        // Set pharmacy stats
+        if (pharmacySummary && !pharmacySummary.error) {
+          setPharmacyStats(pharmacySummary);
+        }
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       } finally {
@@ -299,6 +311,63 @@ export default function DashboardContent({
               <div className="text-2xl font-bold">{stats.departments}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Active departments
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Pharmacy Inventory Overview */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Pharmacy Inventory</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Items
+              </CardTitle>
+              <Pill className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {pharmacyStats.totalItems}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Pharmacy medications & supplies
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-amber-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Low Stock
+              </CardTitle>
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {pharmacyStats.lowStock}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Items below reorder level
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Out of Stock
+              </CardTitle>
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {pharmacyStats.outOfStock}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Items with zero quantity
               </p>
             </CardContent>
           </Card>
@@ -423,6 +492,21 @@ export default function DashboardContent({
                 <Button className="w-full bg-blue-500 hover:bg-blue-600 ">
                   <Users className="h-4 w-4 mr-2" />
                   Go to Patients
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <CardTitle className="text-base">Pharmacy Inventory</CardTitle>
+              <CardDescription>Manage medications and supplies</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={`/d/${workspaceid}/pharmacy-inventory`}>
+                <Button className="w-full bg-purple-500 hover:bg-purple-600">
+                  <Pill className="h-4 w-4 mr-2" />
+                  Go to Pharmacy
                 </Button>
               </Link>
             </CardContent>

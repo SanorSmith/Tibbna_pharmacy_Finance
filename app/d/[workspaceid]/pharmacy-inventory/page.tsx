@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { AddDrugToPharmacyWizard } from "@/components/AddDrugToPharmacyWizard";
 
 const Icon = ({ d, size = 16, color = "currentColor" }: { d: string; size?: number; color?: string }) => (
@@ -407,7 +408,12 @@ function BatchModal({ item, onClose }: { item: any; onClose: ()=>void }) {
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
-export default function PharmacyPage() {
+export default function PharmacyPage({ initialStockFilter }: { initialStockFilter?: "all" | "instock" | "lowstock" | "outofstock" } = {}) {
+  const params = useParams();
+  const workspaceid = params.workspaceid as string;
+  
+  console.log('[PharmacyInventoryPage] Using workspace ID:', workspaceid);
+
   type Tab = "items"|"stock"|"history"|"shoplist"|"suppliers"|"manufacturers"|"storage"|"orders"|"uom"|"reports";
   const [tab, setTab] = useState<Tab>("items");
   const [items, setItems] = useState<any[]>([]);
@@ -418,7 +424,15 @@ export default function PharmacyPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState<"all" | "instock" | "lowstock" | "outofstock">(initialStockFilter || "all");
   const [page, setPage] = useState(1);
+  
+  // Update stock filter when prop changes
+  useEffect(() => {
+    if (initialStockFilter) {
+      setStockFilter(initialStockFilter);
+    }
+  }, [initialStockFilter]);
   const PAGE_SIZE = 15;
   const [history, setHistory] = useState<any[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
@@ -492,7 +506,7 @@ export default function PharmacyPage() {
     setLoading(true);
     try {
       const [iRes,dRes,cRes,sRes,wRes] = await Promise.all([
-        fetch(`/api/pharmacy/items?search=${encodeURIComponent(search)}`),
+        fetch(`/api/pharmacy/items?search=${encodeURIComponent(search)}&workspaceId=${workspaceid}`),
         fetch("/api/pharmacy/dispense"),
         fetch("/api/pharmacy/controlled"),
         fetch("/api/stores"),
@@ -509,7 +523,7 @@ export default function PharmacyPage() {
     if (tab==="history") {
       fetch(`/api/pharmacy/history?page=${historyPage}&limit=${HISTORY_SIZE}`).then(r=>r.json()).then(d=>{setHistory(d.rows??[]);setHistoryTotal(d.total??0);});
     }
-  }, [search, tab, historyPage]);
+  }, [search, tab, historyPage, workspaceid]);
 
   const fetchShopList = useCallback(async () => {
     setShopLoading(true);
@@ -716,11 +730,24 @@ export default function PharmacyPage() {
     setSupplierItems(Array.isArray(data)?data:[]); setSupplierItemsLoading(false);
   };
 
-  const filteredItems = items.filter(i=>typeFilter==="all"||i.itemType===typeFilter);
+  // Apply type filter
+  let filteredItems = items.filter(i=>typeFilter==="all"||i.itemType===typeFilter);
+  
+  // Apply stock filter
+  if (stockFilter === "lowstock") {
+    filteredItems = filteredItems.filter(i=>parseInt(i.totalStock)>0&&parseInt(i.totalStock)<=parseInt(i.reorderLevel??0));
+  } else if (stockFilter === "outofstock") {
+    filteredItems = filteredItems.filter(i=>parseInt(i.totalStock)===0);
+  } else if (stockFilter === "instock") {
+    filteredItems = filteredItems.filter(i=>parseInt(i.totalStock)>parseInt(i.reorderLevel??0));
+  }
+  
   const totalItems = items.length;
   const lowStock = items.filter(i=>parseInt(i.totalStock)>0&&parseInt(i.totalStock)<=parseInt(i.reorderLevel??0)).length;
   const outOfStock = items.filter(i=>parseInt(i.totalStock)===0).length;
   const controlledCt = items.filter(i=>i.controlled).length;
+
+  console.log('[PharmacyInventoryPage] Calculated stats:', { totalItems, lowStock, outOfStock, itemsCount: items.length });
 
   const tabLabels: Record<Tab,string> = {
     items:`Items (${items.length})`,
@@ -752,8 +779,18 @@ export default function PharmacyPage() {
       <div style={{...s.content, marginTop:8}}>
         {/* Summary cards */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
-          {[{label:"Total Items",value:totalItems,color:"#6366f1",bg:"#eef2ff"},{label:"Low Stock",value:lowStock,color:"#d97706",bg:"#fef3c7"},{label:"Out of Stock",value:outOfStock,color:"#dc2626",bg:"#fee2e2"}].map(m=>(
-            <div key={m.label} style={{background:m.bg,borderRadius:10,padding:"14px 18px"}}>
+          {[
+            {label:"Total Items",value:totalItems,color:"#6366f1",bg:"#eef2ff",filter:"all" as const},
+            {label:"Low Stock",value:lowStock,color:"#d97706",bg:"#fef3c7",filter:"lowstock" as const},
+            {label:"Out of Stock",value:outOfStock,color:"#dc2626",bg:"#fee2e2",filter:"outofstock" as const}
+          ].map(m=>(
+            <div 
+              key={m.label} 
+              style={{background:m.bg,borderRadius:10,padding:"14px 18px",cursor:"pointer",border:stockFilter===m.filter?`2px solid ${m.color}`:"2px solid transparent",transition:"all 0.2s"}}
+              onClick={()=>setStockFilter(m.filter)}
+              onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+              onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
+            >
               <div style={{fontSize:11,fontWeight:600,color:m.color,marginBottom:4}}>{m.label}</div>
               <div style={{fontSize:28,fontWeight:700,color:"#111827"}}>{m.value}</div>
             </div>
@@ -779,6 +816,12 @@ export default function PharmacyPage() {
               {["all","drug","device","cosmetic","cream","supplement","consumable","other"].map(t=>(
                 <button key={t} onClick={()=>{setTypeFilter(t);setPage(1);}} style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:`1px solid ${typeFilter===t?"#6366f1":"#e5e7eb"}`,background:typeFilter===t?"#6366f1":"#f9fafb",color:typeFilter===t?"#fff":"#374151",cursor:"pointer"}}>
                   {t.charAt(0).toUpperCase()+t.slice(1)} {t==="all"?`(${items.length})`:""}
+                </button>
+              ))}
+              <div style={{width:1,height:20,background:"#e5e7eb"}}/>
+              {[{key:"all",label:"All Stock"},{key:"instock",label:"In Stock"},{key:"lowstock",label:"Low Stock"},{key:"outofstock",label:"Out of Stock"}].map(s=>(
+                <button key={s.key} onClick={()=>{setStockFilter(s.key as any);setPage(1);}} style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:`1px solid ${stockFilter===s.key?"#dc2626":"#e5e7eb"}`,background:stockFilter===s.key?"#dc2626":"#f9fafb",color:stockFilter===s.key?"#fff":"#374151",cursor:"pointer"}}>
+                  {s.label}
                 </button>
               ))}
               <span style={{marginLeft:"auto",fontSize:12,color:"#9ca3af"}}>{filteredItems.length} items</span>

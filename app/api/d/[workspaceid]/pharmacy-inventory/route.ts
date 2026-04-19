@@ -6,17 +6,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
-  drugs,
-  drugBatches,
-  stockLevels,
-  stockLocations,
-  stockMovements,
+  items,
+  itemBatches,
+  inventoryStock,
+  warehouses,
+  warehouseSections,
+  stockTransactions,
 } from "@/lib/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
-const DEFAULT_LOW_STOCK_THRESHOLD = 10;
+// Use item's reorderlevel, fall back to 10 if not set
+const FALLBACK_REORDER_THRESHOLD = 10;
 const DEFAULT_REORDER_QUANTITY = 100;
+
+// Helper to get effective reorder level for an item
+function getEffectiveReorderLevel(item: { reorderlevel: number | null }): number {
+  return item.reorderlevel ?? FALLBACK_REORDER_THRESHOLD;
+}
 
 export async function GET(
   request: NextRequest,
@@ -31,142 +38,149 @@ export async function GET(
     const search = searchParams.get("search") || "";
     const filter = searchParams.get("filter") || "all"; // all, low, outofstock, expiring
 
-    // Get all drugs with aggregated stock
-    const allDrugs = await db
+    // Get all pharmacy items with aggregated stock for this workspace
+    const allItems = await db
       .select({
-        drugid: drugs.drugid,
-        name: drugs.name,
-        genericname: drugs.genericname,
-        form: drugs.form,
-        strength: drugs.strength,
-        unit: drugs.unit,
-        barcode: drugs.barcode,
-        manufacturer: drugs.manufacturer,
-        isactive: drugs.isactive,
-        totalStock: sql<number>`COALESCE(SUM(${stockLevels.quantity}), 0)::int`,
+        itemid: items.id,
+        name: items.name,
+        genericname: items.genericname,
+        itemcode: items.itemcode,
+        uom: items.uom,
+        barcode: items.barcode,
+        manufacturer: items.manufacturer,
+        isactive: items.isactive,
+        reorderlevel: items.reorderlevel,
+        totalStock: sql<number>`COALESCE(SUM(${inventoryStock.quantity}), 0)::int`,
       })
-      .from(drugs)
-      .leftJoin(stockLevels, eq(drugs.drugid, stockLevels.drugid))
+      .from(items)
+      .leftJoin(inventoryStock, eq(items.id, inventoryStock.itemid))
+      .leftJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
       .where(
-        search
-          ? sql`(LOWER(${drugs.name}) LIKE LOWER(${'%' + search + '%'}) OR LOWER(${drugs.genericname}) LIKE LOWER(${'%' + search + '%'}) OR ${drugs.barcode} LIKE ${'%' + search + '%'})`
-          : undefined
+        sql`${items.workspaceid} = ${workspaceid} AND ${items.itemtype} = 'drug'`
       )
       .groupBy(
-        drugs.drugid,
-        drugs.name,
-        drugs.genericname,
-        drugs.form,
-        drugs.strength,
-        drugs.unit,
-        drugs.barcode,
-        drugs.manufacturer,
-        drugs.isactive
+        items.id,
+        items.name,
+        items.genericname,
+        items.itemcode,
+        items.uom,
+        items.barcode,
+        items.manufacturer,
+        items.isactive,
+        items.reorderlevel
       )
-      .orderBy(drugs.name);
+      .orderBy(items.name);
 
-    // Get batch info for each drug
-    const enrichedDrugs = await Promise.all(
-      allDrugs.map(async (drug) => {
+    // Get batch info and warehouse stock for each item
+    const enrichedItems = await Promise.all(
+      allItems.map(async (item) => {
         const batches = await db
           .select({
-            batchid: drugBatches.batchid,
-            lotnumber: drugBatches.lotnumber,
-            expirydate: drugBatches.expirydate,
-            purchaseprice: drugBatches.purchaseprice,
-            sellingprice: drugBatches.sellingprice,
+            batchid: itemBatches.id,
+            batchnumber: itemBatches.batchnumber,
+            quantity: itemBatches.quantity,
+            unitcost: itemBatches.unitcost,
           })
-          .from(drugBatches)
-          .where(eq(drugBatches.drugid, drug.drugid))
-          .orderBy(drugBatches.expirydate);
+          .from(itemBatches)
+          .where(eq(itemBatches.itemid, item.itemid))
+          .orderBy(itemBatches.batchnumber);
 
-        // Get stock per location
+        // Get stock per warehouse (pharmacy only)
         const locations = await db
           .select({
-            locationid: stockLocations.locationid,
-            locationname: stockLocations.name,
-            locationtype: stockLocations.type,
-            quantity: stockLevels.quantity,
-            batchid: stockLevels.batchid,
+            warehouseid: warehouses.id,
+            warehousename: warehouses.name,
+            sectionid: warehouseSections.id,
+            sectionname: warehouseSections.sectionname,
+            quantity: inventoryStock.quantity,
+            reservedquantity: inventoryStock.reservedquantity,
+            batchid: inventoryStock.batchid,
           })
-          .from(stockLevels)
-          .innerJoin(stockLocations, eq(stockLevels.locationid, stockLocations.locationid))
-          .where(eq(stockLevels.drugid, drug.drugid));
+          .from(inventoryStock)
+          .innerJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
+          .leftJoin(warehouseSections, eq(inventoryStock.warehouseid, warehouseSections.warehouseid))
+          .where(
+            sql`${inventoryStock.itemid} = ${item.itemid} AND ${warehouses.warehousetype} = 'pharmacy'`
+          );
 
-        // Check for expiring batches (within 90 days)
-        const now = new Date();
-        const ninetyDays = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-        const expiringBatches = batches.filter((b) => {
-          const exp = new Date(b.expirydate);
-          return exp <= ninetyDays && exp >= now;
-        });
-        const expiredBatches = batches.filter((b) => new Date(b.expirydate) < now);
+        // Note: item_batches doesn't have expirydate, expiry is tracked at item level
+        // For now, skip expiry checks - would need to add expirydate to itemBatches or use different logic
+        const hasExpiring = false;
+        const hasExpired = false;
 
-        const isLowStock = drug.totalStock > 0 && drug.totalStock < DEFAULT_LOW_STOCK_THRESHOLD;
-        const isOutOfStock = drug.totalStock === 0;
-        const hasExpiring = expiringBatches.length > 0;
-        const hasExpired = expiredBatches.length > 0;
+        // Use item's reorderlevel for low stock calculation
+        const effectiveReorderLevel = getEffectiveReorderLevel(item);
+        const isLowStock = item.totalStock > 0 && item.totalStock <= effectiveReorderLevel;
+        const isOutOfStock = item.totalStock === 0;
 
         // Determine status
-        let status: "ok" | "low" | "outofstock" | "expiring" = "ok";
+        let status: "ok" | "low" | "outofstock" = "ok";
         if (isOutOfStock) status = "outofstock";
         else if (isLowStock) status = "low";
-        else if (hasExpiring) status = "expiring";
 
         return {
-          ...drug,
+          ...item,
           batches,
           locations,
-          expiringBatches: expiringBatches.length,
-          expiredBatches: expiredBatches.length,
-          isLowStock,
-          isOutOfStock,
           hasExpiring,
           hasExpired,
+          isLowStock,
+          isOutOfStock,
           status,
           reorderSuggested: isLowStock || isOutOfStock,
           suggestedReorderQty: isOutOfStock
             ? DEFAULT_REORDER_QUANTITY
             : isLowStock
-            ? DEFAULT_REORDER_QUANTITY - drug.totalStock
+            ? Math.max(DEFAULT_REORDER_QUANTITY - item.totalStock, 0)
             : 0,
         };
       })
     );
 
     // Apply filter
-    let filtered = enrichedDrugs;
-    if (filter === "low") filtered = enrichedDrugs.filter((d) => d.isLowStock);
-    else if (filter === "outofstock") filtered = enrichedDrugs.filter((d) => d.isOutOfStock);
-    else if (filter === "expiring") filtered = enrichedDrugs.filter((d) => d.hasExpiring || d.hasExpired);
+    let filtered = enrichedItems;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = enrichedItems.filter((i) =>
+        i.name.toLowerCase().includes(searchLower) ||
+        (i.genericname?.toLowerCase() || '').includes(searchLower) ||
+        i.barcode?.includes(search)
+      );
+    }
+    if (filter === "low") filtered = enrichedItems.filter((i) => i.isLowStock);
+    else if (filter === "outofstock") filtered = enrichedItems.filter((i) => i.isOutOfStock);
+    else if (filter === "expiring") filtered = enrichedItems.filter((i) => i.hasExpiring || i.hasExpired);
 
     // Summary stats
     const summary = {
-      totalDrugs: allDrugs.length,
-      lowStock: enrichedDrugs.filter((d) => d.isLowStock).length,
-      outOfStock: enrichedDrugs.filter((d) => d.isOutOfStock).length,
-      expiringSoon: enrichedDrugs.filter((d) => d.hasExpiring).length,
-      expired: enrichedDrugs.filter((d) => d.hasExpired).length,
-      reorderNeeded: enrichedDrugs.filter((d) => d.reorderSuggested).length,
-      threshold: DEFAULT_LOW_STOCK_THRESHOLD,
+      totalDrugs: enrichedItems.length,
+      lowStock: enrichedItems.filter((i) => i.isLowStock).length,
+      outOfStock: enrichedItems.filter((i) => i.isOutOfStock).length,
+      expiringSoon: enrichedItems.filter((i) => i.hasExpiring).length,
+      expired: enrichedItems.filter((i) => i.hasExpired).length,
+      reorderNeeded: enrichedItems.filter((i) => i.reorderSuggested).length,
+      threshold: FALLBACK_REORDER_THRESHOLD,
     };
 
     // Recent movements
     const recentMovements = await db
       .select({
-        movementid: stockMovements.movementid,
-        drugid: stockMovements.drugid,
-        type: stockMovements.type,
-        quantity: stockMovements.quantity,
-        reason: stockMovements.reason,
-        createdat: stockMovements.createdat,
-        drugname: drugs.name,
-        locationname: stockLocations.name,
+        movementid: stockTransactions.id,
+        itemid: stockTransactions.itemid,
+        transactiontype: stockTransactions.transactiontype,
+        quantity: stockTransactions.quantity,
+        referencetype: stockTransactions.referencetype,
+        createdat: stockTransactions.createdat,
+        itemname: items.name,
+        warehousename: warehouses.name,
       })
-      .from(stockMovements)
-      .innerJoin(drugs, eq(stockMovements.drugid, drugs.drugid))
-      .innerJoin(stockLocations, eq(stockMovements.locationid, stockLocations.locationid))
-      .orderBy(desc(stockMovements.createdat))
+      .from(stockTransactions)
+      .innerJoin(items, eq(stockTransactions.itemid, items.id))
+      .innerJoin(warehouses, eq(stockTransactions.warehouseid, warehouses.id))
+      .where(
+        sql`${warehouses.warehousetype} = 'pharmacy'`
+      )
+      .orderBy(desc(stockTransactions.createdat))
       .limit(20);
 
     return NextResponse.json({
@@ -191,42 +205,45 @@ export async function POST(
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { drugids } = body; // array of drugids to reorder
+    const { itemids } = body; // array of item ids to reorder
 
-    if (!Array.isArray(drugids) || drugids.length === 0) {
-      return NextResponse.json({ error: "drugids array required" }, { status: 400 });
+    if (!Array.isArray(itemids) || itemids.length === 0) {
+      return NextResponse.json({ error: "itemids array required" }, { status: 400 });
     }
 
-    // Get drug info for reorder
+    // Get item info for reorder
     const reorderItems = [];
-    for (const drugid of drugids) {
-      const [drug] = await db
+    for (const itemid of itemids) {
+      const [item] = await db
         .select({
-          drugid: drugs.drugid,
-          name: drugs.name,
-          strength: drugs.strength,
-          form: drugs.form,
-          manufacturer: drugs.manufacturer,
+          itemid: items.id,
+          name: items.name,
+          genericname: items.genericname,
+          manufacturer: items.manufacturer,
+          reorderlevel: items.reorderlevel,
         })
-        .from(drugs)
-        .where(eq(drugs.drugid, drugid))
+        .from(items)
+        .where(eq(items.id, itemid))
         .limit(1);
 
-      if (!drug) continue;
+      if (!item) continue;
 
-      // Calculate current stock
+      // Calculate current stock in pharmacy warehouses for this workspace
       const [stockInfo] = await db
         .select({
-          totalStock: sql<number>`COALESCE(SUM(${stockLevels.quantity}), 0)::int`,
+          totalStock: sql<number>`COALESCE(SUM(${inventoryStock.quantity}), 0)::int`,
         })
-        .from(stockLevels)
-        .where(eq(stockLevels.drugid, drugid));
+        .from(inventoryStock)
+        .innerJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
+        .where(
+          sql`${inventoryStock.itemid} = ${itemid} AND ${warehouses.warehousetype} = 'pharmacy'`
+        );
 
       const currentStock = stockInfo?.totalStock || 0;
       const suggestedQty = Math.max(DEFAULT_REORDER_QUANTITY - currentStock, DEFAULT_REORDER_QUANTITY);
 
       reorderItems.push({
-        ...drug,
+        ...item,
         currentStock,
         suggestedQuantity: suggestedQty,
         status: "REORDER_SUGGESTED",

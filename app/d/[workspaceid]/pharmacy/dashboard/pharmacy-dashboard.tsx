@@ -55,12 +55,43 @@ export default function PharmacyDashboard({
   const tabParam = searchParams.get("tab") || "dashboard";
   const [activeTab, setActiveTab] = useState(tabParam);
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set([tabParam]));
+  const [inventoryStockFilter, setInventoryStockFilter] = useState<"all" | "instock" | "lowstock" | "outofstock">("all");
+  const [pharmacyStats, setPharmacyStats] = useState({
+    totalItems: 0,
+    lowStock: 0,
+    outOfStock: 0,
+    totalValue: 0,
+    expiringSoon: 0,
+    criticalItems: 0
+  });
 
   useEffect(() => {
     const tab = searchParams.get("tab") || "dashboard";
     setActiveTab(tab);
     setLoadedTabs((prev) => new Set(prev).add(tab));
   }, [searchParams]);
+
+  // Fetch pharmacy summary data
+  useEffect(() => {
+    const fetchPharmacyStats = async () => {
+      try {
+        console.log('[PharmacyDashboard] Fetching stats for workspace:', workspaceid);
+        // Add cache-busting to force fresh data
+        const cacheBuster = Date.now();
+        const res = await fetch(`/api/pharmacy/summary?workspaceId=${workspaceid}&_cb=${cacheBuster}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.error) {
+            setPharmacyStats(data);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching pharmacy stats:", error);
+      }
+    };
+
+    fetchPharmacyStats();
+  }, [workspaceid]);
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["pharmacy-dashboard", workspaceid],
@@ -69,7 +100,7 @@ export default function PharmacyDashboard({
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes
+    staleTime: 0, // Always fetch fresh data (disable cache)
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
     refetchOnMount: true, // Only fetch on initial mount
     enabled: !!workspaceid, // Only run query when workspaceid is available
@@ -221,6 +252,43 @@ export default function PharmacyDashboard({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="px-4 pb-4">
+                      {/* Pharmacy Inventory Summary */}
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        <div 
+                          className="text-center p-2 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+                          onClick={() => {
+                            setInventoryStockFilter("all");
+                            setActiveTab("inventory");
+                            setLoadedTabs((prev) => new Set(prev).add("inventory"));
+                          }}
+                        >
+                          <p className="text-lg font-bold text-blue-600">{pharmacyStats.totalItems}</p>
+                          <p className="text-xs text-muted-foreground">Total Items</p>
+                        </div>
+                        <div 
+                          className="text-center p-2 bg-amber-50 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors"
+                          onClick={() => {
+                            setInventoryStockFilter("lowstock");
+                            setActiveTab("inventory");
+                            setLoadedTabs((prev) => new Set(prev).add("inventory"));
+                          }}
+                        >
+                          <p className="text-lg font-bold text-amber-600">{pharmacyStats.lowStock}</p>
+                          <p className="text-xs text-muted-foreground">Low Stock</p>
+                        </div>
+                        <div 
+                          className="text-center p-2 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+                          onClick={() => {
+                            setInventoryStockFilter("outofstock");
+                            setActiveTab("inventory");
+                            setLoadedTabs((prev) => new Set(prev).add("inventory"));
+                          }}
+                        >
+                          <p className="text-lg font-bold text-red-600">{pharmacyStats.outOfStock}</p>
+                          <p className="text-xs text-muted-foreground">Out of Stock</p>
+                        </div>
+                      </div>
+
                       {(stats?.lowStock.count ?? 0) === 0 ? (
                         <p className="text-sm text-muted-foreground py-4 text-center">All medicines are in stock</p>
                       ) : (
@@ -373,7 +441,7 @@ export default function PharmacyDashboard({
       {/* Inventory Tab */}
       <TabsContent value="inventory" className="mt-4 px-4">
         {loadedTabs.has("inventory") && (
-          <PharmacyInventoryPage />
+          <PharmacyInventoryPage initialStockFilter={inventoryStockFilter} />
         )}
       </TabsContent>
 

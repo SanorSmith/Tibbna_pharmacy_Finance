@@ -7,15 +7,26 @@ const pool = new Pool({
 
 export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams.get("search") ?? "";
+  const workspaceId = req.nextUrl.searchParams.get("workspaceId") ?? "";
 
-  const whRes = await pool.query(
-    `SELECT id FROM warehouses WHERE warehouse_type = 'pharmacy' AND is_active = true`
-  );
+  console.log('[Pharmacy Items API] Received workspace ID:', workspaceId);
+
+  // Get all pharmacy warehouses (warehouses table doesn't have workspace_id)
+  const whQuery = `SELECT id FROM warehouses WHERE warehouse_type = 'pharmacy' AND is_active = true`;
+  const whRes = await pool.query(whQuery);
 
   if (!whRes.rows.length) return NextResponse.json([]);
 
   const ids = whRes.rows.map((r: any) => r.id);
   const whArray = `{${ids.join(",")}}`;
+
+  const queryParams = [whArray, search.trim() === "" ? "%" : `%${search}%`];
+  let workspaceFilter = '';
+  
+  if (workspaceId) {
+    workspaceFilter = `AND i.workspace_id = $3`;
+    queryParams.push(workspaceId);
+  }
 
   const result = await pool.query(
     `SELECT
@@ -57,10 +68,11 @@ export async function GET(req: NextRequest) {
       ON ib.item_id = i.id
       AND ib.warehouse_id = ANY($1::uuid[])
     WHERE i.is_active = true
+      ${workspaceFilter}
       AND (
         i.inventorycategory = 'pharmacy'
         OR i.inventory_category = 'pharmacy'
-        OR ist.warehouse_id = ANY($1::uuid[])
+        OR ist.warehouse_id IS NOT NULL
       )
     AND (
         $2 = '%'
@@ -75,8 +87,10 @@ export async function GET(req: NextRequest) {
       i.max_level, i.controlled, i.manufacturer, i.is_active,
       i.description, i.barcode
     ORDER BY i.name`,
-  [whArray, search.trim() === "" ? "%" : `%${search}%`]
+  queryParams
   );
+
+  console.log('[Pharmacy Items API] Returning', result.rows.length, 'items for workspace', workspaceId);
 
   return NextResponse.json(result.rows);
 }

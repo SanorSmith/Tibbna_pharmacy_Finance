@@ -52,7 +52,7 @@ interface LocationStock {
 }
 
 interface InventoryItem {
-  drugid: string;
+  itemid: string;
   name: string;
   genericname: string | null;
   form: string;
@@ -124,11 +124,11 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
   });
 
   const reorderMutation = useMutation({
-    mutationFn: async (drugids: string[]) => {
+    mutationFn: async (itemids: string[]) => {
       const res = await fetch(`/api/d/${workspaceid}/pharmacy-inventory`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ drugids }),
+        body: JSON.stringify({ itemids }),
       });
       if (!res.ok) throw new Error("Reorder failed");
       return res.json();
@@ -139,18 +139,18 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
     },
   });
 
-  const toggleReorder = (drugid: string) => {
+  const toggleReorder = (itemid: string) => {
     setSelectedForReorder((prev) => {
       const next = new Set(prev);
-      if (next.has(drugid)) next.delete(drugid);
-      else next.add(drugid);
+      if (next.has(itemid)) next.delete(itemid);
+      else next.add(itemid);
       return next;
     });
   };
 
   const selectAllLowStock = () => {
     if (!data) return;
-    const lowIds = data.inventory.filter((d) => d.reorderSuggested).map((d) => d.drugid);
+    const lowIds = data.inventory.filter((d) => d.reorderSuggested).map((d) => d.itemid);
     setSelectedForReorder(new Set(lowIds));
   };
 
@@ -287,15 +287,15 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
 
                     return (
                       <TableRow
-                        key={item.drugid}
+                        key={item.itemid}
                         className={`${item.isOutOfStock ? "bg-red-50/50" : item.isLowStock ? "bg-amber-50/50" : ""}`}
                       >
                         <TableCell className="text-center">
                           {item.reorderSuggested && (
                             <input
                               type="checkbox"
-                              checked={selectedForReorder.has(item.drugid)}
-                              onChange={() => toggleReorder(item.drugid)}
+                              checked={selectedForReorder.has(item.itemid)}
+                              onChange={() => toggleReorder(item.itemid)}
                               className="h-4 w-4 rounded border-gray-300"
                             />
                           )}
@@ -389,7 +389,7 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
 
       {/* Low stock threshold info */}
       <p className="text-[11px] text-muted-foreground text-center">
-        Low stock threshold: {summary?.threshold ?? DEFAULT_LOW_STOCK_THRESHOLD} units. Items below this level are flagged for reorder.
+        Low stock threshold: {summary?.threshold ?? 10} units. Items below this level are flagged for reorder.
       </p>
     </div>
   );
