@@ -26,6 +26,7 @@ import {
   Loader2,
   FlaskConical,
   Warehouse,
+  Shield,
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
@@ -149,6 +150,13 @@ export default function PharmacyDashboard({
           >
             <Warehouse className="h-4 w-4" />
             Inventory
+          </TabsTrigger>
+          <TabsTrigger
+            value="insurance"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <Shield className="h-4 w-4" />
+            Insurance
           </TabsTrigger>
           <TabsTrigger
             value="todo"
@@ -479,6 +487,13 @@ export default function PharmacyDashboard({
       <TabsContent value="inventory" className="mt-4 px-4">
         {loadedTabs.has("inventory") && (
           <PharmacyInventoryPage initialStockFilter={inventoryStockFilter} />
+        )}
+      </TabsContent>
+
+      {/* Insurance Tab */}
+      <TabsContent value="insurance" className="mt-4 px-4">
+        {loadedTabs.has("insurance") && (
+          <PlaceholderTab title="Insurance" description="Insurance management — coming soon" icon={<Shield className="h-12 w-12 text-gray-300" />} />
         )}
       </TabsContent>
 

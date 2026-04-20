@@ -983,6 +983,12 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                                 {pharmaWh.length > 2 && <div style={{fontSize:10,color:"#9ca3af"}}>+{pharmaWh.length - 2} more</div>}
                               </div>
                             ) : "—"}
+                            {item.storageLocationName && (
+                              <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #e5e7eb"}}>
+                                <div style={{fontSize:10,color:"#059669",fontWeight:600}}>📍 {item.storageLocationName}</div>
+                                {item.storageLocation && <div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{item.storageLocation}</div>}
+                              </div>
+                            )}
                           </td>
                           <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#f3f4f6",color:"#374151"}}>{item.itemType}</span></td>
                           <td style={s.td}>{item.uom}</td>
