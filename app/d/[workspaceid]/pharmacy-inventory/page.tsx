@@ -780,9 +780,9 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
         {/* Summary cards */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
           {[
-            {label:"Total Items",value:totalItems,color:"#6366f1",bg:"#eef2ff",filter:"all" as const},
-            {label:"Low Stock",value:lowStock,color:"#d97706",bg:"#fef3c7",filter:"lowstock" as const},
-            {label:"Out of Stock",value:outOfStock,color:"#dc2626",bg:"#fee2e2",filter:"outofstock" as const}
+            {label:"Total Items",value:totalItems,color:"#16a34a",bg:"#dcfce7",filter:"all" as const},
+            {label:"Low Stock",value:lowStock,color:"#f59e0b",bg:"#fef3c7",filter:"lowstock" as const},
+            {label:"Out of Stock",value:outOfStock,color:"#ef4444",bg:"#fee2e2",filter:"outofstock" as const}
           ].map(m=>(
             <div 
               key={m.label} 
@@ -807,23 +807,44 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
         {/* ITEMS TAB */}
         {tab==="items" && (
           <div style={s.card}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap" as const}}>
               <div style={{position:"relative",display:"flex",alignItems:"center"}}>
                 <div style={{position:"absolute",left:10,pointerEvents:"none"}}><Icon d={icons.search} size={13} color="#9ca3af"/></div>
                 <input placeholder="Search name, code, generic, supplier..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} style={{...s.input,width:280,paddingLeft:30}}/>
               </div>
-              <div style={{width:1,height:20,background:"#e5e7eb"}}/>
-              {["all","drug","device","cosmetic","cream","supplement","consumable","other"].map(t=>(
-                <button key={t} onClick={()=>{setTypeFilter(t);setPage(1);}} style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:`1px solid ${typeFilter===t?"#6366f1":"#e5e7eb"}`,background:typeFilter===t?"#6366f1":"#f9fafb",color:typeFilter===t?"#fff":"#374151",cursor:"pointer"}}>
-                  {t.charAt(0).toUpperCase()+t.slice(1)} {t==="all"?`(${items.length})`:""}
-                </button>
-              ))}
-              <div style={{width:1,height:20,background:"#e5e7eb"}}/>
-              {[{key:"all",label:"All Stock"},{key:"instock",label:"In Stock"},{key:"lowstock",label:"Low Stock"},{key:"outofstock",label:"Out of Stock"}].map(s=>(
-                <button key={s.key} onClick={()=>{setStockFilter(s.key as any);setPage(1);}} style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:`1px solid ${stockFilter===s.key?"#dc2626":"#e5e7eb"}`,background:stockFilter===s.key?"#dc2626":"#f9fafb",color:stockFilter===s.key?"#fff":"#374151",cursor:"pointer"}}>
-                  {s.label}
-                </button>
-              ))}
+              
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <label style={{fontSize:12,fontWeight:600,color:"#6b7280"}}>Item Type:</label>
+                <select 
+                  value={typeFilter} 
+                  onChange={e=>{setTypeFilter(e.target.value);setPage(1);}}
+                  style={{...s.input,width:150,paddingRight:30,cursor:"pointer"}}
+                >
+                  <option value="all">All ({items.length})</option>
+                  <option value="drug">Drug</option>
+                  <option value="device">Device</option>
+                  <option value="cosmetic">Cosmetic</option>
+                  <option value="cream">Cream</option>
+                  <option value="supplement">Supplement</option>
+                  <option value="consumable">Consumable</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <label style={{fontSize:12,fontWeight:600,color:"#6b7280"}}>Stock Status:</label>
+                <select 
+                  value={stockFilter} 
+                  onChange={e=>{setStockFilter(e.target.value as any);setPage(1);}}
+                  style={{...s.input,width:150,cursor:"pointer"}}
+                >
+                  <option value="all">All Stock</option>
+                  <option value="instock">In Stock</option>
+                  <option value="lowstock">Low Stock</option>
+                  <option value="outofstock">Out of Stock</option>
+                </select>
+              </div>
+
               <span style={{marginLeft:"auto",fontSize:12,color:"#9ca3af"}}>{filteredItems.length} items</span>
             </div>
             {loading?<div style={{padding:40,textAlign:"center",color:"#9ca3af"}}>Loading...</div>
