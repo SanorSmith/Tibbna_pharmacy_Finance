@@ -7,6 +7,7 @@ import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
 import {
   pharmacyOrders,
+  pharmacyOrderItems,
   drugs,
   stockLevels,
   invoices,
@@ -79,7 +80,7 @@ export async function GET(
       .select({
         totalSales: sql<string>`COALESCE(SUM(${invoices.total}::numeric), 0)`,
         totalInvoices: count(),
-        paidInvoices: sql<number>`COUNT(*) FILTER (WHERE ${invoices.status} = 'PAID')::int`,
+        paidInvoices: sql<number>`COUNT(*) FILTER (WHERE ${invoices.status} = 'PAID')`,
       })
       .from(invoices)
       .innerJoin(pharmacyOrders, eq(invoices.orderid, pharmacyOrders.orderid))
@@ -141,6 +142,34 @@ export async function GET(
       )
       .limit(10);
 
+    // 7. Top selling medicines (this month)
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const topSellers = await db
+      .select({
+        drugid: drugs.drugid,
+        drugname: drugs.name,
+        genericname: drugs.genericname,
+        strength: drugs.strength,
+        form: drugs.form,
+        totalquantity: sql<number>`COALESCE(SUM(${pharmacyOrderItems.quantity}), 0)::int`,
+      })
+      .from(pharmacyOrderItems)
+      .innerJoin(pharmacyOrders, eq(pharmacyOrderItems.orderid, pharmacyOrders.orderid))
+      .innerJoin(drugs, eq(pharmacyOrderItems.drugid, drugs.drugid))
+      .where(
+        and(
+          eq(pharmacyOrders.workspaceid, workspaceid),
+          sql`${pharmacyOrders.status} IN ('DISPENSED', 'COMPLETED')`,
+          gte(pharmacyOrders.createdat, monthStart)
+        )
+      )
+      .groupBy(drugs.drugid, drugs.name, drugs.genericname, drugs.strength, drugs.form)
+      .orderBy(sql`SUM(${pharmacyOrderItems.quantity}) DESC`)
+      .limit(10);
+
     return NextResponse.json({
       lowStock: {
         count: lowStockItems.length,
@@ -171,6 +200,7 @@ export async function GET(
         count: doctorNotifications.length,
         items: doctorNotifications,
       },
+      topSellers: topSellers,
     });
   } catch (error) {
     console.error("Error fetching pharmacy dashboard stats:", error);

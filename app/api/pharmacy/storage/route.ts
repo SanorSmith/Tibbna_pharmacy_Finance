@@ -15,10 +15,7 @@ export async function GET(req: NextRequest) {
         ws.bin_location as location,
         ws.section_type as type,
         ws.temperature_controlled,
-        CASE 
-          WHEN ws.temperature_controlled = true THEN 'Yes'
-          ELSE '—'
-        END as temperature,
+        COALESCE(ws.temperature, '—') as temperature,
         ws.description as notes,
         w.name as warehouse_name
       FROM warehouse_sections ws
@@ -52,14 +49,14 @@ export async function POST(req: NextRequest) {
     
     const warehouseId = whResult.rows[0].id;
     
-    // Convert temperature to boolean - temperature_controlled expects boolean
-    const isTemperatureControlled = temperature === true || temperature === "true" || temperature === 1;
+    // Determine if temperature controlled based on temperature value
+    const isTemperatureControlled = temperature && temperature.toLowerCase() !== 'room temp' && temperature !== '—';
     
     const r = await pool.query(
-      `INSERT INTO warehouse_sections (id, warehouse_id, sectionname, bin_location, section_type, temperature_controlled, description)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6) 
-       RETURNING id, sectionname as name, bin_location as location, section_type as type, temperature_controlled, description as notes`,
-      [warehouseId, name, location||null, type||"shelf", isTemperatureControlled, notes||null]
+      `INSERT INTO warehouse_sections (id, warehouse_id, sectionname, bin_location, section_type, temperature_controlled, temperature, description)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7) 
+       RETURNING id, sectionname as name, bin_location as location, section_type as type, temperature_controlled, temperature, description as notes`,
+      [warehouseId, name, location||null, type||"shelf", isTemperatureControlled, temperature||null, notes||null]
     );
     return NextResponse.json(r.rows[0]);
   } catch (error) {
