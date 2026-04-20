@@ -42,9 +42,13 @@ export async function GET(req: NextRequest) {
       i.max_level          AS "maxLevel",
       i.controlled,
       i.manufacturer,
+      i.packaging_type     AS "packagingType",
+      i.package_size       AS "packageSize",
+      i.tablets_per_pack   AS "tabletsPerPack",
       i.is_active          AS "isActive",
       i.description,
       i.barcode,
+      i.created_at         AS "createdAt",
       COALESCE(SUM(ist.quantity), 0)::int          AS "totalStock",
       COALESCE(SUM(ist.reserved_quantity), 0)::int AS "reservedStock",
       COUNT(DISTINCT ib.id)::int                   AS "batchCount",
@@ -84,8 +88,9 @@ export async function GET(req: NextRequest) {
     GROUP BY
       i.id, i.itemcode, i.name, i.generic_name, i.itemtype,
       i.inventorycategory, i.uom, i.min_level, i.reorder_level,
-      i.max_level, i.controlled, i.manufacturer, i.is_active,
-      i.description, i.barcode
+      i.max_level, i.controlled, i.manufacturer, i.packaging_type,
+      i.package_size, i.tablets_per_pack, i.is_active,
+      i.description, i.barcode, i.created_at
     ORDER BY i.name`,
   queryParams
   );

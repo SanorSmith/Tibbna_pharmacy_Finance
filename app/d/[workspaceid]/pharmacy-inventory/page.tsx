@@ -852,10 +852,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
             :<>
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr>{["Item","Code","Type","UOM","Stock","Purchase Price","Selling Price","Supplier","Actions"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Item","Code","Manufacturer","Packaging","Type","UOM","Stock","Expiry Date","Registered","Purchase Price","Selling Price","Actions"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {filteredItems.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map(item=>{
                       const sc=stockColor(parseInt(item.totalStock),parseInt(item.reorderLevel??0));
+                      const nearestExpiry = item.nearestExpiry ? new Date(item.nearestExpiry) : null;
+                      const isExpired = nearestExpiry && nearestExpiry < new Date();
+                      const daysToExpiry = nearestExpiry ? Math.ceil((nearestExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
                       return (
                         <tr key={item.id}>
                           <td style={{...s.td,minWidth:160}}>
@@ -863,12 +866,43 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                             {(item.genericName??item.generic_Name)&&<div style={{fontSize:11,color:"#9ca3af"}}>{item.genericName??item.generic_Name}</div>}
                           </td>
                           <td style={{...s.td,fontFamily:"monospace",fontSize:11,color:"#6b7280"}}>{item.itemcode}</td>
+                          <td style={{...s.td,fontSize:12,color:"#374151"}}>{item.manufacturer??"—"}</td>
+                          <td style={s.td}>
+                            {item.packagingType || item.packageSize || item.tabletsPerPack ? (
+                              <div>
+                                {item.packagingType && <div style={{fontSize:11,fontWeight:600,color:"#374151"}}>{item.packagingType}</div>}
+                                {item.packageSize && <div style={{fontSize:11,color:"#6b7280"}}>{item.packageSize}</div>}
+                                {item.tabletsPerPack && <div style={{fontSize:10,color:"#9ca3af"}}>{item.tabletsPerPack} units/pack</div>}
+                              </div>
+                            ) : "—"}
+                          </td>
                           <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#f3f4f6",color:"#374151"}}>{item.itemType}</span></td>
                           <td style={s.td}>{item.uom}</td>
                           <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:sc.bg,color:sc.color}}>{item.totalStock}</span></td>
+                          <td style={{...s.td,fontSize:11}}>
+                            {nearestExpiry ? (
+                              <div>
+                                <div style={{color: isExpired ? "#dc2626" : daysToExpiry !== null && daysToExpiry <= 90 ? "#f59e0b" : "#374151", fontWeight: isExpired ? 600 : 400}}>
+                                  {nearestExpiry.toLocaleDateString()}
+                                </div>
+                                {daysToExpiry !== null && (
+                                  <div style={{fontSize:10,color: isExpired ? "#dc2626" : daysToExpiry <= 30 ? "#dc2626" : daysToExpiry <= 90 ? "#f59e0b" : "#9ca3af"}}>
+                                    {isExpired ? "EXPIRED" : `${daysToExpiry}d left`}
+                                  </div>
+                                )}
+                              </div>
+                            ) : "—"}
+                          </td>
+                          <td style={{...s.td,fontSize:11,color:"#6b7280"}}>
+                            {item.createdAt ? (
+                              <div>
+                                <div>{new Date(item.createdAt).toLocaleDateString()}</div>
+                                <div style={{fontSize:10,color:"#9ca3af"}}>{new Date(item.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                              </div>
+                            ) : "—"}
+                          </td>
                           <td style={s.td}>{item.unitCost?`$${parseFloat(item.unitCost).toFixed(2)}`:"—"}</td>
                           <td style={s.td}>{item.sellingPrice?<span style={{color:"#16a34a",fontWeight:600}}>${parseFloat(item.sellingPrice).toFixed(2)}</span>:"—"}</td>
-                          <td style={{...s.td,fontSize:12,color:"#6b7280"}}>{item.supplierName??"—"}</td>
                           <td style={s.td}>
                             <div style={{display:"flex",gap:5}}>
                               <button onClick={()=>setBatchItem(item)} title="View batches" style={{background:"#f0fdf4",border:"none",borderRadius:6,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon d={icons.layers} size={12} color="#16a34a"/></button>

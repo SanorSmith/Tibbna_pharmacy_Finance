@@ -40,6 +40,7 @@ interface DashboardStats {
   sales: { totalRevenue: number; todayRevenue: number; totalInvoices: number; paidInvoices: number };
   overdue: { count: number; orders: { orderid: string; priority: string; createdat: string }[] };
   notifications: { count: number; items: { orderid: string; priority: string; status: string; notes: string | null; createdat: string; source: string }[] };
+  topSellers?: { drugid: string; drugname: string; genericname: string | null; strength: string; form: string; totalquantity: number }[];
 }
 
 export default function PharmacyDashboard({
@@ -343,6 +344,42 @@ export default function PharmacyDashboard({
                               >
                                 {n.priority}
                               </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Sellers */}
+                  <Card className="shadow-sm">
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        Top Selling Medicines
+                        <Badge className="text-[10px] px-1.5 py-0 bg-green-500">
+                          This Month
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      {(!stats?.topSellers || stats.topSellers.length === 0) ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No sales data available</p>
+                      ) : (
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {stats.topSellers.map((item: any, index: number) => (
+                            <div key={item.itemid || index} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-muted-foreground w-5">#{index + 1}</span>
+                                <div>
+                                  <p className="text-sm font-medium">{item.itemname || item.drugname}</p>
+                                  <p className="text-[11px] text-muted-foreground">{item.genericname || item.strength}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-green-600">{item.totalquantity || item.quantity}</p>
+                                <p className="text-[10px] text-muted-foreground">units sold</p>
+                              </div>
                             </div>
                           ))}
                         </div>

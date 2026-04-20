@@ -141,6 +141,33 @@ export async function GET(
       )
       .limit(10);
 
+    // 7. Top selling medicines (this month)
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const topSellers = await db
+      .select({
+        drugid: drugs.drugid,
+        drugname: drugs.name,
+        genericname: drugs.genericname,
+        strength: drugs.strength,
+        form: drugs.form,
+        totalquantity: sql<number>`COALESCE(SUM(${pharmacyOrders.quantity}), 0)::int`,
+      })
+      .from(pharmacyOrders)
+      .innerJoin(drugs, eq(pharmacyOrders.drugid, drugs.drugid))
+      .where(
+        and(
+          eq(pharmacyOrders.workspaceid, workspaceid),
+          sql`${pharmacyOrders.status} IN ('DISPENSED', 'COMPLETED')`,
+          gte(pharmacyOrders.createdat, monthStart)
+        )
+      )
+      .groupBy(drugs.drugid, drugs.name, drugs.genericname, drugs.strength, drugs.form)
+      .orderBy(sql`SUM(${pharmacyOrders.quantity}) DESC`)
+      .limit(10);
+
     return NextResponse.json({
       lowStock: {
         count: lowStockItems.length,
@@ -171,6 +198,7 @@ export async function GET(
         count: doctorNotifications.length,
         items: doctorNotifications,
       },
+      topSellers: topSellers,
     });
   } catch (error) {
     console.error("Error fetching pharmacy dashboard stats:", error);

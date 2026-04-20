@@ -281,6 +281,10 @@ export const items = pgTable("items", {
   supplierid:        uuid("supplier_id").references(() => suppliers.supplierid),
   barcode:           text("barcode"),
   drugid:            uuid("drug_id").references(() => drugs.drugid),
+  // packaging information
+  packagingtype:     text("packaging_type"), // e.g., "bottle", "blister", "box", "vial"
+  packagesize:       text("package_size"),   // e.g., "30 tablets", "100ml", "10 vials"
+  tabletsperpack:    integer("tablets_per_pack"), // for tablets/capsules
   // supply/consumable specific
   singleuse:         boolean("single_use").default(false),
   sterile:           boolean("sterile").default(false),
