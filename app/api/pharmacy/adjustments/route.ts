@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { itemId, warehouseId, batchId, adjustmentQty, reason, createdBy, unitCost, sellingPrice, batchNumber, expiryDate, itemType, manufacturer } = body;
 
-  if (!itemId || !warehouseId || !adjustmentQty || !reason)
+  if (!itemId || !warehouseId || adjustmentQty == null || adjustmentQty === "" || !reason)
     return NextResponse.json({ error: "Item, warehouse, quantity and reason are required" }, { status: 400 });
 
   const adjId = crypto.randomUUID();

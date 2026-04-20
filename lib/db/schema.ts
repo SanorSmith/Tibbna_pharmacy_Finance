@@ -281,6 +281,7 @@ export const items = pgTable("items", {
   supplierid:        uuid("supplier_id").references(() => suppliers.supplierid),
   barcode:           text("barcode"),
   drugid:            uuid("drug_id").references(() => drugs.drugid),
+  storagelocationid: uuid("storage_location_id"),  // references pharmacy_storage_locations
   // packaging information
   packagingtype:     text("packaging_type"), // e.g., "bottle", "blister", "box", "vial"
   packagesize:       text("package_size"),   // e.g., "30 tablets", "100ml", "10 vials"

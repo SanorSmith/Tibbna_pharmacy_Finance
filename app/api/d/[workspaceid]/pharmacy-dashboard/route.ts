@@ -7,6 +7,7 @@ import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
 import {
   pharmacyOrders,
+  pharmacyOrderItems,
   drugs,
   stockLevels,
   invoices,
@@ -79,7 +80,7 @@ export async function GET(
       .select({
         totalSales: sql<string>`COALESCE(SUM(${invoices.total}::numeric), 0)`,
         totalInvoices: count(),
-        paidInvoices: sql<number>`COUNT(*) FILTER (WHERE ${invoices.status} = 'PAID')::int`,
+        paidInvoices: sql<number>`COUNT(*) FILTER (WHERE ${invoices.status} = 'PAID')`,
       })
       .from(invoices)
       .innerJoin(pharmacyOrders, eq(invoices.orderid, pharmacyOrders.orderid))
@@ -153,10 +154,11 @@ export async function GET(
         genericname: drugs.genericname,
         strength: drugs.strength,
         form: drugs.form,
-        totalquantity: sql<number>`COALESCE(SUM(${pharmacyOrders.quantity}), 0)::int`,
+        totalquantity: sql<number>`COALESCE(SUM(${pharmacyOrderItems.quantity}), 0)::int`,
       })
-      .from(pharmacyOrders)
-      .innerJoin(drugs, eq(pharmacyOrders.drugid, drugs.drugid))
+      .from(pharmacyOrderItems)
+      .innerJoin(pharmacyOrders, eq(pharmacyOrderItems.orderid, pharmacyOrders.orderid))
+      .innerJoin(drugs, eq(pharmacyOrderItems.drugid, drugs.drugid))
       .where(
         and(
           eq(pharmacyOrders.workspaceid, workspaceid),
@@ -165,7 +167,7 @@ export async function GET(
         )
       )
       .groupBy(drugs.drugid, drugs.name, drugs.genericname, drugs.strength, drugs.form)
-      .orderBy(sql`SUM(${pharmacyOrders.quantity}) DESC`)
+      .orderBy(sql`SUM(${pharmacyOrderItems.quantity}) DESC`)
       .limit(10);
 
     return NextResponse.json({

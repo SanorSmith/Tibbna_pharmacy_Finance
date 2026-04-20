@@ -49,6 +49,11 @@ export async function GET(req: NextRequest) {
       i.description,
       i.barcode,
       i.created_at         AS "createdAt",
+      i.storage_location_id AS "storageLocationId",
+      s.name               AS "supplierName",
+      ws.sectionname       AS "storageLocationName",
+      ws.bin_location      AS "storageLocation",
+      ws.section_type      AS "storageType",
       COALESCE(SUM(ist.quantity), 0)::int          AS "totalStock",
       COALESCE(SUM(ist.reserved_quantity), 0)::int AS "reservedStock",
       COUNT(DISTINCT ib.id)::int                   AS "batchCount",
@@ -71,6 +76,10 @@ export async function GET(req: NextRequest) {
     LEFT JOIN item_batches ib
       ON ib.item_id = i.id
       AND ib.warehouse_id = ANY($1::uuid[])
+    LEFT JOIN suppliers s
+      ON s.supplierid = i.supplier_id
+    LEFT JOIN warehouse_sections ws
+      ON ws.id = i.storage_location_id
     WHERE i.is_active = true
       ${workspaceFilter}
       AND (
@@ -90,7 +99,8 @@ export async function GET(req: NextRequest) {
       i.inventorycategory, i.uom, i.min_level, i.reorder_level,
       i.max_level, i.controlled, i.manufacturer, i.packaging_type,
       i.package_size, i.tablets_per_pack, i.is_active,
-      i.description, i.barcode, i.created_at
+      i.description, i.barcode, i.created_at, i.storage_location_id,
+      s.supplierid, s.name, ws.id, ws.sectionname, ws.bin_location, ws.section_type
     ORDER BY i.name`,
   queryParams
   );
