@@ -861,3 +861,6 @@ export * from "./tables/finance-tax";
 export * from "./tables/finance-ap";
 export * from "./tables/finance-ar";
 export * from "./tables/finance-audit";
+
+// ─── POS Module ─────────────────────────────────────────────────────────────
+export * from "./tables/pos-schema";

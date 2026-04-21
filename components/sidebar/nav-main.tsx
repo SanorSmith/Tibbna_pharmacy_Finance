@@ -289,6 +289,16 @@ export function NavMain() {
           icon: Pill,
         },
         {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
+        },
+        {
           title: ttt("LIMS"),
           url: `${base}/lims`,
           icon: Microscope,
@@ -388,6 +398,16 @@ export function NavMain() {
           url: `${base}/pharmacy/orders`,
           icon: Pill,
           isActive: true,
+        },
+        {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
         },
         {
           title: ttt("Prescriptions"),
@@ -846,6 +866,16 @@ export function NavMain() {
           ],
         },
         {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
+        },
+        {
           title: ttt("Staff Management"),
           url: "/d/staff",
           icon: UserCheck,
@@ -923,6 +953,16 @@ export function NavMain() {
           url: `${base}/pharmacy/orders`,
           icon: Pill,
           isActive: true,
+        },
+        {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
         },
         {
           title: ttt("Prescription Review"),

@@ -225,6 +225,13 @@
       "when": 1776632174308,
       "tag": "0031_known_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1776797758330,
+      "tag": "0032_fresh_the_renegades",
+      "breakpoints": true
     }
   ]
 }
