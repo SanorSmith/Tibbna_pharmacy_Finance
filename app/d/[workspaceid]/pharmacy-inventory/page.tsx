@@ -1198,14 +1198,14 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
           <div>
             {/* Cart creation modal */}
             {showCartModal && (
-              <div style={s.overlay}><div style={{...s.modal,width:680,maxHeight:"90vh",overflowY:"auto" as const}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={s.overlay}><div style={{...s.modal,width:"90%",maxWidth:1100,height:"85vh",display:"flex",flexDirection:"column" as const,overflow:"hidden"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexShrink:0}}>
                   <h3 style={{fontSize:16,fontWeight:600,margin:0}}>🛒 Create Order</h3>
                   <button onClick={()=>setShowCartModal(false)} style={{background:"none",border:"none",cursor:"pointer"}}><Icon d={icons.x} size={18} color="#6b7280"/></button>
                 </div>
 
                 {/* Order details */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16,flexShrink:0}}>
                   <div style={s.fgroup}>
                     <label style={s.label}>Created By *</label>
                     <input style={{...s.input,background:"#f9fafb",cursor:"not-allowed"}} value={shopCreatedBy} disabled placeholder="Auto-filled from your profile"/>
@@ -1224,7 +1224,8 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                   <div style={{padding:40,textAlign:"center",color:"#9ca3af"}}>No items in cart. Add items from the shop list.</div>
                 ) : (
                   <>
-                    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12}}>
+                    <div style={{overflowX:"auto" as const,overflowY:"auto" as const,flex:1,marginBottom:12,border:"1px solid #e5e7eb",borderRadius:8}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
                       <thead><tr>{["Item","Code","UOM","Stock","Qty","Status","Delivery Time","Unit Cost","Total",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {cartItems.map((item:any)=>{
@@ -1259,9 +1260,10 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                         </tr>
                       </tfoot>
                     </table>
+                    </div>
 
                     {/* Action buttons */}
-                    <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap" as const}}>
+                    <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap" as const,flexShrink:0,paddingTop:12,borderTop:"1px solid #e5e7eb"}}>
                       <button onClick={()=>{
                         const NL = String.fromCharCode(10);
                         const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
@@ -1278,17 +1280,6 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                         window.location.href = `mailto:${emailTo}?subject=${encodeURIComponent(`Order — ${cartSupplier} — ${new Date().toLocaleDateString()}`)}&body=${encodeURIComponent(lines.join(NL))}`;
                         showToast("Email client opened!");
                       }} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",fontSize:12}}>✉️ Email</button>
-                      <button onClick={()=>{
-                        const NL = String.fromCharCode(10);
-                        const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
-                        const headers = ["Item","Code","UOM","Stock","Qty","Unit Cost","Total"].join(",");
-                        const rows = cartItems.map((i:any)=>[`"${i.name}"`,i.itemcode,i.uom,i.currentStock,shopQtys[i.id]??1,i.lastUnitCost??0,((shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0)).toFixed(2)].join(","));
-                        const csv = [`Supplier: ${cartSupplier}`,`Created by: ${shopCreatedBy}`,`Date: ${new Date().toLocaleDateString()}`,"",[headers,...rows].join(NL),`,,,,,,Total: $${total.toFixed(2)}`].join(NL);
-                        const blob = new Blob([csv],{type:"text/csv"});
-                        const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
-                        a.download=`order-${(cartSupplier||"order").split(" ").join("-")}-${new Date().toISOString().slice(0,10)}.csv`;
-                        a.click(); showToast("CSV downloaded!");
-                      }} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",fontSize:12}}>📥 CSV</button>
                       <button onClick={()=>{
                         const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
                         const rowsHtml = cartItems.map((i:any,idx:number)=>`<tr><td>${idx+1}</td><td><b>${i.name}</b></td><td>${i.itemcode}</td><td>${i.uom}</td><td>${i.currentStock}</td><td><b>${shopQtys[i.id]??1}</b></td><td>$${parseFloat(i.lastUnitCost??0).toFixed(2)}</td><td>$${((shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0)).toFixed(2)}</td></tr>`).join("");
