@@ -51,6 +51,7 @@ export const stockLevels = pgTable(
       .notNull()
       .references(() => stockLocations.locationid, { onDelete: "cascade" }),
     quantity: integer("quantity").notNull().default(0),
+    reservedquantity: integer("reservedquantity").notNull().default(0),
     updatedat: timestamp("updatedat", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

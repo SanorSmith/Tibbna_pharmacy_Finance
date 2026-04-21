@@ -103,7 +103,57 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // ── All items scanned → finalize ──────────────────────────────────
-    // 1. Deduct stock + create movements
+    // 1. Validate batch expiry before dispensing
+    const expiryWarnings: string[] = [];
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    for (const item of items) {
+      if (item.batchid && isValidUUID(item.batchid)) {
+        try {
+          const [batch] = await db
+            .select()
+            .from(drugBatches)
+            .where(eq(drugBatches.batchid, item.batchid))
+            .limit(1);
+
+          if (batch) {
+            const expiryDate = new Date(batch.expirydate);
+            
+            // Check if expired
+            if (expiryDate < today) {
+              return NextResponse.json({
+                error: `Cannot dispense: ${item.drugname} batch ${batch.lotnumber} expired on ${batch.expirydate}`,
+                expiredBatch: {
+                  drugname: item.drugname,
+                  lotnumber: batch.lotnumber,
+                  expirydate: batch.expirydate,
+                }
+              }, { status: 400 });
+            }
+            
+            // Warn if expiring within 30 days
+            if (expiryDate < thirtyDaysFromNow) {
+              const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              expiryWarnings.push(`${item.drugname} batch ${batch.lotnumber} expires in ${daysUntilExpiry} days (${batch.expirydate})`);
+            }
+          }
+        } catch (batchError) {
+          console.error(`Error checking batch expiry for item ${item.itemid}:`, batchError);
+        }
+      }
+    }
+
+    // Log expiry warnings
+    if (expiryWarnings.length > 0) {
+      console.warn('[Dispense Expiry Warnings]', expiryWarnings);
+    }
+
+    // 2. Deduct stock + create movements (with partial dispensing support)
+    let dispensedCount = 0;
+    let backorderedCount = 0;
+    const backorderedItems: string[] = [];
+
     for (const item of items) {
       try {
         if (!item.drugid) {
@@ -125,43 +175,86 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           .limit(1);
 
         if (sl) {
-          const newQty = Math.max(0, sl.quantity - item.quantity);
+          const availableQty = sl.quantity;
+          
+          // Check if sufficient stock is available
+          if (availableQty >= item.quantity) {
+            // Full quantity available - dispense normally
+            const newQty = Math.max(0, sl.quantity - item.quantity);
+            const newReserved = Math.max(0, sl.reservedquantity - item.quantity);
+            await db
+              .update(stockLevels)
+              .set({ 
+                quantity: newQty, 
+                reservedquantity: newReserved,
+                updatedat: new Date() 
+              })
+              .where(eq(stockLevels.stocklevelid, sl.stocklevelid));
+
+            // Validate batchid before using it
+            let validBatchId = item.batchid || sl.batchid || null;
+            if (validBatchId && !isValidUUID(validBatchId)) {
+              console.log(`Invalid batchid format: ${validBatchId}, using null`);
+              validBatchId = null;
+            }
+
+            // Validate performedby field
+            let validPerformedBy: string | null = user.userid;
+            if (validPerformedBy && !isValidUUID(validPerformedBy)) {
+              console.log(`Invalid performedby format: ${validPerformedBy}, using null`);
+              validPerformedBy = null;
+            }
+
+            await db.insert(stockMovements).values({
+              drugid: item.drugid,
+              batchid: validBatchId,
+              locationid: sl.locationid,
+              type: "DISPENSE",
+              quantity: -item.quantity,
+              reason: `Dispensed for order ${orderid}`,
+              referenceid: orderid,
+              performedby: validPerformedBy ?? null,
+            });
+
+            // Mark item dispensed and record location
+            await db
+              .update(pharmacyOrderItems)
+              .set({ 
+                status: "DISPENSED",
+                dispenselocationid: sl.locationid 
+              })
+              .where(eq(pharmacyOrderItems.itemid, item.itemid));
+            
+            dispensedCount++;
+            console.log(`Dispensed ${item.quantity} units of ${item.drugname}`);
+          } else {
+            // Insufficient stock - mark as backordered
+            await db
+              .update(pharmacyOrderItems)
+              .set({ 
+                status: "PENDING",
+                notes: `Backordered: Only ${availableQty} of ${item.quantity} units available`
+              })
+              .where(eq(pharmacyOrderItems.itemid, item.itemid));
+            
+            backorderedCount++;
+            backorderedItems.push(`${item.drugname} (need ${item.quantity}, have ${availableQty})`);
+            console.warn(`Insufficient stock for ${item.drugname}: need ${item.quantity}, have ${availableQty}`);
+          }
+        } else {
+          // No stock level found - mark as backordered
           await db
-            .update(stockLevels)
-            .set({ quantity: newQty, updatedat: new Date() })
-            .where(eq(stockLevels.stocklevelid, sl.stocklevelid));
-
-          // Validate batchid before using it
-          let validBatchId = item.batchid || sl.batchid || null;
-          if (validBatchId && !isValidUUID(validBatchId)) {
-            console.log(`Invalid batchid format: ${validBatchId}, using null`);
-            validBatchId = null;
-          }
-
-          // Validate performedby field
-          let validPerformedBy: string | null = user.userid;
-          if (validPerformedBy && !isValidUUID(validPerformedBy)) {
-            console.log(`Invalid performedby format: ${validPerformedBy}, using null`);
-            validPerformedBy = null;
-          }
-
-          await db.insert(stockMovements).values({
-            drugid: item.drugid,
-            batchid: validBatchId,
-            locationid: sl.locationid,
-            type: "DISPENSE",
-            quantity: -item.quantity,
-            reason: `Dispensed for order ${orderid}`,
-            referenceid: orderid,
-            performedby: validPerformedBy ?? null, // Fix TypeScript error
-          });
+            .update(pharmacyOrderItems)
+            .set({ 
+              status: "PENDING",
+              notes: "Backordered: No stock available"
+            })
+            .where(eq(pharmacyOrderItems.itemid, item.itemid));
+          
+          backorderedCount++;
+          backorderedItems.push(`${item.drugname} (no stock)`);
+          console.warn(`No stock level found for ${item.drugname}`);
         }
-
-        // Mark item dispensed
-        await db
-          .update(pharmacyOrderItems)
-          .set({ status: "DISPENSED" })
-          .where(eq(pharmacyOrderItems.itemid, item.itemid));
       } catch (itemError) {
         console.error(`Error processing item ${item.itemid}:`, itemError);
         // Continue with next item instead of failing the entire process
@@ -169,7 +262,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // 2. Mark order dispensed
+    // 2. Mark order status based on dispensed vs backordered items
     // Validate user.userid before using it
     let validDispensedBy: string | null = user.userid;
     if (validDispensedBy && !isValidUUID(validDispensedBy)) {
@@ -177,11 +270,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       validDispensedBy = null;
     }
     
+    // Determine final order status
+    let finalStatus: "DISPENSED" | "PARTIALLY_DISPENSED";
+    if (backorderedCount > 0 && dispensedCount > 0) {
+      finalStatus = "PARTIALLY_DISPENSED";
+      console.log(`Partial dispense: ${dispensedCount} dispensed, ${backorderedCount} backordered`);
+    } else if (dispensedCount > 0) {
+      finalStatus = "DISPENSED";
+      console.log(`Full dispense: ${dispensedCount} items dispensed`);
+    } else {
+      // All items backordered - keep as IN_PROGRESS
+      return NextResponse.json({
+        error: "Cannot complete dispense: all items are out of stock",
+        backorderedItems,
+      }, { status: 400 });
+    }
+    
     const [updatedOrder] = await db
       .update(pharmacyOrders)
       .set({
-        status: "DISPENSED",
-        dispensedby: validDispensedBy, // Use validated UUID
+        status: finalStatus,
+        dispensedby: validDispensedBy,
         dispensedat: new Date(),
         updatedat: new Date(),
       })
@@ -330,14 +439,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .where(eq(pharmacyOrders.orderid, orderid));
     }
 
-    console.log(`Successfully dispensed order ${orderid} with ${items.length} items`);
+    const statusMsg = finalStatus === "PARTIALLY_DISPENSED" 
+      ? `Partially dispensed: ${dispensedCount} items dispensed, ${backorderedCount} backordered`
+      : `Successfully dispensed order ${orderid} with ${dispensedCount} items`;
+    console.log(statusMsg);
     
     return NextResponse.json({
-      message: "Order dispensed successfully",
+      message: finalStatus === "PARTIALLY_DISPENSED"
+        ? `Partial dispense completed: ${dispensedCount} dispensed, ${backorderedCount} backordered`
+        : expiryWarnings.length > 0 
+          ? `Order dispensed successfully (${expiryWarnings.length} expiry warning${expiryWarnings.length > 1 ? 's' : ''})`
+          : "Order dispensed successfully",
       allScanned: true,
-      order: { ...order, status: "DISPENSED", dispensecompositionuid: dispenseCompositionUid },
+      order: { ...order, status: finalStatus, dispensecompositionuid: dispenseCompositionUid },
       invoice: inv,
       openEhrComposition: dispenseCompositionUid,
+      dispensedCount,
+      backorderedCount,
+      backorderedItems: backorderedCount > 0 ? backorderedItems : undefined,
+      expiryWarnings: expiryWarnings.length > 0 ? expiryWarnings : undefined,
     });
   } catch (error) {
     console.error("[Pharmacy Dispense POST]", error);
