@@ -208,10 +208,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           });
         }
 
-        // Mark item dispensed
+        // Mark item dispensed and record location
         await db
           .update(pharmacyOrderItems)
-          .set({ status: "DISPENSED" })
+          .set({ 
+            status: "DISPENSED",
+            dispenselocationid: sl.locationid 
+          })
           .where(eq(pharmacyOrderItems.itemid, item.itemid));
       } catch (itemError) {
         console.error(`Error processing item ${item.itemid}:`, itemError);
