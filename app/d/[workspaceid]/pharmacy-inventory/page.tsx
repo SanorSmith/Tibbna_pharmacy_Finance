@@ -547,6 +547,8 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   // Shop list
   const [shopList, setShopList] = useState<any[]>([]);
   const [shopQtys, setShopQtys] = useState<Record<string,number>>({});
+  const [shopPriorities, setShopPriorities] = useState<Record<string,"normal"|"urgent">>({});
+  const [shopDeliveryTimes, setShopDeliveryTimes] = useState<Record<string,string>>({});
   const [shopLoading, setShopLoading] = useState(false);
   const [shopSaving, setShopSaving] = useState(false);
   const [shopCreatedBy, setShopCreatedBy] = useState("");
@@ -598,6 +600,36 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
 
+  // Fetch user info and auto-populate creator name
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        console.log("[ShopList] Fetching user session...");
+        const response = await fetch("/api/auth/session");
+        console.log("[ShopList] Session response status:", response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("[ShopList] Session data:", data);
+          
+          // Session returns: {name, email, userid, workspaces}
+          if (data.name || data.email) {
+            const creatorName = data.name || data.email || "Unknown";
+            console.log("[ShopList] Setting creator name:", creatorName);
+            setShopCreatedBy(creatorName);
+          } else {
+            console.warn("[ShopList] No name or email in session data");
+          }
+        } else {
+          console.error("[ShopList] Session API failed with status:", response.status);
+        }
+      } catch (error) {
+        console.error("[ShopList] Error fetching user:", error);
+      }
+    };
+    fetchUser();
+  }, []);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -628,8 +660,16 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
     const list = Array.isArray(data)?data:[];
     setShopList(list);
     const qtys: Record<string,number> = {};
-    list.forEach((i:any)=>{ qtys[i.id]=(i.maxLevel??i.reorderLevel*2)-i.currentStock; });
+    const priorities: Record<string,"normal"|"urgent"> = {};
+    const deliveryTimes: Record<string,string> = {};
+    list.forEach((i:any)=>{ 
+      qtys[i.id]=(i.maxLevel??i.reorderLevel*2)-i.currentStock;
+      priorities[i.id] = i.currentStock === 0 ? "urgent" : "normal";
+      deliveryTimes[i.id] = "";
+    });
     setShopQtys(q=>({...qtys,...q}));
+    setShopPriorities(p=>({...priorities,...p}));
+    setShopDeliveryTimes(d=>({...deliveryTimes,...d}));
     setShopLoading(false);
   }, []);
 
@@ -689,7 +729,25 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
 
   useEffect(()=>{fetchAll();},[fetchAll]);
   useEffect(()=>{fetchSuppliers();},[fetchSuppliers]);
-  useEffect(()=>{if(tab==="shoplist")fetchShopList();},[tab,fetchShopList]);
+  useEffect(()=>{
+    if(tab==="shoplist"){
+      fetchShopList();
+      // Also ensure creator name is set when switching to shoplist tab
+      if(!shopCreatedBy){
+        console.log("[ShopList] Creator name empty on tab switch, fetching user...");
+        fetch("/api/auth/session")
+          .then(res=>res.json())
+          .then(data=>{
+            if(data.name || data.email){
+              const creatorName = data.name || data.email || "Unknown";
+              console.log("[ShopList] Setting creator name from tab switch:", creatorName);
+              setShopCreatedBy(creatorName);
+            }
+          })
+          .catch(err=>console.error("[ShopList] Error fetching user on tab switch:", err));
+      }
+    }
+  },[tab,fetchShopList,shopCreatedBy]);
   useEffect(()=>{if(tab==="suppliers")fetchSuppliers();},[tab,supplierSearch,fetchSuppliers]);
   useEffect(()=>{fetchManufacturers();},[fetchManufacturers]);
   useEffect(()=>{if(tab==="manufacturers")fetchManufacturers();},[tab,mfgSearch,fetchManufacturers]);
@@ -1169,17 +1227,17 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
           <div>
             {/* Cart creation modal */}
             {showCartModal && (
-              <div style={s.overlay}><div style={{...s.modal,width:680,maxHeight:"90vh",overflowY:"auto" as const}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={s.overlay}><div style={{...s.modal,width:"90%",maxWidth:1100,height:"85vh",display:"flex",flexDirection:"column" as const,overflow:"hidden"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexShrink:0}}>
                   <h3 style={{fontSize:16,fontWeight:600,margin:0}}>🛒 Create Order</h3>
                   <button onClick={()=>setShowCartModal(false)} style={{background:"none",border:"none",cursor:"pointer"}}><Icon d={icons.x} size={18} color="#6b7280"/></button>
                 </div>
 
                 {/* Order details */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16,flexShrink:0}}>
                   <div style={s.fgroup}>
                     <label style={s.label}>Created By *</label>
-                    <input style={s.input} value={shopCreatedBy} onChange={e=>setShopCreatedBy(e.target.value)} placeholder="Your name"/>
+                    <input style={{...s.input,background:"#f9fafb",cursor:"not-allowed"}} value={shopCreatedBy} disabled placeholder="Auto-filled from your profile"/>
                   </div>
                   <div style={s.fgroup}>
                     <label style={s.label}>Supplier</label>
@@ -1195,8 +1253,9 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                   <div style={{padding:40,textAlign:"center",color:"#9ca3af"}}>No items in cart. Add items from the shop list.</div>
                 ) : (
                   <>
-                    <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12}}>
-                      <thead><tr>{["Item","Code","UOM","Stock","Qty","Unit Cost","Total",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                    <div style={{overflowX:"auto" as const,overflowY:"auto" as const,flex:1,marginBottom:12,border:"1px solid #e5e7eb",borderRadius:8}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
+                      <thead><tr>{["Item","Code","UOM","Stock","Qty","Status","Delivery Time","Unit Cost","Total",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {cartItems.map((item:any)=>{
                           const qty = shopQtys[item.id]??1;
@@ -1208,6 +1267,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                               <td style={s.td}>{item.uom}</td>
                               <td style={{...s.td,color:"#d97706"}}>{item.currentStock}</td>
                               <td style={s.td}><input type="number" min={1} value={qty} onChange={e=>setShopQtys(q=>({...q,[item.id]:parseInt(e.target.value)||1}))} style={{...s.input,width:70,textAlign:"center" as const}}/></td>
+                              <td style={s.td}>
+                                <select value={shopPriorities[item.id]??"normal"} onChange={e=>setShopPriorities(p=>({...p,[item.id]:e.target.value as "normal"|"urgent"}))} style={{...s.input,width:110,padding:"5px 6px",fontSize:11,fontWeight:600,color:shopPriorities[item.id]==="urgent"?"#dc2626":"#374151",background:shopPriorities[item.id]==="urgent"?"#fee2e2":"#fff"}}>
+                                  <option value="normal">Normal</option>
+                                  <option value="urgent">🚨 Urgent</option>
+                                </select>
+                              </td>
+                              <td style={s.td}><input type="datetime-local" value={shopDeliveryTimes[item.id]??""} onChange={e=>setShopDeliveryTimes(d=>({...d,[item.id]:e.target.value}))} style={{...s.input,width:160,fontSize:10}}/></td>
                               <td style={s.td}>{item.lastUnitCost?`$${parseFloat(item.lastUnitCost).toFixed(2)}`:"—"}</td>
                               <td style={{...s.td,fontWeight:600,color:"#6366f1"}}>${total.toFixed(2)}</td>
                               <td style={s.td}><button onClick={()=>setCartItems((c:any[])=>c.filter(i=>i.id!==item.id))} style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#dc2626"}}>✕</button></td>
@@ -1215,17 +1281,17 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                           );
                         })}
                       </tbody>
-                      <tfoot>
-                        <tr style={{background:"#f9fafb"}}>
-                          <td colSpan={6} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total:</td>
-                          <td style={{...s.td,fontWeight:700,color:"#6366f1",fontSize:15}}>${cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0).toFixed(2)}</td>
-                          <td style={s.td}></td>
-                        </tr>
-                      </tfoot>
                     </table>
+                    </div>
+
+                    {/* Total Amount - Outside table */}
+                    <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",padding:"12px 16px",background:"#f9fafb",borderRadius:8,marginBottom:12,flexShrink:0}}>
+                      <span style={{fontSize:15,fontWeight:700,color:"#374151",marginRight:12}}>Total:</span>
+                      <span style={{fontSize:18,fontWeight:700,color:"#6366f1"}}>${cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0).toFixed(2)}</span>
+                    </div>
 
                     {/* Action buttons */}
-                    <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap" as const}}>
+                    <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap" as const,flexShrink:0,paddingTop:12,borderTop:"1px solid #e5e7eb"}}>
                       <button onClick={()=>{
                         const NL = String.fromCharCode(10);
                         const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
@@ -1243,21 +1309,11 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                         showToast("Email client opened!");
                       }} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",fontSize:12}}>✉️ Email</button>
                       <button onClick={()=>{
-                        const NL = String.fromCharCode(10);
                         const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
-                        const headers = ["Item","Code","UOM","Stock","Qty","Unit Cost","Total"].join(",");
-                        const rows = cartItems.map((i:any)=>[`"${i.name}"`,i.itemcode,i.uom,i.currentStock,shopQtys[i.id]??1,i.lastUnitCost??0,((shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0)).toFixed(2)].join(","));
-                        const csv = [`Supplier: ${cartSupplier}`,`Created by: ${shopCreatedBy}`,`Date: ${new Date().toLocaleDateString()}`,"",[headers,...rows].join(NL),`,,,,,,Total: $${total.toFixed(2)}`].join(NL);
-                        const blob = new Blob([csv],{type:"text/csv"});
-                        const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
-                        a.download=`order-${(cartSupplier||"order").split(" ").join("-")}-${new Date().toISOString().slice(0,10)}.csv`;
-                        a.click(); showToast("CSV downloaded!");
-                      }} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",fontSize:12}}>📥 CSV</button>
-                      <button onClick={()=>{
-                        const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
+                        const creatorName = shopCreatedBy.trim() || "Unknown User";
                         const rowsHtml = cartItems.map((i:any,idx:number)=>`<tr><td>${idx+1}</td><td><b>${i.name}</b></td><td>${i.itemcode}</td><td>${i.uom}</td><td>${i.currentStock}</td><td><b>${shopQtys[i.id]??1}</b></td><td>$${parseFloat(i.lastUnitCost??0).toFixed(2)}</td><td>$${((shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0)).toFixed(2)}</td></tr>`).join("");
                         const w = window.open("","_blank","width=900,height=700");
-                        if(w){w.document.write(`<html><head><title>Order</title><style>body{font-family:Arial;padding:20px;font-size:12px}h2{color:#6366f1}table{width:100%;border-collapse:collapse}th{background:#6366f1;color:#fff;padding:8px;text-align:left}td{padding:7px 8px;border-bottom:1px solid #e5e7eb}.total{font-weight:bold;font-size:14px;text-align:right;margin-top:16px}</style></head><body><h2>Order — ${cartSupplier||"No Supplier"}</h2><p>Created by: <b>${shopCreatedBy}</b> · ${new Date().toLocaleDateString()}</p><table><thead><tr><th>#</th><th>Item</th><th>Code</th><th>UOM</th><th>Stock</th><th>Order Qty</th><th>Unit Cost</th><th>Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="total">Total: $${total.toFixed(2)}</div></body></html>`);w.document.close();w.print();}
+                        if(w){w.document.write(`<html><head><title>Order</title><style>body{font-family:Arial;padding:20px;font-size:12px}h2{color:#6366f1}table{width:100%;border-collapse:collapse}th{background:#6366f1;color:#fff;padding:8px;text-align:left}td{padding:7px 8px;border-bottom:1px solid #e5e7eb}.total{font-weight:bold;font-size:14px;text-align:right;margin-top:16px}</style></head><body><h2>Order — ${cartSupplier||"No Supplier"}</h2><p><strong>Created by:</strong> ${creatorName} | <strong>Date:</strong> ${new Date().toLocaleDateString()}</p><table><thead><tr><th>#</th><th>Item</th><th>Code</th><th>UOM</th><th>Stock</th><th>Order Qty</th><th>Unit Cost</th><th>Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="total">Total: $${total.toFixed(2)}</div></body></html>`);w.document.close();w.print();}
                       }} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",fontSize:12}}>🖨️ Print</button>
                       <button disabled={shopSaving||!shopCreatedBy.trim()} onClick={async()=>{
                         if (!shopCreatedBy.trim()) { showToast("Please enter your name"); return; }
@@ -1345,7 +1401,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                 {shopList.length>0&&<div style={{padding:"8px 16px",background:"#fef3c7",fontSize:12,color:"#92400e",borderBottom:"1px solid #fde68a"}}>⚠️ {shopList.length} item{shopList.length>1?"s":""} at or below reorder level</div>}
                 <div style={{overflowX:"auto"}}>
                   <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead><tr>{["Item","Code","Supplier","UOM","Stock","Order Qty","Unit Cost","Est. Cost",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                    <thead><tr>{["Item","Code","Supplier","UOM","Stock","Order Qty","Status","Delivery Time","Unit Cost","Est. Cost",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {[...shopList,...manualShopItems].map(item=>{
                         const qty = shopQtys[item.id]??1;
@@ -1358,6 +1414,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                             <td style={s.td}>{item.uom}</td>
                             <td style={{...s.td,fontWeight:700,color:parseInt(item.currentStock)===0?"#dc2626":"#d97706"}}>{item.currentStock}</td>
                             <td style={s.td}><input type="number" min={0} value={qty} onChange={e=>setShopQtys(q=>({...q,[item.id]:parseInt(e.target.value)||0}))} style={{...s.input,width:75,textAlign:"center" as const}}/></td>
+                            <td style={s.td}>
+                              <select value={shopPriorities[item.id]??"normal"} onChange={e=>setShopPriorities(p=>({...p,[item.id]:e.target.value as "normal"|"urgent"}))} style={{...s.input,width:120,padding:"6px 8px",fontSize:12,fontWeight:600,color:shopPriorities[item.id]==="urgent"?"#dc2626":"#374151",background:shopPriorities[item.id]==="urgent"?"#fee2e2":"#fff"}}>
+                                <option value="normal">Normal Order</option>
+                                <option value="urgent">🚨 Urgent</option>
+                              </select>
+                            </td>
+                            <td style={s.td}><input type="datetime-local" value={shopDeliveryTimes[item.id]??""} onChange={e=>setShopDeliveryTimes(d=>({...d,[item.id]:e.target.value}))} style={{...s.input,width:170,fontSize:11}}/></td>
                             <td style={s.td}>{item.lastUnitCost?`$${parseFloat(item.lastUnitCost).toFixed(2)}`:"—"}</td>
                             <td style={{...s.td,fontWeight:600,color:"#6366f1"}}>${cost.toFixed(2)}</td>
                             <td style={s.td}><button onClick={()=>{
@@ -1371,7 +1434,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                     </tbody>
                     <tfoot>
                       <tr style={{background:"#f9fafb"}}>
-                        <td colSpan={7} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total Est. Cost:</td>
+                        <td colSpan={9} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total Est. Cost:</td>
                         <td style={{...s.td,fontWeight:700,color:"#6366f1"}}>${[...shopList,...manualShopItems].reduce((sum,i)=>sum+(shopQtys[i.id]??0)*parseFloat(i.lastUnitCost??0),0).toFixed(2)}</td>
                         <td style={s.td}></td>
                       </tr>
