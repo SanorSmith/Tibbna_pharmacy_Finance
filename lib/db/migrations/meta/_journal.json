@@ -218,6 +218,13 @@
       "when": 1776437677835,
       "tag": "0030_slim_norman_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1776632174308,
+      "tag": "0031_known_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

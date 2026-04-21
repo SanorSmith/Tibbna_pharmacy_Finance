@@ -844,3 +844,15 @@ export * from "./tables/pharmacy-invoices";
 export * from "./tables/pharmacy-substitutions";
 export * from "./schema/test-reference-ranges";
 export * from "./schema/test-reference-audit-log";
+
+// ─── Finance Module ──────────────────────────────────────────────────────────
+export * from "./tables/finance-enums";
+export * from "./tables/finance-accounts";
+export * from "./tables/finance-periods";
+export * from "./tables/finance-journal";
+export * from "./tables/finance-balances";
+export * from "./tables/finance-bank";
+export * from "./tables/finance-tax";
+export * from "./tables/finance-ap";
+export * from "./tables/finance-ar";
+export * from "./tables/finance-audit";

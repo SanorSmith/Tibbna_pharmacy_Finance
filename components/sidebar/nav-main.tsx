@@ -22,6 +22,7 @@ import {
   Home,
   LayoutDashboard,
   Scissors,
+  DollarSign,
 } from "lucide-react";
 
 import {
@@ -331,6 +332,17 @@ export function NavMain() {
           ],
         },
         {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
+          ],
+        },
+        {
           title: ttt("Settings"),
           url: "/d/settings",
           icon: Settings,
@@ -395,6 +407,17 @@ export function NavMain() {
             { title: ttt("Inventory"), url: "/d/medications/inventory" },
             { title: ttt("Stock Levels"), url: "/d/medications/stock" },
             { title: ttt("Expiry Tracking"), url: "/d/medications/expiry" },
+          ],
+        },
+        {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
           ],
         },
         {
@@ -849,6 +872,18 @@ export function NavMain() {
           ],
         },
         {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "AP / AR", url: `${base}/finance?tab=ap` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
+          ],
+        },
+        {
           title: ttt("Admin Panel"),
           url: "/d/admin",
           icon: Settings,
@@ -913,6 +948,17 @@ export function NavMain() {
             { title: ttt("Drug Database"), url: "/d/drugs/database" },
             { title: ttt("Formulary"), url: "/d/drugs/formulary" },
             { title: ttt("Clinical Studies"), url: "/d/drugs/studies" },
+          ],
+        },
+        {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
           ],
         },
         {
