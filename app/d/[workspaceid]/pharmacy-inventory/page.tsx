@@ -604,16 +604,27 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   useEffect(() => {
     const fetchUser = async () => {
       try {
+        console.log("[ShopList] Fetching user session...");
         const response = await fetch("/api/auth/session");
+        console.log("[ShopList] Session response status:", response.status);
+        
         if (response.ok) {
           const data = await response.json();
-          if (data.user) {
-            const fullName = `${data.user.firstname || ""} ${data.user.lastname || ""}`.trim();
-            setShopCreatedBy(fullName || data.user.email || "Unknown");
+          console.log("[ShopList] Session data:", data);
+          
+          // Session returns: {name, email, userid, workspaces}
+          if (data.name || data.email) {
+            const creatorName = data.name || data.email || "Unknown";
+            console.log("[ShopList] Setting creator name:", creatorName);
+            setShopCreatedBy(creatorName);
+          } else {
+            console.warn("[ShopList] No name or email in session data");
           }
+        } else {
+          console.error("[ShopList] Session API failed with status:", response.status);
         }
       } catch (error) {
-        console.error("Error fetching user:", error);
+        console.error("[ShopList] Error fetching user:", error);
       }
     };
     fetchUser();
@@ -718,7 +729,25 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
 
   useEffect(()=>{fetchAll();},[fetchAll]);
   useEffect(()=>{fetchSuppliers();},[fetchSuppliers]);
-  useEffect(()=>{if(tab==="shoplist")fetchShopList();},[tab,fetchShopList]);
+  useEffect(()=>{
+    if(tab==="shoplist"){
+      fetchShopList();
+      // Also ensure creator name is set when switching to shoplist tab
+      if(!shopCreatedBy){
+        console.log("[ShopList] Creator name empty on tab switch, fetching user...");
+        fetch("/api/auth/session")
+          .then(res=>res.json())
+          .then(data=>{
+            if(data.name || data.email){
+              const creatorName = data.name || data.email || "Unknown";
+              console.log("[ShopList] Setting creator name from tab switch:", creatorName);
+              setShopCreatedBy(creatorName);
+            }
+          })
+          .catch(err=>console.error("[ShopList] Error fetching user on tab switch:", err));
+      }
+    }
+  },[tab,fetchShopList,shopCreatedBy]);
   useEffect(()=>{if(tab==="suppliers")fetchSuppliers();},[tab,supplierSearch,fetchSuppliers]);
   useEffect(()=>{fetchManufacturers();},[fetchManufacturers]);
   useEffect(()=>{if(tab==="manufacturers")fetchManufacturers();},[tab,mfgSearch,fetchManufacturers]);
@@ -1281,9 +1310,10 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                       }} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",fontSize:12}}>✉️ Email</button>
                       <button onClick={()=>{
                         const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
+                        const creatorName = shopCreatedBy.trim() || "Unknown User";
                         const rowsHtml = cartItems.map((i:any,idx:number)=>`<tr><td>${idx+1}</td><td><b>${i.name}</b></td><td>${i.itemcode}</td><td>${i.uom}</td><td>${i.currentStock}</td><td><b>${shopQtys[i.id]??1}</b></td><td>$${parseFloat(i.lastUnitCost??0).toFixed(2)}</td><td>$${((shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0)).toFixed(2)}</td></tr>`).join("");
                         const w = window.open("","_blank","width=900,height=700");
-                        if(w){w.document.write(`<html><head><title>Order</title><style>body{font-family:Arial;padding:20px;font-size:12px}h2{color:#6366f1}table{width:100%;border-collapse:collapse}th{background:#6366f1;color:#fff;padding:8px;text-align:left}td{padding:7px 8px;border-bottom:1px solid #e5e7eb}.total{font-weight:bold;font-size:14px;text-align:right;margin-top:16px}</style></head><body><h2>Order — ${cartSupplier||"No Supplier"}</h2><p>Created by: <b>${shopCreatedBy}</b> · ${new Date().toLocaleDateString()}</p><table><thead><tr><th>#</th><th>Item</th><th>Code</th><th>UOM</th><th>Stock</th><th>Order Qty</th><th>Unit Cost</th><th>Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="total">Total: $${total.toFixed(2)}</div></body></html>`);w.document.close();w.print();}
+                        if(w){w.document.write(`<html><head><title>Order</title><style>body{font-family:Arial;padding:20px;font-size:12px}h2{color:#6366f1}table{width:100%;border-collapse:collapse}th{background:#6366f1;color:#fff;padding:8px;text-align:left}td{padding:7px 8px;border-bottom:1px solid #e5e7eb}.total{font-weight:bold;font-size:14px;text-align:right;margin-top:16px}</style></head><body><h2>Order — ${cartSupplier||"No Supplier"}</h2><p><strong>Created by:</strong> ${creatorName} | <strong>Date:</strong> ${new Date().toLocaleDateString()}</p><table><thead><tr><th>#</th><th>Item</th><th>Code</th><th>UOM</th><th>Stock</th><th>Order Qty</th><th>Unit Cost</th><th>Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="total">Total: $${total.toFixed(2)}</div></body></html>`);w.document.close();w.print();}
                       }} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",fontSize:12}}>🖨️ Print</button>
                       <button disabled={shopSaving||!shopCreatedBy.trim()} onClick={async()=>{
                         if (!shopCreatedBy.trim()) { showToast("Please enter your name"); return; }
