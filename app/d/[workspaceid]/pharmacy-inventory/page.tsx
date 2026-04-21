@@ -1225,7 +1225,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                 ) : (
                   <>
                     <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12}}>
-                      <thead><tr>{["Item","Code","UOM","Stock","Qty","Unit Cost","Total",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                      <thead><tr>{["Item","Code","UOM","Stock","Qty","Status","Delivery Time","Unit Cost","Total",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {cartItems.map((item:any)=>{
                           const qty = shopQtys[item.id]??1;
@@ -1237,6 +1237,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                               <td style={s.td}>{item.uom}</td>
                               <td style={{...s.td,color:"#d97706"}}>{item.currentStock}</td>
                               <td style={s.td}><input type="number" min={1} value={qty} onChange={e=>setShopQtys(q=>({...q,[item.id]:parseInt(e.target.value)||1}))} style={{...s.input,width:70,textAlign:"center" as const}}/></td>
+                              <td style={s.td}>
+                                <select value={shopPriorities[item.id]??"normal"} onChange={e=>setShopPriorities(p=>({...p,[item.id]:e.target.value as "normal"|"urgent"}))} style={{...s.input,width:110,padding:"5px 6px",fontSize:11,fontWeight:600,color:shopPriorities[item.id]==="urgent"?"#dc2626":"#374151",background:shopPriorities[item.id]==="urgent"?"#fee2e2":"#fff"}}>
+                                  <option value="normal">Normal</option>
+                                  <option value="urgent">🚨 Urgent</option>
+                                </select>
+                              </td>
+                              <td style={s.td}><input type="datetime-local" value={shopDeliveryTimes[item.id]??""} onChange={e=>setShopDeliveryTimes(d=>({...d,[item.id]:e.target.value}))} style={{...s.input,width:160,fontSize:10}}/></td>
                               <td style={s.td}>{item.lastUnitCost?`$${parseFloat(item.lastUnitCost).toFixed(2)}`:"—"}</td>
                               <td style={{...s.td,fontWeight:600,color:"#6366f1"}}>${total.toFixed(2)}</td>
                               <td style={s.td}><button onClick={()=>setCartItems((c:any[])=>c.filter(i=>i.id!==item.id))} style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#dc2626"}}>✕</button></td>
@@ -1246,7 +1253,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                       </tbody>
                       <tfoot>
                         <tr style={{background:"#f9fafb"}}>
-                          <td colSpan={6} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total:</td>
+                          <td colSpan={8} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total:</td>
                           <td style={{...s.td,fontWeight:700,color:"#6366f1",fontSize:15}}>${cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0).toFixed(2)}</td>
                           <td style={s.td}></td>
                         </tr>
