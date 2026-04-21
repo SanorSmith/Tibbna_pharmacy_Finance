@@ -1252,14 +1252,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                           );
                         })}
                       </tbody>
-                      <tfoot>
-                        <tr style={{background:"#f9fafb"}}>
-                          <td colSpan={8} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total:</td>
-                          <td style={{...s.td,fontWeight:700,color:"#6366f1",fontSize:15}}>${cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0).toFixed(2)}</td>
-                          <td style={s.td}></td>
-                        </tr>
-                      </tfoot>
                     </table>
+                    </div>
+
+                    {/* Total Amount - Outside table */}
+                    <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",padding:"12px 16px",background:"#f9fafb",borderRadius:8,marginBottom:12,flexShrink:0}}>
+                      <span style={{fontSize:15,fontWeight:700,color:"#374151",marginRight:12}}>Total:</span>
+                      <span style={{fontSize:18,fontWeight:700,color:"#6366f1"}}>${cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0).toFixed(2)}</span>
                     </div>
 
                     {/* Action buttons */}
