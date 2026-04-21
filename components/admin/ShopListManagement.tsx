@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Table, 
   TableBody, 
@@ -28,14 +30,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ShoppingCart, Plus, Trash2, History, Send, Save, Edit } from "lucide-react";
+import { ShoppingCart, Plus, Trash2, History, Send, Save, Edit, FileText, AlertCircle } from "lucide-react";
 
 interface ShopOrderItem {
   itemid?: string;
   itemname: string;
-  size: string;
-  number: number;
-  itemtype?: string;
+  itemcode: string;
+  uom: string;
+  quantity: number;
+  priority: "normal" | "urgent";
+  deliverytime: string;
   notes?: string;
 }
 
@@ -57,16 +61,35 @@ interface ShopListManagementProps {
 
 export default function ShopListManagement({ workspaceid }: ShopListManagementProps) {
   const [items, setItems] = useState<ShopOrderItem[]>([
-    { itemname: "", size: "", number: 1 },
+    { itemname: "", itemcode: "", uom: "", quantity: 1, priority: "normal", deliverytime: "" },
   ]);
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryTime, setDeliveryTime] = useState("");
   const [clientName, setClientName] = useState("");
-  const [orderedBy, setOrderedBy] = useState("");
+  const [creatorName, setCreatorName] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [orderHistory, setOrderHistory] = useState<ShopOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("create");
+
+  // Fetch user info and auto-populate creator name
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch("/api/auth/session");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            const fullName = `${data.user.firstname || ""} ${data.user.lastname || ""}`.trim();
+            setCreatorName(fullName || data.user.email || "Unknown");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Fetch order history
   const fetchOrderHistory = async () => {
@@ -82,24 +105,24 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
   };
 
   useEffect(() => {
-    if (isHistoryOpen) {
+    if (activeTab === "history") {
       fetchOrderHistory();
     }
-  }, [isHistoryOpen, workspaceid]);
+  }, [activeTab, workspaceid]);
 
   // Add new row
   const handleAddRow = () => {
-    setItems([...items, { itemname: "", size: "", number: 1 }]);
+    setItems([...items, { itemname: "", itemcode: "", uom: "", quantity: 1, priority: "normal", deliverytime: "" }]);
   };
 
   // Remove row
   const handleRemoveRow = (index: number) => {
     const newItems = items.filter((_, i) => i !== index);
-    setItems(newItems.length > 0 ? newItems : [{ itemname: "", size: "", number: 1 }]);
+    setItems(newItems.length > 0 ? newItems : [{ itemname: "", itemcode: "", uom: "", quantity: 1, priority: "normal", deliverytime: "" }]);
   };
 
   // Update item field
-  const handleItemChange = (index: number, field: keyof ShopOrderItem, value: string | number) => {
+  const handleItemChange = (index: number, field: keyof ShopOrderItem, value: string | number | "normal" | "urgent") => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
@@ -111,7 +134,6 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
       setLoading(true);
       const orderData = {
         deliveryaddress: deliveryAddress,
-        deliverytime: deliveryTime || undefined,
         clientname: clientName,
         status: "draft",
         items: items.filter(item => item.itemname.trim() !== ""),
@@ -145,7 +167,6 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
       setLoading(true);
       const orderData = {
         deliveryaddress: deliveryAddress,
-        deliverytime: deliveryTime || undefined,
         clientname: clientName,
         status: "submitted",
         orderdate: new Date().toISOString(),
@@ -166,11 +187,9 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
       if (response.ok) {
         alert("Order sent successfully!");
         // Reset form
-        setItems([{ itemname: "", size: "", number: 1 }]);
+        setItems([{ itemname: "", itemcode: "", uom: "", quantity: 1, priority: "normal", deliverytime: "" }]);
         setDeliveryAddress("");
-        setDeliveryTime("");
         setClientName("");
-        setOrderedBy("");
         setCurrentOrderId(null);
       } else {
         const error = await response.json();
@@ -213,25 +232,29 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Shop List</h3>
-          <p className="text-sm text-muted-foreground">
-            Create and manage laboratory material orders
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => setIsHistoryOpen(true)}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-        >
-          <History className="h-4 w-4 mr-2" />
-          Order History
-        </Button>
+      <div>
+        <h3 className="text-lg font-semibold">Shop List Management</h3>
+        <p className="text-sm text-muted-foreground">
+          Create and manage laboratory material orders
+        </p>
       </div>
 
-      {/* Shop List Card */}
-      <Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="create">
+            <FileText className="h-4 w-4 mr-2" />
+            Create Shop List
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            <History className="h-4 w-4 mr-2" />
+            Order History
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Create Shop List Tab */}
+        <TabsContent value="create" className="space-y-4">
+          <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
@@ -239,18 +262,45 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Order Information */}
+          <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div>
+              <Label>Delivery Address</Label>
+              <Input
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder="Enter delivery address"
+              />
+            </div>
+            <div>
+              <Label>Client Name</Label>
+              <Input
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Enter client name"
+              />
+            </div>
+            <div>
+              <Label>Created By</Label>
+              <Input
+                value={creatorName}
+                disabled
+                className="bg-gray-100"
+              />
+            </div>
+          </div>
+
           {/* Items Table */}
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader className="bg-blue-100">
                 <TableRow>
-                  <TableHead className="font-semibold text-black">Item</TableHead>
-                  <TableHead className="font-semibold text-black">Size</TableHead>
-                  <TableHead className="font-semibold text-black">Number</TableHead>
-                  <TableHead className="font-semibold text-black">Delivery address</TableHead>
-                  <TableHead className="font-semibold text-black">Delivery time</TableHead>
-                  <TableHead className="font-semibold text-black">Client name</TableHead>
-                  <TableHead className="font-semibold text-black">By</TableHead>
+                  <TableHead className="font-semibold text-black">Item Name</TableHead>
+                  <TableHead className="font-semibold text-black">Code</TableHead>
+                  <TableHead className="font-semibold text-black">UOM</TableHead>
+                  <TableHead className="font-semibold text-black">Quantity</TableHead>
+                  <TableHead className="font-semibold text-black">Status</TableHead>
+                  <TableHead className="font-semibold text-black">Delivery Time</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -262,73 +312,60 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
                         value={item.itemname}
                         onChange={(e) => handleItemChange(index, "itemname", e.target.value)}
                         placeholder="Item name"
-                        className="min-w-[150px]"
+                        className="min-w-[180px]"
                       />
                     </TableCell>
                     <TableCell>
                       <Input
-                        value={item.size}
-                        onChange={(e) => handleItemChange(index, "size", e.target.value)}
-                        placeholder="Size"
-                        className="min-w-[100px]"
+                        value={item.itemcode}
+                        onChange={(e) => handleItemChange(index, "itemcode", e.target.value)}
+                        placeholder="Code"
+                        className="min-w-[120px]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={item.uom}
+                        onChange={(e) => handleItemChange(index, "uom", e.target.value)}
+                        placeholder="UOM"
+                        className="w-[100px]"
                       />
                     </TableCell>
                     <TableCell>
                       <Input
                         type="number"
-                        value={item.number}
-                        onChange={(e) => handleItemChange(index, "number", parseInt(e.target.value) || 1)}
+                        value={item.quantity}
+                        onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
                         min="1"
-                        className="w-[80px]"
+                        className="w-[90px]"
                       />
                     </TableCell>
                     <TableCell>
-                      {index === 0 ? (
-                        <Input
-                          value={deliveryAddress}
-                          onChange={(e) => setDeliveryAddress(e.target.value)}
-                          placeholder="Delivery address"
-                          className="min-w-[150px]"
-                        />
-                      ) : (
-                        <div className="min-w-[150px]"></div>
-                      )}
+                      <Select
+                        value={item.priority}
+                        onValueChange={(value) => handleItemChange(index, "priority", value as "normal" | "urgent")}
+                      >
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal Order</SelectItem>
+                          <SelectItem value="urgent">
+                            <span className="flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3 text-red-500" />
+                              Urgent
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
-                      {index === 0 ? (
-                        <Input
-                          type="datetime-local"
-                          value={deliveryTime}
-                          onChange={(e) => setDeliveryTime(e.target.value)}
-                          className="min-w-[180px]"
-                        />
-                      ) : (
-                        <div className="min-w-[180px]"></div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {index === 0 ? (
-                        <Input
-                          value={clientName}
-                          onChange={(e) => setClientName(e.target.value)}
-                          placeholder="Client name"
-                          className="min-w-[150px]"
-                        />
-                      ) : (
-                        <div className="min-w-[150px]"></div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {index === 0 ? (
-                        <Input
-                          value={orderedBy}
-                          onChange={(e) => setOrderedBy(e.target.value)}
-                          placeholder="Ordered by"
-                          className="min-w-[120px]"
-                        />
-                      ) : (
-                        <div className="min-w-[120px]"></div>
-                      )}
+                      <Input
+                        type="datetime-local"
+                        value={item.deliverytime}
+                        onChange={(e) => handleItemChange(index, "deliverytime", e.target.value)}
+                        className="min-w-[180px]"
+                      />
                     </TableCell>
                     <TableCell>
                       {items.length > 1 && (
@@ -370,77 +407,74 @@ export default function ShopListManagement({ workspaceid }: ShopListManagementPr
             <Button
               onClick={handleSend}
               disabled={loading}
-              className="bg-blue-400 hover:bg-blue-500 text-white"
+              className="bg-green-500 hover:bg-green-600 text-white"
             >
               <Send className="h-4 w-4 mr-2" />
               Send
             </Button>
-            <Button
-              onClick={handleEdit}
-              disabled={loading}
-              className="bg-blue-400 hover:bg-blue-500 text-white"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* Order History Dialog */}
-      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Order History</DialogTitle>
-            <DialogDescription>
-              View all previous orders and their status
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {orderHistory.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No orders yet</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Delivery Address</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orderHistory.map((order) => (
-                    <TableRow key={order.orderid}>
-                      <TableCell className="font-medium">{order.ordernumber}</TableCell>
-                      <TableCell>{order.clientname || "-"}</TableCell>
-                      <TableCell>{order.items?.length || 0} items</TableCell>
-                      <TableCell>{order.deliveryaddress || "-"}</TableCell>
-                      <TableCell>{getStatusBadge(order.status || "draft")}</TableCell>
-                      <TableCell>
-                        {order.createdat 
-                          ? new Date(order.createdat).toLocaleDateString()
-                          : "-"
-                        }
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsHistoryOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Order History Tab */}
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Order History
+              </CardTitle>
+              <CardDescription>
+                View all previous orders and their status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {orderHistory.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <History className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                  <p className="text-lg font-medium">No orders yet</p>
+                  <p className="text-sm">Create your first shop list to get started</p>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
+                      <TableRow>
+                        <TableHead>Order #</TableHead>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead>Delivery Address</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created By</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderHistory.map((order) => (
+                        <TableRow key={order.orderid}>
+                          <TableCell className="font-medium">{order.ordernumber}</TableCell>
+                          <TableCell>{order.clientname || "-"}</TableCell>
+                          <TableCell>{order.items?.length || 0} items</TableCell>
+                          <TableCell>{order.deliveryaddress || "-"}</TableCell>
+                          <TableCell>{getStatusBadge(order.status || "draft")}</TableCell>
+                          <TableCell>{order.createdby || "-"}</TableCell>
+                          <TableCell>
+                            {order.createdat 
+                              ? new Date(order.createdat).toLocaleDateString()
+                              : "-"
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
