@@ -103,7 +103,53 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // ── All items scanned → finalize ──────────────────────────────────
-    // 1. Deduct stock + create movements
+    // 1. Validate batch expiry before dispensing
+    const expiryWarnings: string[] = [];
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    for (const item of items) {
+      if (item.batchid && isValidUUID(item.batchid)) {
+        try {
+          const [batch] = await db
+            .select()
+            .from(drugBatches)
+            .where(eq(drugBatches.batchid, item.batchid))
+            .limit(1);
+
+          if (batch) {
+            const expiryDate = new Date(batch.expirydate);
+            
+            // Check if expired
+            if (expiryDate < today) {
+              return NextResponse.json({
+                error: `Cannot dispense: ${item.drugname} batch ${batch.lotnumber} expired on ${batch.expirydate}`,
+                expiredBatch: {
+                  drugname: item.drugname,
+                  lotnumber: batch.lotnumber,
+                  expirydate: batch.expirydate,
+                }
+              }, { status: 400 });
+            }
+            
+            // Warn if expiring within 30 days
+            if (expiryDate < thirtyDaysFromNow) {
+              const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              expiryWarnings.push(`${item.drugname} batch ${batch.lotnumber} expires in ${daysUntilExpiry} days (${batch.expirydate})`);
+            }
+          }
+        } catch (batchError) {
+          console.error(`Error checking batch expiry for item ${item.itemid}:`, batchError);
+        }
+      }
+    }
+
+    // Log expiry warnings
+    if (expiryWarnings.length > 0) {
+      console.warn('[Dispense Expiry Warnings]', expiryWarnings);
+    }
+
+    // 2. Deduct stock + create movements
     for (const item of items) {
       try {
         if (!item.drugid) {
@@ -338,11 +384,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.log(`Successfully dispensed order ${orderid} with ${items.length} items`);
     
     return NextResponse.json({
-      message: "Order dispensed successfully",
+      message: expiryWarnings.length > 0 
+        ? `Order dispensed successfully (${expiryWarnings.length} expiry warning${expiryWarnings.length > 1 ? 's' : ''})`
+        : "Order dispensed successfully",
       allScanned: true,
       order: { ...order, status: "DISPENSED", dispensecompositionuid: dispenseCompositionUid },
       invoice: inv,
       openEhrComposition: dispenseCompositionUid,
+      expiryWarnings: expiryWarnings.length > 0 ? expiryWarnings : undefined,
     });
   } catch (error) {
     console.error("[Pharmacy Dispense POST]", error);
