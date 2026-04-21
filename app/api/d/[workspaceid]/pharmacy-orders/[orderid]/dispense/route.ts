@@ -126,9 +126,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         if (sl) {
           const newQty = Math.max(0, sl.quantity - item.quantity);
+          const newReserved = Math.max(0, sl.reservedquantity - item.quantity);
           await db
             .update(stockLevels)
-            .set({ quantity: newQty, updatedat: new Date() })
+            .set({ 
+              quantity: newQty, 
+              reservedquantity: newReserved,
+              updatedat: new Date() 
+            })
             .where(eq(stockLevels.stocklevelid, sl.stocklevelid));
 
           // Validate batchid before using it

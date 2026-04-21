@@ -13,10 +13,73 @@ import {
   drugs,
   users,
 } from "@/lib/db/schema";
-import { eq, and, desc, ilike, sql, inArray } from "drizzle-orm";
+import { stockLevels } from "@/lib/db/tables/pharmacy-stock";
+import { drugBatches } from "@/lib/db/tables/pharmacy-drugs";
+import { eq, and, desc, ilike, sql, inArray, asc, gt } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
 import { getOpenEHREHRBySubjectId, createOpenEHRComposition } from "@/lib/openehr/openehr";
+
+// ── Helper: Select optimal batch using FIFO/expiry logic ──────────────
+async function selectOptimalBatch(drugid: string, requiredQty: number) {
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Get all non-expired batches with available stock, ordered by expiry date (FIFO)
+  const batchesWithStock = await db
+    .select({
+      batchid: drugBatches.batchid,
+      lotnumber: drugBatches.lotnumber,
+      expirydate: drugBatches.expirydate,
+      sellingprice: drugBatches.sellingprice,
+      quantity: stockLevels.quantity,
+      reservedquantity: stockLevels.reservedquantity,
+      stocklevelid: stockLevels.stocklevelid,
+    })
+    .from(drugBatches)
+    .innerJoin(stockLevels, eq(stockLevels.batchid, drugBatches.batchid))
+    .where(
+      and(
+        eq(drugBatches.drugid, drugid),
+        gt(drugBatches.expirydate, today) // Not expired
+      )
+    )
+    .orderBy(asc(drugBatches.expirydate)); // FIFO: earliest expiry first
+
+  // Find first batch with sufficient available quantity
+  for (const batch of batchesWithStock) {
+    const availableQty = batch.quantity - batch.reservedquantity;
+    if (availableQty >= requiredQty) {
+      return {
+        batchid: batch.batchid,
+        lotnumber: batch.lotnumber,
+        expirydate: batch.expirydate,
+        sellingprice: batch.sellingprice,
+        stocklevelid: batch.stocklevelid,
+        availableQty,
+      };
+    }
+  }
+
+  // No single batch has enough - return the batch with most available stock
+  if (batchesWithStock.length > 0) {
+    const sortedByQty = [...batchesWithStock].sort((a, b) => {
+      const availA = a.quantity - a.reservedquantity;
+      const availB = b.quantity - b.reservedquantity;
+      return availB - availA;
+    });
+    const best = sortedByQty[0];
+    return {
+      batchid: best.batchid,
+      lotnumber: best.lotnumber,
+      expirydate: best.expirydate,
+      sellingprice: best.sellingprice,
+      stocklevelid: best.stocklevelid,
+      availableQty: best.quantity - best.reservedquantity,
+    };
+  }
+
+  return null; // No batches available
+}
 
 // ── GET: list orders ──────────────────────────────────────────────────
 export async function GET(
@@ -185,17 +248,20 @@ export async function POST(
 
       orders.push(order);
 
-      // Resolve drug price
+      // Select optimal batch using FIFO/expiry logic
       let unitprice: string | null = null;
+      let selectedBatchId: string | null = null;
       const drugid = item.drugid && item.drugid !== "" ? item.drugid : null;
       
       if (drugid) {
-        const [drug] = await db
-          .select()
-          .from(drugs)
-          .where(eq(drugs.drugid, drugid))
-          .limit(1);
-        // unitprice will be resolved at dispense from batch
+        const optimalBatch = await selectOptimalBatch(drugid, item.quantity);
+        if (optimalBatch) {
+          selectedBatchId = optimalBatch.batchid;
+          unitprice = optimalBatch.sellingprice;
+          console.log(`Selected batch ${optimalBatch.lotnumber} (expires: ${optimalBatch.expirydate}) for ${item.drugname}`);
+        } else {
+          console.warn(`No suitable batch found for ${item.drugname} - order will be created without batch assignment`);
+        }
       }
 
       // Construct dosage string from detailed fields
@@ -210,12 +276,13 @@ export async function POST(
         dosageString = parts.join(", ");
       }
 
-      // Create single item for this order
+      // Create single item for this order with selected batch
       const [orderItem] = await db
         .insert(pharmacyOrderItems)
         .values({
           orderid: order.orderid,
           drugid: drugid,
+          batchid: selectedBatchId,
           drugname: item.drugname,
           dosage: dosageString || null,
           quantity: item.quantity,
@@ -225,6 +292,42 @@ export async function POST(
         .returning();
 
       allItems.push(orderItem);
+
+      // Reserve stock for this item
+      if (drugid) {
+        try {
+          const [stockLevel] = await db
+            .select()
+            .from(stockLevels)
+            .where(eq(stockLevels.drugid, drugid))
+            .limit(1);
+
+          if (stockLevel) {
+            const availableQty = stockLevel.quantity - stockLevel.reservedquantity;
+            if (availableQty >= item.quantity) {
+              // Reserve the stock
+              await db
+                .update(stockLevels)
+                .set({
+                  reservedquantity: sql`${stockLevels.reservedquantity} + ${item.quantity}`,
+                  updatedat: new Date(),
+                })
+                .where(eq(stockLevels.stocklevelid, stockLevel.stocklevelid));
+              
+              console.log(`Reserved ${item.quantity} units of ${item.drugname} for order ${order.orderid}`);
+            } else {
+              console.warn(`Insufficient stock for ${item.drugname}: available=${availableQty}, requested=${item.quantity}`);
+              // Note: Order is still created but stock is not reserved
+              // You may want to mark the order item status differently or notify the user
+            }
+          } else {
+            console.warn(`No stock level found for drug ${drugid}`);
+          }
+        } catch (stockError) {
+          console.error(`Error reserving stock for ${item.drugname}:`, stockError);
+          // Continue with order creation even if stock reservation fails
+        }
+      }
     }
 
     // Create OpenEHR composition for each order if patient exists
