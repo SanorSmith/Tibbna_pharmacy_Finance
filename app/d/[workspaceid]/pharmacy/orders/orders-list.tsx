@@ -189,7 +189,7 @@ export default function PharmacyOrdersPage({
               className="gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-              {syncMutation.isPending ? "Syncing..." : "Sync from OpenEHR"}
+              {syncMutation.isPending ? "Syncing..." : "Refresh"}
             </Button>
             <Button
               size="sm"

@@ -13,7 +13,7 @@ import {
   warehouseSections,
   stockTransactions,
 } from "@/lib/db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 // Use item's reorderlevel, fall back to 10 if not set
@@ -56,7 +56,10 @@ export async function GET(
       .leftJoin(inventoryStock, eq(items.id, inventoryStock.itemid))
       .leftJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
       .where(
-        sql`${items.workspaceid} = ${workspaceid} AND ${items.itemtype} = 'drug'`
+        and(
+          eq(items.workspaceid, workspaceid),
+          eq(items.itemtype, 'drug')
+        )
       )
       .groupBy(
         items.id,
@@ -100,7 +103,10 @@ export async function GET(
           .innerJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
           .leftJoin(warehouseSections, eq(inventoryStock.warehouseid, warehouseSections.warehouseid))
           .where(
-            sql`${inventoryStock.itemid} = ${item.itemid} AND ${warehouses.warehousetype} = 'pharmacy'`
+            and(
+              eq(inventoryStock.itemid, item.itemid),
+              eq(warehouses.warehousetype, 'pharmacy')
+            )
           );
 
         // Note: item_batches doesn't have expirydate, expiry is tracked at item level
@@ -178,7 +184,7 @@ export async function GET(
       .innerJoin(items, eq(stockTransactions.itemid, items.id))
       .innerJoin(warehouses, eq(stockTransactions.warehouseid, warehouses.id))
       .where(
-        sql`${warehouses.warehousetype} = 'pharmacy'`
+        eq(warehouses.warehousetype, 'pharmacy')
       )
       .orderBy(desc(stockTransactions.createdat))
       .limit(20);
@@ -236,7 +242,10 @@ export async function POST(
         .from(inventoryStock)
         .innerJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
         .where(
-          sql`${inventoryStock.itemid} = ${itemid} AND ${warehouses.warehousetype} = 'pharmacy'`
+          and(
+            eq(inventoryStock.itemid, itemid),
+            eq(warehouses.warehousetype, 'pharmacy')
+          )
         );
 
       const currentStock = stockInfo?.totalStock || 0;

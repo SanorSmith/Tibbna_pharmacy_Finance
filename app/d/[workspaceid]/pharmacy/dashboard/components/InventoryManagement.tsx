@@ -60,6 +60,9 @@ interface InventoryItem {
   unit: string;
   barcode: string | null;
   manufacturer: string | null;
+  packagingtype: string | null;
+  packagesize: string | null;
+  tabletsperpack: number | null;
   isactive: boolean;
   totalStock: number;
   batches: BatchInfo[];
@@ -257,6 +260,8 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
                   <TableHead className="text-xs">Drug Name</TableHead>
                   <TableHead className="text-xs">Form / Strength</TableHead>
                   <TableHead className="text-xs">Manufacturer</TableHead>
+                  <TableHead className="text-xs">Packaging</TableHead>
+                  <TableHead className="text-xs">Location</TableHead>
                   <TableHead className="text-xs text-center">Stock</TableHead>
                   <TableHead className="text-xs">Batches</TableHead>
                   <TableHead className="text-xs">Nearest Expiry</TableHead>
@@ -310,6 +315,34 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
                         </TableCell>
                         <TableCell className="text-sm">{item.form} / {item.strength}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{item.manufacturer || "—"}</TableCell>
+                        <TableCell>
+                          {item.packagingtype || item.packagesize || item.tabletsperpack ? (
+                            <div>
+                              {item.packagingtype && <p className="text-[11px] font-medium">{item.packagingtype}</p>}
+                              {item.packagesize && <p className="text-[11px] text-muted-foreground">{item.packagesize}</p>}
+                              {item.tabletsperpack && <p className="text-[10px] text-muted-foreground">{item.tabletsperpack} units/pack</p>}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {item.locations && item.locations.length > 0 ? (
+                            <div className="space-y-1">
+                              {item.locations.slice(0, 2).map((loc: any, idx: number) => (
+                                <div key={idx} className="text-[11px]">
+                                  <p className="font-medium text-gray-700">{loc.locationname}</p>
+                                  <p className="text-[10px] text-muted-foreground">{loc.quantity} units</p>
+                                </div>
+                              ))}
+                              {item.locations.length > 2 && (
+                                <p className="text-[10px] text-muted-foreground">+{item.locations.length - 2} more</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className={`text-sm font-bold ${
                             item.isOutOfStock ? "text-red-600" :

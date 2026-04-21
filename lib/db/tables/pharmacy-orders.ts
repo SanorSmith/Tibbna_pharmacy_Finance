@@ -16,7 +16,9 @@ import {
 } from "drizzle-orm/pg-core";
 import { workspaces } from "./workspace";
 import { patients } from "./patient";
+import { users } from "./user";
 import { drugs, drugBatches } from "./pharmacy-drugs";
+import { stockLocations } from "./pharmacy-stock";
 
 // ── Order statuses ────────────────────────────────────────────────────
 export const PHARMACY_ORDER_STATUS = {
@@ -91,6 +93,8 @@ export const pharmacyOrderItems = pgTable(
       .references(() => drugs.drugid, { onDelete: "set null" }),
     batchid: uuid("batchid")
       .references(() => drugBatches.batchid, { onDelete: "set null" }),
+    dispenselocationid: uuid("dispenselocationid")
+      .references(() => stockLocations.locationid, { onDelete: "set null" }),
     drugname: text("drugname").notNull(), // denormalized for display
     dosage: text("dosage"), // e.g. "500 mg twice daily"
     quantity: integer("quantity").notNull().default(1),

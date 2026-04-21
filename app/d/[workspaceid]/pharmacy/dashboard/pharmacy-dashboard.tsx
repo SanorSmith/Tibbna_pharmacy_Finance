@@ -26,6 +26,7 @@ import {
   Loader2,
   FlaskConical,
   Warehouse,
+  Shield,
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
@@ -40,6 +41,7 @@ interface DashboardStats {
   sales: { totalRevenue: number; todayRevenue: number; totalInvoices: number; paidInvoices: number };
   overdue: { count: number; orders: { orderid: string; priority: string; createdat: string }[] };
   notifications: { count: number; items: { orderid: string; priority: string; status: string; notes: string | null; createdat: string; source: string }[] };
+  topSellers?: { drugid: string; drugname: string; genericname: string | null; strength: string; form: string; totalquantity: number }[];
 }
 
 export default function PharmacyDashboard({
@@ -148,6 +150,13 @@ export default function PharmacyDashboard({
           >
             <Warehouse className="h-4 w-4" />
             Inventory
+          </TabsTrigger>
+          <TabsTrigger
+            value="insurance"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <Shield className="h-4 w-4" />
+            Insurance
           </TabsTrigger>
           <TabsTrigger
             value="todo"
@@ -350,6 +359,42 @@ export default function PharmacyDashboard({
                     </CardContent>
                   </Card>
 
+                  {/* Top Sellers */}
+                  <Card className="shadow-sm">
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        Top Selling Medicines
+                        <Badge className="text-[10px] px-1.5 py-0 bg-green-500">
+                          This Month
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      {(!stats?.topSellers || stats.topSellers.length === 0) ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No sales data available</p>
+                      ) : (
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {stats.topSellers.map((item: any, index: number) => (
+                            <div key={item.itemid || index} className="flex items-center justify-between py-1.5 border-b last:border-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-muted-foreground w-5">#{index + 1}</span>
+                                <div>
+                                  <p className="text-sm font-medium">{item.itemname || item.drugname}</p>
+                                  <p className="text-[11px] text-muted-foreground">{item.genericname || item.strength}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-green-600">{item.totalquantity || item.quantity}</p>
+                                <p className="text-[10px] text-muted-foreground">units sold</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   {/* Overdue Orders */}
                   <Card className="shadow-sm">
                     <CardHeader className="pb-2 pt-4 px-4">
@@ -442,6 +487,13 @@ export default function PharmacyDashboard({
       <TabsContent value="inventory" className="mt-4 px-4">
         {loadedTabs.has("inventory") && (
           <PharmacyInventoryPage initialStockFilter={inventoryStockFilter} />
+        )}
+      </TabsContent>
+
+      {/* Insurance Tab */}
+      <TabsContent value="insurance" className="mt-4 px-4">
+        {loadedTabs.has("insurance") && (
+          <PlaceholderTab title="Insurance" description="Insurance management — coming soon" icon={<Shield className="h-12 w-12 text-gray-300" />} />
         )}
       </TabsContent>
 

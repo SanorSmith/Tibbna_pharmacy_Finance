@@ -7,9 +7,9 @@ const pool = new Pool({
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ itemid: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { itemid } = await params;
+  const { id } = await params;
 
   const result = await pool.query(
     `SELECT
@@ -25,7 +25,7 @@ export async function GET(
     LEFT JOIN warehouses w ON w.id = ib.warehouse_id
     WHERE ib.item_id = $1
     ORDER BY ib.expiry_date ASC NULLS LAST`,
-    [itemid]
+    [id]
   );
 
   return NextResponse.json(result.rows);

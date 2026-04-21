@@ -12,6 +12,7 @@ const icons = {
   search: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
   pill:   "M10.5 6.5L6.5 10.5M9 3l12 12-6 6L3 9l6-6z",
   arrow:  "M5 12h14M12 5l7 7-7 7",
+  arrowLeft: "M19 12H5M12 19l-7-7 7-7",
   warning:"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
   import: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3",
 };
@@ -324,6 +325,25 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
   return (
     <div style={s.overlay}>
       <div style={s.modal}>
+        {/* Back Button Row */}
+        {entryType && !isUpdate && (
+          <div style={{padding:"12px 24px",borderBottom:"1px solid #f3f4f6"}}>
+            <button 
+              onClick={() => {
+                setEntryType(null);
+                setError("");
+              }}
+              style={{background:"none",border:"none",cursor:"pointer",padding:"6px 6px",display:"flex",alignItems:"center",gap:6,color:"#6b7280",fontSize:13,fontWeight:600,borderRadius:6,transition:"background 0.2s"}}
+              title="Back"
+              onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+            >
+              <Icon d={icons.arrowLeft} size={16} color="#6b7280"/>
+              Back to Selection
+            </button>
+          </div>
+        )}
+        
         {/* Header */}
         <div style={{padding:"20px 24px",borderBottom:"1px solid #f3f4f6",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>

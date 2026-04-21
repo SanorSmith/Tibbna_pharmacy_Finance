@@ -165,11 +165,17 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
     controlled:   item?.controlled    ?? false,
     unit_cost:    String(item?.unitCost     ?? ""),
     selling_price:String(item?.sellingPrice ?? ""),
+    storage_location_id: item?.storageLocationId ?? "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
   const [scanning, setScanning] = useState(false);
+  const [storageLocations, setStorageLocations] = useState<any[]>([]);
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    fetch('/api/pharmacy/storage').then(r=>r.json()).then(d=>setStorageLocations(Array.isArray(d)?d:[]));
+  }, []);
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.itemcode.trim()) { setError("Name and item code are required"); return; }
@@ -187,7 +193,7 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
         unitcost: form.unit_cost,
         sellingprice: form.selling_price,
       };
-      const res = await fetch(isEdit ? `/api/items/${item.id}` : "/api/items", {
+      const res = await fetch(isEdit ? `/api/pharmacy/items/${item.id}` : "/api/pharmacy/items", {
         method: isEdit?"PATCH":"POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
@@ -280,6 +286,18 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
         <div style={s.fgroup}><label style={s.label}>Max Stock Level</label><input type="number" style={s.input} value={form.max_level} onChange={e=>set("max_level",e.target.value)}/></div>
 
         <div style={{gridColumn:"1/-1",...s.fgroup}}><label style={s.label}>Description</label><input style={s.input} value={form.description} onChange={e=>set("description",e.target.value)}/></div>
+
+        <div style={{gridColumn:"1/-1",...s.fgroup}}>
+          <label style={s.label}>Storage Location / Shelf</label>
+          <select style={s.input} value={form.storage_location_id} onChange={e=>set("storage_location_id",e.target.value)}>
+            <option value="">— None —</option>
+            {storageLocations.map((loc:any)=>(
+              <option key={loc.id} value={loc.id}>
+                {loc.name}{loc.location ? ` • ${loc.location}` : ""}{loc.type ? ` [${loc.type}]` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
         <button onClick={onClose} style={{...s.btn("ghost"),border:"1px solid #e5e7eb"}}>Cancel</button>
@@ -292,7 +310,7 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
 // ── Confirm Modal ──────────────────────────────────────────────────────────────
 function ConfirmModal({ item, onClose, onSuccess }: { item: any; onClose: ()=>void; onSuccess: ()=>void }) {
   const [loading, setLoading] = useState(false);
-  const handleDelete = async () => { setLoading(true); await fetch(`/api/items/${item.id}`,{method:"DELETE"}); onSuccess(); onClose(); };
+  const handleDelete = async () => { setLoading(true); await fetch(`/api/pharmacy/items/${item.id}`,{method:"DELETE"}); onSuccess(); onClose(); };
   return (
     <div style={s.overlay}><div style={{...s.modal,width:420}}>
       <h3 style={{fontSize:15,fontWeight:600,marginBottom:8}}>Deactivate Item</h3>
@@ -350,6 +368,84 @@ function DispenseModal({ stores, onClose, onSuccess }: { stores: any[]; onClose:
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
         <button onClick={onClose} style={{...s.btn("ghost"),border:"1px solid #e5e7eb"}}>Cancel</button>
         <button onClick={handleSave} disabled={loading} style={s.btn("purple")}>{loading?"Dispensing...":"Dispense"}</button>
+      </div>
+    </div></div>
+  );
+}
+
+// ── View Item Modal ────────────────────────────────────────────────────────────
+function ViewItemModal({ item, onClose, addToShopList, showToast }: { item: any; onClose: ()=>void; addToShopList: (item: any, qty?: number)=>void; showToast: (msg: string)=>void }) {
+  const [batches, setBatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetch(`/api/pharmacy/items/${item.id}/batches`)
+      .then(r=>r.json())
+      .then(batchData => {
+        setBatches(Array.isArray(batchData)?batchData:[]);
+        setLoading(false);
+      });
+  }, [item.id]);
+
+  // Get unique warehouse locations from batches
+  const warehouseLocations = [...new Set(batches.map(b => b.warehouseName).filter(Boolean))];
+  
+  return (
+    <div style={s.overlay}><div style={{...s.modal,width:500}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <h3 style={{fontSize:16,fontWeight:600,margin:0}}>Item Details</h3>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer"}}><Icon d={icons.x} size={18} color="#6b7280"/></button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+        {[["Name",item.name],["Generic",item.genericName??"—"],["Code",item.itemcode],["Type",item.itemType],["UOM",item.uom],["Stock",item.totalStock],["Purchase Price",item.unitCost?`$${parseFloat(item.unitCost).toFixed(2)}`:"—"],["Selling Price",item.sellingPrice?`$${parseFloat(item.sellingPrice).toFixed(2)}`:"—"],["Supplier",item.supplierName??"—"],["Manufacturer",item.manufacturer??"—"]].map(([label,value])=>(
+          <div key={label as string} style={{background:"#f9fafb",borderRadius:8,padding:"8px 12px"}}>
+            <div style={{fontSize:11,color:"#6b7280",marginBottom:2}}>{label}</div>
+            <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{value}</div>
+          </div>
+        ))}
+        <div style={{gridColumn:"1/-1",background:"#f9fafb",borderRadius:8,padding:"8px 12px"}}>
+          <div style={{fontSize:11,color:"#6b7280",marginBottom:4,fontWeight:600}}>Warehouse Locations</div>
+          {loading ? (
+            <div style={{fontSize:12,color:"#6b7280"}}>Loading...</div>
+          ) : warehouseLocations.length > 0 ? (
+            <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>
+              {warehouseLocations.join(", ")}
+            </div>
+          ) : (
+            <div style={{fontSize:12,color:"#6b7280"}}>No warehouse data</div>
+          )}
+        </div>
+        {item.storageLocationName && (
+          <div style={{gridColumn:"1/-1",background:"#f0fdf4",borderRadius:8,padding:"8px 12px"}}>
+            <div style={{fontSize:11,color:"#059669",marginBottom:6,fontWeight:600}}>Storage Location / Shelf</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12}}>
+              <div>
+                <span style={{fontWeight:600,color:"#111827"}}>{item.storageLocationName}</span>
+                {item.storageLocation && <span style={{color:"#6b7280",marginLeft:6}}>• {item.storageLocation}</span>}
+              </div>
+              <span style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:"#dcfce7",color:"#166534",fontWeight:600}}>
+                {item.storageType || "shelf"}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{borderTop:"1px solid #f3f4f6",paddingTop:16}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>Add to Shop List</div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div style={{flex:1}}>
+            <label style={s.label}>Quantity</label>
+            <input type="number" min={1} defaultValue={1} id="viewItemQty" style={{...s.input,width:100}}/>
+          </div>
+          <button onClick={()=>{
+            const qty = parseInt((document.getElementById("viewItemQty") as HTMLInputElement)?.value)||1;
+            addToShopList(item, qty);
+            onClose();
+            showToast(`${item.name} added to shop list`);
+          }} style={{...s.btn("purple"),marginTop:16,display:"flex",alignItems:"center",gap:6}}>
+            <Icon d={icons.plus} size={13} color="#fff"/> Add to Cart
+          </button>
+        </div>
       </div>
     </div></div>
   );
@@ -780,9 +876,9 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
         {/* Summary cards */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
           {[
-            {label:"Total Items",value:totalItems,color:"#6366f1",bg:"#eef2ff",filter:"all" as const},
-            {label:"Low Stock",value:lowStock,color:"#d97706",bg:"#fef3c7",filter:"lowstock" as const},
-            {label:"Out of Stock",value:outOfStock,color:"#dc2626",bg:"#fee2e2",filter:"outofstock" as const}
+            {label:"Total Items",value:totalItems,color:"#16a34a",bg:"#dcfce7",filter:"all" as const},
+            {label:"Low Stock",value:lowStock,color:"#f59e0b",bg:"#fef3c7",filter:"lowstock" as const},
+            {label:"Out of Stock",value:outOfStock,color:"#ef4444",bg:"#fee2e2",filter:"outofstock" as const}
           ].map(m=>(
             <div 
               key={m.label} 
@@ -807,23 +903,44 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
         {/* ITEMS TAB */}
         {tab==="items" && (
           <div style={s.card}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap" as const}}>
               <div style={{position:"relative",display:"flex",alignItems:"center"}}>
                 <div style={{position:"absolute",left:10,pointerEvents:"none"}}><Icon d={icons.search} size={13} color="#9ca3af"/></div>
                 <input placeholder="Search name, code, generic, supplier..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} style={{...s.input,width:280,paddingLeft:30}}/>
               </div>
-              <div style={{width:1,height:20,background:"#e5e7eb"}}/>
-              {["all","drug","device","cosmetic","cream","supplement","consumable","other"].map(t=>(
-                <button key={t} onClick={()=>{setTypeFilter(t);setPage(1);}} style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:`1px solid ${typeFilter===t?"#6366f1":"#e5e7eb"}`,background:typeFilter===t?"#6366f1":"#f9fafb",color:typeFilter===t?"#fff":"#374151",cursor:"pointer"}}>
-                  {t.charAt(0).toUpperCase()+t.slice(1)} {t==="all"?`(${items.length})`:""}
-                </button>
-              ))}
-              <div style={{width:1,height:20,background:"#e5e7eb"}}/>
-              {[{key:"all",label:"All Stock"},{key:"instock",label:"In Stock"},{key:"lowstock",label:"Low Stock"},{key:"outofstock",label:"Out of Stock"}].map(s=>(
-                <button key={s.key} onClick={()=>{setStockFilter(s.key as any);setPage(1);}} style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:`1px solid ${stockFilter===s.key?"#dc2626":"#e5e7eb"}`,background:stockFilter===s.key?"#dc2626":"#f9fafb",color:stockFilter===s.key?"#fff":"#374151",cursor:"pointer"}}>
-                  {s.label}
-                </button>
-              ))}
+              
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <label style={{fontSize:12,fontWeight:600,color:"#6b7280"}}>Item Type:</label>
+                <select 
+                  value={typeFilter} 
+                  onChange={e=>{setTypeFilter(e.target.value);setPage(1);}}
+                  style={{...s.input,width:150,paddingRight:30,cursor:"pointer"}}
+                >
+                  <option value="all">All ({items.length})</option>
+                  <option value="drug">Drug</option>
+                  <option value="device">Device</option>
+                  <option value="cosmetic">Cosmetic</option>
+                  <option value="cream">Cream</option>
+                  <option value="supplement">Supplement</option>
+                  <option value="consumable">Consumable</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <label style={{fontSize:12,fontWeight:600,color:"#6b7280"}}>Stock Status:</label>
+                <select 
+                  value={stockFilter} 
+                  onChange={e=>{setStockFilter(e.target.value as any);setPage(1);}}
+                  style={{...s.input,width:150,cursor:"pointer"}}
+                >
+                  <option value="all">All Stock</option>
+                  <option value="instock">In Stock</option>
+                  <option value="lowstock">Low Stock</option>
+                  <option value="outofstock">Out of Stock</option>
+                </select>
+              </div>
+
               <span style={{marginLeft:"auto",fontSize:12,color:"#9ca3af"}}>{filteredItems.length} items</span>
             </div>
             {loading?<div style={{padding:40,textAlign:"center",color:"#9ca3af"}}>Loading...</div>
@@ -831,10 +948,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
             :<>
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr>{["Item","Code","Type","UOM","Stock","Purchase Price","Selling Price","Supplier","Actions"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Item","Code","Manufacturer","Packaging","Location","Type","UOM","Stock","Expiry Date","Registered","Purchase Price","Selling Price","Actions"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {filteredItems.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map(item=>{
                       const sc=stockColor(parseInt(item.totalStock),parseInt(item.reorderLevel??0));
+                      const nearestExpiry = item.nearestExpiry ? new Date(item.nearestExpiry) : null;
+                      const isExpired = nearestExpiry && nearestExpiry < new Date();
+                      const daysToExpiry = nearestExpiry ? Math.ceil((nearestExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
                       return (
                         <tr key={item.id}>
                           <td style={{...s.td,minWidth:160}}>
@@ -842,12 +962,61 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                             {(item.genericName??item.generic_Name)&&<div style={{fontSize:11,color:"#9ca3af"}}>{item.genericName??item.generic_Name}</div>}
                           </td>
                           <td style={{...s.td,fontFamily:"monospace",fontSize:11,color:"#6b7280"}}>{item.itemcode}</td>
+                          <td style={{...s.td,fontSize:12,color:"#374151"}}>{item.manufacturer??"—"}</td>
+                          <td style={s.td}>
+                            {item.packagingType || item.packageSize || item.tabletsPerPack ? (
+                              <div>
+                                {item.packagingType && <div style={{fontSize:11,fontWeight:600,color:"#374151"}}>{item.packagingType}</div>}
+                                {item.packageSize && <div style={{fontSize:11,color:"#6b7280"}}>{item.packageSize}</div>}
+                                {item.tabletsPerPack && <div style={{fontSize:10,color:"#9ca3af"}}>{item.tabletsPerPack} units/pack</div>}
+                              </div>
+                            ) : "—"}
+                          </td>
+                          <td style={{...s.td,fontSize:11,color:"#6b7280",maxWidth:120}}>
+                            {pharmaWh.length > 0 ? (
+                              <div style={{fontSize:11}}>
+                                {pharmaWh.slice(0, 2).map((wh: any, idx: number) => (
+                                  <div key={idx} style={{marginBottom:2}}>
+                                    <div style={{fontWeight:600,color:"#374151"}}>{wh.name}</div>
+                                  </div>
+                                ))}
+                                {pharmaWh.length > 2 && <div style={{fontSize:10,color:"#9ca3af"}}>+{pharmaWh.length - 2} more</div>}
+                              </div>
+                            ) : "—"}
+                            {item.storageLocationName && (
+                              <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #e5e7eb"}}>
+                                <div style={{fontSize:10,color:"#059669",fontWeight:600}}>📍 {item.storageLocationName}</div>
+                                {item.storageLocation && <div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{item.storageLocation}</div>}
+                              </div>
+                            )}
+                          </td>
                           <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#f3f4f6",color:"#374151"}}>{item.itemType}</span></td>
                           <td style={s.td}>{item.uom}</td>
                           <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:sc.bg,color:sc.color}}>{item.totalStock}</span></td>
+                          <td style={{...s.td,fontSize:11}}>
+                            {nearestExpiry ? (
+                              <div>
+                                <div style={{color: isExpired ? "#dc2626" : daysToExpiry !== null && daysToExpiry <= 90 ? "#f59e0b" : "#374151", fontWeight: isExpired ? 600 : 400}}>
+                                  {nearestExpiry.toLocaleDateString()}
+                                </div>
+                                {daysToExpiry !== null && (
+                                  <div style={{fontSize:10,color: isExpired ? "#dc2626" : daysToExpiry <= 30 ? "#dc2626" : daysToExpiry <= 90 ? "#f59e0b" : "#9ca3af"}}>
+                                    {isExpired ? "EXPIRED" : `${daysToExpiry}d left`}
+                                  </div>
+                                )}
+                              </div>
+                            ) : "—"}
+                          </td>
+                          <td style={{...s.td,fontSize:11,color:"#6b7280"}}>
+                            {item.createdAt ? (
+                              <div>
+                                <div>{new Date(item.createdAt).toLocaleDateString()}</div>
+                                <div style={{fontSize:10,color:"#9ca3af"}}>{new Date(item.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                              </div>
+                            ) : "—"}
+                          </td>
                           <td style={s.td}>{item.unitCost?`$${parseFloat(item.unitCost).toFixed(2)}`:"—"}</td>
                           <td style={s.td}>{item.sellingPrice?<span style={{color:"#16a34a",fontWeight:600}}>${parseFloat(item.sellingPrice).toFixed(2)}</span>:"—"}</td>
-                          <td style={{...s.td,fontSize:12,color:"#6b7280"}}>{item.supplierName??"—"}</td>
                           <td style={s.td}>
                             <div style={{display:"flex",gap:5}}>
                               <button onClick={()=>setBatchItem(item)} title="View batches" style={{background:"#f0fdf4",border:"none",borderRadius:6,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon d={icons.layers} size={12} color="#16a34a"/></button>
@@ -1819,39 +1988,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
       </div>
 
       {/* View Item Modal */}
-      {viewItem && (
-        <div style={s.overlay}><div style={{...s.modal,width:500}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-            <h3 style={{fontSize:16,fontWeight:600,margin:0}}>Item Details</h3>
-            <button onClick={()=>setViewItem(null)} style={{background:"none",border:"none",cursor:"pointer"}}><Icon d={icons.x} size={18} color="#6b7280"/></button>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-            {[["Name",viewItem.name],["Generic",viewItem.genericName??"—"],["Code",viewItem.itemcode],["Type",viewItem.itemType],["UOM",viewItem.uom],["Stock",viewItem.totalStock],["Purchase Price",viewItem.unitCost?`$${parseFloat(viewItem.unitCost).toFixed(2)}`:"—"],["Selling Price",viewItem.sellingPrice?`$${parseFloat(viewItem.sellingPrice).toFixed(2)}`:"—"],["Supplier",viewItem.supplierName??"—"],["Manufacturer",viewItem.manufacturer??"—"],["Storage Location",viewItem.storageLocation??viewItem.storage_location??"—"],["Shelf",viewItem.shelf??viewItem.shelfName??"—"]].map(([label,value])=>(
-              <div key={label as string} style={{background:"#f9fafb",borderRadius:8,padding:"8px 12px"}}>
-                <div style={{fontSize:11,color:"#6b7280",marginBottom:2}}>{label}</div>
-                <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{value}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{borderTop:"1px solid #f3f4f6",paddingTop:16}}>
-            <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>Add to Shop List</div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <div style={{flex:1}}>
-                <label style={s.label}>Quantity</label>
-                <input type="number" min={1} defaultValue={1} id="viewItemQty" style={{...s.input,width:100}}/>
-              </div>
-              <button onClick={()=>{
-                const qty = parseInt((document.getElementById("viewItemQty") as HTMLInputElement)?.value)||1;
-                addToShopList(viewItem, qty);
-                setViewItem(null);
-                showToast(`${viewItem.name} added to shop list`);
-              }} style={{...s.btn("purple"),marginTop:16,display:"flex",alignItems:"center",gap:6}}>
-                <Icon d={icons.plus} size={13} color="#fff"/> Add to Cart
-              </button>
-            </div>
-          </div>
-        </div></div>
-      )}
+      {viewItem && <ViewItemModal item={viewItem} onClose={()=>setViewItem(null)} addToShopList={addToShopList} showToast={showToast} />}
 
       {/* Modals */}
       {showAddItem&&<ItemModal warehouses={pharmaWh} manufacturers={manufacturers} onClose={()=>setShowAddItem(false)} onSuccess={()=>{fetchAll();showToast("Item added!");}}/>}
