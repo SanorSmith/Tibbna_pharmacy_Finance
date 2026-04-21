@@ -547,6 +547,8 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   // Shop list
   const [shopList, setShopList] = useState<any[]>([]);
   const [shopQtys, setShopQtys] = useState<Record<string,number>>({});
+  const [shopPriorities, setShopPriorities] = useState<Record<string,"normal"|"urgent">>({});
+  const [shopDeliveryTimes, setShopDeliveryTimes] = useState<Record<string,string>>({});
   const [shopLoading, setShopLoading] = useState(false);
   const [shopSaving, setShopSaving] = useState(false);
   const [shopCreatedBy, setShopCreatedBy] = useState("");
@@ -598,6 +600,25 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
 
+  // Fetch user info and auto-populate creator name
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch("/api/auth/session");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            const fullName = `${data.user.firstname || ""} ${data.user.lastname || ""}`.trim();
+            setShopCreatedBy(fullName || data.user.email || "Unknown");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+    fetchUser();
+  }, []);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -628,8 +649,16 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
     const list = Array.isArray(data)?data:[];
     setShopList(list);
     const qtys: Record<string,number> = {};
-    list.forEach((i:any)=>{ qtys[i.id]=(i.maxLevel??i.reorderLevel*2)-i.currentStock; });
+    const priorities: Record<string,"normal"|"urgent"> = {};
+    const deliveryTimes: Record<string,string> = {};
+    list.forEach((i:any)=>{ 
+      qtys[i.id]=(i.maxLevel??i.reorderLevel*2)-i.currentStock;
+      priorities[i.id] = i.currentStock === 0 ? "urgent" : "normal";
+      deliveryTimes[i.id] = "";
+    });
     setShopQtys(q=>({...qtys,...q}));
+    setShopPriorities(p=>({...priorities,...p}));
+    setShopDeliveryTimes(d=>({...deliveryTimes,...d}));
     setShopLoading(false);
   }, []);
 
@@ -1179,7 +1208,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
                   <div style={s.fgroup}>
                     <label style={s.label}>Created By *</label>
-                    <input style={s.input} value={shopCreatedBy} onChange={e=>setShopCreatedBy(e.target.value)} placeholder="Your name"/>
+                    <input style={{...s.input,background:"#f9fafb",cursor:"not-allowed"}} value={shopCreatedBy} disabled placeholder="Auto-filled from your profile"/>
                   </div>
                   <div style={s.fgroup}>
                     <label style={s.label}>Supplier</label>
@@ -1345,7 +1374,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                 {shopList.length>0&&<div style={{padding:"8px 16px",background:"#fef3c7",fontSize:12,color:"#92400e",borderBottom:"1px solid #fde68a"}}>⚠️ {shopList.length} item{shopList.length>1?"s":""} at or below reorder level</div>}
                 <div style={{overflowX:"auto"}}>
                   <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead><tr>{["Item","Code","Supplier","UOM","Stock","Order Qty","Unit Cost","Est. Cost",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                    <thead><tr>{["Item","Code","Supplier","UOM","Stock","Order Qty","Status","Delivery Time","Unit Cost","Est. Cost",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {[...shopList,...manualShopItems].map(item=>{
                         const qty = shopQtys[item.id]??1;
@@ -1358,6 +1387,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                             <td style={s.td}>{item.uom}</td>
                             <td style={{...s.td,fontWeight:700,color:parseInt(item.currentStock)===0?"#dc2626":"#d97706"}}>{item.currentStock}</td>
                             <td style={s.td}><input type="number" min={0} value={qty} onChange={e=>setShopQtys(q=>({...q,[item.id]:parseInt(e.target.value)||0}))} style={{...s.input,width:75,textAlign:"center" as const}}/></td>
+                            <td style={s.td}>
+                              <select value={shopPriorities[item.id]??"normal"} onChange={e=>setShopPriorities(p=>({...p,[item.id]:e.target.value as "normal"|"urgent"}))} style={{...s.input,width:120,padding:"6px 8px",fontSize:12,fontWeight:600,color:shopPriorities[item.id]==="urgent"?"#dc2626":"#374151",background:shopPriorities[item.id]==="urgent"?"#fee2e2":"#fff"}}>
+                                <option value="normal">Normal Order</option>
+                                <option value="urgent">🚨 Urgent</option>
+                              </select>
+                            </td>
+                            <td style={s.td}><input type="datetime-local" value={shopDeliveryTimes[item.id]??""} onChange={e=>setShopDeliveryTimes(d=>({...d,[item.id]:e.target.value}))} style={{...s.input,width:170,fontSize:11}}/></td>
                             <td style={s.td}>{item.lastUnitCost?`$${parseFloat(item.lastUnitCost).toFixed(2)}`:"—"}</td>
                             <td style={{...s.td,fontWeight:600,color:"#6366f1"}}>${cost.toFixed(2)}</td>
                             <td style={s.td}><button onClick={()=>{
@@ -1371,7 +1407,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                     </tbody>
                     <tfoot>
                       <tr style={{background:"#f9fafb"}}>
-                        <td colSpan={7} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total Est. Cost:</td>
+                        <td colSpan={9} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total Est. Cost:</td>
                         <td style={{...s.td,fontWeight:700,color:"#6366f1"}}>${[...shopList,...manualShopItems].reduce((sum,i)=>sum+(shopQtys[i.id]??0)*parseFloat(i.lastUnitCost??0),0).toFixed(2)}</td>
                         <td style={s.td}></td>
                       </tr>
