@@ -8,8 +8,43 @@ const pool = new Pool({
 export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams.get("search") ?? "";
   const workspaceId = req.nextUrl.searchParams.get("workspaceId") ?? "";
+  const source = req.nextUrl.searchParams.get("source") ?? "global"; // 'global' or 'inventory'
 
-  console.log('[Pharmacy Items API] Received workspace ID:', workspaceId);
+  console.log('[Pharmacy Items API] Received workspace ID:', workspaceId, 'source:', source);
+
+  // Search global drugs table for drug interaction checker
+  if (source === "global") {
+    const searchPattern = search.trim() === "" ? "%" : `%${search}%`;
+    
+    const result = await pool.query(
+      `SELECT
+        drugid as id,
+        name,
+        genericname,
+        form,
+        strength,
+        unit,
+        category,
+        description,
+        requiresprescription as "requiresPrescription",
+        isactive as "isActive"
+      FROM global_drugs
+      WHERE isactive = true
+        AND (
+          $1 = '%'
+          OR name ILIKE $1
+          OR genericname ILIKE $1
+          OR atccode ILIKE $1
+          OR nationalcode ILIKE $1
+        )
+      ORDER BY name
+      LIMIT 50`,
+      [searchPattern]
+    );
+
+    console.log('[Pharmacy Items API] Returning', result.rows.length, 'global drugs');
+    return NextResponse.json({ items: result.rows });
+  }
 
   // Get all pharmacy warehouses (warehouses table doesn't have workspace_id)
   const whQuery = `SELECT id FROM warehouses WHERE warehouse_type = 'pharmacy' AND is_active = true`;
@@ -107,5 +142,5 @@ export async function GET(req: NextRequest) {
 
   console.log('[Pharmacy Items API] Returning', result.rows.length, 'items for workspace', workspaceId);
 
-  return NextResponse.json(result.rows);
+  return NextResponse.json({ items: result.rows });
 }

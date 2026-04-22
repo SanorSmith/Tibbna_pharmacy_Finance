@@ -42,7 +42,7 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
   const [interactionLogs, setInteractionLogs] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Search for drugs in local database
+  // Search for drugs in global database
   const searchDrugs = async () => {
     if (!searchQuery.trim()) return;
     
@@ -51,7 +51,7 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
     
     try {
       const response = await fetch(
-        `/api/pharmacy/items?search=${encodeURIComponent(searchQuery)}&workspaceId=${workspaceid}`
+        `/api/pharmacy/items?search=${encodeURIComponent(searchQuery)}&workspaceId=${workspaceid}&source=global`
       );
       
       if (!response.ok) throw new Error("Failed to search drugs");
