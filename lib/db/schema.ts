@@ -89,6 +89,17 @@ export type NewUser = typeof users.$inferInsert;
 export type UserSession = typeof userSessions.$inferSelect;
 export type NewUserSession = typeof userSessions.$inferInsert;
 
+// ─── Workspace Users (Relationship) ─────────────────────────────────────────────
+
+export const workspaceusers = pgTable("workspaceusers", {
+  workspaceid: uuid("workspaceid").notNull().references(() => workspaces.workspaceid, { onDelete: "cascade" }),
+  userid: uuid("userid").notNull().references(() => users.userid, { onDelete: "cascade" }),
+  role: text("role").notNull(),
+  createdat: timestamp("createdat", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type WorkspaceUserRole = "doctor" | "nurse" | "lab_technician" | "pharmacist" | "receptionist" | "administrator";
+
 // ─── Drug Categories ──────────────────────────────────────────────────────────
 
 export const drugCategories = pgTable("drug_categories", {

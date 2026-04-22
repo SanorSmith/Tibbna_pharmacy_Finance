@@ -197,7 +197,7 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
           </p>
         </div>
         <Button
-          variant="outline"
+          className="bg-[#618FF5] hover:bg-[#4a6fd4] text-white"
           onClick={() => {
             setShowHistory(!showHistory);
             if (!showHistory && interactionLogs.length === 0) {
@@ -258,7 +258,7 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
                       <p className="text-xs text-gray-500">Generic: {drug.genericname}</p>
                     )}
                   </div>
-                  <Button size="sm" variant="ghost">
+                  <Button size="sm" className="bg-[#618FF5] hover:bg-[#4a6fd4] text-white">
                     Add
                   </Button>
                 </div>
@@ -282,7 +282,7 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
                     <span>{drug.name}</span>
                     <button
                       onClick={() => removeDrug(drug.id)}
-                      className="hover:text-red-600"
+                      className="hover:text-blue-300"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -296,7 +296,7 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
           <Button
             onClick={checkInteractions}
             disabled={selectedDrugs.length < 2 || checking}
-            className="w-full"
+            className="w-full bg-[#618FF5] hover:bg-[#4a6fd4] text-white"
             size="lg"
           >
             {checking ? (
