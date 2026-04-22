@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   Package,
 } from "lucide-react";
+import DrugInteractionWarningModal from "@/components/pharmacy/DrugInteractionWarningModal";
 
 type ScanResult = {
   success: boolean;
@@ -50,6 +51,11 @@ export default function PharmacyDispensePage({
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [completing, setCompleting] = useState(false);
+  
+  // Drug interaction checking
+  const [showInteractionModal, setShowInteractionModal] = useState(false);
+  const [interactions, setInteractions] = useState<any[]>([]);
+  const [checkingInteractions, setCheckingInteractions] = useState(false);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -122,12 +128,77 @@ export default function PharmacyDispensePage({
     }
   };
 
+  // Check for drug interactions before completing
+  const checkDrugInteractions = async () => {
+    setCheckingInteractions(true);
+    try {
+      // Get all drugs being dispensed
+      const drugs = items.map((item: any) => ({
+        name: item.drugname || item.itemname,
+        genericName: item.genericname,
+      }));
+
+      if (drugs.length < 2) {
+        // No interactions possible with single drug
+        return [];
+      }
+
+      const response = await fetch("/api/pharmacy/drug-interactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ drugs }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to check interactions");
+        return [];
+      }
+
+      const data = await response.json();
+      return data.interactions || [];
+    } catch (error) {
+      console.error("Error checking interactions:", error);
+      return [];
+    } finally {
+      setCheckingInteractions(false);
+    }
+  };
+
   const handleCompleteDispensing = async () => {
     setCompleting(true);
+    
+    try {
+      // First, check for drug interactions
+      const detectedInteractions = await checkDrugInteractions();
+      
+      if (detectedInteractions.length > 0) {
+        // Show interaction warning modal
+        setInteractions(detectedInteractions);
+        setShowInteractionModal(true);
+        setCompleting(false);
+        return;
+      }
+
+      // No interactions, proceed with dispensing
+      await completeDispensing();
+    } catch (err) {
+      console.error(err);
+      setCompleting(false);
+    }
+  };
+
+  // Actually complete the dispensing (called after interaction check passes)
+  const completeDispensing = async (justification?: string) => {
     try {
       const res = await fetch(
         `/api/d/${workspaceid}/pharmacy-orders/${orderid}/dispense`,
-        { method: "POST" }
+        { 
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            interactionJustification: justification 
+          }),
+        }
       );
       const json = await res.json();
       if (res.ok && json.allScanned) {
@@ -143,6 +214,17 @@ export default function PharmacyDispensePage({
     } finally {
       setCompleting(false);
     }
+  };
+
+  const handleProceedWithInteraction = (justification?: string) => {
+    setShowInteractionModal(false);
+    setCompleting(true);
+    completeDispensing(justification);
+  };
+
+  const handleCancelDispensing = () => {
+    setShowInteractionModal(false);
+    setCompleting(false);
   };
 
   const pendingItems = items.filter((i: any) => i.status === "PENDING");
@@ -351,6 +433,16 @@ export default function PharmacyDispensePage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Drug Interaction Warning Modal */}
+      <DrugInteractionWarningModal
+        open={showInteractionModal}
+        onOpenChange={setShowInteractionModal}
+        interactions={interactions}
+        drugs={items.map((item: any) => item.drugname || item.itemname)}
+        onProceed={handleProceedWithInteraction}
+        onCancel={handleCancelDispensing}
+      />
     </div>
   );
 }
