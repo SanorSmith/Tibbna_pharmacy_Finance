@@ -27,9 +27,11 @@ import {
   FlaskConical,
   Warehouse,
   Shield,
+  AlertCircle,
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
+import DrugInteractions from "./components/DrugInteractions";
 import PharmacyInventoryPage from "../../pharmacy-inventory/page";
 
 const PRIMARY = "#618FF5";
@@ -143,6 +145,13 @@ export default function PharmacyDashboard({
           >
             <Pill className="h-4 w-4" />
             Drug registration
+          </TabsTrigger>
+          <TabsTrigger
+            value="drug-interactions"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <AlertCircle className="h-4 w-4" />
+            Drug Interactions
           </TabsTrigger>
           <TabsTrigger
             value="inventory"
@@ -480,6 +489,13 @@ export default function PharmacyDashboard({
       <TabsContent value="drug-registration" className="mt-4 px-4">
         {loadedTabs.has("drug-registration") && (
           <DrugRegistration workspaceid={workspaceid} />
+        )}
+      </TabsContent>
+
+      {/* Drug Interactions Tab */}
+      <TabsContent value="drug-interactions" className="mt-4 px-4">
+        {loadedTabs.has("drug-interactions") && (
+          <DrugInteractions workspaceid={workspaceid} />
         )}
       </TabsContent>
 
