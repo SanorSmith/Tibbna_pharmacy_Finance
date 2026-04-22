@@ -188,7 +188,17 @@ export default function DrugInteractionWarningModal({
                       >
                         {interaction.description}
                       </p>
-                      <p className="text-xs opacity-75">Source: {interaction.source}</p>
+                      {(interaction as any).recommendation && (
+                        <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded">
+                          <p className="text-xs font-semibold text-blue-900 mb-1">
+                            📋 Clinical Recommendation:
+                          </p>
+                          <p className="text-xs text-blue-800">
+                            {(interaction as any).recommendation}
+                          </p>
+                        </div>
+                      )}
+                      <p className="text-xs opacity-75 mt-2">Source: {interaction.source}</p>
                     </div>
                   </div>
                 </div>

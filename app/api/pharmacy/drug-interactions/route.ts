@@ -5,6 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { checkDrugWarnings } from "@/lib/clinical-data/drug-warnings";
+import { findAlternatives } from "@/lib/clinical-data/drug-alternatives";
 
 interface DrugInput {
   name: string;
@@ -16,6 +18,8 @@ interface InteractionResult {
   description: string;
   drugs: string[];
   source: string;
+  type?: string;
+  recommendation?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -37,6 +41,8 @@ export async function POST(request: NextRequest) {
 
     const interactions: InteractionResult[] = [];
     const allergyWarnings: any[] = [];
+    const clinicalWarnings: any[] = [];
+    const alternatives: any[] = [];
     let patientMedications: any[] = [];
 
     // If patient context provided, fetch their current medications and allergies
@@ -81,6 +87,34 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error("Error fetching patient data:", error);
         // Continue with interaction check even if patient data fetch fails
+      }
+    }
+
+    // Check for clinical warnings (drug-food, pregnancy, etc.) and alternatives
+    for (const drug of drugs) {
+      const drugName = drug.genericName || drug.name;
+      
+      // Check clinical warnings
+      const warnings = checkDrugWarnings(drugName);
+      for (const warning of warnings) {
+        clinicalWarnings.push({
+          severity: warning.severity,
+          description: `${warning.type.toUpperCase()} WARNING: ${warning.description}`,
+          drugs: [drug.name],
+          source: "Clinical Guidelines",
+          type: warning.type,
+          recommendation: warning.recommendation,
+        });
+      }
+
+      // Find therapeutic alternatives
+      const drugAlternatives = findAlternatives(drugName);
+      if (drugAlternatives) {
+        alternatives.push({
+          drug: drug.name,
+          indication: drugAlternatives.indication,
+          alternatives: drugAlternatives.alternatives,
+        });
       }
     }
 
@@ -167,8 +201,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Combine allergy warnings with drug interactions (allergies take priority)
-    const allWarnings = [...allergyWarnings, ...interactions];
+    // Combine all warnings (allergies, clinical warnings, drug interactions)
+    const allWarnings = [...allergyWarnings, ...clinicalWarnings, ...interactions];
 
     // Remove duplicates and sort by severity
     const uniqueInteractions = Array.from(
@@ -187,6 +221,8 @@ export async function POST(request: NextRequest) {
       checkedDrugs: drugs.map((d) => d.name),
       patientMedications: patientMedications.map((m: any) => m.drugname),
       allergyWarnings: allergyWarnings.length,
+      clinicalWarnings: clinicalWarnings.length,
+      alternatives: alternatives,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
