@@ -156,6 +156,82 @@ export async function POST(
     // This will create the EHR if it doesn't exist, using the stored ehrid if available
     const ehrId = await ensurePatientEHR(patientid);
 
+    // ═══ DRUG INTERACTION CHECK ═══
+    // Check for interactions between new prescriptions and existing medications
+    try {
+      const medicationNames = prescriptions.map((p: any) => ({
+        name: p.medicationItem,
+        genericName: p.activeIngredient || p.medicationItem,
+      }));
+
+      const interactionCheckResponse = await fetch(
+        `${request.nextUrl.origin}/api/pharmacy/drug-interactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            drugs: medicationNames,
+            patientId: patientid,
+            workspaceId: workspaceid,
+            checkAllergies: true,
+          }),
+        }
+      );
+
+      if (interactionCheckResponse.ok) {
+        const interactionData = await interactionCheckResponse.json();
+        
+        // Log interaction check results
+        console.log(`[Prescription] Checked ${medicationNames.length} medications for patient ${patientid}`);
+        console.log(`[Prescription] Found ${interactionData.interactions?.length || 0} potential interactions`);
+        
+        if (interactionData.allergyWarnings > 0) {
+          console.warn(`[Prescription] ⚠️ ALLERGY WARNINGS: ${interactionData.allergyWarnings}`);
+        }
+        
+        if (interactionData.clinicalWarnings > 0) {
+          console.warn(`[Prescription] ⚠️ CLINICAL WARNINGS: ${interactionData.clinicalWarnings}`);
+        }
+
+        // Check for critical interactions
+        const criticalInteractions = interactionData.interactions?.filter(
+          (i: any) => i.severity === "critical"
+        ) || [];
+
+        if (criticalInteractions.length > 0) {
+          console.error(`[Prescription] 🚨 CRITICAL INTERACTIONS DETECTED: ${criticalInteractions.length}`);
+          criticalInteractions.forEach((interaction: any) => {
+            console.error(`  - ${interaction.drugs.join(" + ")}: ${interaction.description}`);
+          });
+          
+          // Return warning but allow doctor to proceed (they can review and decide)
+          return NextResponse.json(
+            {
+              error: "Critical drug interactions detected",
+              interactions: interactionData.interactions,
+              allergyWarnings: interactionData.allergyWarnings,
+              clinicalWarnings: interactionData.clinicalWarnings,
+              alternatives: interactionData.alternatives,
+              message: "Please review the interactions before prescribing. Contact pharmacy if needed.",
+            },
+            { status: 409 } // 409 Conflict
+          );
+        }
+
+        // Log non-critical warnings
+        const warnings = interactionData.interactions?.filter(
+          (i: any) => i.severity === "major" || i.severity === "moderate"
+        ) || [];
+        
+        if (warnings.length > 0) {
+          console.warn(`[Prescription] ⚠️ ${warnings.length} interaction warnings (non-critical)`);
+        }
+      }
+    } catch (interactionError) {
+      console.error("[Prescription] Error checking drug interactions:", interactionError);
+      // Continue with prescription creation even if interaction check fails
+    }
+
     // Create OpenEHR composition for each prescription
     const compositionUids: string[] = [];
     const errors: string[] = [];
