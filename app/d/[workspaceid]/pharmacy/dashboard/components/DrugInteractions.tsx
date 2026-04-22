@@ -36,6 +36,11 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
   const [searching, setSearching] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Interaction history
+  const [showHistory, setShowHistory] = useState(false);
+  const [interactionLogs, setInteractionLogs] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Search for drugs in local database
   const searchDrugs = async () => {
@@ -151,14 +156,45 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
     }
   };
 
+  // Fetch interaction history
+  const fetchInteractionHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const response = await fetch(
+        `/api/pharmacy/interaction-logs?workspaceid=${workspaceid}&limit=20`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setInteractionLogs(data.logs || []);
+      }
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Drug-Drug Interaction Checker</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Check for potential interactions between multiple medications
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Drug-Drug Interaction Checker</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Check for potential interactions between multiple medications
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowHistory(!showHistory);
+            if (!showHistory && interactionLogs.length === 0) {
+              fetchInteractionHistory();
+            }
+          }}
+        >
+          {showHistory ? "Hide History" : "View History"}
+        </Button>
       </div>
 
       {/* Drug Search and Selection */}
@@ -331,6 +367,85 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Interaction History */}
+      {showHistory && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Interaction Check History</CardTitle>
+            <CardDescription>
+              Recent interaction checks performed in this workspace
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingHistory ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
+                <p className="text-sm text-gray-600 mt-2">Loading history...</p>
+              </div>
+            ) : interactionLogs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No interaction checks recorded yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {interactionLogs.map((log: any) => (
+                  <div
+                    key={log.logid}
+                    className="border rounded-lg p-4 hover:bg-gray-50"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            log.decision === "proceeded"
+                              ? "default"
+                              : log.decision === "cancelled"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {log.decision}
+                        </Badge>
+                        {log.highestSeverity && (
+                          <Badge
+                            variant="outline"
+                            className={`uppercase text-xs ${
+                              log.highestSeverity === "critical"
+                                ? "border-red-300 text-red-700"
+                                : log.highestSeverity === "major"
+                                ? "border-orange-300 text-orange-700"
+                                : "border-yellow-300 text-yellow-700"
+                            }`}
+                          >
+                            {log.highestSeverity}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {new Date(log.checkedAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-sm">
+                      <p className="font-medium text-gray-900">
+                        Drugs: {log.drugs.map((d: any) => d.name).join(", ")}
+                      </p>
+                      <p className="text-gray-600 text-xs mt-1">
+                        Pharmacist: {log.pharmacistName} • {log.interactionCount} interaction(s)
+                      </p>
+                      {log.justification && (
+                        <p className="text-xs text-gray-700 mt-2 italic bg-gray-50 p-2 rounded">
+                          Justification: {log.justification}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

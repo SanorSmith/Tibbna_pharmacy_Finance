@@ -216,10 +216,47 @@ export default function PharmacyDispensePage({
     }
   };
 
-  const handleProceedWithInteraction = (justification?: string) => {
+  const handleProceedWithInteraction = async (justification?: string) => {
     setShowInteractionModal(false);
     setCompleting(true);
+    
+    // Log the interaction check
+    await logInteractionCheck("proceeded", justification);
+    
     completeDispensing(justification);
+  };
+
+  const logInteractionCheck = async (decision: string, justification?: string) => {
+    try {
+      // Get user session for pharmacist info
+      const sessionRes = await fetch("/api/auth/session");
+      const sessionData = await sessionRes.json();
+      
+      const drugs = items.map((item: any) => ({
+        name: item.drugname || item.itemname,
+        genericName: item.genericname,
+      }));
+
+      await fetch("/api/pharmacy/interaction-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceid,
+          orderid,
+          patientid: order?.patientid || null,
+          drugs,
+          interactions,
+          pharmacistId: sessionData.userid,
+          pharmacistName: sessionData.name || sessionData.email,
+          decision,
+          justification,
+          acknowledgedRisk: true,
+        }),
+      });
+    } catch (error) {
+      console.error("Error logging interaction:", error);
+      // Don't block dispensing if logging fails
+    }
   };
 
   const handleCancelDispensing = () => {
