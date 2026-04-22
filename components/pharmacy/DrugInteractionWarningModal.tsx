@@ -147,31 +147,53 @@ export default function DrugInteractionWarningModal({
           {/* Interactions List */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Detected Interactions:</Label>
-            {interactions.map((interaction, index) => (
-              <div
-                key={index}
-                className={`border-2 rounded-lg p-4 ${getSeverityColor(interaction.severity)}`}
-              >
-                <div className="flex items-start gap-3">
-                  {getSeverityIcon(interaction.severity)}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge
-                        variant="outline"
-                        className="uppercase text-xs font-bold border-current"
+            {interactions.map((interaction, index) => {
+              const isAllergy = (interaction as any).type === "allergy";
+              return (
+                <div
+                  key={index}
+                  className={`border-2 rounded-lg p-4 ${
+                    isAllergy ? "bg-red-50 border-red-400" : getSeverityColor(interaction.severity)
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {isAllergy ? (
+                      <XCircle className="h-6 w-6 text-red-700 animate-pulse" />
+                    ) : (
+                      getSeverityIcon(interaction.severity)
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {isAllergy && (
+                          <Badge variant="destructive" className="uppercase text-xs font-bold">
+                            ⚠️ ALLERGY
+                          </Badge>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className={`uppercase text-xs font-bold ${
+                            isAllergy ? "border-red-400 text-red-700" : "border-current"
+                          }`}
+                        >
+                          {interaction.severity}
+                        </Badge>
+                        <span className="text-xs font-medium">
+                          {interaction.drugs.join(" + ")}
+                        </span>
+                      </div>
+                      <p
+                        className={`text-sm leading-relaxed mb-2 ${
+                          isAllergy ? "font-semibold text-red-900" : ""
+                        }`}
                       >
-                        {interaction.severity}
-                      </Badge>
-                      <span className="text-xs font-medium">
-                        {interaction.drugs.join(" + ")}
-                      </span>
+                        {interaction.description}
+                      </p>
+                      <p className="text-xs opacity-75">Source: {interaction.source}</p>
                     </div>
-                    <p className="text-sm leading-relaxed mb-2">{interaction.description}</p>
-                    <p className="text-xs opacity-75">Source: {interaction.source}</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Justification (required for major/moderate interactions) */}

@@ -21,7 +21,12 @@ interface InteractionResult {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { drugs } = body as { drugs: DrugInput[] };
+    const { drugs, patientId, workspaceId, checkAllergies = false } = body as { 
+      drugs: DrugInput[];
+      patientId?: string;
+      workspaceId?: string;
+      checkAllergies?: boolean;
+    };
 
     if (!drugs || drugs.length < 2) {
       return NextResponse.json(
@@ -31,6 +36,53 @@ export async function POST(request: NextRequest) {
     }
 
     const interactions: InteractionResult[] = [];
+    const allergyWarnings: any[] = [];
+    let patientMedications: any[] = [];
+
+    // If patient context provided, fetch their current medications and allergies
+    if (patientId && workspaceId) {
+      try {
+        const patientDataRes = await fetch(
+          `${request.nextUrl.origin}/api/pharmacy/patient-medications?workspaceid=${workspaceId}&patientid=${patientId}&includeAllergies=true`
+        );
+        
+        if (patientDataRes.ok) {
+          const patientData = await patientDataRes.json();
+          patientMedications = patientData.medications || [];
+          
+          // Check for allergy conflicts
+          if (checkAllergies && patientData.allergies) {
+            for (const drug of drugs) {
+              for (const allergy of patientData.allergies) {
+                if (
+                  drug.name.toLowerCase().includes(allergy.allergen.toLowerCase()) ||
+                  (drug.genericName && drug.genericName.toLowerCase().includes(allergy.allergen.toLowerCase()))
+                ) {
+                  allergyWarnings.push({
+                    severity: allergy.severity === "life-threatening" ? "critical" : "major",
+                    description: `ALLERGY ALERT: Patient has documented ${allergy.severity} allergy to ${allergy.allergen}. Reaction: ${allergy.reaction}`,
+                    drugs: [drug.name],
+                    source: "Patient Allergy Record",
+                    type: "allergy",
+                  });
+                }
+              }
+            }
+          }
+
+          // Add patient's current medications to interaction check
+          if (patientMedications.length > 0) {
+            drugs.push(...patientMedications.map((med: any) => ({
+              name: med.drugname,
+              genericName: med.genericname,
+            })));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching patient data:", error);
+        // Continue with interaction check even if patient data fetch fails
+      }
+    }
 
     // Query FDA OpenFDA API for each drug
     for (const drug of drugs) {
@@ -115,21 +167,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Combine allergy warnings with drug interactions (allergies take priority)
+    const allWarnings = [...allergyWarnings, ...interactions];
+
     // Remove duplicates and sort by severity
     const uniqueInteractions = Array.from(
       new Map(
-        interactions.map((item) => [item.description, item])
+        allWarnings.map((item) => [item.description, item])
       ).values()
     );
 
-    const severityOrder = { critical: 0, major: 1, moderate: 2, minor: 3 };
+    const severityOrder: Record<string, number> = { critical: 0, major: 1, moderate: 2, minor: 3 };
     uniqueInteractions.sort(
-      (a, b) => severityOrder[a.severity] - severityOrder[b.severity]
+      (a, b) => (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99)
     );
 
     return NextResponse.json({
       interactions: uniqueInteractions,
       checkedDrugs: drugs.map((d) => d.name),
+      patientMedications: patientMedications.map((m: any) => m.drugname),
+      allergyWarnings: allergyWarnings.length,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

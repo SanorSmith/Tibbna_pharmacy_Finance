@@ -138,15 +138,20 @@ export default function PharmacyDispensePage({
         genericName: item.genericname,
       }));
 
-      if (drugs.length < 2) {
-        // No interactions possible with single drug
+      if (drugs.length === 0) {
         return [];
       }
 
+      // Include patient context for comprehensive checking
       const response = await fetch("/api/pharmacy/drug-interactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ drugs }),
+        body: JSON.stringify({ 
+          drugs,
+          patientId: order?.patientid,
+          workspaceId: workspaceid,
+          checkAllergies: true, // Enable allergy checking
+        }),
       });
 
       if (!response.ok) {
@@ -155,6 +160,15 @@ export default function PharmacyDispensePage({
       }
 
       const data = await response.json();
+      
+      // Log patient medication context if available
+      if (data.patientMedications && data.patientMedications.length > 0) {
+        console.log("[Interaction Check] Patient's current medications:", data.patientMedications);
+      }
+      if (data.allergyWarnings > 0) {
+        console.warn("[Interaction Check] ALLERGY WARNINGS DETECTED:", data.allergyWarnings);
+      }
+      
       return data.interactions || [];
     } catch (error) {
       console.error("Error checking interactions:", error);
