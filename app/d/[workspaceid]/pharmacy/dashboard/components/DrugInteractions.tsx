@@ -5,7 +5,7 @@
  */
 
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,9 +42,21 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
   const [interactionLogs, setInteractionLogs] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Auto-search when user types (with debounce)
+  useEffect(() => {
+    if (searchQuery.trim().length >= 3) {
+      const timer = setTimeout(() => {
+        searchDrugs();
+      }, 300); // 300ms debounce
+      return () => clearTimeout(timer);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
+
   // Search for drugs in global database
   const searchDrugs = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() || searchQuery.trim().length < 3) return;
     
     setSearching(true);
     setError(null);
@@ -210,28 +222,25 @@ export default function DrugInteractions({ workspaceid }: { workspaceid: string 
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Search Input */}
-          <div className="flex gap-2">
-            <div className="flex-1">
+          <div className="space-y-2">
+            <div className="relative">
               <Input
-                placeholder="Search drug name..."
+                placeholder="Type at least 3 characters to search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && searchDrugs()}
+                className="pr-10"
               />
-            </div>
-            <Button onClick={searchDrugs} disabled={searching || !searchQuery.trim()}>
-              {searching ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Searching...
-                </>
-              ) : (
-                <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Search
-                </>
+              {searching && (
+                <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               )}
-            </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              {searchQuery.length > 0 && searchQuery.length < 3 
+                ? `Type ${3 - searchQuery.length} more character${3 - searchQuery.length > 1 ? 's' : ''} to search`
+                : searchQuery.length >= 3 
+                ? "Searching global medications database..."
+                : "Start typing to search for drugs"}
+            </p>
           </div>
 
           {/* Search Results */}
