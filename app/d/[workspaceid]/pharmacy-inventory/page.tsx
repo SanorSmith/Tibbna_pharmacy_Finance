@@ -206,7 +206,7 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
     if (e.key === "Enter" && form.barcode.trim()) {
       // Barcode scanner pressed Enter — search for item by barcode
       setScanning(true);
-      fetch(`/api/pharmacy/items?search=${encodeURIComponent(form.barcode)}`)
+      fetch(`/api/pharmacy/items?search=${encodeURIComponent(form.barcode)}&source=inventory`)
         .then(r => r.json())
         .then(data => {
           const match = Array.isArray(data) ? data.find((i:any) => i.barcode === form.barcode) : null;
@@ -634,14 +634,14 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
     setLoading(true);
     try {
       const [iRes,dRes,cRes,sRes,wRes] = await Promise.all([
-        fetch(`/api/pharmacy/items?search=${encodeURIComponent(search)}&workspaceId=${workspaceid}`),
+        fetch(`/api/pharmacy/items?search=${encodeURIComponent(search)}&workspaceId=${workspaceid}&source=inventory`),
         fetch("/api/pharmacy/dispense"),
         fetch("/api/pharmacy/controlled"),
         fetch("/api/stores"),
         fetch("/api/warehouses"),
       ]);
       const [iData,dData,cData,sData,wData] = await Promise.all([iRes.json(),dRes.json(),cRes.json(),sRes.json(),wRes.json()]);
-      setItems(Array.isArray(iData)?iData:[]);
+      setItems(Array.isArray(iData.items)?iData.items:[]);
       setDispenses(Array.isArray(dData)?dData:[]);
       setControlled(Array.isArray(cData)?cData:[]);
       setStores(Array.isArray(sData)?sData:[]);
@@ -761,7 +761,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
     setShopSearch(q);
     if (!q.trim()) { setShopSearchResults([]); return; }
     setShopSearching(true);
-    const res = await fetch(`/api/pharmacy/items?search=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/pharmacy/items?search=${encodeURIComponent(q)}&workspaceId=${workspaceid}&source=inventory`);
     const data = await res.json();
     setShopSearchResults(Array.isArray(data)?data.slice(0,8):[]);
     setShopSearching(false);
