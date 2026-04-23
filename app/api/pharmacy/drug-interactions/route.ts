@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         if (patientDataRes.ok) {
           const patientData = await patientDataRes.json();
           patientMedications = patientData.medications || [];
-          
+
           // Check for allergy conflicts
           if (checkAllergies && patientData.allergies) {
             for (const drug of drugs) {
@@ -83,6 +83,18 @@ export async function POST(request: NextRequest) {
               genericName: med.genericname,
             })));
           }
+        } else {
+          // Add warning when patient medications API fails
+          const errorText = await patientDataRes.text();
+          console.error("Error fetching patient medications:", errorText);
+          clinicalWarnings.push({
+            severity: "minor",
+            description: "Could not fetch patient's current medications for interaction checking. Only checking interactions between the new medications being prescribed.",
+            drugs: drugs.map(d => d.name),
+            source: "System",
+            type: "data_unavailable",
+            recommendation: "Review patient's medication history manually for potential interactions."
+          });
         }
       } catch (error) {
         console.error("Error fetching patient data:", error);

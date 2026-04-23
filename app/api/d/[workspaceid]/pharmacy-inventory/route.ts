@@ -39,6 +39,7 @@ export async function GET(
     const filter = searchParams.get("filter") || "all"; // all, low, outofstock, expiring
 
     // Get all pharmacy items with aggregated stock for this workspace
+    // Debug: Simplified filter to match summary API
     const allItems = await db
       .select({
         itemid: items.id,
@@ -50,17 +51,13 @@ export async function GET(
         manufacturer: items.manufacturer,
         isactive: items.isactive,
         reorderlevel: items.reorderlevel,
+        inventorycategory: items.inventorycategory,
         totalStock: sql<number>`COALESCE(SUM(${inventoryStock.quantity}), 0)::int`,
       })
       .from(items)
       .leftJoin(inventoryStock, eq(items.id, inventoryStock.itemid))
       .leftJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
-      .where(
-        and(
-          eq(items.workspaceid, workspaceid),
-          eq(items.itemtype, 'drug')
-        )
-      )
+      .where(eq(items.workspaceid, workspaceid))
       .groupBy(
         items.id,
         items.name,
@@ -70,9 +67,18 @@ export async function GET(
         items.barcode,
         items.manufacturer,
         items.isactive,
-        items.reorderlevel
+        items.reorderlevel,
+        items.inventorycategory
       )
       .orderBy(items.name);
+
+    console.log('[Pharmacy Inventory] Query returned', allItems.length, 'items for workspace', workspaceid);
+    console.log('[Pharmacy Inventory] Sample items:', allItems.slice(0, 3).map(i => ({
+      name: i.name,
+      inventorycategory: i.inventorycategory,
+      totalStock: i.totalStock,
+      isactive: i.isactive
+    })));
 
     // Get batch info and warehouse stock for each item
     const enrichedItems = await Promise.all(
