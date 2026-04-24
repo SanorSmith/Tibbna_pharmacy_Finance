@@ -12,6 +12,7 @@ import {
   posSaleItems,
   posPayments,
   pharmacyOrders,
+  pharmacyOrderItems,
   patientCreditAccounts,
 } from "@/lib/db/schema";
 import {
@@ -25,7 +26,7 @@ import { getUser } from "@/lib/user";
 import { z } from "zod";
 
 const saleItemSchema = z.object({
-  drugId: z.string().uuid(),
+  drugId: z.string().uuid().optional().nullable(),
   drugName: z.string(),
   batchId: z.string().uuid().optional().nullable(),
   lotNumber: z.string().optional().nullable(),
@@ -41,7 +42,7 @@ const saleItemSchema = z.object({
 
 const paymentSchema = z.object({
   method: z.enum(["CASH", "CARD", "INSURANCE", "CREDIT_ACCOUNT"]),
-  amount: z.number().positive(),
+  amount: z.number().nonnegative(),
   cardType: z.string().optional().nullable(),
   cardLast4: z.string().optional().nullable(),
   cardHolder: z.string().optional().nullable(),
@@ -139,10 +140,6 @@ export async function POST(request: NextRequest) {
       // 3. Create sale items + deduct inventory for OTC / NEW_PRESCRIPTION
       const createdItems = [];
       for (const item of data.items) {
-        // Validate price: must be > 0
-        if (!item.unitPrice || item.unitPrice <= 0) {
-          throw new Error(`Invalid price for item: ${item.drugName}`);
-        }
 
         // If batch specified, verify price against batch sellingprice
         let verifiedPrice = item.unitPrice;
@@ -161,7 +158,7 @@ export async function POST(request: NextRequest) {
           .insert(posSaleItems)
           .values({
             saleid: sale.saleid,
-            drugid: item.drugId,
+            drugid: item.drugId || "",
             drugname: item.drugName,
             batchid: item.batchId || null,
             lotnumber: item.lotNumber || null,
@@ -180,16 +177,18 @@ export async function POST(request: NextRequest) {
         // Deduct inventory ONLY for OTC_WALKIN and NEW_PRESCRIPTION
         // (DISPENSED_ORDER inventory was already deducted during dispense)
         if (
-          data.saleType === "OTC_WALKIN" ||
-          data.saleType === "NEW_PRESCRIPTION"
+          (data.saleType === "OTC_WALKIN" ||
+            data.saleType === "NEW_PRESCRIPTION") &&
+          item.drugId
         ) {
+          const drugId = item.drugId;
           // Find stock level for this drug (+ batch if specified)
           const stockFilter = item.batchId
             ? and(
-                eq(stockLevels.drugid, item.drugId),
+                eq(stockLevels.drugid, drugId),
                 eq(stockLevels.batchid, item.batchId)
               )
-            : eq(stockLevels.drugid, item.drugId);
+            : eq(stockLevels.drugid, drugId);
 
           const [sl] = await tx
             .select()
@@ -210,7 +209,7 @@ export async function POST(request: NextRequest) {
 
             // Create DISPENSE stock movement
             await tx.insert(stockMovements).values({
-              drugid: item.drugId,
+              drugid: drugId,
               batchid: item.batchId || sl.batchid || null,
               locationid: sl.locationid, // use the stock level's location
               type: "DISPENSE",
@@ -222,7 +221,7 @@ export async function POST(request: NextRequest) {
           } else if (defaultLocationId) {
             // No stock level found — still create audit movement
             await tx.insert(stockMovements).values({
-              drugid: item.drugId,
+              drugid: drugId,
               batchid: item.batchId || null,
               locationid: defaultLocationId,
               type: "DISPENSE",
@@ -232,7 +231,7 @@ export async function POST(request: NextRequest) {
               performedby: user.userid,
             });
             console.warn(
-              `[POS] No stock level for drug ${item.drugId}, movement created with default location`
+              `[POS] No stock level for drug ${drugId}, movement created with default location`
             );
           }
         }
@@ -278,15 +277,58 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 5. Mark pharmacy order as sold (if from dispensed order)
+      // 5. Update pharmacy order items + order status (if from a pharmacy order)
       if (data.pharmacyOrderId) {
+        // 5a. Update only the PAID items to DISPENSED
+        const paidOrderItemIds = data.items
+          .filter((item) => item.pharmacyOrderItemId)
+          .map((item) => item.pharmacyOrderItemId as string);
+
+        for (const itemId of paidOrderItemIds) {
+          await tx
+            .update(pharmacyOrderItems)
+            .set({ status: "DISPENSED" })
+            .where(eq(pharmacyOrderItems.itemid, itemId));
+        }
+
+        // 5b. Check if ALL items in the order are now dispensed
+        const allItems = await tx
+          .select({
+            itemid: pharmacyOrderItems.itemid,
+            status: pharmacyOrderItems.status,
+          })
+          .from(pharmacyOrderItems)
+          .where(eq(pharmacyOrderItems.orderid, data.pharmacyOrderId));
+
+        const totalItems = allItems.length;
+        const dispensedItems = allItems.filter(
+          (i) => i.status === "DISPENSED"
+        ).length;
+
+        // 5c. Update order status based on how many items are dispensed
+        let orderStatus: "DISPENSED" | "PARTIALLY_DISPENSED" | "IN_PROGRESS";
+        if (dispensedItems === totalItems) {
+          orderStatus = "DISPENSED";
+        } else if (dispensedItems > 0) {
+          orderStatus = "PARTIALLY_DISPENSED";
+        } else {
+          orderStatus = "IN_PROGRESS";
+        }
+
         await tx
           .update(pharmacyOrders)
           .set({
+            status: orderStatus as any,
             metadata: sql`COALESCE(${pharmacyOrders.metadata}, '{}'::jsonb) || jsonb_build_object('posSaleId', ${sale.saleid}::text, 'posSaleNumber', ${saleNumber}::text, 'soldAt', ${new Date().toISOString()}::text)`,
+            dispensedby: user.userid,
+            dispensedat: dispensedItems === totalItems ? new Date() : null,
             updatedat: new Date(),
           })
           .where(eq(pharmacyOrders.orderid, data.pharmacyOrderId));
+
+        console.log(
+          `[POS] Order ${data.pharmacyOrderId}: ${dispensedItems}/${totalItems} items dispensed → ${orderStatus}`
+        );
       }
 
       return {

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { pharmacyOrders, pharmacyOrderItems, patients } from "@/lib/db/schema";
 import { drugs, drugBatches } from "@/lib/db/tables/pharmacy-drugs";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 type RouteParams = { params: Promise<{ orderId: string }> };
@@ -49,11 +49,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         form: drugs.form,
         strength: drugs.strength,
         barcode: drugs.barcode,
-        // Batch details
+        // Batch details (if assigned to order)
         lotnumber: drugBatches.lotnumber,
         expirydate: drugBatches.expirydate,
         sellingprice: drugBatches.sellingprice,
         purchaseprice: drugBatches.purchaseprice,
+        // Best available batch price (subquery)
+        bestBatchPrice: sql<string>`(
+          SELECT sellingprice
+          FROM drug_batches
+          WHERE drugid = ${pharmacyOrderItems.drugid}
+            AND expirydate > CURRENT_DATE
+            AND sellingprice IS NOT NULL
+          ORDER BY expirydate ASC
+          LIMIT 1
+        )`.as("bestBatchPrice"),
       })
       .from(pharmacyOrderItems)
       .leftJoin(drugs, eq(pharmacyOrderItems.drugid, drugs.drugid))

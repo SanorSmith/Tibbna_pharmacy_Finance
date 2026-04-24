@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,6 +54,7 @@ export default function POSClientPage({
   userName: string;
   userId: string;
 }) {
+  const searchParams = useSearchParams();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [patient, setPatient] = useState<any>(null);
   const [dispensedOrder, setDispensedOrder] = useState<any>(null);
@@ -64,6 +66,22 @@ export default function POSClientPage({
   useEffect(() => {
     fetchCurrentShift();
   }, []);
+
+  // Handle URL parameters for auto-loading order from "Begin Dispensing"
+  useEffect(() => {
+    const orderId = searchParams.get('orderId');
+    const patientId = searchParams.get('patientId');
+    
+    if (orderId && patientId) {
+      console.log('[POS] Auto-loading from URL params:', { orderId, patientId });
+      
+      // Auto-load patient first
+      handlePatientSelect(patientId).then(() => {
+        // Then auto-load the specific order
+        handleOrderSelect(orderId);
+      });
+    }
+  }, [searchParams]);
 
   const fetchCurrentShift = async () => {
     try {

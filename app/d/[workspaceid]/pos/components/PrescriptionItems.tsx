@@ -21,13 +21,15 @@ type OrderItem = {
   genericname?: string;
   form?: string;
   strength?: string;
+  dosage?: string;
   quantity: number;
-  unitprice: string | null;
+  unitprice?: string;
+  sellingprice?: string;
+  bestBatchPrice?: string;
+  status: string;
   batchid?: string | null;
   lotnumber?: string | null;
   expirydate?: string | null;
-  sellingprice?: string | null;
-  status: string;
 };
 
 type Props = {
@@ -69,11 +71,13 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
     cartItems.some((c) => c.pharmacyOrderItemId === itemId);
 
   const addItem = (item: OrderItem) => {
-    const price = item.sellingprice
-      ? parseFloat(item.sellingprice)
-      : item.unitprice
-        ? parseFloat(item.unitprice)
-        : 0;
+    const price = item.bestBatchPrice
+      ? parseFloat(item.bestBatchPrice)
+      : item.sellingprice
+        ? parseFloat(item.sellingprice)
+        : item.unitprice
+          ? parseFloat(item.unitprice)
+          : 0;
 
     onAddToCart({
       drugId: item.drugid,
@@ -143,11 +147,13 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
             </TableHeader>
             <TableBody>
               {items.map((item) => {
-                const price = item.sellingprice
-                  ? parseFloat(item.sellingprice)
-                  : item.unitprice
-                    ? parseFloat(item.unitprice)
-                    : 0;
+                const price = item.bestBatchPrice
+                  ? parseFloat(item.bestBatchPrice)
+                  : item.sellingprice
+                    ? parseFloat(item.sellingprice)
+                    : item.unitprice
+                      ? parseFloat(item.unitprice)
+                      : 0;
                 const inCart = isInCart(item.itemid);
 
                 return (
@@ -167,7 +173,7 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
                     <TableCell className="text-right text-sm font-medium text-green-700">
                       {price > 0
                         ? `${price.toLocaleString()} IQD`
-                        : "—"}
+                        : "Price not determined"}
                     </TableCell>
                     <TableCell className="text-right">
                       {inCart ? (

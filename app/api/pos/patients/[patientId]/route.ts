@@ -36,17 +36,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Patient not found" }, { status: 404 });
     }
 
-    // Get dispensed orders awaiting payment
+    // Get pending orders awaiting processing
     const dispensedOrders = await db
       .select()
       .from(pharmacyOrders)
       .where(
         and(
           eq(pharmacyOrders.patientid, patientId),
-          eq(pharmacyOrders.status, "DISPENSED")
+          eq(pharmacyOrders.status, "PENDING")
         )
       )
-      .orderBy(desc(pharmacyOrders.dispensedat));
+      .orderBy(desc(pharmacyOrders.createdat));
 
     // Get credit account
     const [creditAccount] = await db

@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         .from(pharmacyOrders)
         .where(
           and(
-            eq(pharmacyOrders.status, "DISPENSED"),
+            eq(pharmacyOrders.status, "PENDING"),
             or(
               sql`${pharmacyOrders.orderid}::text ILIKE ${`%${query}%`}`,
               ilike(pharmacyOrders.openehrorderid, `%${query}%`)

@@ -43,6 +43,20 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Debounced search that triggers as user types
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (query && query.length >= 2) {
+        performSearch();
+      } else {
+        setResults(null);
+        setShowResults(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [query, searchType]);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -57,7 +71,7 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleSearch = async () => {
+  const performSearch = async () => {
     if (!query || query.length < 2) return;
     setLoading(true);
     try {
@@ -75,8 +89,24 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
     }
   };
 
+  const handleSearch = async () => {
+    await performSearch();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (e.key === "Enter") {
+      e.preventDefault();
+      performSearch();
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+    // Show results immediately if we have previous results and user is typing more
+    if (value.length >= 2 && results) {
+      setShowResults(true);
+    }
   };
 
   const selectPatient = (p: any) => {
@@ -141,7 +171,7 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
               ref={inputRef}
               placeholder="Barcode, ID, name..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onFocus={() => results && setShowResults(true)}
               className="pl-10"

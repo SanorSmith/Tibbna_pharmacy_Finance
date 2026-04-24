@@ -712,7 +712,10 @@ export default function OrderDetailsModal({
               {!scanningMode ? (
                 <Button 
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                  onClick={() => setScanningMode(true)}
+                  onClick={() => {
+                    // Open POS page with order pre-loaded
+                    window.location.href = `/d/${workspaceid}/pos?orderId=${orderid}&patientId=${data.patient?.patientid}`;
+                  }}
                 >
                   <ScanBarcode className="h-4 w-4" />
                   Begin Dispensing
