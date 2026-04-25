@@ -695,19 +695,11 @@ export default function OrderDetailsModal({
           {order.status !== "DISPENSED" && order.status !== "CANCELLED" && (
             <div className="flex gap-3 justify-end">
               <Button
-                variant="destructive"
-                onClick={handleCancel}
-                disabled={cancelling}
+                variant="outline"
+                onClick={onClose}
                 className="gap-2"
               >
-                {cancelling ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Cancelling...
-                  </>
-                ) : (
-                  "Cancel"
-                )}
+                Close
               </Button>
               {!scanningMode ? (
                 <Button 
