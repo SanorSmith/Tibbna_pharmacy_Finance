@@ -323,6 +323,31 @@ function ConfirmModal({ item, onClose, onSuccess }: { item: any; onClose: ()=>vo
   );
 }
 
+// ── Status Confirm Modal ───────────────────────────────────────────────────────
+function StatusConfirmModal({ order, newStatus, onClose, onSuccess }: { order: any; newStatus: string; onClose: ()=>void; onSuccess: ()=>void }) {
+  const [loading, setLoading] = useState(false);
+  const handleConfirm = async () => {
+    setLoading(true);
+    const res = await fetch(`/api/pharmacy/shoporders/${order.orderid}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:newStatus})});
+    if(res.ok){ onSuccess(); onClose(); }
+    else{ setLoading(false); }
+  };
+  const statusColors:Record<string,{bg:string,color:string}>={PENDING:{bg:"#fef3c7",color:"#92400e"},DONE:{bg:"#d1fae5",color:"#065f46"},CANCELLED:{bg:"#fee2e2",color:"#991b1b"}};
+  const sc = statusColors[newStatus]||{bg:"#f3f4f6",color:"#374151"};
+  return (
+    <div style={s.overlay}><div style={{...s.modal,width:420}}>
+      <h3 style={{fontSize:15,fontWeight:600,marginBottom:8}}>Change Order Status</h3>
+      <p style={{fontSize:13,color:"#6b7280",marginBottom:20}}>
+        Mark order <strong>{order.ordernumber??order.orderid?.slice(0,8)}</strong> as <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:12,background:sc.bg,color:sc.color}}>{newStatus}</span>?
+      </p>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+        <button onClick={onClose} style={{...s.btn("ghost"),border:"1px solid #e5e7eb"}}>Cancel</button>
+        <button onClick={handleConfirm} disabled={loading} style={s.btn(newStatus==="CANCELLED"?"red":"green")}>{loading?"Updating...":"Confirm"}</button>
+      </div>
+    </div></div>
+  );
+}
+
 // ── Dispense Modal ─────────────────────────────────────────────────────────────
 function DispenseModal({ stores, onClose, onSuccess }: { stores: any[]; onClose: ()=>void; onSuccess: ()=>void }) {
   const [form, setForm] = useState({ storeid:"", itemid:"", quantity:"", patientref:"", prescriptionref:"", dispensedby:"", witnessedby:"", notes:"" });
@@ -544,6 +569,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   const [showAddDrug, setShowAddDrug] = useState(false);
   const [drugPrefill, setDrugPrefill] = useState<any>(null);
   const [toast, setToast] = useState("");
+  const [statusConfirm, setStatusConfirm] = useState<{ order: any; status: string } | null>(null);
   // Shop list
   const [shopList, setShopList] = useState<any[]>([]);
   const [shopQtys, setShopQtys] = useState<Record<string,number>>({});
@@ -904,11 +930,11 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   console.log('[PharmacyInventoryPage] Calculated stats:', { totalItems, lowStock, outOfStock, itemsCount: items.length });
 
   const tabLabels: Record<Tab,string> = {
-    items:`Items (${items.length})`,
-    stock:"Stock",
-    history:"History",
+    items:`💊 Items (${items.length})`,
+    stock:"📦 Stock",
+    history:"📜 History",
     shoplist:`🛒 Shop List`,
-    suppliers:"Suppliers",
+    suppliers:"🏪 Suppliers",
     manufacturers:"🏭 Manufacturers",
     storage:"📍 Storage",
     orders:"📋 Orders",
@@ -2009,27 +2035,29 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>{["Order","Supplier","Created By","Items","Total","Created","Status","Actions"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {orders.filter((o:any)=>orderStatus==="ALL"||o.status===orderStatus||(orderStatus==="DELAYED"&&Math.floor((Date.now()-new Date(o.createdat).getTime())/86400000)>3&&o.status==="PENDING")).map((order:any)=>{
+                  {orders.filter((o:any)=>orderStatus==="ALL"||o.status===orderStatus||(orderStatus==="DELAYED"&&Math.floor((Date.now()-new Date(o.createdat).getTime())/86400000)>3&&o.status==="PENDING")).map((order:any, idx:number)=>{
                     const daysSince = Math.floor((Date.now()-new Date(order.createdat).getTime())/86400000);
                     const isDelayed = order.status==="PENDING" && daysSince > 3;
                     const status = isDelayed ? "DELAYED" : order.status;
                     const statusColors:Record<string,{bg:string,color:string}>={PENDING:{bg:"#fef3c7",color:"#92400e"},DONE:{bg:"#d1fae5",color:"#065f46"},CANCELLED:{bg:"#fee2e2",color:"#991b1b"},DELAYED:{bg:"#fee2e2",color:"#991b1b"}};
                     const sc = statusColors[status]??{bg:"#f3f4f6",color:"#374151"};
                     return (
-                      <tr key={order.id}>
+                      <tr key={order.id || order.ordernumber || `order-${idx}`}>
                         <td style={{...s.td,fontFamily:"monospace",fontSize:11,color:"#6366f1"}}>{order.ordernumber??order.id?.slice(0,8)}</td>
-                        <td style={{...s.td,fontWeight:600}}>{order.supplier??"—"}</td>
-                        <td style={s.td}>{order.createdby??"—"}</td>
+                        <td style={{...s.td,fontWeight:600}}>{order.clientname??"—"}</td>
+                        <td style={s.td}>{order.createdbyname??"—"}</td>
                         <td style={{...s.td,fontWeight:600}}>{order.itemcount??0} items</td>
-                        <td style={{...s.td,color:"#16a34a",fontWeight:600}}>{order.totalamount?`$${parseFloat(order.totalamount).toFixed(2)}`:"—"}</td>
+                        <td style={{...s.td,color:"#16a34a",fontWeight:600}}>{order.totalcost?`$${parseFloat(order.totalcost).toFixed(2)}`:"—"}</td>
                         <td style={{...s.td,fontSize:12,color:"#6b7280"}}>{new Date(order.createdat).toLocaleDateString()}{isDelayed&&<div style={{fontSize:10,color:"#dc2626",fontWeight:600}}>{daysSince}d ago</div>}</td>
-                        <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,background:sc.bg,color:sc.color}}>{isDelayed?"⏰ DELAYED":status}</span></td>
+                        <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,background:sc.bg,color:sc.color}}>
+                          {isDelayed?"⏰ DELAYED":status==="PENDING"?"⏳ PENDING":status==="DONE"?"✓ DONE":status==="CANCELLED"?"✕ CANCELLED":status}
+                        </span></td>
                         <td style={s.td}>
                           <div style={{display:"flex",gap:5}}>
                             {["PENDING","DONE","CANCELLED"].map(st=>(
-                              <button key={st} onClick={async()=>{
-                                const res = await fetch(`/api/pharmacy/shoporders/${order.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:st})});
-                                if(res.ok){fetchOrders();showToast(`Marked as ${st}`);}
+                              <button key={st} onClick={()=>{
+                                if (order.status === st) return;
+                                setStatusConfirm({ order, status: st });
                               }} style={{padding:"3px 8px",borderRadius:6,fontSize:10,fontWeight:600,cursor:"pointer",
                                 border:`1px solid ${order.status===st?"transparent":"#e5e7eb"}`,
                                 background:order.status===st?(st==="DONE"?"#d1fae5":st==="CANCELLED"?"#fee2e2":"#fef3c7"):"#f9fafb",
@@ -2058,7 +2086,8 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
       {editItem&&<ItemModal item={editItem} warehouses={pharmaWh} manufacturers={manufacturers} onClose={()=>setEditItem(null)} onSuccess={()=>{fetchAll();showToast("Item updated!");}}/>}
       {deleteItem&&<ConfirmModal item={deleteItem} onClose={()=>setDeleteItem(null)} onSuccess={()=>{fetchAll();showToast("Item deactivated");}}/>}
       {batchItem&&<BatchModal item={batchItem} onClose={()=>setBatchItem(null)}/>}
-      {showAddDrug&&<AddDrugToPharmacyWizard warehouses={pharmaWh} prefill={drugPrefill} onClose={()=>{setShowAddDrug(false);setDrugPrefill(null);}} onSuccess={()=>{fetchAll();showToast("Medicine added!");setShowAddDrug(false);setDrugPrefill(null);}}/>}
+      {showAddDrug&&<AddDrugToPharmacyWizard warehouses={pharmaWh} workspaceid={workspaceid} prefill={drugPrefill} onClose={()=>{setShowAddDrug(false);setDrugPrefill(null);}} onSuccess={()=>{fetchAll();showToast("Medicine added!");setShowAddDrug(false);setDrugPrefill(null);}}/>}
+      {statusConfirm&&<StatusConfirmModal order={statusConfirm.order} newStatus={statusConfirm.status} onClose={()=>setStatusConfirm(null)} onSuccess={()=>{fetchOrders();showToast(`Marked as ${statusConfirm.status}`);}}/>}
       {toast&&<div style={{position:"fixed",bottom:24,right:24,background:"#16a34a",color:"#fff",padding:"11px 18px",borderRadius:10,fontSize:13,fontWeight:600,zIndex:2000}}>✓ {toast}</div>}
     </div>
   );

@@ -29,6 +29,87 @@ const s: Record<string, any> = {
 
 const FORM_COLORS: Record<string,string> = { tablet:"#2563eb", capsule:"#16a34a", injection:"#dc2626", syrup:"#7c3aed", inhaler:"#d97706", cream:"#0891b2" };
 
+// ── Dual Search — searches both pharmacy inventory and global DB ────────────────
+function DualSearch({ onSelect, onSelectExisting, workspaceid }: { onSelect:(drug:any)=>void; onSelectExisting:(item:any)=>void; workspaceid:string }) {
+  const [query, setQuery]           = useState("");
+  const [localResults, setLocalResults]   = useState<any[]>([]);
+  const [globalResults, setGlobalResults] = useState<any[]>([]);
+  const [loading, setLoading]       = useState(false);
+
+  useEffect(() => {
+    if (query.length < 2 || !workspaceid) { setLocalResults([]); setGlobalResults([]); return; }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      const [lr, gr] = await Promise.all([
+        fetch(`/api/pharmacy/items?search=${encodeURIComponent(query)}&workspaceId=${workspaceid}&source=inventory`).then(r=>r.json()),
+        fetch(`/api/drugs/global?search=${encodeURIComponent(query)}`).then(r=>r.json()),
+      ]);
+      const items = lr.items || [];
+      setLocalResults(Array.isArray(items)?items.slice(0,5):[]);
+      setGlobalResults(Array.isArray(gr)?gr.slice(0,8):[]);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query, workspaceid]);
+
+  const total = localResults.length + globalResults.length;
+
+  return (
+    <div style={{marginBottom:16}}>
+      <div style={{position:"relative"}}>
+        <div style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}><Icon d={icons.search} size={14} color="#9ca3af"/></div>
+        <input style={{...s.input,paddingLeft:32}} value={query} onChange={e=>setQuery(e.target.value)}
+          placeholder="Search by name, generic name, ATC code, barcode..."/>
+        {loading&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#9ca3af"}}>...</span>}
+      </div>
+      {total > 0 && (
+        <div style={{border:"1px solid #e5e7eb",borderRadius:8,marginTop:6,overflow:"hidden",maxHeight:280,overflowY:"auto" as const}}>
+          {localResults.length > 0 && (
+            <>
+              <div style={{padding:"6px 12px",background:"#f0fdf4",fontSize:11,fontWeight:700,color:"#065f46"}}>📦 In Pharmacy Inventory ({localResults.length})</div>
+              {localResults.map(item=>(
+                <div key={item.id} onClick={()=>{onSelectExisting(item);setQuery("");setLocalResults([]);setGlobalResults([]);}}
+                  style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f9fafb",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}
+                  onMouseEnter={e=>(e.currentTarget.style.background="#f0fdf4")}
+                  onMouseLeave={e=>(e.currentTarget.style.background="#fff")}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:13}}>{item.name}</div>
+                    <div style={{fontSize:11,color:"#6b7280"}}>{item.itemcode} · {item.uom} · Stock: {item.totalStock}</div>
+                  </div>
+                  <span style={{fontSize:11,color:"#16a34a",fontWeight:600}}>Update Stock →</span>
+                </div>
+              ))}
+            </>
+          )}
+          {globalResults.length > 0 && (
+            <>
+              <div style={{padding:"6px 12px",background:"#eff6ff",fontSize:11,fontWeight:700,color:"#1d4ed8",borderTop:localResults.length>0?"1px solid #e5e7eb":"none"}}>🌐 Global Database ({globalResults.length})</div>
+              {globalResults.map(d=>{
+                const fc = FORM_COLORS[d.form??""]??"#6b7280";
+                return (
+                  <div key={d.drugid} onClick={()=>{onSelect(d);setQuery("");setLocalResults([]);setGlobalResults([]);}}
+                    style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f9fafb",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}
+                    onMouseEnter={e=>(e.currentTarget.style.background="#eff6ff")}
+                    onMouseLeave={e=>(e.currentTarget.style.background="#fff")}>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:13}}>{d.name}</div>
+                      <div style={{fontSize:11,color:"#6b7280"}}>{d.genericname} {d.atccode&&`· ${d.atccode}`}</div>
+                    </div>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      {d.form&&<span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,background:`${fc}18`,color:fc}}>{d.form}</span>}
+                      <span style={{fontSize:11,color:"#2563eb",fontWeight:600}}>Import →</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MfgSearch({ value, manufacturers, onChange }: { value:string; manufacturers:any[]; onChange:(v:string)=>void }) {
   const [query, setQuery] = useState(value);
   const [open, setOpen]   = useState(false);
@@ -116,94 +197,15 @@ function StorageSearch({ value, storageLocations, onChange }: { value:string; st
   );
 }
 
-// ── Dual Search — searches both pharmacy inventory and global DB ────────────────
-function DualSearch({ onSelect, onSelectExisting }: { onSelect:(drug:any)=>void; onSelectExisting:(item:any)=>void }) {
-  const [query, setQuery]           = useState("");
-  const [localResults, setLocalResults]   = useState<any[]>([]);
-  const [globalResults, setGlobalResults] = useState<any[]>([]);
-  const [loading, setLoading]       = useState(false);
-
-  useEffect(() => {
-    if (query.length < 2) { setLocalResults([]); setGlobalResults([]); return; }
-    const t = setTimeout(async () => {
-      setLoading(true);
-      const [lr, gr] = await Promise.all([
-        fetch(`/api/pharmacy/items?search=${encodeURIComponent(query)}`).then(r=>r.json()),
-        fetch(`/api/drugs/global?search=${encodeURIComponent(query)}`).then(r=>r.json()),
-      ]);
-      setLocalResults(Array.isArray(lr)?lr.slice(0,5):[]);
-      setGlobalResults(Array.isArray(gr)?gr.slice(0,8):[]);
-      setLoading(false);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  const total = localResults.length + globalResults.length;
-
-  return (
-    <div style={{marginBottom:16}}>
-      <div style={{position:"relative"}}>
-        <div style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}><Icon d={icons.search} size={14} color="#9ca3af"/></div>
-        <input style={{...s.input,paddingLeft:32}} value={query} onChange={e=>setQuery(e.target.value)}
-          placeholder="Search by name, generic name, ATC code, barcode..."/>
-        {loading&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#9ca3af"}}>...</span>}
-      </div>
-      {total > 0 && (
-        <div style={{border:"1px solid #e5e7eb",borderRadius:8,marginTop:6,overflow:"hidden",maxHeight:280,overflowY:"auto" as const}}>
-          {localResults.length > 0 && (
-            <>
-              <div style={{padding:"6px 12px",background:"#f0fdf4",fontSize:11,fontWeight:700,color:"#065f46"}}>📦 In Pharmacy Inventory ({localResults.length})</div>
-              {localResults.map(item=>(
-                <div key={item.id} onClick={()=>{onSelectExisting(item);setQuery("");setLocalResults([]);setGlobalResults([]);}}
-                  style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f9fafb",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}
-                  onMouseEnter={e=>(e.currentTarget.style.background="#f0fdf4")}
-                  onMouseLeave={e=>(e.currentTarget.style.background="#fff")}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13}}>{item.name}</div>
-                    <div style={{fontSize:11,color:"#6b7280"}}>{item.itemcode} · {item.uom} · Stock: {item.totalStock}</div>
-                  </div>
-                  <span style={{fontSize:11,color:"#16a34a",fontWeight:600}}>Update Stock →</span>
-                </div>
-              ))}
-            </>
-          )}
-          {globalResults.length > 0 && (
-            <>
-              <div style={{padding:"6px 12px",background:"#eff6ff",fontSize:11,fontWeight:700,color:"#1d4ed8",borderTop:localResults.length>0?"1px solid #e5e7eb":"none"}}>🌐 Global Database ({globalResults.length})</div>
-              {globalResults.map(d=>{
-                const fc = FORM_COLORS[d.form??""]??"#6b7280";
-                return (
-                  <div key={d.drugid} onClick={()=>{onSelect(d);setQuery("");setLocalResults([]);setGlobalResults([]);}}
-                    style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f9fafb",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}
-                    onMouseEnter={e=>(e.currentTarget.style.background="#eff6ff")}
-                    onMouseLeave={e=>(e.currentTarget.style.background="#fff")}>
-                    <div>
-                      <div style={{fontWeight:600,fontSize:13}}>{d.name}</div>
-                      <div style={{fontSize:11,color:"#6b7280"}}>{d.genericname} {d.atccode&&`· ${d.atccode}`}</div>
-                    </div>
-                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                      {d.form&&<span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,background:`${fc}18`,color:fc}}>{d.form}</span>}
-                      <span style={{fontSize:11,color:"#2563eb",fontWeight:600}}>Import →</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface Props {
   warehouses: any[];
+  workspaceid: string;
   prefill?: any;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSuccess }: Props) {
+export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onClose, onSuccess }: Props) {
   const [entryType, setEntryType] = useState<"medicine"|"item"|null>(null);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
@@ -293,11 +295,11 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
       if (isUpdate && existingItem) {
         const res = await fetch("/api/pharmacy/adjustments", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ 
-            itemId: existingItem.id, 
-            warehouseId: form.warehouseid, 
-            adjustmentQty: parseInt(form.initial_quantity)||0, 
-            reason: "Stock update via Add Medicine", 
+          body:JSON.stringify({
+            itemId: existingItem.id,
+            warehouseId: form.warehouseid,
+            adjustmentQty: parseInt(form.initial_quantity)||0,
+            reason: "Stock update via Add Medicine",
             createdBy: "Pharmacy",
             unitCost: form.unit_cost ? parseFloat(form.unit_cost) : null,
             sellingPrice: form.selling_price ? parseFloat(form.selling_price) : null,
@@ -306,9 +308,28 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
         });
         if (!res.ok) throw new Error("Failed to update stock");
       } else {
-        const res = await fetch("/api/pharmacy/drugs", {
+        // Add to items table (inventory) instead of global_drugs
+        const itemPayload = {
+          name: form.name,
+          genericname: form.genericname,
+          itemcode: form.itemcode || form.barcode || form.name.substring(0, 10).toUpperCase(),
+          uom: form.unit || "tablet",
+          inventorycategory: entryType === "medicine" ? "pharmacy" : "supplies",
+          itemtype: entryType === "medicine" ? "drug" : "supply",
+          manufacturer: form.manufacturer,
+          barcode: form.barcode,
+          // Add stock if warehouse and quantity provided
+          addStock: !!form.warehouseid && !!form.initial_quantity && parseFloat(form.initial_quantity) > 0,
+          warehouseid: form.warehouseid,
+          batchnumber: `B${Date.now()}`,
+          quantity: form.initial_quantity ? parseFloat(form.initial_quantity) : 0,
+          unitcost: form.unit_cost ? parseFloat(form.unit_cost) : undefined,
+          sellingprice: form.selling_price ? parseFloat(form.selling_price) : undefined,
+          expirydate: form.expiry_date || undefined,
+        };
+        const res = await fetch(`/api/d/${workspaceid}/items`, {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ ...form, entryType })
+          body:JSON.stringify(itemPayload)
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error??"Failed");
@@ -367,6 +388,30 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
             </div>
           )}
 
+          {/* Dual Search - shown before entry type selector */}
+          {!isUpdate && (
+            <DualSearch
+              workspaceid={workspaceid}
+              onSelect={(drug)=>{
+                setEntryType("medicine");
+                fillFromGlobal(drug);
+              }}
+              onSelectExisting={(item)=>{
+                setIsUpdate(true);
+                setExistingItem(item);
+                setForm(f=>({
+                  ...f,
+                  name: item.name,
+                  genericname: item.genericName ?? f.genericname,
+                  form: item.itemType ?? f.form,
+                  unit_cost: String(item.unitCost ?? ""),
+                  selling_price: String(item.sellingPrice ?? ""),
+                  uom: item.uom ?? f.uom,
+                }));
+              }}
+            />
+          )}
+
           {/* Entry type selector */}
           {!entryType && !isUpdate && (
             <div style={{marginBottom:20}}>
@@ -384,28 +429,6 @@ export function AddDrugToPharmacyWizard({ warehouses, prefill, onClose, onSucces
                 </button>
               </div>
             </div>
-          )}
-          {entryType && !isUpdate && (
-            <DualSearch 
-              onSelect={fillFromGlobal}
-              onSelectExisting={(item)=>{
-                setIsUpdate(true);
-                setExistingItem(item);
-                setForm(f=>({
-                  ...f,
-                  name: item.name,
-                  genericname: item.genericName ?? f.genericname,
-                  form: item.itemType ?? f.form,
-                  strength: item.strength ?? f.strength,
-                  unit: item.uom ?? f.unit,
-                  uom: item.uom ?? f.uom,
-                  manufacturer: item.manufacturer ?? f.manufacturer,
-                  barcode: item.barcode ?? f.barcode,
-                  unit_cost: String(item.unitCost ?? ""),
-                  selling_price: String(item.sellingPrice ?? ""),
-                }));
-              }}
-            />
           )}
           {checkingExisting && <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>🔍 Checking pharmacy inventory...</div>}
 
