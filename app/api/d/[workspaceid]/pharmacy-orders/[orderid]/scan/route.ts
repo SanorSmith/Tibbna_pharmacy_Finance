@@ -63,10 +63,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       if (item.status !== "PENDING") {
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: "Item already processed",
-          status: item.status 
+          status: item.status
         }, { status: 400 });
+      }
+
+      // Try to find drugid if not already set
+      let drugIdToSet = item.drugid;
+      let batchIdToSet = item.batchid;
+
+      if (!drugIdToSet && item.drugname) {
+        // Try to find drug by name
+        const [drugMatch] = await db
+          .select({ drugid: drugs.drugid })
+          .from(drugs)
+          .where(eq(drugs.name, item.drugname))
+          .limit(1);
+
+        if (drugMatch) {
+          drugIdToSet = drugMatch.drugid;
+        }
       }
 
       // Mark as scanned
@@ -76,6 +93,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           status: "SCANNED",
           scannedbarcode: barcode,
           scannedat: new Date(),
+          drugid: drugIdToSet,
+          batchid: batchIdToSet,
         })
         .where(eq(pharmacyOrderItems.itemid, itemid))
         .returning();

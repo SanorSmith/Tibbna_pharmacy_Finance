@@ -73,6 +73,7 @@ export default function OrderDetailsModal({
   const [scanMessage, setScanMessage] = useState("");
   const [selectedDrug, setSelectedDrug] = useState<any>(null);
   const [showDrugDetails, setShowDrugDetails] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -116,10 +117,15 @@ export default function OrderDetailsModal({
 
   useEffect(() => {
     if (open) {
+      setError(null); // Clear any previous errors
+      setScanningMode(false); // Reset scanning mode
+      setScannedItems(new Set()); // Clear scanned items
+      setBarcodeInput(""); // Clear barcode input
+      setScanMessage(""); // Clear scan message
       fetchOrder();
       fetchInsurance();
     }
-  }, [open, fetchOrder, fetchInsurance]);
+  }, [open, orderid, fetchOrder, fetchInsurance]);
 
   const handleDispense = async () => {
     setDispensing(true);
@@ -220,12 +226,19 @@ export default function OrderDetailsModal({
         { method: "POST" }
       );
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      console.log('Dispense response:', { ok: res.ok, status: res.status, json });
+      if (!res.ok) {
+        const errorMsg = json.error || json.message || "Failed to dispense";
+        console.log('Setting error:', errorMsg);
+        setError(errorMsg);
+        return;
+      }
       await fetchOrder();
       setScanningMode(false);
       setScannedItems(new Set());
     } catch (err: any) {
-      console.error(err);
+      console.error('Dispense error:', err);
+      setError(err.message || "Failed to dispense order");
     } finally {
       setDispensing(false);
     }
@@ -353,7 +366,7 @@ export default function OrderDetailsModal({
               </Button>
             </div>
           </div>
-          
+
           {/* Compact Patient Info */}
           <div className="bg-muted/50 p-3 rounded-md text-sm">
             <div className="flex items-center gap-6">
@@ -371,6 +384,37 @@ export default function OrderDetailsModal({
             </div>
           </div>
         </DialogHeader>
+
+        {/* Error Alert */}
+        {error && (
+          <div style={{
+            margin: '16px 0',
+            padding: '16px',
+            backgroundColor: '#fee2e2',
+            border: '2px solid #dc2626',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px'
+          }}>
+            <AlertTriangle style={{ width: '20px', height: '20px', color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 600, color: '#991b1b', fontSize: '14px', margin: 0 }}>Error</p>
+              <p style={{ color: '#991b1b', fontSize: '14px', margin: '4px 0 0 0' }}>{error}</p>
+            </div>
+            <button onClick={() => setError(null)} style={{
+              width: '24px',
+              height: '24px',
+              padding: 0,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              color: '#dc2626'
+            }}>
+              <X style={{ width: '16px', height: '16px' }} />
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-1 flex-col gap-4">
           {/* Medications List */}
@@ -692,7 +736,10 @@ export default function OrderDetailsModal({
           )}
 
           {/* Action Buttons */}
-          {order.status !== "DISPENSED" && order.status !== "CANCELLED" && (
+          {(() => {
+            console.log('Action buttons check:', { status: order.status, scanningMode, showButtons: order.status !== "DISPENSED" && order.status !== "CANCELLED" });
+            return order.status !== "DISPENSED" && order.status !== "CANCELLED";
+          })() && (
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import OrderDetailsModal from "./components/OrderDetailsModal";
 import CreateOrderModal from "./components/CreateOrderModal";
@@ -35,6 +35,8 @@ import {
   PauseCircle,
   RefreshCw,
   Edit,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 type Order = {
@@ -88,6 +90,8 @@ export default function PharmacyOrdersPage({
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Use React Query to cache orders
   const { data: orders = [], isLoading: loading, refetch } = useQuery({
@@ -126,6 +130,11 @@ export default function PharmacyOrdersPage({
     },
   });
 
+  // Auto-sync on page load
+  useEffect(() => {
+    syncMutation.mutate();
+  }, []);
+
   const filtered = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -155,6 +164,19 @@ export default function PharmacyOrdersPage({
       return matchesStatus && matchesSearch && matchesDate;
     });
   }, [orders, statusFilter, dateFilter, search]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filtered.slice(startIndex, endIndex);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [statusFilter, dateFilter, search]);
 
   const counts = {
     all: orders.length,
@@ -286,7 +308,7 @@ export default function PharmacyOrdersPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((order) => {
+                {paginatedOrders.map((order) => {
                   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
                   const StatusIcon = cfg.icon;
                   return (
@@ -358,6 +380,50 @@ export default function PharmacyOrdersPage({
                 })}
               </TableBody>
             </Table>
+          )}
+          
+          {/* Pagination Controls */}
+          {!loading && filtered.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} orders
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="gap-1 border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className={currentPage === page ? "w-8 h-8 p-0 bg-blue-600 hover:bg-blue-700" : "w-8 h-8 p-0 border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="gap-1 border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
