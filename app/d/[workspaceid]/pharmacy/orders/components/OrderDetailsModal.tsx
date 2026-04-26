@@ -164,29 +164,8 @@ export default function OrderDetailsModal({
   const handleScan = async (barcode: string) => {
     setScanMessage("");
     
-    // Dummy barcode testing - accept common formats
-    const dummyBarcodes = ["1234567890123", "9876543210987", "5555555555555", "1111111111111"];
-    
-    if (!dummyBarcodes.includes(barcode)) {
-      setScanMessage("❌ Invalid barcode. Try: 1234567890123, 9876543210987, 5555555555555, or 1111111111111");
-      return;
-    }
-
-    // Find first unscanned item
-    const unscannedItem = items.find((item: any) => 
-      !scannedItems.has(item.itemid) && item.status === "PENDING"
-    );
-
-    // Debug logging
-    console.log("Scan Debug:", {
-      totalItems: items.length,
-      scannedItemsCount: scannedItems.size,
-      scannedItems: Array.from(scannedItems),
-      itemStatuses: items.map((item: any) => ({ id: item.itemid, status: item.status, name: item.drugname }))
-    });
-
-    if (!unscannedItem) {
-      setScanMessage("✅ All items have been scanned!");
+    if (!barcode || barcode.trim().length === 0) {
+      setScanMessage("❌ Please enter a barcode");
       return;
     }
 
@@ -197,15 +176,14 @@ export default function OrderDetailsModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            itemid: unscannedItem.itemid,
-            barcode: barcode 
+            barcode: barcode.trim()
           }),
         }
       );
       
       if (res.ok) {
-        setScannedItems(prev => new Set([...prev, unscannedItem.itemid]));
-        setScanMessage(`✅ Scanned: ${unscannedItem.drugname}`);
+        const data = await res.json();
+        setScanMessage(`✅ ${data.message}`);
         setBarcodeInput("");
         
         // Refresh order data
@@ -810,7 +788,7 @@ export default function OrderDetailsModal({
                   Scan Medications for Dispensing
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Scan each medication barcode. Use dummy barcodes for testing.
+                  Scan each medication barcode from the inventory.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -837,10 +815,10 @@ export default function OrderDetailsModal({
 
                 {/* Barcode Input */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Enter Barcode (for testing):</label>
+                  <label className="text-sm font-medium">Enter Barcode:</label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Enter dummy barcode (e.g., 1234567890123)"
+                      placeholder="Scan or enter item barcode"
                       value={barcodeInput}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBarcodeInput(e.target.value)}
                       onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -859,9 +837,6 @@ export default function OrderDetailsModal({
                       Scan
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Test barcodes: 1234567890123, 9876543210987, 5555555555555, 1111111111111
-                  </p>
                 </div>
 
                 {/* Scan Message */}
@@ -872,26 +847,6 @@ export default function OrderDetailsModal({
                     {scanMessage}
                   </div>
                 )}
-
-                {/* Quick Test Buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleScan("1234567890123")}
-                    className="text-xs"
-                  >
-                    Quick Scan: 1234567890123
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleScan("9876543210987")}
-                    className="text-xs"
-                  >
-                    Quick Scan: 9876543210987
-                  </Button>
-                </div>
 
                 {/* Complete Dispensing */}
                 <div className="space-y-2">

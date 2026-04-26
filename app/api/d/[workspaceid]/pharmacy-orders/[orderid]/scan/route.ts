@@ -13,10 +13,13 @@ import {
   pharmacyOrders,
   drugs,
   drugBatches,
+  items,
+  itemBatches,
 } from "@/lib/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, gt } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
+import { Pool } from "pg";
 
 const scanSchema = z.object({
   barcode: z.string().min(1),
@@ -34,6 +37,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { barcode, itemid } = scanSchema.parse(body);
 
+    console.log('[Scan API] Received barcode:', barcode);
+
     // Verify order belongs to workspace
     const [order] = await db
       .select()
@@ -45,7 +50,99 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Dummy barcode testing - if itemid is provided, use it directly
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+    // Real barcode scanning - match against inventory items
+    try {
+      // Search for the barcode in items table or item_batches table
+      const barcodeQuery = await pool.query(`
+        SELECT 
+          i.id as itemid,
+          i.name as itemname,
+          i.barcode as item_barcode,
+          ib.id as batchid,
+          ib.batch_number,
+          ib.barcode as batch_barcode,
+          ib.quantity,
+          ib.selling_price
+        FROM items i
+        LEFT JOIN item_batches ib ON ib.item_id = i.id
+        WHERE (i.barcode = $1 OR ib.barcode = $1)
+          AND i.is_active = true
+          AND (ib.quantity > 0 OR ib.quantity IS NULL)
+        LIMIT 1
+      `, [barcode]);
+
+      if (barcodeQuery.rows.length === 0) {
+        return NextResponse.json({
+          error: "Invalid barcode - not found in inventory",
+          barcode
+        }, { status: 404 });
+      }
+
+      const scannedItem = barcodeQuery.rows[0];
+      console.log('[Scan API] Found item:', scannedItem.itemname);
+
+      // Find matching order item by drug name
+      const orderItems = await db
+        .select()
+        .from(pharmacyOrderItems)
+        .where(
+          and(
+            eq(pharmacyOrderItems.orderid, orderid),
+            eq(pharmacyOrderItems.status, "PENDING")
+          )
+        );
+
+      const matchingOrderItem = orderItems.find(oi => 
+        oi.drugname?.toLowerCase().includes(scannedItem.itemname.toLowerCase()) ||
+        scannedItem.itemname.toLowerCase().includes(oi.drugname?.toLowerCase() || '')
+      );
+
+      if (!matchingOrderItem) {
+        return NextResponse.json({
+          error: `No pending order item matches "${scannedItem.itemname}"`,
+          scannedDrug: scannedItem.itemname
+        }, { status: 400 });
+      }
+
+      // Update order item with scanned info
+      const [updated] = await db
+        .update(pharmacyOrderItems)
+        .set({
+          status: "SCANNED",
+          scannedbarcode: barcode,
+          scannedat: new Date(),
+          batchid: scannedItem.batchid,
+          unitprice: scannedItem.selling_price,
+        })
+        .where(eq(pharmacyOrderItems.itemid, matchingOrderItem.itemid))
+        .returning();
+
+      // Check progress
+      const allItems = await db
+        .select()
+        .from(pharmacyOrderItems)
+        .where(eq(pharmacyOrderItems.orderid, orderid));
+
+      const pending = allItems.filter((i) => i.status === "PENDING").length;
+      const total = allItems.length;
+
+      await pool.end();
+
+      return NextResponse.json({
+        message: `Scanned: ${scannedItem.itemname}`,
+        item: updated,
+        batchNumber: scannedItem.batch_number,
+        progress: { scanned: total - pending, total, allScanned: pending === 0 },
+      });
+
+    } catch (scanError) {
+      await pool.end();
+      throw scanError;
+    }
+
+    // Legacy dummy barcode testing - if itemid is provided, use it directly
     if (itemid) {
       const [item] = await db
         .select()
