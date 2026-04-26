@@ -318,6 +318,11 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
           itemtype: entryType === "medicine" ? "drug" : "supply",
           manufacturer: form.manufacturer,
           barcode: form.barcode,
+          form: form.form || undefined,
+          strength: form.strength || undefined,
+          atccode: form.atccode || undefined,
+          storage_location: form.storage_location || undefined,
+          storage_type: form.storage_type || undefined,
           // Add stock if warehouse and quantity provided
           addStock: !!form.warehouseid && !!form.initial_quantity && parseFloat(form.initial_quantity) > 0,
           warehouseid: form.warehouseid,

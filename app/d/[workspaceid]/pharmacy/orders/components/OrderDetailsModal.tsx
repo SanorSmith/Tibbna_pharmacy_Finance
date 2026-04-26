@@ -164,29 +164,8 @@ export default function OrderDetailsModal({
   const handleScan = async (barcode: string) => {
     setScanMessage("");
     
-    // Dummy barcode testing - accept common formats
-    const dummyBarcodes = ["1234567890123", "9876543210987", "5555555555555", "1111111111111"];
-    
-    if (!dummyBarcodes.includes(barcode)) {
-      setScanMessage("❌ Invalid barcode. Try: 1234567890123, 9876543210987, 5555555555555, or 1111111111111");
-      return;
-    }
-
-    // Find first unscanned item
-    const unscannedItem = items.find((item: any) => 
-      !scannedItems.has(item.itemid) && item.status === "PENDING"
-    );
-
-    // Debug logging
-    console.log("Scan Debug:", {
-      totalItems: items.length,
-      scannedItemsCount: scannedItems.size,
-      scannedItems: Array.from(scannedItems),
-      itemStatuses: items.map((item: any) => ({ id: item.itemid, status: item.status, name: item.drugname }))
-    });
-
-    if (!unscannedItem) {
-      setScanMessage("✅ All items have been scanned!");
+    if (!barcode || barcode.trim().length === 0) {
+      setScanMessage("❌ Please enter a barcode");
       return;
     }
 
@@ -197,15 +176,14 @@ export default function OrderDetailsModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            itemid: unscannedItem.itemid,
-            barcode: barcode 
+            barcode: barcode.trim()
           }),
         }
       );
       
       if (res.ok) {
-        setScannedItems(prev => new Set([...prev, unscannedItem.itemid]));
-        setScanMessage(`✅ Scanned: ${unscannedItem.drugname}`);
+        const data = await res.json();
+        setScanMessage(`✅ ${data.message}`);
         setBarcodeInput("");
         
         // Refresh order data
@@ -244,27 +222,39 @@ export default function OrderDetailsModal({
     }
   };
 
-  const handleDrugClick = async (drugId: string, drugName: string) => {
+  const handleDrugClick = async (item: any) => {
     try {
-      // Fetch drug storage details
-      const res = await fetch(`/api/d/${workspaceid}/pharmacy-drugs/${drugId}/storage`);
+      // Use itemid if drugid is not available
+      const identifier = item.drugid && item.drugid !== 'null' ? item.drugid : item.itemid;
+      const endpoint = item.drugid && item.drugid !== 'null' 
+        ? `/api/d/${workspaceid}/pharmacy-drugs/${item.drugid}/storage`
+        : `/api/d/${workspaceid}/items/${item.itemid}/storage`;
+      
+      const res = await fetch(endpoint);
       if (res.ok) {
         const drugDetails = await res.json();
-        setSelectedDrug({ ...drugDetails, drugname: drugName });
+        setSelectedDrug(drugDetails);
         setShowDrugDetails(true);
       } else {
-        // If API doesn't exist, show placeholder data
+        const errorData = await res.json();
+        console.error("Failed to fetch drug storage:", errorData.error);
+        // Show modal with no storage info
         setSelectedDrug({
-          drugname: drugName,
-          drugid: drugId,
-          batches: [
-            { batchid: "123", stock: "fridge 1", shelf: "A1", number: 7, expiredate: "13-4-2026", status: "Low" }
-          ]
+          drugname: item.drugname,
+          drugid: item.drugid,
+          batches: []
         });
         setShowDrugDetails(true);
       }
-    } catch (err) {
-      console.error("Failed to fetch drug details:", err);
+    } catch (error) {
+      console.error("Error fetching drug details:", error);
+      // Show modal with error state
+      setSelectedDrug({
+        drugname: item.drugname,
+        drugid: item.drugid,
+        batches: []
+      });
+      setShowDrugDetails(true);
     }
   };
 
@@ -478,11 +468,16 @@ export default function OrderDetailsModal({
                     <div className="flex-1">
                       <h4 
                         className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
-                        onClick={() => handleDrugClick(item.drugid, item.drugname)}
+                        onClick={() => handleDrugClick(item)}
                       >
                         {item.drugname}
                       </h4>
                       <p className="text-sm text-muted-foreground">{item.quantity ? `x${item.quantity}` : ""}</p>
+                      {item.unitprice && (
+                        <p className="text-sm font-semibold text-green-600">
+                          ${parseFloat(item.unitprice).toFixed(2)}
+                        </p>
+                      )}
                     </div>
                     <span
                       className={`px-2 py-1 rounded text-xs ${
@@ -631,7 +626,15 @@ export default function OrderDetailsModal({
                 <div className="flex-1 text-center">
                   <p className="text-sm text-muted-foreground">Patient pays</p>
                   <p className="text-xl font-semibold text-green-600">
-                    ${invoice?.patientcopay ? parseFloat(invoice.patientcopay).toFixed(2) : "0.00"}
+                    ${(() => {
+                      if (invoice?.patientcopay) return parseFloat(invoice.patientcopay).toFixed(2);
+                      // Calculate from items if no invoice
+                      const total = items.reduce((sum: number, item: any) => {
+                        const price = item.unitprice ? parseFloat(item.unitprice) : 0;
+                        return sum + (price * (item.quantity || 1));
+                      }, 0);
+                      return total.toFixed(2);
+                    })()}
                   </p>
                 </div>
                 <div className="flex-1 text-center">
@@ -655,7 +658,15 @@ export default function OrderDetailsModal({
                 </div>
               </div>
               <div className="text-xl font-semibold">
-                Total: <span className="text-green-600">${invoice?.total ? parseFloat(invoice.total).toFixed(2) : "0.00"}</span>
+                Total: <span className="text-green-600">${(() => {
+                  if (invoice?.total) return parseFloat(invoice.total).toFixed(2);
+                  // Calculate from items if no invoice
+                  const total = items.reduce((sum: number, item: any) => {
+                    const price = item.unitprice ? parseFloat(item.unitprice) : 0;
+                    return sum + (price * (item.quantity || 1));
+                  }, 0);
+                  return total.toFixed(2);
+                })()}</span>
               </div>
             </CardContent>
           </Card>
@@ -777,7 +788,7 @@ export default function OrderDetailsModal({
                   Scan Medications for Dispensing
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Scan each medication barcode. Use dummy barcodes for testing.
+                  Scan each medication barcode from the inventory.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -804,10 +815,10 @@ export default function OrderDetailsModal({
 
                 {/* Barcode Input */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Enter Barcode (for testing):</label>
+                  <label className="text-sm font-medium">Enter Barcode:</label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Enter dummy barcode (e.g., 1234567890123)"
+                      placeholder="Scan or enter item barcode"
                       value={barcodeInput}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBarcodeInput(e.target.value)}
                       onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -826,9 +837,6 @@ export default function OrderDetailsModal({
                       Scan
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Test barcodes: 1234567890123, 9876543210987, 5555555555555, 1111111111111
-                  </p>
                 </div>
 
                 {/* Scan Message */}
@@ -839,26 +847,6 @@ export default function OrderDetailsModal({
                     {scanMessage}
                   </div>
                 )}
-
-                {/* Quick Test Buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleScan("1234567890123")}
-                    className="text-xs"
-                  >
-                    Quick Scan: 1234567890123
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleScan("9876543210987")}
-                    className="text-xs"
-                  >
-                    Quick Scan: 9876543210987
-                  </Button>
-                </div>
 
                 {/* Complete Dispensing */}
                 <div className="space-y-2">
@@ -911,59 +899,109 @@ export default function OrderDetailsModal({
 
     {/* Drug Details Modal */}
     <Dialog open={showDrugDetails} onOpenChange={setShowDrugDetails}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{selectedDrug?.drugname} - Storage Information</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Once click on the drug name will show the storage
+            {selectedDrug?.form && selectedDrug?.strength && `${selectedDrug.form} • ${selectedDrug.strength}`}
           </p>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Storage Location Info */}
+          {selectedDrug?.storageLocation && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">📍</div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-green-900 mb-1">Storage Location</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-green-800">Location:</span>
+                      <span className="text-green-900">{selectedDrug.storageLocation}</span>
+                      {selectedDrug.storageType && (
+                        <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-300">
+                          {selectedDrug.storageType}
+                        </Badge>
+                      )}
+                    </div>
+                    {selectedDrug.binLocation && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-green-800">Bin:</span>
+                        <span className="text-green-900">{selectedDrug.binLocation}</span>
+                      </div>
+                    )}
+                    {selectedDrug.warehouseName && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-green-800">Warehouse:</span>
+                        <span className="text-green-900">{selectedDrug.warehouseName}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <p className="text-sm text-blue-600 font-medium">
-            Scan the drug barcode
+            Scan the drug barcode to dispense
           </p>
           
+          {/* Batches Table */}
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Drug ID</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Shelf</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Expire Date</TableHead>
+                  <TableHead>Batch Number</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Expiry Date</TableHead>
+                  <TableHead>Unit Cost</TableHead>
+                  <TableHead>Selling Price</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {selectedDrug?.batches?.map((batch: any, index: number) => (
-                  <TableRow key={batch.batchid || index}>
-                    <TableCell>{batch.batchid || selectedDrug.drugid}</TableCell>
-                    <TableCell>{batch.stock || batch.location || "N/A"}</TableCell>
-                    <TableCell>{batch.shelf || "N/A"}</TableCell>
-                    <TableCell>{batch.number || batch.quantity || "0"}</TableCell>
-                    <TableCell>{batch.expiredate || batch.expirydate || "N/A"}</TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={batch.status === "Low" ? "destructive" : "default"}
-                        className="text-xs"
-                      >
-                        {batch.status || "Available"}
-                      </Badge>
+                {selectedDrug?.batches && selectedDrug.batches.length > 0 ? (
+                  selectedDrug.batches.map((batch: any, index: number) => (
+                    <TableRow key={batch.batchid || index}>
+                      <TableCell className="font-mono text-xs">{batch.batchNumber || batch.batchid || "N/A"}</TableCell>
+                      <TableCell className="font-semibold">{batch.quantity || "0"}</TableCell>
+                      <TableCell className="text-sm">
+                        {batch.expiryDate 
+                          ? new Date(batch.expiryDate).toLocaleDateString()
+                          : "N/A"}
+                      </TableCell>
+                      <TableCell>{batch.unitCost ? `$${parseFloat(batch.unitCost).toFixed(2)}` : "—"}</TableCell>
+                      <TableCell className="font-semibold text-green-600">
+                        {batch.sellingPrice ? `$${parseFloat(batch.sellingPrice).toFixed(2)}` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={batch.status === "Low" ? "destructive" : batch.status === "Out of Stock" ? "secondary" : "default"}
+                          className="text-xs"
+                        >
+                          {batch.status || "Available"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No batch information available
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
 
           <p className="text-sm text-red-600">
-            Once the drug scanned the inventory system should be updated and price add to the invoice
+            Once the drug is scanned, the inventory system will be updated and price added to the invoice
           </p>
 
           <div className="flex justify-end">
             <Button onClick={() => setShowDrugDetails(false)}>
-              ok
+              Close
             </Button>
           </div>
         </div>

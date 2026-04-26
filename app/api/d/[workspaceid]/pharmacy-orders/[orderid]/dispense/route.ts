@@ -11,13 +11,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { pharmacyOrders, pharmacyOrderItems, invoices, invoiceLines } from "@/lib/db/schema";
+import { pharmacyOrders, pharmacyOrderItems, invoices, invoiceLines, itemBatches } from "@/lib/db/schema";
 import { drugs, drugBatches } from "@/lib/db/tables/pharmacy-drugs";
 import { stockLevels, stockMovements } from "@/lib/db/tables/pharmacy-stock";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { createMedicationDispenseComposition, MEDICATION_DISPENSE_ACTION_STATES } from "@/lib/openehr/medication-dispense";
 import { createOpenEHRComposition } from "@/lib/openehr/openehr";
 import { patients } from "@/lib/db/tables/patient";
+import { Pool } from "pg";
 
 // UUID validation function
 function isValidUUID(uuid: string): boolean {
@@ -149,25 +150,113 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       console.warn('[Dispense Expiry Warnings]', expiryWarnings);
     }
 
-    // 2. Deduct stock + create movements (with partial dispensing support)
+    // 2. Deduct stock from item_batches + create movements
     let dispensedCount = 0;
     let backorderedCount = 0;
     const backorderedItems: string[] = [];
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
     for (const item of items) {
       try {
+        // Try to find the batch by scanned barcode if available
+        let batchId = null;
+        if (item.scannedbarcode) {
+          const batchLookup = await pool.query(`
+            SELECT ib.id, ib.batch_number, ib.quantity
+            FROM items i
+            JOIN item_batches ib ON ib.item_id = i.id
+            WHERE i.barcode = $1
+              AND ib.quantity > 0
+            ORDER BY ib.expiry_date ASC NULLS LAST
+            LIMIT 1
+          `, [item.scannedbarcode]);
+          
+          if (batchLookup.rows.length > 0) {
+            batchId = batchLookup.rows[0].id;
+          }
+        }
+
+        if (batchId) {
+          // Reduce quantity in the specific batch
+          const updateResult = await pool.query(`
+            UPDATE item_batches
+            SET quantity = GREATEST(0, quantity - $1),
+                updated_at = NOW()
+            WHERE id = $2
+              AND quantity >= $1
+            RETURNING id, quantity, batch_number
+          `, [item.quantity, batchId]);
+
+          if (updateResult.rows.length > 0) {
+            // Successfully dispensed from the scanned batch
+            await db
+              .update(pharmacyOrderItems)
+              .set({ status: "DISPENSED" })
+              .where(eq(pharmacyOrderItems.itemid, item.itemid));
+            
+            dispensedCount++;
+            console.log(`Dispensed ${item.quantity} units from batch ${updateResult.rows[0].batch_number}`);
+            continue;
+          } else {
+            // Insufficient quantity in the scanned batch
+            backorderedCount++;
+            backorderedItems.push(`${item.drugname} (insufficient stock in scanned batch)`);
+            console.warn(`Insufficient stock in batch ${batchId} for ${item.drugname}`);
+            continue;
+          }
+        }
+
+        // Fallback: try to find any available batch for this drug by name
+        const batchQuery = await pool.query(`
+          SELECT ib.id, ib.quantity, ib.batch_number
+          FROM item_batches ib
+          JOIN items i ON i.id = ib.item_id
+          WHERE i.name ILIKE $1
+            AND ib.quantity >= $2
+            AND i.is_active = true
+          ORDER BY ib.expiry_date ASC NULLS LAST
+          LIMIT 1
+        `, [`%${item.drugname}%`, item.quantity]);
+
+        if (batchQuery.rows.length > 0) {
+          const batch = batchQuery.rows[0];
+          
+          // Reduce quantity
+          await pool.query(`
+            UPDATE item_batches
+            SET quantity = quantity - $1,
+                updated_at = NOW()
+            WHERE id = $2
+          `, [item.quantity, batch.id]);
+
+          await db
+            .update(pharmacyOrderItems)
+            .set({ 
+              status: "DISPENSED",
+              batchid: batch.id
+            })
+            .where(eq(pharmacyOrderItems.itemid, item.itemid));
+          
+          dispensedCount++;
+          console.log(`Dispensed ${item.quantity} units of ${item.drugname} from batch ${batch.batch_number}`);
+        } else {
+          // No sufficient stock found
+          backorderedCount++;
+          backorderedItems.push(`${item.drugname} (out of stock)`);
+          console.warn(`No sufficient stock for ${item.drugname}`);
+        }
+
+        // Legacy stock levels handling (keep for backward compatibility)
         if (!item.drugid) {
-          console.log(`Skipping item ${item.itemid} - no drugid`);
+          console.log(`Skipping legacy stock check for ${item.itemid} - no drugid`);
           continue;
         }
 
-        // Validate UUID format for drugid
         if (!isValidUUID(item.drugid)) {
-          console.log(`Skipping item ${item.itemid} - invalid drugid format: ${item.drugid}`);
+          console.log(`Skipping legacy stock check for ${item.itemid} - invalid drugid format`);
           continue;
         }
 
-        // Find a stock level row for this drug
         const [sl] = await db
           .select()
           .from(stockLevels)
@@ -444,6 +533,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       : `Successfully dispensed order ${orderid} with ${dispensedCount} items`;
     console.log(statusMsg);
     
+    await pool.end();
+
     return NextResponse.json({
       message: finalStatus === "PARTIALLY_DISPENSED"
         ? `Partial dispense completed: ${dispensedCount} dispensed, ${backorderedCount} backordered`

@@ -1042,7 +1042,13 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                       return (
                         <tr key={item.id}>
                           <td style={{...s.td,minWidth:160}}>
-                            <div style={{fontWeight:600}}>{item.name}</div>
+                            <div 
+                              style={{fontWeight:600,color:"#2563eb",cursor:"pointer",textDecoration:"underline"}} 
+                              onClick={()=>setViewItem(item)}
+                              title="Click to view details and storage location"
+                            >
+                              {item.name}
+                            </div>
                             {(item.genericName??item.generic_Name)&&<div style={{fontSize:11,color:"#9ca3af"}}>{item.genericName??item.generic_Name}</div>}
                           </td>
                           <td style={{...s.td,fontFamily:"monospace",fontSize:11,color:"#6b7280"}}>{item.itemcode}</td>

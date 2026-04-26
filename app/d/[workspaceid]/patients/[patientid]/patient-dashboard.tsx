@@ -357,26 +357,13 @@ export default function PatientDashboard({
             </div>
 
             {/* Right column: Demographics */}
-            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-              <span>
-                Age:{" "}
-                <span className="font-medium text-foreground">
-                  {age !== null ? `${age} years` : "N/A"}
-                </span>
-              </span>
-              <span>
-                Gender:{" "}
-                <span className="font-medium text-foreground capitalize">
-                  {patient.gender || "N/A"}
-                </span>
-              </span>
-              <span>
-                Blood Group:{" "}
-                <span className="font-medium text-foreground">
-                  {patient.bloodgroup || "N/A"}
-                </span>
-              </span>
-            </div>
+            <div className="flex flex-row gap-2 text-xs text-muted-foreground whitespace-nowrap">
+  <span>Age: <span className="font-medium text-foreground">{age ?? "N/A"}</span></span>
+  <span>|</span>
+  <span>Gender: <span className="font-medium text-foreground capitalize">{patient.gender || "N/A"}</span></span>
+  <span>|</span>
+  <span>Blood: <span className="font-medium text-foreground">{patient.bloodgroup || "N/A"}</span></span>
+</div>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ import { patients, pharmacyOrders, pharmacyOrderItems, users } from "@/lib/db/sc
 import { eq, ilike, or, isNull } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { getOpenEHREHRBySubjectId, getOpenEHRPrescriptions } from "@/lib/openehr/openehr";
+import { Pool } from "pg";
 
 export async function POST(
   request: NextRequest,
@@ -22,6 +23,8 @@ export async function POST(
     const { workspaceid } = await params;
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
     // 1. Get patients in this workspace AND global patients (workspaceid IS NULL)
     const workspacePatients = await db
@@ -130,14 +133,29 @@ export async function POST(
           if (rx.timing_directions) dosageParts.push(rx.timing_directions);
           const dosage = dosageParts.join(", ") || null;
 
+          // Fetch selling price from inventory for this medication
+          const drugName = rx.medication_item || rx.product_name || "Unknown medication";
+          const priceResult = await pool.query(`
+            SELECT ib.selling_price
+            FROM items i
+            LEFT JOIN item_batches ib ON ib.item_id = i.id
+            WHERE i.name ILIKE $1
+              AND i.is_active = true
+              AND ib.quantity > 0
+            ORDER BY ib.expiry_date ASC
+            LIMIT 1
+          `, [drugName]);
+          
+          const sellingPrice = priceResult.rows[0]?.selling_price || null;
+
           // Create order item
           await db.insert(pharmacyOrderItems).values({
             orderid: order.orderid,
             drugid: null,
-            drugname: rx.medication_item || rx.product_name || "Unknown medication",
+            drugname: drugName,
             dosage,
             quantity: 1,
-            unitprice: null,
+            unitprice: sellingPrice,
             status: "PENDING",
           });
 
