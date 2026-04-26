@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { History, Plus, Trash2 } from "lucide-react";
+import { History, Plus, Trash2, Printer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1265,7 +1265,14 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button 
+                  onClick={() => window.print()}
+                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print
+                </Button>
                 <Button onClick={() => setShowMedicationSummary(false)}
                   className="bg-blue-200/90 hover:bg-blue-300"
                   >
