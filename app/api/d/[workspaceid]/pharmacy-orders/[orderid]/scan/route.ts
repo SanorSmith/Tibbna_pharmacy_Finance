@@ -132,9 +132,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await pool.end();
 
       return NextResponse.json({
-        message: `Scanned: ${scannedItem.itemname}`,
+        message: `✓ Scanned: ${scannedItem.itemname}${scannedItem.batch_number ? ` (Batch: ${scannedItem.batch_number})` : ''}`,
         item: updated,
         batchNumber: scannedItem.batch_number,
+        quantity: scannedItem.quantity,
         progress: { scanned: total - pending, total, allScanned: pending === 0 },
       });
 
