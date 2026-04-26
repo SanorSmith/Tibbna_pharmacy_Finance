@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getUser } from "@/lib/user";
+import { Pool } from "pg";
 
 type RouteParams = { params: Promise<{ workspaceid: string; orderid: string }> };
 
@@ -25,6 +26,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { workspaceid, orderid } = await params;
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
     // Fetch order with prescriber name
     const [orderData] = await db
@@ -78,6 +81,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .leftJoin(drugs, eq(pharmacyOrderItems.drugid, drugs.drugid))
       .where(eq(pharmacyOrderItems.orderid, orderid));
 
+    // Fetch prices from inventory for items that don't have unitprice
+    const itemsWithPrices = await Promise.all(
+      items.map(async (item: any) => {
+        if (item.unitprice) return item;
+        
+        // Fetch selling price from inventory
+        const priceResult = await pool.query(`
+          SELECT ib.selling_price
+          FROM items i
+          LEFT JOIN item_batches ib ON ib.item_id = i.id
+          WHERE i.name ILIKE $1
+            AND i.is_active = true
+            AND ib.quantity > 0
+          ORDER BY ib.expiry_date ASC
+          LIMIT 1
+        `, [item.drugname]);
+        
+        return {
+          ...item,
+          unitprice: priceResult.rows[0]?.selling_price || null
+        };
+      })
+    );
+
     // Invoice (if exists)
     const [invoice] = await db
       .select()
@@ -96,7 +123,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       order,
       patient,
-      items,
+      items: itemsWithPrices,
       invoice: invoice ? { ...invoice, lines: invLines } : null,
     });
   } catch (error) {

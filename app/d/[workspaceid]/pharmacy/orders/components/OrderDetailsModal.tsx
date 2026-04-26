@@ -252,8 +252,6 @@ export default function OrderDetailsModal({
         ? `/api/d/${workspaceid}/pharmacy-drugs/${item.drugid}/storage`
         : `/api/d/${workspaceid}/items/${item.itemid}/storage`;
       
-      console.log('[handleDrugClick] Fetching storage:', { drugid: item.drugid, itemid: item.itemid, endpoint });
-      
       const res = await fetch(endpoint);
       if (res.ok) {
         const drugDetails = await res.json();
@@ -497,6 +495,11 @@ export default function OrderDetailsModal({
                         {item.drugname}
                       </h4>
                       <p className="text-sm text-muted-foreground">{item.quantity ? `x${item.quantity}` : ""}</p>
+                      {item.unitprice && (
+                        <p className="text-sm font-semibold text-green-600">
+                          ${parseFloat(item.unitprice).toFixed(2)}
+                        </p>
+                      )}
                     </div>
                     <span
                       className={`px-2 py-1 rounded text-xs ${
@@ -645,7 +648,15 @@ export default function OrderDetailsModal({
                 <div className="flex-1 text-center">
                   <p className="text-sm text-muted-foreground">Patient pays</p>
                   <p className="text-xl font-semibold text-green-600">
-                    ${invoice?.patientcopay ? parseFloat(invoice.patientcopay).toFixed(2) : "0.00"}
+                    ${(() => {
+                      if (invoice?.patientcopay) return parseFloat(invoice.patientcopay).toFixed(2);
+                      // Calculate from items if no invoice
+                      const total = items.reduce((sum: number, item: any) => {
+                        const price = item.unitprice ? parseFloat(item.unitprice) : 0;
+                        return sum + (price * (item.quantity || 1));
+                      }, 0);
+                      return total.toFixed(2);
+                    })()}
                   </p>
                 </div>
                 <div className="flex-1 text-center">
@@ -669,7 +680,15 @@ export default function OrderDetailsModal({
                 </div>
               </div>
               <div className="text-xl font-semibold">
-                Total: <span className="text-green-600">${invoice?.total ? parseFloat(invoice.total).toFixed(2) : "0.00"}</span>
+                Total: <span className="text-green-600">${(() => {
+                  if (invoice?.total) return parseFloat(invoice.total).toFixed(2);
+                  // Calculate from items if no invoice
+                  const total = items.reduce((sum: number, item: any) => {
+                    const price = item.unitprice ? parseFloat(item.unitprice) : 0;
+                    return sum + (price * (item.quantity || 1));
+                  }, 0);
+                  return total.toFixed(2);
+                })()}</span>
               </div>
             </CardContent>
           </Card>

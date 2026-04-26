@@ -102,8 +102,6 @@ export async function GET(
       const result = await pool.query(searchQuery, searchParams);
       const rows = result.rows;
 
-      console.log('[Item Storage API] Found rows:', rows.length);
-
       if (rows.length === 0) {
         return NextResponse.json(
           { error: "Item not found or no storage information available" },
