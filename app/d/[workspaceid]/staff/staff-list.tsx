@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Home, Plus } from "lucide-react";
+import { Edit, Plus } from "lucide-react";
 import Link from "next/link";
 
 type Staff = {
@@ -181,14 +181,7 @@ export default function StaffList({ workspaceid, isAdmin }: { workspaceid: strin
       {/* Back Button */}
       <div className="flex items-center gap-2">
         <Link href={`/d/${workspaceid}/doctor`}>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Back to Doctor Dashboard"
-             className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-          >
-            <Home className="h-4 w-4" />
-          </Button>
+          
         </Link>
 
         <h1 className="text-xl font-semibold">Contacts</h1>

@@ -12,8 +12,6 @@ import { Suspense } from "react";
 import PatientForm from "./patient-form";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Home } from "lucide-react";
-
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
 }
@@ -49,14 +47,7 @@ export default async function NewPatientPage({ params }: PageProps) {
     <div className="flex items-center justify-start mt-4 p-4 pb-0">
       {/* Home Button */}
       <Link href={`/d/${workspaceid}/doctor`}>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Back to Doctor Dashboard"
-          className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-        >
-          <Home className="h-4 w-4" />
-        </Button>
+        
       </Link>
 
       {/* Title on the right */}

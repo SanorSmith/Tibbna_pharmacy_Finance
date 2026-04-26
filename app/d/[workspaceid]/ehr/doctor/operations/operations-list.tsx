@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Scissors, Calendar, User, AlertCircle, Home } from "lucide-react";
+import { Scissors, Calendar, User, AlertCircle} from "lucide-react";
 import Link from "next/link";
 
 type Operation = {
@@ -139,14 +139,7 @@ export default function OperationsList({ workspaceid, userid }: Props) {
       {/* Back Button */}
       <div className="flex items-center gap-2">
         <Link href={`/d/${workspaceid}/doctor`}>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Back to Doctor Dashboard"
-             className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-          >
-            <Home className="h-4 w-4" />
-          </Button>
+          
         </Link>
 
         <h1 className="text-xl font-semibold"> Operations</h1>

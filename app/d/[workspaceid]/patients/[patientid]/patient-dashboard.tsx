@@ -10,7 +10,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePatientData } from "./hooks/usePatientData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react";
 import Link from "next/link";
 import {
   Tooltip,
@@ -294,14 +293,7 @@ export default function PatientDashboard({
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Link href={`/d/${workspaceid}/doctor`}>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Back to Doctor Dashboard"
-              className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-            >
-              <Home className="h-4 w-4" />
-            </Button>
+            
           </Link>
         </div>
 

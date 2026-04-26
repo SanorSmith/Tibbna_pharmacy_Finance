@@ -189,14 +189,7 @@ export default function TodosList({ workspaceid, showHomeButton = true }: Props)
   <div className="flex items-center gap-3">
     {showHomeButton && (
       <Link href={`/d/${workspaceid}/doctor`}>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Back to Doctor Dashboard"
-          className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-           >
-          <Home className="h-4 w-4" />
-        </Button>
+        
       </Link>
     )}
 
