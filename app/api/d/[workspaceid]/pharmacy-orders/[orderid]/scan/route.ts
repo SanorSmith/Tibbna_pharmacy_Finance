@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Real barcode scanning - match against inventory items
     try {
-      // Search for the barcode in items table or item_batches table
+      // Search for the barcode in items table
       const barcodeQuery = await pool.query(`
         SELECT 
           i.id as itemid,
@@ -62,14 +62,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           i.barcode as item_barcode,
           ib.id as batchid,
           ib.batch_number,
-          ib.barcode as batch_barcode,
           ib.quantity,
           ib.selling_price
         FROM items i
         LEFT JOIN item_batches ib ON ib.item_id = i.id
-        WHERE (i.barcode = $1 OR ib.barcode = $1)
+        WHERE i.barcode = $1
           AND i.is_active = true
           AND (ib.quantity > 0 OR ib.quantity IS NULL)
+        ORDER BY ib.expiry_date ASC NULLS LAST
         LIMIT 1
       `, [barcode]);
 
@@ -107,14 +107,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Update order item with scanned info
+      // Note: batchid references drug_batches, not item_batches, so we store batch info in notes
       const [updated] = await db
         .update(pharmacyOrderItems)
         .set({
           status: "SCANNED",
           scannedbarcode: barcode,
           scannedat: new Date(),
-          batchid: scannedItem.batchid,
           unitprice: scannedItem.selling_price,
+          notes: scannedItem.batch_number ? `Batch: ${scannedItem.batch_number}` : null,
         })
         .where(eq(pharmacyOrderItems.itemid, matchingOrderItem.itemid))
         .returning();

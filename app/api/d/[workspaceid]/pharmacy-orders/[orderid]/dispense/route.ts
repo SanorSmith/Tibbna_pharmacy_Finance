@@ -158,8 +158,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     for (const item of items) {
       try {
-        // Use batchid from scanned item if available
-        if (item.batchid) {
+        // Try to find the batch by scanned barcode if available
+        let batchId = null;
+        if (item.scannedbarcode) {
+          const batchLookup = await pool.query(`
+            SELECT ib.id, ib.batch_number, ib.quantity
+            FROM items i
+            JOIN item_batches ib ON ib.item_id = i.id
+            WHERE i.barcode = $1
+              AND ib.quantity > 0
+            ORDER BY ib.expiry_date ASC NULLS LAST
+            LIMIT 1
+          `, [item.scannedbarcode]);
+          
+          if (batchLookup.rows.length > 0) {
+            batchId = batchLookup.rows[0].id;
+          }
+        }
+
+        if (batchId) {
           // Reduce quantity in the specific batch
           const updateResult = await pool.query(`
             UPDATE item_batches
@@ -168,7 +185,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             WHERE id = $2
               AND quantity >= $1
             RETURNING id, quantity, batch_number
-          `, [item.quantity, item.batchid]);
+          `, [item.quantity, batchId]);
 
           if (updateResult.rows.length > 0) {
             // Successfully dispensed from the scanned batch
@@ -184,7 +201,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             // Insufficient quantity in the scanned batch
             backorderedCount++;
             backorderedItems.push(`${item.drugname} (insufficient stock in scanned batch)`);
-            console.warn(`Insufficient stock in batch ${item.batchid} for ${item.drugname}`);
+            console.warn(`Insufficient stock in batch ${batchId} for ${item.drugname}`);
             continue;
           }
         }
