@@ -5,8 +5,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { drugs, items, itemBatches, inventoryStock } from "@/lib/db/schema";
-import { or, ilike, desc } from "drizzle-orm";
+import { drugs, items, itemBatches, inventoryStock, warehouseSections } from "@/lib/db/schema";
+import { or, ilike, desc, eq, and } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 export async function GET(
@@ -102,6 +102,44 @@ export async function POST(
         .returning();
     }
 
+    // Handle storage location - find or create warehouse section
+    const warehouseId = body.warehouseid || "22222222-0000-0000-0000-000000000002"; // Pharmacy warehouse
+    let storageLocationId: string | null = null;
+    
+    if (body.storage_location && warehouseId) {
+      // Try to find existing storage section by name
+      const [existingSection] = await db
+        .select()
+        .from(warehouseSections)
+        .where(
+          and(
+            eq(warehouseSections.warehouseid, warehouseId),
+            eq(warehouseSections.sectionname, body.storage_location)
+          )
+        )
+        .limit(1);
+
+      if (existingSection) {
+        storageLocationId = existingSection.id;
+      } else {
+        // Create new warehouse section
+        const [newSection] = await db
+          .insert(warehouseSections)
+          .values({
+            warehouseid: warehouseId,
+            sectionname: body.storage_location,
+            sectiontype: body.storage_type || 'shelf',
+            binlocation: null,
+            shelf: null,
+            description: null,
+            temperaturecontrolled: body.storage_type === 'fridge' || body.storage_type === 'freezer',
+          })
+          .returning();
+        
+        storageLocationId = newSection.id;
+      }
+    }
+
     // Create item record (for both medicines and items/supplies)
     const itemCode = body.itemcode || `PHR-${Date.now()}`;
     const itemType = isMedicine ? "drug" : (body.itemtype || "supply");
@@ -122,6 +160,7 @@ export async function POST(
         maxlevel: body.max_level || 100,
         controlled: body.controlled || false,
         manufacturer: body.manufacturer || null,
+        storagelocationid: storageLocationId,
         isactive: true,
         description: body.description || null,
         barcode: body.barcode || null,
@@ -131,7 +170,6 @@ export async function POST(
       .returning();
 
     // Always create batch record to store pricing
-    const warehouseId = body.warehouseid || "22222222-0000-0000-0000-000000000002"; // Pharmacy warehouse
     const initialQty = parseInt(body.initial_quantity) || 0;
     const batchNumber = body.batch_number || `BATCH-${Date.now()}`;
     

@@ -16,6 +16,11 @@ interface DrugSuggestion {
   interaction: string | null;
   warning: string | null;
   nationalcode: string | null;
+  storageLocationId: string | null;
+  storageLocationName: string | null;
+  storageLocation: string | null;
+  storageType: string | null;
+  shelf: string | null;
 }
 
 interface DrugAutocompleteProps {

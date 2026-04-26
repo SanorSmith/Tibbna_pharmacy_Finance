@@ -245,8 +245,8 @@ export const warehouses = pgTable("warehouses", {
 
 export const warehouseSections = pgTable("warehouse_sections", {
   id:                    uuid("id").primaryKey().defaultRandom(),
-  warehouseid:           uuid("warehouse_id").references(() => warehouses.id).notNull(),
-  sectionname:           text("section_name").notNull(),
+  warehouseid:           uuid("warehouse_id").references(() => warehouses.id),
+  sectionname:           text("sectionname").notNull(),
   sectiontype:           text("section_type"),
   binlocation:           text("bin_location"),
   shelf:                 text("shelf"),

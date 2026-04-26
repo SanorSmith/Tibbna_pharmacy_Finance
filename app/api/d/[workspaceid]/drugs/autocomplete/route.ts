@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
-import { drugs, globalDrugs } from "@/lib/db/schema";
+import { drugs, globalDrugs, items, warehouseSections } from "@/lib/db/schema";
 import { eq, and, or, ilike } from "drizzle-orm";
 
 export async function GET(
@@ -32,7 +32,7 @@ export async function GET(
       return NextResponse.json({ drugs: [] });
     }
 
-    // Phase 2: Join workspace drugs with global catalog
+    // Phase 2: Join workspace drugs with global catalog and items for storage location
     // This allows searching standardized drug names while respecting workspace inventory
     const results = await db
       .select({
@@ -52,8 +52,16 @@ export async function GET(
         barcode: drugs.barcode,
         manufacturer: drugs.manufacturer,
         insuranceapproved: drugs.insuranceapproved,
+        // Storage location fields from items and warehouse_sections
+        storageLocationId: items.storagelocationid,
+        storageLocationName: warehouseSections.sectionname,
+        storageLocation: warehouseSections.binlocation,
+        storageType: warehouseSections.sectiontype,
+        shelf: warehouseSections.shelf,
       })
       .from(drugs)
+      .leftJoin(items, eq(items.drugid, drugs.drugid))
+      .leftJoin(warehouseSections, eq(warehouseSections.id, items.storagelocationid))
       .where(
         and(
           eq(drugs.workspaceid, workspaceid),
@@ -82,6 +90,11 @@ export async function GET(
       barcode: drug.barcode || null,
       manufacturer: drug.manufacturer || null,
       insuranceapproved: drug.insuranceapproved || false,
+      storageLocationId: drug.storageLocationId || null,
+      storageLocationName: drug.storageLocationName || null,
+      storageLocation: drug.storageLocation || null,
+      storageType: drug.storageType || null,
+      shelf: drug.shelf || null,
     }));
 
     return NextResponse.json({ drugs: sanitizedResults });

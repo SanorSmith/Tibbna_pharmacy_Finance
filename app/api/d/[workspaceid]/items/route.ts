@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { items, itemBatches, inventoryStock, warehouses } from "@/lib/db/schema";
+import { items, itemBatches, inventoryStock, warehouses, warehouseSections, drugs } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
@@ -32,6 +32,11 @@ export async function POST(
       maxlevel,
       controlled = false,
       drugid,
+      form,
+      strength,
+      atccode,
+      storage_location,
+      storage_type,
       // Optional: Add stock/batch info immediately
       addStock = false,
       warehouseid,
@@ -52,7 +57,69 @@ export async function POST(
     // Generate itemcode if not provided
     const finalItemcode = itemcode || barcode || `${name.substring(0, 8).toUpperCase()}-${Date.now().toString(36)}`;
 
-    console.log('[Items POST] Creating item:', { name, itemcode: finalItemcode, barcode });
+    console.log('[Items POST] Creating item:', { name, itemcode: finalItemcode, barcode, form, strength, storage_location, storage_type });
+
+    // If form/strength/atccode provided and itemtype is drug, create a drug record
+    let finalDrugId = drugid;
+    if (itemtype === "drug" && (form || strength || atccode) && !drugid) {
+      const [newDrug] = await db
+        .insert(drugs)
+        .values({
+          workspaceid,
+          name,
+          genericname: genericname || null,
+          form: form || null,
+          strength: strength || null,
+          unit: uom || null,
+          atccode: atccode || null,
+          manufacturer: manufacturer || null,
+          barcode: barcode || null,
+          isactive: true,
+        })
+        .returning();
+      
+      finalDrugId = newDrug.drugid;
+      console.log('[Items POST] Created drug record:', finalDrugId);
+    }
+
+    // Handle storage location - find or create warehouse section
+    let storageLocationId: string | null = null;
+    
+    if (storage_location && warehouseid) {
+      // Try to find existing storage section by name
+      const [existingSection] = await db
+        .select()
+        .from(warehouseSections)
+        .where(
+          and(
+            eq(warehouseSections.warehouseid, warehouseid),
+            eq(warehouseSections.sectionname, storage_location)
+          )
+        )
+        .limit(1);
+
+      if (existingSection) {
+        storageLocationId = existingSection.id;
+        console.log('[Items POST] Found existing storage section:', storage_location, storageLocationId);
+      } else {
+        // Create new warehouse section
+        const [newSection] = await db
+          .insert(warehouseSections)
+          .values({
+            warehouseid: warehouseid,
+            sectionname: storage_location,
+            sectiontype: storage_type || 'shelf',
+            binlocation: null,
+            shelf: null,
+            description: null,
+            temperaturecontrolled: storage_type === 'fridge' || storage_type === 'freezer',
+          })
+          .returning();
+        
+        storageLocationId = newSection.id;
+        console.log('[Items POST] Created new storage section:', storage_location, storageLocationId);
+      }
+    }
 
     // Check if item with same itemcode already exists in this workspace
     const existing = await db
@@ -93,7 +160,8 @@ export async function POST(
         minlevel,
         maxlevel,
         controlled,
-        drugid,
+        drugid: finalDrugId,
+        storagelocationid: storageLocationId,
         isactive: true,
       })
       .returning();
