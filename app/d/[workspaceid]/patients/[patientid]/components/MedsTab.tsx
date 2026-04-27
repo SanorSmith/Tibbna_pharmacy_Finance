@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { History, Plus, Trash2, Printer, ChevronDown, ChevronUp, Calendar, User, Pill } from "lucide-react";
+import { Toast } from "@/components/ui/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,9 @@ interface MedsTabProps {
 export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescriptions, loadPrescriptions, patient: patientProp }: MedsTabProps) {
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingOrderKey, setEditingOrderKey] = useState<string | null>(null);
+  const [editingMedicationIndex, setEditingMedicationIndex] = useState<number | null>(null);
   const [selectedPrescription, setSelectedPrescription] =
     useState<PrescriptionRecord | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -84,6 +88,12 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
   const [medicationsList, setMedicationsList] = useState<typeof prescriptionForm[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
 
   // Fetch current user data
   useEffect(() => {
@@ -163,10 +173,24 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
 
   // Group prescriptions by order (same date/time = same order)
   const groupPrescriptionsByOrder = (prescriptions: PrescriptionRecord[]) => {
-    const orders = new Map<string, PrescriptionRecord[]>();
+    // First, deduplicate prescriptions - keep only the latest version of each composition
+    const latestVersions = new Map<string, PrescriptionRecord>();
     
     prescriptions.forEach(prescription => {
-      // Group by date (same day prescriptions are considered same order)
+      const baseUid = prescription.composition_uid.split('::')[0];
+      const existing = latestVersions.get(baseUid);
+      
+      if (!existing || new Date(prescription.recorded_time) > new Date(existing.recorded_time)) {
+        latestVersions.set(baseUid, prescription);
+      }
+    });
+    
+    // Now group the latest versions by their original order time
+    // We'll use a rounded time (to nearest minute) to group prescriptions created together
+    const orders = new Map<string, PrescriptionRecord[]>();
+    
+    Array.from(latestVersions.values()).forEach(prescription => {
+      // Group by date and time (rounded to minute) to keep medications prescribed together
       const orderDate = new Date(prescription.recorded_time).toISOString().split('T')[0];
       const orderTime = new Date(prescription.recorded_time).toISOString().split('T')[1].substring(0, 5); // HH:MM
       const orderKey = `${orderDate}_${orderTime}`;
@@ -184,7 +208,9 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
       medications: items,
       status: items.every(p => p.status === 'active') ? 'active' : 
               items.every(p => p.status === 'expired') ? 'expired' : 'mixed'
-    }));
+    })).sort((a, b) => 
+      new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
+    );
   };
 
   const toggleOrder = (orderKey: string) => {
@@ -202,7 +228,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
       // Find the order
       const order = groupPrescriptionsByOrder(prescriptions).find(o => o.orderKey === orderKey);
       if (!order) {
-        alert('Order not found');
+        showToast('Order not found', 'error');
         return;
       }
 
@@ -254,8 +280,55 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
       }
     } catch (error) {
       console.error('Print error:', error);
-      alert('Failed to print prescription order: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      showToast('Failed to print prescription order: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     }
+  };
+
+  // Populate form for editing an entire order
+  const handleEditOrder = (orderKey: string) => {
+    const order = groupPrescriptionsByOrder(prescriptions).find(o => o.orderKey === orderKey);
+    if (!order) return;
+
+    // Populate medicationsList with all medications in the order
+    const orderMedications = order.medications.map(med => ({
+      medicationItem: med.medication_item,
+      medicationItemCode: "",
+      medicationItemTerminology: "SNOMED-CT",
+      doseAmount: med.dose_amount || "",
+      doseUnit: med.dose_unit || "",
+      doseFormula: "",
+      route: med.route,
+      routeCode: "",
+      bodySite: "",
+      bodySiteCode: "",
+      administrationMethod: "",
+      administrationMethodCode: "",
+      timingDirections: med.timing_directions || "",
+      frequency: "",
+      interval: "",
+      asRequired: false,
+      asRequiredCriterion: "",
+      directionDuration: "",
+      usage: med.usage || "",
+      validUntil: med.valid_until || "",
+      clinicalIndication: med.clinical_indication || "",
+      clinicalIndicationCode: "",
+      clinicalIndicationTerminology: "ICD-10",
+      medicationSafety: "",
+      maximumDoseAmount: "",
+      maximumDoseUnit: "",
+      maximumDosePeriod: "",
+      additionalInstruction: med.additional_instruction || "",
+      patientInstruction: "",
+      orderType: "dose-based",
+      comment: med.comment || "",
+      _compositionUid: med.composition_uid, // Store original UID for updating
+    }));
+
+    setMedicationsList(orderMedications as any);
+    setIsEditMode(true);
+    setEditingOrderKey(orderKey);
+    setShowPrescriptionForm(true);
   };
 
   // Fetch medication summary from OpenEHR
@@ -269,11 +342,11 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
       } else {
         const error = await res.json();
         console.error("Failed to fetch medication summary:", error);
-        alert(`Failed to fetch medication summary: ${error.error || 'Unknown error'}`);
+        showToast(`Failed to fetch medication summary: ${error.error || 'Unknown error'}`, "error");
       }
     } catch (error) {
       console.error("Error fetching medication summary:", error);
-      alert("Error fetching medication summary. Please check console for details.");
+      showToast("Error fetching medication summary. Please check console for details.", "error");
     }
   };
 
@@ -286,8 +359,9 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
       !prescriptionForm.doseUnit ||
       !prescriptionForm.timingDirections
     ) {
-      alert(
-        "Please fill in all required fields (Medication Item, Route, Dose Amount, Dose Unit, Timing Directions)"
+      showToast(
+        "Please fill in all required fields (Medication Item, Route, Dose Amount, Dose Unit, Timing Directions)",
+        "info"
       );
       return;
     }
@@ -335,10 +409,80 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
     setMedicationsList(medicationsList.filter((_, i) => i !== index));
   };
 
-  // Submit all medications
+  // Submit all medications (create or update)
   const handleSubmitPrescriptions = async () => {
+    // If in edit mode, update all prescriptions in the order
+    if (isEditMode && editingOrderKey) {
+      setIsUpdating(true);
+      try {
+        // Validate all medications have required fields
+        for (const med of medicationsList) {
+          if (!med.medicationItem || !med.route || !med.doseAmount || !med.doseUnit || !med.timingDirections) {
+            showToast("All medications must have: medication item, route, dose amount, dose unit and timing directions", "error");
+            setIsUpdating(false);
+            return;
+          }
+        }
+
+        // Update each medication in the order
+        const updatePromises = medicationsList.map(async (med: any) => {
+          if (med._compositionUid) {
+            // Prepare prescription data with correct field names
+            const prescriptionData = {
+              medicationItem: med.medicationItem,
+              route: med.route,
+              doseAmount: med.doseAmount,
+              doseUnit: med.doseUnit,
+              timingDirections: med.timingDirections,
+              additionalInstruction: med.additionalInstruction || "",
+              clinicalIndication: med.clinicalIndication || "",
+              validUntil: med.validUntil || "",
+              usage: med.usage || "",
+              comment: med.comment || "",
+              directionDuration: med.directionDuration || "",
+            };
+
+            // Update existing prescription
+            const response = await fetch(
+              `/api/d/${workspaceid}/patients/${patientid}/prescriptions/${med._compositionUid}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prescription: prescriptionData }),
+              }
+            );
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error || "Failed to update prescription");
+            }
+          }
+        });
+
+        await Promise.all(updatePromises);
+        showToast("Order updated successfully!");
+        await loadPrescriptions();
+        setShowPrescriptionForm(false);
+        setIsEditMode(false);
+        setEditingOrderKey(null);
+        setMedicationsList([]);
+        resetPrescriptionForm();
+      } catch (error) {
+        console.error("Error updating order:", error);
+        showToast(
+          error instanceof Error
+            ? error.message
+            : "Failed to update order. Please try again.",
+          "error"
+        );
+      } finally {
+        setIsUpdating(false);
+      }
+      return;
+    }
+
+    // Normal create mode
     if (medicationsList.length === 0) {
-      alert("Please add at least one medication to the list");
+      showToast("Please add at least one medication to the list", "info");
       return;
     }
 
@@ -358,47 +502,52 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
         await loadPrescriptions();
         setShowPrescriptionForm(false);
         setMedicationsList([]);
-        setPrescriptionForm({
-          medicationItem: "",
-          medicationItemCode: "",
-          medicationItemTerminology: "SNOMED-CT",
-          doseAmount: "",
-          doseUnit: "",
-          doseFormula: "",
-          route: "",
-          routeCode: "",
-          bodySite: "",
-          bodySiteCode: "",
-          administrationMethod: "",
-          administrationMethodCode: "",
-          timingDirections: "",
-          frequency: "",
-          interval: "",
-          asRequired: false,
-          asRequiredCriterion: "",
-          directionDuration: "",
-          usage: "",
-          validUntil: "",
-          clinicalIndication: "",
-          clinicalIndicationCode: "",
-          clinicalIndicationTerminology: "ICD-10",
-          medicationSafety: "",
-          maximumDoseAmount: "",
-          maximumDoseUnit: "",
-          maximumDosePeriod: "",
-          additionalInstruction: "",
-          patientInstruction: "",
-          orderType: "dose-based",
-          comment: "",
-        });
+        resetPrescriptionForm();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to create prescriptions");
+        showToast(data.error || "Failed to create prescriptions", "error");
       }
     } catch (error) {
       console.error("Error creating prescriptions:", error);
-      alert("Error creating prescriptions");
+      showToast("Error creating prescriptions", "error");
     }
+  };
+
+  // Reset prescription form helper
+  const resetPrescriptionForm = () => {
+    setPrescriptionForm({
+      medicationItem: "",
+      medicationItemCode: "",
+      medicationItemTerminology: "SNOMED-CT",
+      doseAmount: "",
+      doseUnit: "",
+      doseFormula: "",
+      route: "",
+      routeCode: "",
+      bodySite: "",
+      bodySiteCode: "",
+      administrationMethod: "",
+      administrationMethodCode: "",
+      timingDirections: "",
+      frequency: "",
+      interval: "",
+      asRequired: false,
+      asRequiredCriterion: "",
+      directionDuration: "",
+      usage: "",
+      validUntil: "",
+      clinicalIndication: "",
+      clinicalIndicationCode: "",
+      clinicalIndicationTerminology: "ICD-10",
+      medicationSafety: "",
+      maximumDoseAmount: "",
+      maximumDoseUnit: "",
+      maximumDosePeriod: "",
+      additionalInstruction: "",
+      patientInstruction: "",
+      orderType: "dose-based",
+      comment: "",
+    });
   };
 
   return (
@@ -523,6 +672,15 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => handleEditOrder(order.orderKey)}
+                            className="print:hidden bg-green-50 hover:bg-green-100 text-green-700"
+                            title="Edit this order"
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => printOrder(order.orderKey)}
                             className="print:hidden"
                           >
@@ -590,15 +748,25 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
       {/* Prescription Form Dialog */}
       <Dialog
         open={showPrescriptionForm}
-        onOpenChange={setShowPrescriptionForm}
+        onOpenChange={(open) => {
+          setShowPrescriptionForm(open);
+          if (!open) {
+            setIsEditMode(false);
+            setEditingOrderKey(null);
+            setMedicationsList([]);
+            resetPrescriptionForm();
+          }
+        }}
       >
         <DialogContent className="w-[90vw] max-w-[1200px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              New Prescription
+              {isEditMode ? "Edit Prescription Order" : "New Prescription"}
             </DialogTitle>
             <DialogDescription>
-              Create a medication order for this patient
+              {isEditMode 
+                ? "Modify the medications in this order. Each medication will be updated in OpenEHR."
+                : "Create a medication order for this patient"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -881,24 +1049,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               </div>
             </div>
 
-            {/* Usage / course description */}
-            <div>
-              <label className="text-sm font-medium">Usage</label>
-              <textarea
-                className="w-full mt-1.5 px-3 py-2 border rounded-md"
-                rows={2}
-                placeholder="e.g., 1 tablet in the evening, 3 days/week."
-                value={prescriptionForm.usage}
-                onChange={(e) =>
-                  setPrescriptionForm({
-                    ...prescriptionForm,
-                    usage: e.target.value,
-                  })
-                }
-                aria-label="Usage"
-                title="How the patient should take the medicine"
-              />
-            </div>
+            {/* Additional usage notes (removed duplicate - using dropdown above) */}
 
             {/* PRN */}
             <div className="flex items-center gap-2">
@@ -985,12 +1136,45 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={handleAddToList}
+                onClick={() => {
+                  if (editingMedicationIndex !== null) {
+                    // Update existing medication in list
+                    const updatedList = [...medicationsList];
+                    updatedList[editingMedicationIndex] = { ...prescriptionForm };
+                    setMedicationsList(updatedList);
+                    setEditingMedicationIndex(null);
+                    resetPrescriptionForm();
+                  } else {
+                    // Add new medication
+                    handleAddToList();
+                  }
+                }}
                 className="gap-2"
               >
-                <Plus className="h-4 w-4" />
-                Add to Prescription List
+                {editingMedicationIndex !== null ? (
+                  <>
+                    <span>Update Medication</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Add to {isEditMode ? 'Order' : 'Prescription List'}
+                  </>
+                )}
               </Button>
+              {editingMedicationIndex !== null && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditingMedicationIndex(null);
+                    resetPrescriptionForm();
+                  }}
+                >
+                  Cancel Edit
+                </Button>
+              )}
             </div>
 
             {/* Medications List */}
@@ -998,12 +1182,17 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               <div className="space-y-2 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-semibold">
-                    Medications to Prescribe ({medicationsList.length})
+                    {isEditMode ? `Medications in Order (${medicationsList.length})` : `Medications to Prescribe (${medicationsList.length})`}
                   </label>
                 </div>
                 <div className="border rounded-md divide-y max-h-64 overflow-y-auto">
                   {medicationsList.map((med, index) => (
-                    <div key={index} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                    <div 
+                      key={index} 
+                      className={`p-3 flex items-center justify-between hover:bg-muted/50 ${
+                        editingMedicationIndex === index ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      }`}
+                    >
                       <div className="flex-1">
                         <div className="font-medium">{med.medicationItem}</div>
                         <div className="text-sm text-muted-foreground">
@@ -1011,14 +1200,30 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                           {med.directionDuration && ` • ${med.directionDuration}`}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveFromList(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            // Load medication into form for editing
+                            setPrescriptionForm(med);
+                            setEditingMedicationIndex(index);
+                          }}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="Edit this medication"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveFromList(index)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Remove this medication"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1072,9 +1277,11 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={handleSubmitPrescriptions}
-                disabled={medicationsList.length === 0}
+                disabled={isEditMode ? isUpdating : medicationsList.length === 0}
               >
-                Submit {medicationsList.length > 0 ? `${medicationsList.length} Prescription${medicationsList.length > 1 ? 's' : ''}` : 'Prescriptions'}
+                {isEditMode 
+                  ? (isUpdating ? "Updating..." : "Update Prescription")
+                  : `Submit ${medicationsList.length > 0 ? `${medicationsList.length} Prescription${medicationsList.length > 1 ? 's' : ''}` : 'Prescriptions'}`}
               </Button>
             </div>
           </div>
@@ -1197,28 +1404,23 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
 
               {/* Notes & Instructions */}
               {(selectedPrescription.additional_instruction ||
-                selectedPrescription.instructions ||
-                selectedPrescription.comment) && (
+                selectedPrescription.instructions) && (
                 <div>
                   <h4 className="font-medium">Notes & Instructions</h4>
                   <div className="mt-2 space-y-2">
-                    {(selectedPrescription.additional_instruction ||
-                      selectedPrescription.instructions) && (
+                    {selectedPrescription.instructions && (
                       <div>
-                        <span className="text-xs text-gray-500">
-                          Instructions:
-                        </span>
+                        <span className="text-xs text-gray-500">Instructions:</span>
                         <p className="mt-1">
-                          {selectedPrescription.additional_instruction ||
-                            selectedPrescription.instructions}
+                          {selectedPrescription.instructions}
                         </p>
                       </div>
                     )}
-                    {selectedPrescription.comment && (
+                    {selectedPrescription.additional_instruction && (
                       <div>
-                        <span className="text-xs text-gray-500">Comment:</span>
+                        <span className="text-xs text-gray-500">Additional instruction:</span>
                         <p className="mt-1">
-                          {selectedPrescription.comment}
+                          {selectedPrescription.additional_instruction}
                         </p>
                       </div>
                     )}
@@ -1226,7 +1428,7 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                 </div>
               )}
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end gap-2 pt-4">
                 <Button
                   variant="outline"
                   onClick={() => setShowDetails(false)}
@@ -1387,7 +1589,45 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
 
               <div className="flex justify-end gap-2">
                 <Button 
-                  onClick={() => window.print()}
+                  onClick={async () => {
+                    try {
+                      // Import the HTML generator
+                      const { generateMedicationListHTML } = await import('@/lib/medication-list-html');
+                      
+                      // Prepare data
+                      const medicationListData = {
+                        facility: {
+                          name: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.name || 'Healthcare Center',
+                          address: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.address || null,
+                          phone: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.phone || null,
+                        },
+                        patient: patientProp ? {
+                          patientid: patientProp.patientid,
+                          firstname: patientProp.firstname,
+                          middlename: patientProp.middlename,
+                          lastname: patientProp.lastname,
+                          dateofbirth: patientProp.dateofbirth,
+                          gender: patientProp.gender,
+                          age: patientProp.dateofbirth ? Math.floor((new Date().getTime() - new Date(patientProp.dateofbirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+                          nationalid: patientProp.nationalid,
+                        } : null,
+                        generatedBy: currentUser?.name || currentUser?.email || null,
+                        generatedAt: new Date().toISOString(),
+                        medications: medicationSummaryData.events || [],
+                      };
+
+                      // Generate and print
+                      const html = generateMedicationListHTML(medicationListData);
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(html);
+                        printWindow.document.close();
+                      }
+                    } catch (error) {
+                      console.error('Print error:', error);
+                      showToast('Failed to print medication list', 'error');
+                    }
+                  }}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                 >
                   <Printer className="h-4 w-4" />
@@ -1403,6 +1643,15 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </>
   );
 }
