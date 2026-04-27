@@ -557,6 +557,7 @@ export default function PatientDashboard({
                 prescriptions={prescriptions}
                 loadingPrescriptions={loadingPrescriptions}
                 loadPrescriptions={() => queryClient.invalidateQueries({ queryKey: ["prescriptions", workspaceid, patient.patientid] })}
+                patient={patient}
               />
             )}
           </TabsContent>
