@@ -1387,7 +1387,45 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
 
               <div className="flex justify-end gap-2">
                 <Button 
-                  onClick={() => window.print()}
+                  onClick={async () => {
+                    try {
+                      // Import the HTML generator
+                      const { generateMedicationListHTML } = await import('@/lib/medication-list-html');
+                      
+                      // Prepare data
+                      const medicationListData = {
+                        facility: {
+                          name: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.name || 'Healthcare Center',
+                          address: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.address || null,
+                          phone: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.phone || null,
+                        },
+                        patient: patientProp ? {
+                          patientid: patientProp.patientid,
+                          firstname: patientProp.firstname,
+                          middlename: patientProp.middlename,
+                          lastname: patientProp.lastname,
+                          dateofbirth: patientProp.dateofbirth,
+                          gender: patientProp.gender,
+                          age: patientProp.dateofbirth ? Math.floor((new Date().getTime() - new Date(patientProp.dateofbirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+                          nationalid: patientProp.nationalid,
+                        } : null,
+                        generatedBy: currentUser?.name || currentUser?.email || null,
+                        generatedAt: new Date().toISOString(),
+                        medications: medicationSummaryData.events || [],
+                      };
+
+                      // Generate and print
+                      const html = generateMedicationListHTML(medicationListData);
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(html);
+                        printWindow.document.close();
+                      }
+                    } catch (error) {
+                      console.error('Print error:', error);
+                      alert('Failed to print medication list');
+                    }
+                  }}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                 >
                   <Printer className="h-4 w-4" />
