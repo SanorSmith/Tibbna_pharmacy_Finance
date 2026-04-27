@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 interface Patient {
   patientid: string;
   firstname: string;
+  middlename: string | null;
   lastname: string;
   nationalid: string | null;
   dateofbirth: string | null;
@@ -170,7 +171,7 @@ export default function CreateOrderModal({
   };
 
   const handleSubmit = async () => {
-    if (!selectedPatient || orderItems.length === 0) {
+    if (!selectedPatient || orderItems.length === 0 || loading) {
       return;
     }
 
@@ -189,16 +190,18 @@ export default function CreateOrderModal({
       });
 
       if (res.ok) {
+        const data = await res.json();
+        console.log("Order created successfully:", data.order?.orderid);
         onSuccess();
         handleClose();
       } else {
         const data = await res.json();
         alert(data.error || "Failed to create order");
+        setLoading(false);
       }
     } catch (error) {
       console.error("Error creating order:", error);
       alert("Failed to create order");
-    } finally {
       setLoading(false);
     }
   };
@@ -272,7 +275,7 @@ export default function CreateOrderModal({
                         }}
                       >
                         <div className="font-medium">
-                          {patient.firstname} {patient.lastname}
+                          {patient.firstname} {patient.middlename ? `${patient.middlename} ` : ''}{patient.lastname}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {patient.nationalid && `ID: ${patient.nationalid}`}
@@ -287,7 +290,7 @@ export default function CreateOrderModal({
               <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-md">
                 <div>
                   <div className="font-semibold text-blue-900">
-                    {selectedPatient.firstname} {selectedPatient.lastname}
+                    {selectedPatient.firstname} {selectedPatient.middlename ? `${selectedPatient.middlename} ` : ''}{selectedPatient.lastname}
                   </div>
                   <div className="text-sm text-blue-700">
                     {selectedPatient.nationalid && `ID: ${selectedPatient.nationalid}`}
@@ -662,7 +665,7 @@ export default function CreateOrderModal({
               size="sm"
               onClick={handleAddItem}
               disabled={!currentItem.drugname || currentItem.quantity < 1}
-              className="w-full"
+              className=" w-full bg-gray-100 hover:bg-green-300 text-gray-900 gap-2"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Medication to Order
@@ -707,6 +710,8 @@ export default function CreateOrderModal({
               Cancel
             </Button>
             <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
               onClick={handleSubmit}
               disabled={loading || !selectedPatient || orderItems.length === 0}
             >

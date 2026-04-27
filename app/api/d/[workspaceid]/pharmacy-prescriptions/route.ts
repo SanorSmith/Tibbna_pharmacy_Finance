@@ -11,7 +11,7 @@ import {
   pharmacyOrders,
   pharmacyOrderItems,
 } from "@/lib/db/schema";
-import { eq, and, or, ilike, desc } from "drizzle-orm";
+import { eq, and, or, ilike, desc, isNull } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import {
   getOpenEHREHRBySubjectId,
@@ -176,7 +176,11 @@ export async function GET(
       .from(patients)
       .where(
         and(
-          eq(patients.workspaceid, workspaceid),
+          // Include both workspace-specific AND global patients
+          or(
+            eq(patients.workspaceid, workspaceid),
+            isNull(patients.workspaceid)
+          )!,
           or(
             ilike(patients.firstname, searchPattern),
             ilike(patients.lastname, searchPattern),

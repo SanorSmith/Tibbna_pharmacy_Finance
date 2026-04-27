@@ -331,11 +331,15 @@ export default function PharmacyOrdersPage({
                       <TableCell className="text-sm">
                         {order.prescribername || "—"}
                       </TableCell>
-                      <TableCell className="max-w-[200px]">
+                      <TableCell className="max-w-[250px]">
                         {order.items && order.items.length > 0 ? (
-                          <div className="text-xs">
+                          <div className="text-xs space-y-1">
                             {order.items.map((item, idx) => (
-                              <div key={idx} className="text-muted-foreground">
+                              <div 
+                                key={idx} 
+                                className="text-muted-foreground truncate"
+                                title={`${item.drugname} (${item.quantity})`}
+                              >
                                 {item.drugname} ({item.quantity})
                               </div>
                             ))}

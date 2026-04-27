@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   X,
 } from "lucide-react";
+import { Toast } from "@/components/ui/toast";
 
 type OrderDetail = {
   order: any;
@@ -73,6 +74,11 @@ export default function OrderDetailsModal({
   const [scanMessage, setScanMessage] = useState("");
   const [selectedDrug, setSelectedDrug] = useState<any>(null);
   const [showDrugDetails, setShowDrugDetails] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrder = useCallback(async () => {
@@ -237,7 +243,7 @@ export default function OrderDetailsModal({
         setShowDrugDetails(true);
       } else {
         const errorData = await res.json();
-        console.error("Failed to fetch drug storage:", errorData.error);
+        showToast(errorData.error || "Item not found or no storage information available", "info");
         // Show modal with no storage info
         setSelectedDrug({
           drugname: item.drugname,
@@ -247,7 +253,7 @@ export default function OrderDetailsModal({
         setShowDrugDetails(true);
       }
     } catch (error) {
-      console.error("Error fetching drug details:", error);
+      showToast("Error fetching drug details. Please try again.", "error");
       // Show modal with error state
       setSelectedDrug({
         drugname: item.drugname,
@@ -797,10 +803,6 @@ export default function OrderDetailsModal({
                   <span className="text-sm font-medium">
                     Progress: {scannedItems.size} / {items.length}
                   </span>
-                  {/* Debug info */}
-                  <div className="text-xs text-muted-foreground">
-                    Debug: {scannedItems.size} === {items.length} = {scannedItems.size === items.length ? "YES" : "NO"}
-                  </div>
                   <div className="flex gap-1">
                     {items.map((item: any) => (
                       <div
@@ -986,8 +988,16 @@ export default function OrderDetailsModal({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      No batch information available
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <div className="flex flex-col items-center gap-3">
+                        <AlertTriangle className="h-12 w-12 text-amber-500" />
+                        <div className="space-y-1">
+                          <p className="font-semibold text-amber-900">This drug is not found in inventory</p>
+                          <p className="text-sm text-muted-foreground">
+                            No batch or storage information available. Please add this drug to inventory before dispensing.
+                          </p>
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -995,18 +1005,35 @@ export default function OrderDetailsModal({
             </Table>
           </div>
 
-          <p className="text-sm text-red-600">
-            Once the drug is scanned, the inventory system will be updated and price added to the invoice
-          </p>
+          {selectedDrug?.batches && selectedDrug.batches.length > 0 ? (
+            <p className="text-sm text-red-600">
+              Once the drug is scanned, the inventory system will be updated and price added to the invoice
+            </p>
+          ) : (
+            <p className="text-sm text-amber-600 font-medium">
+              ⚠️ This medication cannot be dispensed until it is added to the inventory system
+            </p>
+          )}
 
           <div className="flex justify-end">
-            <Button onClick={() => setShowDrugDetails(false)}>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+               onClick={() => setShowDrugDetails(false)}>
               Close
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Toast Notification */}
+    {toast && (
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast(null)}
+      />
+    )}
   </>
   );
 }
