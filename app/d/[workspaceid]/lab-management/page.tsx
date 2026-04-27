@@ -7,7 +7,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Beaker, Wrench, Building, ShoppingCart, Home, FlaskConical } from "lucide-react";
+import { Package, Beaker, Wrench, Building, ShoppingCart, FlaskConical } from "lucide-react";
 import Link from "next/link";
 import EquipmentManagement from "@/components/admin/EquipmentManagement";
 import MaterialsManagement from "@/components/admin/MaterialsManagement";
@@ -28,14 +28,7 @@ export default async function LabManagementPage({ params }: PageProps) {
       {/* Header */}
       <div className="flex items-center gap-2">
         <Link href={`/d/${workspaceid}`}>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Back to Dashboard"
-            className="h-7 w-7 bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-          >
-            <Home className="h-3 w-3" />
-          </Button>
+          
         </Link>
         <h1 className="text-base font-bold">Laboratory Management</h1>
       </div>

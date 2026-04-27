@@ -10,7 +10,7 @@ import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import PatientsList from "./patients-list";
 import { Button } from "@/components/ui/button";
-import { Plus, Home } from "lucide-react";
+import { Plus} from "lucide-react";
 interface PageProps {
   params: Promise<{ workspaceid: string }>;
 }
@@ -62,14 +62,7 @@ export default async function PatientsPage({ params }: PageProps) {
             {/* Left side: Home button + Patients text */}
             <div className="flex items-center gap-4">
               <Link href={`/d/${workspaceid}/doctor`}>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="Back to Doctor Dashboard"
-                  className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
-                >
-                  <Home className="h-4 w-4" />
-                </Button>
+                
               </Link>
               <div>
                 <h1 className="text-2xl font-bold">Patients</h1>

@@ -51,6 +51,7 @@ export default async function HomeLayout({
                 </>
               }
               userRole={workspace.role}
+              workspaceid={workspaceid}
             />
             <div className="px-4">
               {children}

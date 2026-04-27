@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { History, Plus, Trash2 } from "lucide-react";
+import { History, Plus, Trash2, Printer, ChevronDown, ChevronUp, Calendar, User, Pill } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,9 +62,18 @@ interface MedsTabProps {
   prescriptions: PrescriptionRecord[];
   loadingPrescriptions: boolean;
   loadPrescriptions: () => void;
+  patient?: {
+    patientid: string;
+    firstname: string;
+    middlename?: string | null;
+    lastname: string;
+    dateofbirth?: string | null;
+    gender?: string | null;
+    nationalid?: string | null;
+  };
 }
 
-export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescriptions, loadPrescriptions }: MedsTabProps) {
+export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescriptions, loadPrescriptions, patient: patientProp }: MedsTabProps) {
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedPrescription, setSelectedPrescription] =
@@ -73,6 +82,8 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
   const [medicationSummaryData, setMedicationSummaryData] = useState<any>(null);
   const [showMedicationSummary, setShowMedicationSummary] = useState(false);
   const [medicationsList, setMedicationsList] = useState<typeof prescriptionForm[]>([]);
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<string | null>(null);
 
   // Fetch current user data
   useEffect(() => {
@@ -149,6 +160,103 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
 
   // Whether we are viewing active prescriptions or history (expired)
   const [showHistory, setShowHistory] = useState(false);
+
+  // Group prescriptions by order (same date/time = same order)
+  const groupPrescriptionsByOrder = (prescriptions: PrescriptionRecord[]) => {
+    const orders = new Map<string, PrescriptionRecord[]>();
+    
+    prescriptions.forEach(prescription => {
+      // Group by date (same day prescriptions are considered same order)
+      const orderDate = new Date(prescription.recorded_time).toISOString().split('T')[0];
+      const orderTime = new Date(prescription.recorded_time).toISOString().split('T')[1].substring(0, 5); // HH:MM
+      const orderKey = `${orderDate}_${orderTime}`;
+      
+      if (!orders.has(orderKey)) {
+        orders.set(orderKey, []);
+      }
+      orders.get(orderKey)!.push(prescription);
+    });
+    
+    return Array.from(orders.entries()).map(([key, items]) => ({
+      orderKey: key,
+      orderDate: items[0].recorded_time,
+      prescribedBy: items[0].prescribed_by,
+      medications: items,
+      status: items.every(p => p.status === 'active') ? 'active' : 
+              items.every(p => p.status === 'expired') ? 'expired' : 'mixed'
+    }));
+  };
+
+  const toggleOrder = (orderKey: string) => {
+    const newExpanded = new Set(expandedOrders);
+    if (newExpanded.has(orderKey)) {
+      newExpanded.delete(orderKey);
+    } else {
+      newExpanded.add(orderKey);
+    }
+    setExpandedOrders(newExpanded);
+  };
+
+  const printOrder = async (orderKey: string) => {
+    try {
+      // Find the order
+      const order = groupPrescriptionsByOrder(prescriptions).find(o => o.orderKey === orderKey);
+      if (!order) {
+        alert('Order not found');
+        return;
+      }
+
+      console.log('Patient prop:', patientProp); // Debug log
+
+      // Import the HTML generator
+      const { generatePrescriptionOrderHTML } = await import('@/lib/prescription-order-html');
+      
+      // Prepare data
+      const prescriptionData = {
+        facility: {
+          name: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.name || 'Healthcare Center',
+          address: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.address || null,
+          phone: currentUser?.workspaces?.find((w: any) => w.workspace.workspaceid === workspaceid)?.workspace?.phone || null,
+        },
+        patient: patientProp ? {
+          patientid: patientProp.patientid,
+          firstname: patientProp.firstname,
+          middlename: patientProp.middlename,
+          lastname: patientProp.lastname,
+          dateofbirth: patientProp.dateofbirth,
+          gender: patientProp.gender,
+          age: patientProp.dateofbirth ? Math.floor((new Date().getTime() - new Date(patientProp.dateofbirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+          nationalid: patientProp.nationalid,
+        } : null,
+        prescribedBy: order.prescribedBy,
+        orderDate: order.orderDate,
+        medications: order.medications.map(med => ({
+          medication_item: med.medication_item,
+          dose_amount: med.dose_amount,
+          dose_unit: med.dose_unit,
+          route: med.route,
+          timing_directions: med.timing_directions,
+          usage: med.usage,
+          valid_until: med.valid_until,
+          additional_instruction: med.additional_instruction,
+          clinical_indication: med.clinical_indication,
+        })),
+      };
+
+      console.log('Prescription data:', prescriptionData); // Debug log
+
+      // Generate and print
+      const html = generatePrescriptionOrderHTML(prescriptionData);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+      }
+    } catch (error) {
+      console.error('Print error:', error);
+      alert('Failed to print prescription order: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
 
   // Fetch medication summary from OpenEHR
   const fetchMedicationSummary = async () => {
@@ -364,104 +472,116 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
               </Button>
             </div>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b text-semibold bg-blue-100/90 text-blue-800">
-                    <th className="p-3 text-left text-sm font-semibold">
-                      Medication
-                    </th>
-                    <th className="p-3 text-left text-sm font-semibold">
-                      Dosage
-                    </th>
-                    <th className="p-3 text-left text-sm font-semibold">
-                      Route
-                    </th>
-                    <th className="p-3 text-left text-sm font-semibold">
-                      Usage
-                    </th>
-                    <th className="p-3 text-left text-sm font-semibold">
-                      Prescribed By
-                    </th>
-                    <th className="p-3 text-left text-sm font-semibold">
-                      Dates
-                    </th>
-                    <th className="p-3 text-left text-sm font-semibold">
-                      Status
-                    </th>
-                    <th className="p-3 text-right text-sm font-semibold">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(showHistory
-                    ? prescriptions.filter((p) => p.status === "expired")
-                    : prescriptions.filter((p) => p.status !== "expired")
-                  ).map((prescription) => (
-                    <tr
-                      key={prescription.composition_uid}
-                      className="border-b hover:bg-muted/30"
-                    >
-                      <td className="p-3 text-sm">
-                        <div className="text-sm font-medium">
-                          {prescription.medication_item}
-                        </div>
-                      </td>
-                      <td className="p-3 text-sm">
-                        {prescription.dose_amount || prescription.dose_unit
-                          ? `${prescription.dose_amount ?? ""}${prescription.dose_unit ? ` ${prescription.dose_unit}` : ""}`
-                          : prescription.timing_directions || "N/A"}
-                      </td>
-                      <td className="p-3 text-sm">{prescription.route}</td>
-                      <td className="p-3 text-sm">
-                        {prescription.usage || "-"}
-                      </td>
-                      <td className="p-3 text-sm">
-                        {prescription.prescribed_by}
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">
-                        <div>
-                          {new Date(
-                            prescription.recorded_time
-                          ).toLocaleDateString()}
-                        </div>
-                        {prescription.valid_until && (
-                          <div className="text-xs text-muted-foreground">
-                            Valid until: {prescription.valid_until}
+            <div className="space-y-3">
+              {groupPrescriptionsByOrder(
+                showHistory
+                  ? prescriptions.filter((p) => p.status === "expired")
+                  : prescriptions.filter((p) => p.status !== "expired")
+              ).map((order) => {
+                const isExpanded = expandedOrders.has(order.orderKey);
+                const isPrintSelected = selectedOrderForPrint === order.orderKey;
+                
+                return (
+                  <Card 
+                    key={order.orderKey} 
+                    className={`border-2 ${isPrintSelected ? 'print-only' : ''} ${
+                      order.status === 'active' ? 'border-green-200' : 
+                      order.status === 'expired' ? 'border-red-200' : 'border-gray-200'
+                    }`}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <Pill className="h-5 w-5 text-blue-600" />
+                            <div>
+                              <div className="font-semibold text-base">
+                                Prescription Order - {order.medications.length} medication{order.medications.length > 1 ? 's' : ''}
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(order.orderDate).toLocaleDateString()} at {new Date(order.orderDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  {order.prescribedBy}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        )}
-                      </td>
-                      <td className="p-3 text-sm">
-                        <span
-                          className={`px-2 py-1 rounded text-xs ${
-                            prescription.status === "active"
-                              ? "bg-green-200 text-green-800"
-                              : prescription.status === "expired"
-                              ? "bg-red-200 text-red-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {prescription.status}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right text-sm">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedPrescription(prescription);
-                            setShowDetails(true);
-                          }}
-                          className="bg-blue-100/90 hover:bg-blue-200"
-                        >
-                          Details
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            className={
+                              order.status === 'active' ? 'bg-green-200 text-green-800' : 
+                              order.status === 'expired' ? 'bg-red-200 text-red-800' : 'bg-gray-200 text-gray-800'
+                            }
+                          >
+                            {order.status}
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => printOrder(order.orderKey)}
+                            className="print:hidden"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleOrder(order.orderKey)}
+                            className="print:hidden"
+                          >
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    {isExpanded && (
+                      <CardContent className="pt-0">
+                        <div className="space-y-2">
+                          {order.medications.map((prescription, idx) => (
+                            <div 
+                              key={prescription.composition_uid}
+                              className={`p-3 rounded-lg border ${idx % 2 === 0 ? 'bg-muted/30' : 'bg-background'}`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 space-y-1">
+                                  <div className="font-medium text-sm">{prescription.medication_item}</div>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                    <div><span className="font-medium">Dosage:</span> {prescription.dose_amount || prescription.dose_unit
+                                      ? `${prescription.dose_amount ?? ""}${prescription.dose_unit ? ` ${prescription.dose_unit}` : ""}`
+                                      : prescription.timing_directions || "N/A"}</div>
+                                    <div><span className="font-medium">Route:</span> {prescription.route}</div>
+                                    <div><span className="font-medium">Usage:</span> {prescription.usage || "-"}</div>
+                                    {prescription.valid_until && (
+                                      <div><span className="font-medium">Valid until:</span> {prescription.valid_until}</div>
+                                    )}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPrescription(prescription);
+                                    setShowDetails(true);
+                                  }}
+                                  className="ml-2 print:hidden"
+                                >
+                                  Details
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -1265,7 +1385,14 @@ export function MedsTab({ workspaceid, patientid, prescriptions, loadingPrescrip
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button 
+                  onClick={() => window.print()}
+                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print
+                </Button>
                 <Button onClick={() => setShowMedicationSummary(false)}
                   className="bg-blue-200/90 hover:bg-blue-300"
                   >
