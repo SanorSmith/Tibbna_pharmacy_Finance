@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 interface Patient {
   patientid: string;
   firstname: string;
+  middlename: string | null;
   lastname: string;
   nationalid: string | null;
   dateofbirth: string | null;
@@ -272,7 +273,7 @@ export default function CreateOrderModal({
                         }}
                       >
                         <div className="font-medium">
-                          {patient.firstname} {patient.lastname}
+                          {patient.firstname} {patient.middlename ? `${patient.middlename} ` : ''}{patient.lastname}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {patient.nationalid && `ID: ${patient.nationalid}`}
@@ -287,7 +288,7 @@ export default function CreateOrderModal({
               <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-md">
                 <div>
                   <div className="font-semibold text-blue-900">
-                    {selectedPatient.firstname} {selectedPatient.lastname}
+                    {selectedPatient.firstname} {selectedPatient.middlename ? `${selectedPatient.middlename} ` : ''}{selectedPatient.lastname}
                   </div>
                   <div className="text-sm text-blue-700">
                     {selectedPatient.nationalid && `ID: ${selectedPatient.nationalid}`}

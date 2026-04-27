@@ -213,40 +213,31 @@ export async function POST(
     const body = await request.json();
     const data = orderSchema.parse(body);
 
-    // Create separate order for each medication item (clinical best practice)
-    const orders = [];
+    // Create ONE order with multiple items
+    const [order] = await db
+      .insert(pharmacyOrders)
+      .values({
+        workspaceid,
+        patientid: data.patientid || null,
+        prescriberid: data.prescriberid || null,
+        status: "PENDING",
+        source: data.source,
+        openehrorderid: data.openehrorderid || null,
+        priority: data.priority,
+        notes: data.notes || null,
+        metadata: {
+          ...data.metadata,
+          multiMedicationOrder: data.items.length > 1,
+          medicationCount: data.items.length,
+        },
+      })
+      .returning();
+
     const allItems = [];
     const compositionUids: string[] = [];
 
+    // Create items for this order
     for (const item of data.items) {
-      // Create individual order for each medication
-      const [order] = await db
-        .insert(pharmacyOrders)
-        .values({
-          workspaceid,
-          patientid: data.patientid || null,
-          prescriberid: data.prescriberid || null,
-          status: "PENDING",
-          source: data.source,
-          openehrorderid: data.openehrorderid || null,
-          priority: data.priority,
-          notes: data.notes || null,
-          metadata: {
-            ...data.metadata,
-            medicationName: item.drugname,
-            multiMedicationOrder: data.items.length > 1,
-            usage: item.usage || null,
-            clinicalIndication: item.clinicalIndication || null,
-            additionalInstruction: item.additionalInstruction || null,
-            pharmacistNotes: item.pharmacistNotes || null,
-            validUntil: item.validUntil || null,
-            asRequired: item.asRequired || false,
-            asRequiredCriterion: item.asRequiredCriterion || null,
-          },
-        })
-        .returning();
-
-      orders.push(order);
 
       // Select optimal batch using FIFO/expiry logic
       let unitprice: string | null = null;
@@ -351,9 +342,8 @@ export async function POST(
           }
 
           if (ehrId) {
-            // Create OpenEHR composition for each order
-            for (let i = 0; i < orders.length; i++) {
-              const order = orders[i];
+            // Create OpenEHR composition for each medication item
+            for (let i = 0; i < allItems.length; i++) {
               const item = allItems[i];
               const itemData = data.items[i];
               const compositionData: Record<string, unknown> = {
@@ -436,10 +426,10 @@ export async function POST(
     }
 
     return NextResponse.json({ 
-      orders, 
+      order, 
       items: allItems, 
       openehrCompositionUids: compositionUids,
-      message: `Successfully created ${orders.length} order(s) for ${orders.length} medication(s)` 
+      message: `Successfully created order with ${allItems.length} medication(s)` 
     }, { status: 201 });
   } catch (error) {
     console.error("[Pharmacy Orders POST]", error);

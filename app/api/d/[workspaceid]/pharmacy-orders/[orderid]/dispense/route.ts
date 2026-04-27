@@ -90,26 +90,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }))
     );
 
+    // Check if at least one item is ready to dispense
+    const scannedItems = items.filter(
+      (i) => i.status === "SCANNED" || i.status === "SUBSTITUTED"
+    );
+    
     const allReady = items.every(
       (i) => i.status === "SCANNED" || i.status === "DISPENSED" || i.status === "SUBSTITUTED"
     );
 
-    if (!allReady) {
+    if (scannedItems.length === 0) {
       return NextResponse.json({
-        message: "Dispensing started — scan all items before completing",
+        message: "No items scanned yet — scan at least one item before dispensing",
         order: { ...order, status: "IN_PROGRESS" },
         items,
         allScanned: false,
       });
     }
+    
+    // Allow partial dispensing - only process scanned items
+    const itemsToDispense = allReady ? items : scannedItems;
 
-    // ── All items scanned → finalize ──────────────────────────────────
+    // ── Process scanned items → finalize ──────────────────────────────────
     // 1. Validate batch expiry before dispensing
     const expiryWarnings: string[] = [];
     const today = new Date();
     const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    for (const item of items) {
+    for (const item of itemsToDispense) {
       if (item.batchid && isValidUUID(item.batchid)) {
         try {
           const [batch] = await db
@@ -156,7 +164,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const backorderedItems: string[] = [];
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-    for (const item of items) {
+    for (const item of itemsToDispense) {
       try {
         // Try to find the batch by scanned barcode if available
         let batchId = null;
@@ -351,7 +359,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // 2. Mark order status based on dispensed vs backordered items
+    // 2. Mark order status based on dispensed vs backordered vs pending items
     // Validate user.userid before using it
     let validDispensedBy: string | null = user.userid;
     if (validDispensedBy && !isValidUUID(validDispensedBy)) {
@@ -359,18 +367,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       validDispensedBy = null;
     }
     
+    // Count pending (unscanned) items
+    const pendingItems = items.filter(i => i.status === "PENDING").length;
+    
     // Determine final order status
     let finalStatus: "DISPENSED" | "PARTIALLY_DISPENSED";
-    if (backorderedCount > 0 && dispensedCount > 0) {
+    if (pendingItems > 0 || (backorderedCount > 0 && dispensedCount > 0)) {
+      // Some items not dispensed (either pending/unscanned or backordered)
       finalStatus = "PARTIALLY_DISPENSED";
-      console.log(`Partial dispense: ${dispensedCount} dispensed, ${backorderedCount} backordered`);
-    } else if (dispensedCount > 0) {
+      console.log(`Partial dispense: ${dispensedCount} dispensed, ${backorderedCount} backordered, ${pendingItems} pending`);
+    } else if (dispensedCount > 0 && backorderedCount === 0) {
+      // All items dispensed successfully
       finalStatus = "DISPENSED";
       console.log(`Full dispense: ${dispensedCount} items dispensed`);
     } else {
-      // All items backordered - keep as IN_PROGRESS
+      // All scanned items backordered - keep as IN_PROGRESS
       return NextResponse.json({
-        error: "Cannot complete dispense: all items are out of stock",
+        error: "Cannot complete dispense: all scanned items are out of stock",
         backorderedItems,
       }, { status: 400 });
     }
