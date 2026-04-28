@@ -314,7 +314,7 @@ export default function PharmacyOrdersPage({
                           <div className="text-xs">
                             {order.items.map((item, idx) => (
                               <div key={idx} className="text-muted-foreground">
-                                {item.drugname} ({item.quantity})
+                                {item.drugname} ({(item.quantity || 0) - (item.quantitydispensed || 0)})
                               </div>
                             ))}
                           </div>

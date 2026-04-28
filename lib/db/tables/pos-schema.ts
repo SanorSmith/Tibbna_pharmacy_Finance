@@ -174,7 +174,6 @@ export const posSaleItems = pgTable(
       .references(() => posSales.saleid, { onDelete: "cascade" }),
 
     drugid: uuid("drugid")
-      .notNull()
       .references(() => drugs.drugid),
     drugname: text("drugname").notNull(),
     batchid: uuid("batchid").references(() => drugBatches.batchid, {

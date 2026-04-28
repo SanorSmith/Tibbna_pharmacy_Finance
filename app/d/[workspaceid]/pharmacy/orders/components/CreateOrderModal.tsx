@@ -186,6 +186,7 @@ export default function CreateOrderModal({
       asRequiredCriterion: currentItem.asRequiredCriterion,
       additionalInstruction: currentItem.additionalInstruction,
       clinicalIndication: currentItem.clinicalIndication,
+      pharmacistNotes: currentItem.pharmacistNotes,
     };
 
     setOrderItems([...orderItems, newItem]);
@@ -449,7 +450,7 @@ export default function CreateOrderModal({
                     placeholder="Search patient by name or national ID..."
                     value={patientSearch}
                     onChange={(e) => setPatientSearch(e.target.value)}
-                    onFocus={() => setShowPatientSearchModal(true)}
+                    onFocus={() => patientSearch.length >= 2 && setShowPatientSearchModal(true)}
                   />
                   {searchingPatient && (
                     <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin" />

@@ -39,7 +39,13 @@ import {
   ArrowRightLeft,
   AlertTriangle,
   X,
+  Printer,
+  Calendar,
+  Phone,
+  MapPin,
+  Download,
 } from "lucide-react";
+import MedicationCardPrintPreview from "./MedicationCardPrintPreview";
 
 type OrderDetail = {
   order: any;
@@ -73,6 +79,244 @@ export default function OrderDetailsModal({
   const [scanMessage, setScanMessage] = useState("");
   const [selectedDrug, setSelectedDrug] = useState<any>(null);
   const [showDrugDetails, setShowDrugDetails] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+
+  // Print medication card
+  const handlePrintMedicationCard = async (item: any) => {
+    try {
+      const response = await fetch(`/api/d/${workspaceid}/pharmacy/medication-card`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: orderid,
+          itemName: item.drugname,
+          dosage: item.dosage,
+          quantity: item.quantity,
+          doseAmount: item.doseamount,
+          doseUnit: item.doseunit,
+          route: item.route,
+          timingDirections: item.timingdirections,
+          directionDuration: item.duration,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.pdfData) {
+        // Create download link
+        const link = document.createElement('a');
+        link.href = `data:application/pdf;base64,${result.pdfData}`;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.error('Failed to generate medication card:', result.error);
+      }
+    } catch (error) {
+      console.error('Error generating medication card:', error);
+    }
+  };
+
+  // Print all medication cards - generates separate PDFs for each medication
+  const handlePrintAllMedicationCards = async () => {
+    try {
+      // Generate individual PDF for each medication
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        
+        const response = await fetch(`/api/d/${workspaceid}/pharmacy/medication-card`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId: orderid,
+            itemName: item.drugname,
+            dosage: item.dosage,
+            quantity: item.quantity,
+            doseAmount: item.doseamount,
+            doseUnit: item.doseunit,
+            route: item.route,
+            timingDirections: item.timingdirections,
+            directionDuration: item.duration,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.pdfData) {
+          // Create download link for this medication
+          const link = document.createElement('a');
+          link.href = `data:application/pdf;base64,${result.pdfData}`;
+          link.download = result.filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Small delay between downloads to avoid browser issues
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.error(`Failed to generate medication card for ${item.drugname}:`, result.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating all medication cards:', error);
+    }
+  };
+
+  // Download individual medication card PDF using jsPDF
+  const handleDownloadIndividualPDF = async (item: any) => {
+    try {
+      // Parse dosage details
+      const parseDosageDetails = (dosageStr: string) => {
+        if (!dosageStr) return {};
+        
+        const details: any = {};
+        
+        // Handle both pipe-separated and comma-separated dosage strings
+        const parts = dosageStr.includes('|') 
+          ? dosageStr.split('|').map(p => p.trim())
+          : dosageStr.split(',').map(p => p.trim());
+        
+        parts.forEach(part => {
+          // Dose amount and unit
+          const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
+          if (doseMatch) {
+            details.doseamount = doseMatch[1];
+            details.doseunit = doseMatch[2];
+          }
+          
+          // Route
+          if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
+            details.route = part;
+          }
+          
+          // Timing directions
+          if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
+            details.timingdirections = part;
+          }
+          
+          // Duration
+          if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
+            details.duration = part.replace(/^for\s+/i, '');
+          }
+        });
+        
+        return details;
+      };
+
+      const doseInfo = parseDosageDetails(item.dosage || '');
+      
+      // Create a temporary container for the medication card
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.width = '15cm';
+      tempContainer.style.height = 'auto !important';
+      tempContainer.style.minHeight = 'unset !important';
+      tempContainer.style.maxHeight = 'unset !important';
+      tempContainer.style.fontFamily = 'Arial, sans-serif';
+      tempContainer.style.fontSize = '8px';
+      tempContainer.style.padding = '3mm';
+      tempContainer.style.boxSizing = 'border-box';
+      tempContainer.style.display = 'flex';
+      tempContainer.style.flexDirection = 'column';
+      tempContainer.id = 'prescription-print-individual';
+      
+      // Create the medication card
+      const card = document.createElement('div');
+      card.style.cssText = `
+        width: 15cm;
+        height: auto !important;
+        min-height: unset !important;
+        max-height: unset !important;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+        padding: 3mm;
+        display: flex;
+        flex-direction: column;
+      `;
+      
+      const patientName = data?.patient ? `${data.patient.firstname} ${data.patient.lastname}` : 'Unknown Patient';
+      const patientId = data?.patient?.patientid || 'Unknown ID';
+      
+      card.innerHTML = `
+        <div style="font-size: 8px; color: #666; line-height: 1.3; margin-bottom: 1mm;">
+          <strong>Patient:</strong> ${patientName} (${patientId})
+        </div>
+        <div style="font-size: 8px; color: #666; line-height: 1.3; margin-bottom: 1mm;">
+          <strong>Order:</strong> ${orderid.slice(0, 8)}... | ${new Date().toLocaleDateString()}
+        </div>
+        <div style="font-size: 9px; font-weight: bold; color: #000; margin: 1mm 0; line-height: 1.3;">
+          ${item.drugname}
+        </div>
+        <div style="font-size: 7.5px; line-height: 1.3;">
+          ${item.quantity ? `<div style="margin-bottom: 0.5mm;"><strong>Qty:</strong> ${(item.quantity || 0) - (item.quantitydispensed || 0)}</div>` : ''}
+          ${doseInfo.doseamount && doseInfo.doseunit ? `<div style="margin-bottom: 0.5mm;"><strong>Dose:</strong> ${doseInfo.doseamount} ${doseInfo.doseunit}</div>` : ''}
+          ${doseInfo.route ? `<div style="margin-bottom: 0.5mm;"><strong>Route:</strong> ${doseInfo.route}</div>` : ''}
+          ${doseInfo.timingdirections ? `<div style="margin-bottom: 0.5mm;"><strong>Timing:</strong> ${doseInfo.timingdirections}</div>` : ''}
+          ${doseInfo.duration ? `<div style="margin-bottom: 0.5mm;"><strong>Duration:</strong> ${doseInfo.duration}</div>` : ''}
+          ${item.dosage && item.dosage.trim() ? `<div style="margin-bottom: 0.5mm;"><strong>Instructions:</strong> ${item.dosage}</div>` : ''}
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 7px; color: #666; border-top: 0.5px solid #ccc; padding-top: 1mm; margin-top: 4mm; line-height: 1.4;">
+          <span>Pharmacy Management System</span>
+          <span>${new Date().toLocaleDateString()}</span>
+        </div>
+      `;
+      
+      tempContainer.appendChild(card);
+      document.body.appendChild(tempContainer);
+      
+      // Import jsPDF and html2canvas dynamically
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+      
+      try {
+        // Force card to shrink to content size
+        card.style.height = 'auto';
+        
+        // Generate canvas from the card with actual content height
+        const canvas = await html2canvas(card, {
+          scale: 3,
+          useCORS: true,
+          logging: false,
+          height: card.scrollHeight,
+          windowHeight: card.scrollHeight,
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Convert pixels to cm
+        const pxToCm = 0.0264583333;
+        const contentHeightCm = card.scrollHeight * pxToCm;
+        
+        // Create PDF with exact content dimensions
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'cm',
+          format: [15, contentHeightCm], // exact content height!
+        });
+
+        pdf.addImage(imgData, 'PNG', 0, 0, 15, contentHeightCm);
+        
+        const medicationName = item.drugname.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+        const filename = `medication-card-${medicationName}-${orderid.slice(0, 8)}-${Date.now()}.pdf`;
+        pdf.save(filename);
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF. Please try again.');
+      } finally {
+        // Clean up
+        document.body.removeChild(tempContainer);
+      }
+    } catch (error) {
+      console.error('Error in handleDownloadIndividualPDF:', error);
+      alert('Error generating PDF. Please try again.');
+    }
+  };
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -375,7 +619,9 @@ export default function OrderDetailsModal({
         <div className="flex flex-1 flex-col gap-4">
           {/* Medications List */}
           <div className="space-y-2">
-            <h3 className="font-medium text-lg">Medications</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-lg">Medications</h3>
+            </div>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {items.map((item: any) => {
                     // Parse dosage string to extract structured information
@@ -438,15 +684,48 @@ export default function OrderDetailsModal({
                       >
                         {item.drugname}
                       </h4>
-                      <p className="text-sm text-muted-foreground">{item.quantity ? `x${item.quantity}` : ""}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-muted-foreground">{item.quantity ? `x${(item.quantity || 0) - (item.quantitydispensed || 0)}` : ""}</p>
+                        {(() => {
+                          // Priority: bestBatchPrice > unitprice > nameBasedPrice
+                          const price = parseFloat(item.bestBatchPrice || '0') > 0
+                            ? parseFloat(item.bestBatchPrice)
+                            : parseFloat(item.unitprice || '0') > 0
+                              ? parseFloat(item.unitprice)
+                              : parseFloat(item.nameBasedPrice || '0') > 0
+                                ? parseFloat(item.nameBasedPrice)
+                                : 0;
+                          return price > 0 ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-medium text-green-600">
+                                {(price * (item.quantity || 1)).toLocaleString()} IQD
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                @ {price.toLocaleString()} each
+                              </span>
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        statusColor[item.status] || statusColor.PENDING
-                      }`}
-                    >
-                      {item.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePrintMedicationCard(item)}
+                        className="h-7 px-2 text-xs"
+                        title="Print medication card"
+                      >
+                        <Printer className="h-3 w-3" />
+                      </Button>
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          statusColor[item.status] || statusColor.PENDING
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
                   </div>
                   
                   {/* Dose Information */}
@@ -583,36 +862,61 @@ export default function OrderDetailsModal({
               <CardTitle className="text-base">Total price</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4 mb-2">
-                <div className="flex-1 text-center">
-                  <p className="text-sm text-muted-foreground">Patient pays</p>
-                  <p className="text-xl font-semibold text-green-600">
-                    ${invoice?.patientcopay ? parseFloat(invoice.patientcopay).toFixed(2) : "0.00"}
-                  </p>
-                </div>
-                <div className="flex-1 text-center">
-                  <p className="text-sm text-muted-foreground">Insurance</p>
-                  <p className="text-xl font-semibold text-blue-600">
-                    ${invoice?.insurancecovered ? parseFloat(invoice.insurancecovered).toFixed(2) : "0.00"}
-                  </p>
-                </div>
-                <div className="flex-1 text-center">
-                  <p className="text-sm text-muted-foreground">Doctor Share</p>
-                  <p className="text-xl font-semibold text-purple-600">
-                    ${(() => {
-                      if (!invoice?.total) return "0.00";
-                      const total = parseFloat(invoice.total);
-                      const patient = parseFloat(invoice.patientcopay || "0");
-                      const insurance = parseFloat(invoice.insurancecovered || "0");
-                      const doctorShare = total - patient - insurance;
-                      return doctorShare.toFixed(2);
-                    })()}
-                  </p>
-                </div>
-              </div>
-              <div className="text-xl font-semibold">
-                Total: <span className="text-green-600">${invoice?.total ? parseFloat(invoice.total).toFixed(2) : "0.00"}</span>
-              </div>
+              {(() => {
+                // Calculate total from individual medication items if invoice data is not available
+                const calculateTotalFromItems = () => {
+                  return items.reduce((total: number, item: any) => {
+                    const price = parseFloat(item.bestBatchPrice || '0') > 0
+                      ? parseFloat(item.bestBatchPrice)
+                      : parseFloat(item.unitprice || '0') > 0
+                        ? parseFloat(item.unitprice)
+                        : parseFloat(item.nameBasedPrice || '0') > 0
+                          ? parseFloat(item.nameBasedPrice)
+                          : 0;
+                    return total + (price * (item.quantity || 1));
+                  }, 0);
+                };
+
+                const totalFromInvoice = invoice?.total ? parseFloat(invoice.total) : 0;
+                const totalFromItems = calculateTotalFromItems();
+                const finalTotal = totalFromInvoice || totalFromItems;
+
+                const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
+                const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
+                
+                // Use invoice data if available, otherwise calculate based on items
+                const patientPay = patientFromInvoice || finalTotal;
+                const insurancePay = insuranceFromInvoice || 0;
+                const doctorShare = finalTotal - patientPay - insurancePay;
+
+                return (
+                  <>
+                    <div className="flex gap-4 mb-2">
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-muted-foreground">Patient pays</p>
+                        <p className="text-xl font-semibold text-green-600">
+                          ${patientPay.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-muted-foreground">Insurance</p>
+                        <p className="text-xl font-semibold text-blue-600">
+                          ${insurancePay.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-muted-foreground">Doctor Share</p>
+                        <p className="text-xl font-semibold text-purple-600">
+                          ${doctorShare.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-xl font-semibold">
+                      Total: <span className="text-green-600">${finalTotal.toFixed(2)}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -714,7 +1018,11 @@ export default function OrderDetailsModal({
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
                   onClick={() => {
                     // Open POS page with order pre-loaded
-                    window.location.href = `/d/${workspaceid}/pos?orderId=${orderid}&patientId=${data.patient?.patientid}`;
+                    const patientId = patient?.patientid;
+                    const url = patientId 
+                      ? `/d/${workspaceid}/pos?orderId=${orderid}&patientId=${patientId}`
+                      : `/d/${workspaceid}/pos?orderId=${orderid}`;
+                    window.location.href = url;
                   }}
                 >
                   <ScanBarcode className="h-4 w-4" />
@@ -933,6 +1241,15 @@ export default function OrderDetailsModal({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Print Preview Dialog */}
+    <MedicationCardPrintPreview
+      open={showPrintPreview}
+      onClose={() => setShowPrintPreview(false)}
+      workspaceid={workspaceid}
+      orderid={orderid}
+      items={items}
+    />
   </>
   );
 }

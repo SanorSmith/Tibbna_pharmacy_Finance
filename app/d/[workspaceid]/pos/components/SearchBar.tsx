@@ -34,6 +34,11 @@ type SearchResults = {
   drugs: any[];
 };
 
+type PatientWithOrders = {
+  patient: any;
+  orders: any[];
+};
+
 export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState("all");
@@ -117,7 +122,7 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
 
   const selectOrder = (o: any) => {
     setShowResults(false);
-    setQuery(o.orderid.slice(0, 8) + "...");
+    setQuery(o.orderid);
     onOrderSelect(o.orderid);
   };
 
@@ -138,6 +143,36 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
       totalAmount: price,
     });
   };
+
+  // Group orders by patient for display
+  const groupOrdersByPatient = (): PatientWithOrders[] => {
+    if (!results) return [];
+    
+    const patientsWithOrders: PatientWithOrders[] = [];
+    
+    // Group orders by patient
+    const ordersByPatient = new Map<string, any[]>();
+    
+    results.dispensedOrders?.forEach(order => {
+      if (!ordersByPatient.has(order.patientid)) {
+        ordersByPatient.set(order.patientid, []);
+      }
+      ordersByPatient.get(order.patientid)?.push(order);
+    });
+    
+    // Create patient with orders structure
+    results.patients?.forEach(patient => {
+      const patientOrders = ordersByPatient.get(patient.patientid) || [];
+      patientsWithOrders.push({
+        patient,
+        orders: patientOrders
+      });
+    });
+    
+    return patientsWithOrders;
+  };
+
+  const patientsWithOrders = groupOrdersByPatient();
 
   const totalResults =
     (results?.patients?.length || 0) +
@@ -173,7 +208,7 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
               value={query}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              onFocus={() => results && setShowResults(true)}
+              onFocus={() => query.length >= 2 && results && setShowResults(true)}
               className="pl-10"
             />
           </div>
@@ -194,35 +229,66 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
         {/* Search Results Dropdown */}
         {showResults && results && (
           <div className="border rounded-md bg-background shadow-lg max-h-[360px] overflow-auto divide-y">
-            {/* Patients */}
-            {results.patients?.length > 0 && (
+            {/* Patients with their Orders */}
+            {patientsWithOrders.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 bg-muted/50 text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                  <User className="h-3 w-3" /> Patients ({results.patients.length})
+                  <User className="h-3 w-3" /> Patients ({patientsWithOrders.length})
                 </div>
-                {results.patients.map((p: any) => (
-                  <button
-                    key={p.patientid}
-                    className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm flex justify-between items-center"
-                    onClick={() => selectPatient(p)}
-                  >
-                    <span>
-                      {p.firstname} {p.lastname}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {p.nationalid || p.phone || ""}
-                    </span>
-                  </button>
+                {patientsWithOrders.map(({ patient, orders }: PatientWithOrders) => (
+                  <div key={patient.patientid} className="border-b last:border-0">
+                    {/* Patient Header */}
+                    <button
+                      className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm flex justify-between items-center"
+                      onClick={() => selectPatient(patient)}
+                    >
+                      <span className="font-medium">
+                        {patient.firstname} {patient.lastname}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {patient.nationalid || patient.phone || ""}
+                      </span>
+                    </button>
+                    
+                    {/* Patient Orders */}
+                    {orders.length > 0 && (
+                      <div className="bg-muted/20 px-3 pb-2">
+                        <div className="text-xs text-muted-foreground mb-1 pt-1">
+                          Orders ({orders.length})
+                        </div>
+                        {orders.map((order: any) => (
+                          <button
+                            key={order.orderid}
+                            className="w-full text-left px-2 py-1.5 hover:bg-muted/30 text-xs flex justify-between items-center rounded"
+                            onClick={() => selectOrder(order)}
+                          >
+                            <span className="font-medium">
+                              {new Date(order.createdat).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
+                            </span>
+                            <Badge 
+                              variant={order.status === "PENDING" ? "secondary" : "outline"} 
+                              className="text-xs"
+                            >
+                              {order.status}
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
 
-            {/* Dispensed Orders */}
-            {results.dispensedOrders?.length > 0 && (
+            {/* Standalone Orders (when searching specifically for orders) */}
+            {searchType === "order" && results.dispensedOrders?.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 bg-muted/50 text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                  <FileText className="h-3 w-3" /> Dispensed Orders (
-                  {results.dispensedOrders.length})
+                  <FileText className="h-3 w-3" /> Orders ({results.dispensedOrders.length})
                 </div>
                 {results.dispensedOrders.map((o: any) => (
                   <button
@@ -230,10 +296,17 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
                     className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm flex justify-between items-center"
                     onClick={() => selectOrder(o)}
                   >
-                    <span className="font-mono text-xs">
-                      {o.orderid.slice(0, 8)}...
-                    </span>
-                    <Badge variant="outline" className="text-xs">
+                    <span className="font-medium">
+                        {new Date(o.createdat).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
+                      </span>
+                    <Badge 
+                      variant={o.status === "PENDING" ? "secondary" : "outline"} 
+                      className="text-xs"
+                    >
                       {o.status}
                     </Badge>
                   </button>

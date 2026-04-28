@@ -21,6 +21,7 @@ import {
   stockLocations,
 } from "@/lib/db/tables/pharmacy-stock";
 import { drugBatches } from "@/lib/db/tables/pharmacy-drugs";
+import { PHARMACY_ITEM_STATUS, type PharmacyItemStatus } from "@/lib/db/tables/pharmacy-orders";
 import { eq, and, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
@@ -154,11 +155,30 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Resolve drugId: use item.drugId, or look up from pharmacy order item, or find by name
+        let resolvedDrugId = item.drugId;
+        if (!resolvedDrugId && item.pharmacyOrderItemId) {
+          const [orderItem] = await tx
+            .select({ drugid: pharmacyOrderItems.drugid })
+            .from(pharmacyOrderItems)
+            .where(eq(pharmacyOrderItems.itemid, item.pharmacyOrderItemId))
+            .limit(1);
+          resolvedDrugId = orderItem?.drugid || null;
+        }
+        // If still no drugId, find by drug name in the drugs table
+        if (!resolvedDrugId) {
+          const found = await tx.execute(sql`
+            SELECT drugid FROM drugs WHERE name = ${item.drugName} LIMIT 1
+          `);
+          const row = (found as any)?.[0];
+          resolvedDrugId = row?.drugid || null;
+        }
+
         const [saleItem] = await tx
           .insert(posSaleItems)
           .values({
             saleid: sale.saleid,
-            drugid: item.drugId || "",
+            drugid: resolvedDrugId || sql`NULL`  as any, // may be null if drug not found
             drugname: item.drugName,
             batchid: item.batchId || null,
             lotnumber: item.lotNumber || null,
@@ -279,16 +299,50 @@ export async function POST(request: NextRequest) {
 
       // 5. Update pharmacy order items + order status (if from a pharmacy order)
       if (data.pharmacyOrderId) {
-        // 5a. Update only the PAID items to DISPENSED
-        const paidOrderItemIds = data.items
-          .filter((item) => item.pharmacyOrderItemId)
-          .map((item) => item.pharmacyOrderItemId as string);
-
-        for (const itemId of paidOrderItemIds) {
+        // 5a. Update pharmacy order items with partial dispense tracking
+        for (const cartItem of data.items) {
+          if (!cartItem.pharmacyOrderItemId) continue;
+          
+          // Get current order item to check original quantity
+          const [orderItem] = await tx
+            .select({
+              quantity: pharmacyOrderItems.quantity,
+              quantitydispensed: pharmacyOrderItems.quantitydispensed,
+            })
+            .from(pharmacyOrderItems)
+            .where(eq(pharmacyOrderItems.itemid, cartItem.pharmacyOrderItemId))
+            .limit(1);
+          
+          if (!orderItem) continue;
+          
+          // Calculate new dispensed quantity
+          const currentDispensed = orderItem.quantitydispensed || 0;
+          const newDispensedQty = currentDispensed + cartItem.quantity;
+          const totalQty = orderItem.quantity;
+          
+          // Determine item status based on dispensed vs total
+          let itemStatus: PharmacyItemStatus;
+          if (newDispensedQty >= totalQty) {
+            itemStatus = PHARMACY_ITEM_STATUS.DISPENSED;
+          } else if (newDispensedQty > 0) {
+            itemStatus = PHARMACY_ITEM_STATUS.PARTIALLY_DISPENSED;
+          } else {
+            itemStatus = PHARMACY_ITEM_STATUS.PENDING;
+          }
+          
+          // Update the order item
           await tx
             .update(pharmacyOrderItems)
-            .set({ status: "DISPENSED" })
-            .where(eq(pharmacyOrderItems.itemid, itemId));
+            .set({
+              quantitydispensed: Math.min(newDispensedQty, totalQty),
+              status: itemStatus,
+              updatedat: new Date(),
+            })
+            .where(eq(pharmacyOrderItems.itemid, cartItem.pharmacyOrderItemId));
+            
+          console.log(
+            `[POS] Item ${cartItem.pharmacyOrderItemId}: dispensed ${newDispensedQty}/${totalQty} → ${itemStatus}`
+          );
         }
 
         // 5b. Check if ALL items in the order are now dispensed
