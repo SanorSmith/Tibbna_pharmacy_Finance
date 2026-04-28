@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (NEVER commit credentials)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -46,6 +47,11 @@ node_modules/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# SQL files with potential credentials
+*session.sql
+*diagnostic.sql
+debug*.sql
 
 # External projects
 tibbna-hospital/
