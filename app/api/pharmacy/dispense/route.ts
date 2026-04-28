@@ -14,7 +14,7 @@ import { eq, and, sql } from "drizzle-orm";
 export async function GET(req: NextRequest) {
   try {
     const storeid = req.nextUrl.searchParams.get("storeid");
-    if (!storeid) return NextResponse.json({ error: "storeid required" }, { status: 400 });
+    if (!storeid) return NextResponse.json({ logs: [] });
 
     const logs = await db
       .select({
