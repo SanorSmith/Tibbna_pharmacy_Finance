@@ -311,9 +311,9 @@ export default function PharmacyOrdersPage({
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         {order.items && order.items.length > 0 ? (
-                          <div className="text-xs">
+                          <div className="text-xs space-y-1">
                             {order.items.map((item, idx) => (
-                              <div key={idx} className="text-muted-foreground">
+                              <div key={idx} className="text-muted-foreground truncate" title={item.drugname}>
                                 {item.drugname} ({(item.quantity || 0) - (item.quantitydispensed || 0)})
                               </div>
                             ))}
@@ -327,10 +327,20 @@ export default function PharmacyOrdersPage({
                       </TableCell>
                       <TableCell>
                         <Badge 
-                          variant={order.paymentStatus === "PAID" ? "default" : "secondary"}
-                          className={order.paymentStatus === "PAID" ? "bg-green-600" : ""}
+                          variant={
+                            order.paymentStatus === "PAID" ? "default" : 
+                            order.paymentStatus === "UNPAID" ? "destructive" : 
+                            order.paymentStatus === "PARTIALLY_PAID" ? "secondary" :
+                            "outline"
+                          }
+                          className={
+                            order.paymentStatus === "PAID" ? "bg-green-600" : 
+                            order.paymentStatus === "UNPAID" ? "bg-red-100 text-red-700" : 
+                            order.paymentStatus === "PARTIALLY_PAID" ? "bg-orange-100 text-orange-700" :
+                            "bg-gray-100 text-gray-600"
+                          }
                         >
-                          {order.paymentStatus}
+                          {order.paymentStatus === "PARTIALLY_PAID" ? "Partially Paid" : order.paymentStatus}
                         </Badge>
                       </TableCell>
                       <TableCell>
