@@ -213,41 +213,31 @@ export async function POST(
     const body = await request.json();
     const data = orderSchema.parse(body);
 
-    // Create separate order for each medication item (clinical best practice)
-    const orders = [];
-    const allItems = [];
+    // Create a single order with multiple medication items
+    const [order] = await db
+      .insert(pharmacyOrders)
+      .values({
+        workspaceid,
+        patientid: data.patientid || null,
+        prescriberid: data.prescriberid || null,
+        status: "PENDING",
+        source: data.source,
+        openehrorderid: data.openehrorderid || null,
+        priority: data.priority,
+        notes: data.notes || null,
+        metadata: {
+          ...data.metadata,
+          multiMedicationOrder: data.items.length > 1,
+          medicationCount: data.items.length,
+        },
+      })
+      .returning();
+
+    const allItems: any[] = [];
     const compositionUids: string[] = [];
 
+    // Create all items for the single order
     for (const item of data.items) {
-      // Create individual order for each medication
-      const [order] = await db
-        .insert(pharmacyOrders)
-        .values({
-          workspaceid,
-          patientid: data.patientid || null,
-          prescriberid: data.prescriberid || null,
-          status: "PENDING",
-          source: data.source,
-          openehrorderid: data.openehrorderid || null,
-          priority: data.priority,
-          notes: data.notes || null,
-          metadata: {
-            ...data.metadata,
-            medicationName: item.drugname,
-            multiMedicationOrder: data.items.length > 1,
-            usage: item.usage || null,
-            clinicalIndication: item.clinicalIndication || null,
-            additionalInstruction: item.additionalInstruction || null,
-            pharmacistNotes: item.pharmacistNotes || null,
-            validUntil: item.validUntil || null,
-            asRequired: item.asRequired || false,
-            asRequiredCriterion: item.asRequiredCriterion || null,
-          },
-        })
-        .returning();
-
-      orders.push(order);
-
       // Select optimal batch using FIFO/expiry logic
       let unitprice: string | null = null;
       let selectedBatchId: string | null = null;
@@ -276,7 +266,7 @@ export async function POST(
         dosageString = parts.join(", ");
       }
 
-      // Create single item for this order with selected batch
+      // Create item for the order with selected batch
       const [orderItem] = await db
         .insert(pharmacyOrderItems)
         .values({
@@ -330,7 +320,7 @@ export async function POST(
       }
     }
 
-    // Create OpenEHR composition for each order if patient exists
+    // Create OpenEHR composition for the single order if patient exists
     let compositionUid: string | null = null;
     if (data.patientid) {
       try {
@@ -351,81 +341,70 @@ export async function POST(
           }
 
           if (ehrId) {
-            // Create OpenEHR composition for each order
-            for (let i = 0; i < orders.length; i++) {
-              const order = orders[i];
-              const item = allItems[i];
-              const itemData = data.items[i];
-              const compositionData: Record<string, unknown> = {
-                "template_clinical_encounter_v1/language|code": "en",
-                "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
-                "template_clinical_encounter_v1/territory|code": "US",
-                "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
-                "template_clinical_encounter_v1/composer|name": user.name || user.email || "Pharmacist",
-                "template_clinical_encounter_v1/context/start_time": new Date().toISOString(),
-                "template_clinical_encounter_v1/context/setting|code": "238",
-                "template_clinical_encounter_v1/context/setting|value": "other care",
-                "template_clinical_encounter_v1/context/setting|terminology": "openehr",
-                "template_clinical_encounter_v1/category|code": "433",
-                "template_clinical_encounter_v1/category|value": "event",
-                "template_clinical_encounter_v1/category|terminology": "openehr",
-                "template_clinical_encounter_v1/medication_order/order:0/medication_item": item.drugname,
-                "template_clinical_encounter_v1/medication_order/order:0/route:0": itemData?.route || "Oral",
-                "template_clinical_encounter_v1/medication_order/order:0/timing": itemData?.timingDirections || itemData?.frequency || "As directed",
-                "template_clinical_encounter_v1/medication_order/order:0/overall_directions_description": 
-                  `${item.dosage || ""} ${itemData?.route || "Oral"} ${itemData?.timingDirections || itemData?.frequency || ""}`.trim(),
-              };
+            // Create OpenEHR composition for the single order with multiple medications
+            const compositionData: Record<string, unknown> = {
+              "template_clinical_encounter_v1/language|code": "en",
+              "template_clinical_encounter_v1/language|terminology": "ISO_639-1",
+              "template_clinical_encounter_v1/territory|code": "US",
+              "template_clinical_encounter_v1/territory|terminology": "ISO_3166-1",
+              "template_clinical_encounter_v1/composer|name": user.name || user.email || "Pharmacist",
+              "template_clinical_encounter_v1/context/start_time": new Date().toISOString(),
+              "template_clinical_encounter_v1/context/setting|code": "238",
+              "template_clinical_encounter_v1/context/setting|value": "other care",
+              "template_clinical_encounter_v1/context/setting|terminology": "openehr",
+              "template_clinical_encounter_v1/category|code": "433",
+              "template_clinical_encounter_v1/category|value": "event",
+              "template_clinical_encounter_v1/category|terminology": "openehr",
+            };
+
+            // Add each medication to the composition
+            data.items.forEach((item, index) => {
+              const currentItem = allItems[index];
+              compositionData[`template_clinical_encounter_v1/medication_order/order:${index}/medication_item`] = item.drugname;
+              compositionData[`template_clinical_encounter_v1/medication_order/order:${index}/route:0`] = item.route || "Oral";
+              compositionData[`template_clinical_encounter_v1/medication_order/order:${index}/timing`] = item.timingDirections || item.frequency || "As directed";
+              compositionData[`template_clinical_encounter_v1/medication_order/order:${index}/overall_directions_description`] = 
+                `${currentItem?.dosage || ""} ${item.route || "Oral"} ${item.timingDirections || item.frequency || ""}`.trim();
 
               // Use structured OpenEHR fields like doctor prescriptions
-              if (itemData?.additionalInstruction) {
-                compositionData["template_clinical_encounter_v1/medication_order/order:0/additional_instruction:0"] = 
-                  itemData.additionalInstruction;
+              if (item.additionalInstruction) {
+                compositionData[`template_clinical_encounter_v1/medication_order/order:${index}/additional_instruction:0`] = 
+                  item.additionalInstruction;
               }
 
-              if (itemData?.clinicalIndication) {
-                compositionData["template_clinical_encounter_v1/medication_order/order:0/clinical_indication:0"] = 
-                  itemData.clinicalIndication;
+              if (item.clinicalIndication) {
+                compositionData[`template_clinical_encounter_v1/medication_order/order:${index}/clinical_indication:0`] = 
+                  item.clinicalIndication;
               }
+            });
 
-              // Build comment with structured metadata for retrieval
-              const commentParts = [];
-              if (itemData?.usage) {
-                commentParts.push(`Usage: ${itemData.usage}`);
-              }
-              if (itemData?.validUntil) {
-                commentParts.push(`Valid until: ${itemData.validUntil}`);
-              }
-              if (itemData?.additionalInstruction) {
-                commentParts.push(`Instructions: ${itemData.additionalInstruction}`);
-              }
-              if (data.notes) {
-                commentParts.push(`Notes: ${data.notes}`);
-              }
-              commentParts.push(`Issued from: Pharmacy`);
+            // Build comment with structured metadata for retrieval
+            const commentParts = [];
+            commentParts.push(`Medications: ${data.items.map(item => item.drugname).join(", ")}`);
+            if (data.notes) {
+              commentParts.push(`Notes: ${data.notes}`);
+            }
+            commentParts.push(`Issued from: Pharmacy`);
+            
+            if (commentParts.length > 0) {
+              compositionData["template_clinical_encounter_v1/medication_order/order:0/comment"] = 
+                commentParts.join(" | ");
+            }
+
+            compositionUid = await createOpenEHRComposition(
+              ehrId,
+              "template_clinical_encounter_v1",
+              compositionData
+            );
+
+            if (compositionUid) {
+              compositionUids.push(compositionUid);
               
-              if (commentParts.length > 0) {
-                compositionData["template_clinical_encounter_v1/medication_order/order:0/comment"] = 
-                  commentParts.join(" | ");
-              }
-
-              const currentCompositionUid = await createOpenEHRComposition(
-                ehrId,
-                "template_clinical_encounter_v1",
-                compositionData
-              );
-
-              if (currentCompositionUid) {
-                compositionUids.push(currentCompositionUid);
-                compositionUid = currentCompositionUid; // Keep last one for backward compatibility
-              }
-
               // Update order with OpenEHR composition UID
-              if (currentCompositionUid && !order.openehrorderid) {
-                await db
-                  .update(pharmacyOrders)
-                  .set({ openehrorderid: currentCompositionUid })
-                  .where(eq(pharmacyOrders.orderid, order.orderid));
-              }
+              await db
+                .update(pharmacyOrders)
+                .set({ openehrorderid: compositionUid })
+                .where(eq(pharmacyOrders.orderid, order.orderid));
             }
           }
         }
@@ -436,10 +415,10 @@ export async function POST(
     }
 
     return NextResponse.json({ 
-      orders, 
+      orders: [order], 
       items: allItems, 
       openehrCompositionUids: compositionUids,
-      message: `Successfully created ${orders.length} order(s) for ${orders.length} medication(s)` 
+      message: `Successfully created 1 order with ${data.items.length} medication(s)` 
     }, { status: 201 });
   } catch (error) {
     console.error("[Pharmacy Orders POST]", error);

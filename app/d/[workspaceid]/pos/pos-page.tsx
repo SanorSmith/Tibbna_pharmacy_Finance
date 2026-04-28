@@ -36,6 +36,8 @@ export type CartItem = {
   taxAmount: number;
   totalAmount: number;
   pharmacyOrderItemId?: string | null;
+  prescribedQuantity?: number;
+  quantitydispensed?: number;
 };
 
 type ShiftData = {
@@ -72,14 +74,18 @@ export default function POSClientPage({
     const orderId = searchParams.get('orderId');
     const patientId = searchParams.get('patientId');
     
-    if (orderId && patientId) {
+    if (orderId) {
       console.log('[POS] Auto-loading from URL params:', { orderId, patientId });
       
-      // Auto-load patient first
-      handlePatientSelect(patientId).then(() => {
-        // Then auto-load the specific order
+      if (patientId && patientId !== 'undefined') {
+        // Auto-load patient first, then the order
+        handlePatientSelect(patientId).then(() => {
+          handleOrderSelect(orderId);
+        });
+      } else {
+        // Load order directly (patient will be resolved from order data)
         handleOrderSelect(orderId);
-      });
+      }
     }
   }, [searchParams]);
 
@@ -169,11 +175,13 @@ export default function POSClientPage({
     (cartItemId: number, quantity: number) => {
       if (quantity < 1) return;
       setCart((prev) =>
-        prev.map((item) =>
-          item.cartItemId === cartItemId
-            ? { ...item, quantity, totalAmount: quantity * item.unitPrice }
-            : item
-        )
+        prev.map((item) => {
+          if (item.cartItemId !== cartItemId) return item;
+          // Cap at prescribed quantity if from a prescription
+          const maxQty = item.prescribedQuantity || Infinity;
+          const clampedQty = Math.min(quantity, maxQty);
+          return { ...item, quantity: clampedQty, totalAmount: clampedQty * item.unitPrice };
+        })
       );
     },
     []

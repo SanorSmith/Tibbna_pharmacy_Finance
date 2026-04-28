@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { pharmacyOrders, patients } from "@/lib/db/schema";
 import { drugs } from "@/lib/db/tables/pharmacy-drugs";
-import { eq, or, and, ilike, sql } from "drizzle-orm";
+import { eq, or, and, ilike, sql, desc } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 export async function GET(request: NextRequest) {
@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
       drugs: [],
     };
 
-    // Search patients (by national ID, name, phone)
+    // Search patients (by national ID, name, phone) and their non-dispensed orders
     if (searchType === "patient" || searchType === "all") {
-      results.patients = await db
+      const foundPatients = await db
         .select({
           patientid: patients.patientid,
           firstname: patients.firstname,
@@ -60,10 +60,41 @@ export async function GET(request: NextRequest) {
           )
         )
         .limit(10);
+
+      // For each patient, get their non-dispensed orders (PENDING and PARTIALLY_DISPENSED)
+      for (const patient of foundPatients) {
+        const patientOrders = await db
+          .select({
+            orderid: pharmacyOrders.orderid,
+            patientid: pharmacyOrders.patientid,
+            status: pharmacyOrders.status,
+            openehrorderid: pharmacyOrders.openehrorderid,
+            createdat: pharmacyOrders.createdat,
+            dispensedat: pharmacyOrders.dispensedat,
+          })
+          .from(pharmacyOrders)
+          .where(
+            and(
+              eq(pharmacyOrders.patientid, patient.patientid),
+              or(
+                eq(pharmacyOrders.status, "PENDING"),
+                eq(pharmacyOrders.status, "PARTIALLY_DISPENSED")
+              )
+            )
+          )
+          .orderBy(desc(pharmacyOrders.createdat))
+          .limit(5);
+
+        // Add orders to the dispensedOrders results
+        results.dispensedOrders.push(...patientOrders);
+      }
+
+      // Store patients (without orders for now, we'll display them with their orders)
+      results.patients = foundPatients;
     }
 
-    // Search dispensed orders (by order ID prefix, openEHR ID)
-    if (searchType === "order" || searchType === "all") {
+    // Search dispensed orders (by order ID prefix, openEHR ID) - only when searching specifically for orders
+    if (searchType === "order") {
       results.dispensedOrders = await db
         .select({
           orderid: pharmacyOrders.orderid,
@@ -76,7 +107,10 @@ export async function GET(request: NextRequest) {
         .from(pharmacyOrders)
         .where(
           and(
-            eq(pharmacyOrders.status, "PENDING"),
+            or(
+              eq(pharmacyOrders.status, "PENDING"),
+              eq(pharmacyOrders.status, "PARTIALLY_DISPENSED")
+            ),
             or(
               sql`${pharmacyOrders.orderid}::text ILIKE ${`%${query}%`}`,
               ilike(pharmacyOrders.openehrorderid, `%${query}%`)

@@ -98,6 +98,7 @@ export const pharmacyOrderItems = pgTable(
     drugname: text("drugname").notNull(), // denormalized for display
     dosage: text("dosage"), // e.g. "500 mg twice daily"
     quantity: integer("quantity").notNull().default(1),
+    quantitydispensed: integer("quantitydispensed").default(0), // Track how much has been dispensed
     unitprice: numeric("unitprice", { precision: 12, scale: 2 }),
     status: text("status").notNull().$type<PharmacyItemStatus>().default("PENDING"),
     scannedbarcode: text("scannedbarcode"),

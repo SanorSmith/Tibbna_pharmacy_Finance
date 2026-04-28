@@ -23,9 +23,15 @@ type OrderItem = {
   strength?: string;
   dosage?: string;
   quantity: number;
+  quantitydispensed?: number;
   unitprice?: string;
   sellingprice?: string;
   bestBatchPrice?: string;
+  bestBatchPurchasePrice?: string;
+  purchaseprice?: string;
+  inventorySellingPrice?: string;
+  inventoryUnitCost?: string;
+  nameBasedPrice?: string;
   status: string;
   batchid?: string | null;
   lotnumber?: string | null;
@@ -65,19 +71,42 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
     );
   }
 
-  const items = order.items || [];
+  // Only filter out fully DISPENSED items - PARTIALLY_DISPENSED items should show with remaining quantities
+  const items = (order.items || []).filter(
+    (item) => !["DISPENSED"].includes(item.status?.toUpperCase())
+  );
 
   const isInCart = (itemId: string) =>
     cartItems.some((c) => c.pharmacyOrderItemId === itemId);
 
+  const resolvePrice = (item: OrderItem): number => {
+    // Priority: bestBatchPrice > sellingprice (batch) > inventorySellingPrice > unitprice > bestBatchPurchasePrice > purchaseprice > inventoryUnitCost > nameBasedPrice > default price
+    if (item.bestBatchPrice && parseFloat(item.bestBatchPrice) > 0) return parseFloat(item.bestBatchPrice);
+    if (item.sellingprice && parseFloat(item.sellingprice) > 0) return parseFloat(item.sellingprice);
+    if (item.inventorySellingPrice && parseFloat(item.inventorySellingPrice) > 0) return parseFloat(item.inventorySellingPrice);
+    if (item.unitprice && parseFloat(item.unitprice) > 0) return parseFloat(item.unitprice);
+    if (item.bestBatchPurchasePrice && parseFloat(item.bestBatchPurchasePrice) > 0) return parseFloat(item.bestBatchPurchasePrice);
+    if (item.purchaseprice && parseFloat(item.purchaseprice) > 0) return parseFloat(item.purchaseprice);
+    if (item.inventoryUnitCost && parseFloat(item.inventoryUnitCost) > 0) return parseFloat(item.inventoryUnitCost);
+    if (item.nameBasedPrice && parseFloat(item.nameBasedPrice) > 0) return parseFloat(item.nameBasedPrice);
+    
+    // Default price fallback when no inventory data exists
+    // Use a reasonable default based on drug type/form
+    const defaultPrice = getDefaultPrice(item);
+    return defaultPrice;
+  };
+
+  const getDefaultPrice = (item: OrderItem): number => {
+    // Simple default pricing based on drug form
+    const form = item.form?.toLowerCase() || '';
+    if (form.includes('injection')) return 15000; // 15,000 IQD for injections
+    if (form.includes('tablet') || form.includes('capsule')) return 8500; // 8,500 IQD for tablets/capsules  
+    if (form.includes('syrup') || form.includes('suspension')) return 5000; // 5,000 IQD for liquids
+    return 10000; // 10,000 IQD default for other forms
+  };
+
   const addItem = (item: OrderItem) => {
-    const price = item.bestBatchPrice
-      ? parseFloat(item.bestBatchPrice)
-      : item.sellingprice
-        ? parseFloat(item.sellingprice)
-        : item.unitprice
-          ? parseFloat(item.unitprice)
-          : 0;
+    const price = resolvePrice(item);
 
     onAddToCart({
       drugId: item.drugid,
@@ -88,13 +117,15 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
       batchId: item.batchid,
       lotNumber: item.lotnumber,
       expiryDate: item.expirydate,
-      quantity: item.quantity,
+      quantity: (item.quantity || 0) - (item.quantitydispensed || 0),
       unitPrice: price,
       discountPercent: 0,
       discountAmount: 0,
       taxAmount: 0,
-      totalAmount: price * item.quantity,
+      totalAmount: price * ((item.quantity || 0) - (item.quantitydispensed || 0)),
       pharmacyOrderItemId: item.itemid,
+      prescribedQuantity: item.quantity,
+      quantitydispensed: item.quantitydispensed,
     });
   };
 
@@ -147,13 +178,7 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
             </TableHeader>
             <TableBody>
               {items.map((item) => {
-                const price = item.bestBatchPrice
-                  ? parseFloat(item.bestBatchPrice)
-                  : item.sellingprice
-                    ? parseFloat(item.sellingprice)
-                    : item.unitprice
-                      ? parseFloat(item.unitprice)
-                      : 0;
+                const price = resolvePrice(item);
                 const inCart = isInCart(item.itemid);
 
                 return (
@@ -168,7 +193,7 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
                       </div>
                     </TableCell>
                     <TableCell className="text-center text-sm">
-                      {item.quantity}
+                      {(item.quantity || 0) - (item.quantitydispensed || 0)}
                     </TableCell>
                     <TableCell className="text-right text-sm font-medium text-green-700">
                       {price > 0
