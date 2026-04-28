@@ -364,6 +364,14 @@ export function CheckoutDialog({
               </TabsContent>
             </Tabs>
 
+            {/* Payment Status */}
+            {paymentsTotal < total - 0.01 && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 rounded px-3 py-2">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                Payment required: {(total - paymentsTotal).toFixed(2)} IQD remaining
+              </div>
+            )}
+
             {/* Error */}
             {error && (
               <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded px-3 py-2">
@@ -386,7 +394,7 @@ export function CheckoutDialog({
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                Complete Sale
+                {paymentsTotal < total - 0.01 ? "Payment Required" : "Complete Sale"}
               </Button>
             </DialogFooter>
           </>

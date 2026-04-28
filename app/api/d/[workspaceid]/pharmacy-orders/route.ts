@@ -150,11 +150,25 @@ export async function GET(
       );
       const isPaid = order.status === "DISPENSED" && totalAmount > 0;
       
+      // Determine payment status
+      let paymentStatus: string;
+      if (order.status === "IN_PROGRESS") {
+        // Partially dispensed orders
+        paymentStatus = "PARTIALLY_PAID";
+      } else if (totalAmount === 0) {
+        // No payment required (free items, insurance-only, etc.)
+        paymentStatus = order.status === "DISPENSED" ? "PAID" : "UNPAID";
+      } else if (isPaid) {
+        paymentStatus = "PAID";
+      } else {
+        paymentStatus = "UNPAID";
+      }
+      
       return {
         ...order,
         items: orderItems,
         totalAmount,
-        paymentStatus: isPaid ? "PAID" : totalAmount > 0 ? "PENDING" : "N/A",
+        paymentStatus,
       };
     });
 

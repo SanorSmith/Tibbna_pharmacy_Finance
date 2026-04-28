@@ -138,7 +138,26 @@ export async function POST(request: NextRequest) {
         })
         .returning();
 
-      // 3. Create sale items + deduct inventory for OTC / NEW_PRESCRIPTION
+      // 3. Payment validation for dispensing logic
+      if (data.pharmacyOrderId) {
+        const paymentRatio = paymentsTotal / data.totalAmount;
+        
+        // Validate that payment amount matches dispensing amount
+        if (paymentRatio < 0.01) {
+          throw new Error("Payment required for dispensing medications");
+        }
+        
+        // Calculate allowed dispensing quantity based on payment
+        const allowedDispenseRatio = Math.min(paymentRatio, 1.0);
+        
+        // Update item quantities to match payment ratio
+        data.items = data.items.map(item => ({
+          ...item,
+          quantity: Math.floor(item.quantity * allowedDispenseRatio)
+        }));
+      }
+
+      // 4. Create sale items + deduct inventory for OTC / NEW_PRESCRIPTION
       const createdItems = [];
       for (const item of data.items) {
 
@@ -299,7 +318,9 @@ export async function POST(request: NextRequest) {
 
       // 5. Update pharmacy order items + order status (if from a pharmacy order)
       if (data.pharmacyOrderId) {
-        // 5a. Update pharmacy order items with partial dispense tracking
+        // 5a. Update pharmacy order items with payment-based dispensing logic
+        const paymentRatio = paymentsTotal / data.totalAmount;
+        
         for (const cartItem of data.items) {
           if (!cartItem.pharmacyOrderItemId) continue;
           
@@ -315,18 +336,21 @@ export async function POST(request: NextRequest) {
           
           if (!orderItem) continue;
           
-          // Calculate new dispensed quantity
+          // Calculate new dispensed quantity (already adjusted for payment)
           const currentDispensed = orderItem.quantitydispensed || 0;
           const newDispensedQty = currentDispensed + cartItem.quantity;
           const totalQty = orderItem.quantity;
           
-          // Determine item status based on dispensed vs total
+          // Determine item status based on BOTH payment and dispensing
           let itemStatus: PharmacyItemStatus;
-          if (newDispensedQty >= totalQty) {
+          if (paymentRatio >= 0.99 && newDispensedQty >= totalQty) {
+            // Fully paid + fully dispensed
             itemStatus = PHARMACY_ITEM_STATUS.DISPENSED;
-          } else if (newDispensedQty > 0) {
-            itemStatus = PHARMACY_ITEM_STATUS.PARTIALLY_DISPENSED;
+          } else if (paymentRatio >= 0.01 && newDispensedQty > 0) {
+            // Partially paid + partially dispensed (use SCANNED as in-progress status)
+            itemStatus = PHARMACY_ITEM_STATUS.SCANNED;
           } else {
+            // No payment or no dispensing
             itemStatus = PHARMACY_ITEM_STATUS.PENDING;
           }
           
@@ -336,7 +360,6 @@ export async function POST(request: NextRequest) {
             .set({
               quantitydispensed: Math.min(newDispensedQty, totalQty),
               status: itemStatus,
-              updatedat: new Date(),
             })
             .where(eq(pharmacyOrderItems.itemid, cartItem.pharmacyOrderItemId));
             
