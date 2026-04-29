@@ -22,6 +22,7 @@ import {
   Home,
   LayoutDashboard,
   Scissors,
+  DollarSign,
 } from "lucide-react";
 
 import {
@@ -288,6 +289,16 @@ export function NavMain() {
           icon: Pill,
         },
         {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
+        },
+        {
           title: ttt("LIMS"),
           url: `${base}/lims`,
           icon: Microscope,
@@ -328,6 +339,17 @@ export function NavMain() {
             { title: ttt("Payments"), url: `${base}/billing/payments` },
             { title: ttt("Reports"), url: `${base}/billing/reports` },
             { title: ttt("Outstanding"), url: `${base}/billing/outstanding` },
+          ],
+        },
+        {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
           ],
         },
         {
@@ -378,6 +400,16 @@ export function NavMain() {
           isActive: true,
         },
         {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
+        },
+        {
           title: ttt("Prescriptions"),
           url: "/d/prescriptions",
           icon: ClipboardList,
@@ -395,6 +427,17 @@ export function NavMain() {
             { title: ttt("Inventory"), url: "/d/medications/inventory" },
             { title: ttt("Stock Levels"), url: "/d/medications/stock" },
             { title: ttt("Expiry Tracking"), url: "/d/medications/expiry" },
+          ],
+        },
+        {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
           ],
         },
         {
@@ -823,6 +866,16 @@ export function NavMain() {
           ],
         },
         {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
+        },
+        {
           title: ttt("Staff Management"),
           url: "/d/staff",
           icon: UserCheck,
@@ -846,6 +899,18 @@ export function NavMain() {
             { title: ttt("Sales Analytics"), url: "/d/analytics/sales" },
             { title: ttt("Prescription Trends"), url: "/d/analytics/trends" },
             { title: ttt("Financial Reports"), url: "/d/analytics/financial" },
+          ],
+        },
+        {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "AP / AR", url: `${base}/finance?tab=ap` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
           ],
         },
         {
@@ -890,6 +955,16 @@ export function NavMain() {
           isActive: true,
         },
         {
+          title: "Point of Sale",
+          url: `${base}/pos`,
+          icon: ShoppingCart,
+          items: [
+            { title: "POS Terminal", url: `${base}/pos` },
+            { title: "Shifts", url: `${base}/pos/shifts` },
+            { title: "Reports", url: `${base}/pos/reports` },
+          ],
+        },
+        {
           title: ttt("Prescription Review"),
           url: "/d/prescriptions",
           icon: ClipboardList,
@@ -913,6 +988,17 @@ export function NavMain() {
             { title: ttt("Drug Database"), url: "/d/drugs/database" },
             { title: ttt("Formulary"), url: "/d/drugs/formulary" },
             { title: ttt("Clinical Studies"), url: "/d/drugs/studies" },
+          ],
+        },
+        {
+          title: "Finance",
+          url: `${base}/finance`,
+          icon: DollarSign,
+          items: [
+            { title: "Dashboard", url: `${base}/finance` },
+            { title: "Chart of Accounts", url: `${base}/finance?tab=coa` },
+            { title: "Journal Entries", url: `${base}/finance?tab=journals` },
+            { title: "Reports", url: `${base}/finance?tab=reports` },
           ],
         },
         {
