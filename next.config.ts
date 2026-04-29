@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Add output configuration for Amplify
-  output: "standalone",
   devIndicators: false,
   eslint: {
     // Warning: This allows production builds to successfully complete even if

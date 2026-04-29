@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -28,6 +29,7 @@ import {
   Warehouse,
   Shield,
   AlertCircle,
+  ShoppingCart,
 } from "lucide-react";
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
@@ -140,6 +142,13 @@ export default function PharmacyDashboard({
             Orders
           </TabsTrigger>
           <TabsTrigger
+            value="pos"
+            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Point of Sale
+          </TabsTrigger>
+          <TabsTrigger
             value="drug-registration"
             className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
           >
@@ -224,14 +233,14 @@ export default function PharmacyDashboard({
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs text-muted-foreground">Today&apos;s Sales</p>
-                          <p className="text-2xl font-bold">${(stats?.sales.todayRevenue ?? 0).toFixed(2)}</p>
+                          <p className="text-2xl font-bold">{(stats?.sales.todayRevenue ?? 0).toLocaleString()} IQD</p>
                         </div>
                         <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center">
                           <DollarSign className="h-5 w-5 text-green-600" />
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        Total: <span className="font-medium">${(stats?.sales.totalRevenue ?? 0).toFixed(2)}</span>
+                        Total: <span className="font-medium">{(stats?.sales.totalRevenue ?? 0).toLocaleString()} IQD</span>
                       </p>
                     </CardContent>
                   </Card>
@@ -481,6 +490,51 @@ export default function PharmacyDashboard({
               userName={userName}
               userId={userId}
             />
+          </div>
+        )}
+      </TabsContent>
+
+      {/* Point of Sale Tab */}
+      <TabsContent value="pos" className="mt-4 px-4">
+        {loadedTabs.has("pos") && (
+          <div className="text-center py-8">
+            <div className="mb-6">
+              <ShoppingCart className="h-16 w-16 text-[#618FF5] mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Point of Sale</h2>
+              <p className="text-gray-600 mb-6">Complete POS system for pharmacy sales and transactions</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = `/d/${workspaceid}/pos`}>
+                <CardContent className="p-6 text-center">
+                  <ShoppingCart className="h-8 w-8 text-[#618FF5] mx-auto mb-3" />
+                  <h3 className="font-semibold mb-2">POS Terminal</h3>
+                  <p className="text-sm text-gray-600">Main sales interface with search, cart, and checkout</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = `/d/${workspaceid}/pos/shifts`}>
+                <CardContent className="p-6 text-center">
+                  <Clock className="h-8 w-8 text-[#618FF5] mx-auto mb-3" />
+                  <h3 className="font-semibold mb-2">Shift Management</h3>
+                  <p className="text-sm text-gray-600">Open/close shifts and reconcile cash drawer</p>
+                </CardContent>
+              </Card>
+              <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = `/d/${workspaceid}/pos/reports`}>
+                <CardContent className="p-6 text-center">
+                  <BarChart3 className="h-8 w-8 text-[#618FF5] mx-auto mb-3" />
+                  <h3 className="font-semibold mb-2">Sales Reports</h3>
+                  <p className="text-sm text-gray-600">Daily sales analytics and performance metrics</p>
+                </CardContent>
+              </Card>
+            </div>
+            <div className="mt-8">
+              <Button 
+                className="bg-[#618FF5] text-white hover:bg-[#4a7ae0] font-semibold px-6 py-2"
+                onClick={() => window.location.href = `/d/${workspaceid}/pos`}
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Open POS Terminal
+              </Button>
+            </div>
           </div>
         )}
       </TabsContent>

@@ -173,6 +173,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await db.insert(invoiceLines).values({ ...lv, invoiceid: inv.invoiceid });
     }
 
+    // ── Finance Integration: Post dispense to GL ─────────────
+    try {
+      const { onPharmacyDispense } = await import(
+        "@/lib/finance/hooks/pharmacy-dispense"
+      );
+      await onPharmacyDispense({
+        workspaceid: order.workspaceid,
+        orderid,
+        patientid: order.patientid,
+        insuranceid: null,
+        userid: user.userid,
+        dispensedate: new Date().toISOString().split("T")[0],
+        invoiceid: inv.invoiceid,
+        subtotal,
+        insurancecovered: 0,
+        patientcopay: subtotal,
+        items: items.map((item) => ({
+          drugid: item.drugid!,
+          batchid: item.batchid,
+          quantity: item.quantity,
+          unitprice: parseFloat(item.unitprice || "0"),
+          linetotal: parseFloat(item.unitprice || "0") * item.quantity,
+        })),
+      });
+    } catch (finErr) {
+      console.error("[Finance] Dispense posting failed:", finErr);
+    }
+
     return NextResponse.json({
       message: "Order dispensed successfully",
       allScanned: true,

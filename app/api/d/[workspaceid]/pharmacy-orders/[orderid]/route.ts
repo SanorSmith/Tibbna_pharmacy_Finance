@@ -15,7 +15,7 @@ import {
   invoiceLines,
   users,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { Pool } from "pg";
 
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       patient = p || null;
     }
 
-    // Items with drug info
+    // Items with drug info + inventory price
     const items = await db
       .select({
         itemid: pharmacyOrderItems.itemid,
@@ -76,6 +76,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         drugbarcode: drugs.barcode,
         drugform: drugs.form,
         drugstrength: drugs.strength,
+        // Best available batch selling price (in-stock + non-expired via pharmacy_stock_levels)
+        bestBatchPrice: sql<string>`(
+          SELECT db.sellingprice
+          FROM drug_batches db
+          WHERE db.drugid = ${pharmacyOrderItems.drugid}
+            AND db.expirydate > CURRENT_DATE
+            AND db.batchid IN (
+              SELECT psl.batchid FROM pharmacy_stock_levels psl
+              WHERE psl.drugid = ${pharmacyOrderItems.drugid} AND psl.quantity > 0
+            )
+          ORDER BY db.expirydate ASC
+          LIMIT 1
+        )`.as("bestBatchPrice"),
+        // Fallback: find price by drug NAME (handles duplicate drug records across workspaces)
+        nameBasedPrice: sql<string>`(
+          SELECT db.sellingprice
+          FROM drugs d2
+          JOIN drug_batches db ON db.drugid = d2.drugid
+          JOIN pharmacy_stock_levels psl ON psl.batchid = db.batchid AND psl.drugid = d2.drugid
+          WHERE d2.name = ${pharmacyOrderItems.drugname}
+            AND db.expirydate > CURRENT_DATE
+            AND psl.quantity > 0
+            AND db.sellingprice IS NOT NULL
+          ORDER BY db.expirydate ASC
+          LIMIT 1
+        )`.as("nameBasedPrice"),
       })
       .from(pharmacyOrderItems)
       .leftJoin(drugs, eq(pharmacyOrderItems.drugid, drugs.drugid))
