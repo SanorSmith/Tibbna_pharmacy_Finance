@@ -56,7 +56,9 @@ export async function GET(
     const totalOrders = orderStats.reduce((sum, s) => sum + Number(s.count), 0);
     const pendingOrders = Number(orderStats.find((s) => s.status === "PENDING")?.count || 0);
     const inProgressOrders = Number(orderStats.find((s) => s.status === "IN_PROGRESS")?.count || 0);
-    const dispensedOrders = Number(orderStats.find((s) => s.status === "DISPENSED")?.count || 0);
+    const dispensedOrders = orderStats
+      .filter((s) => s.status === "DISPENSED" || s.status === "PARTIALLY_DISPENSED")
+      .reduce((sum, s) => sum + Number(s.count), 0);
 
     // 3. Today's orders & unique patients (customer visits)
     const todayStart = new Date();

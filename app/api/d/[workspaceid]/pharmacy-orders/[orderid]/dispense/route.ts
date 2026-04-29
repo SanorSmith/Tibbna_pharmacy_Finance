@@ -406,12 +406,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // Try to resolve price from batch if missing
       if (!price && item.batchid && isValidUUID(item.batchid)) {
+        // First try drug_batches (pharmacy drug system)
         const [batch] = await db
           .select()
           .from(drugBatches)
           .where(eq(drugBatches.batchid, item.batchid))
           .limit(1);
         if (batch?.sellingprice) price = parseFloat(batch.sellingprice);
+
+        // If not found, try item_batches (inventory system)
+        if (!price) {
+          const [invBatch] = await db
+            .select()
+            .from(itemBatches)
+            .where(eq(itemBatches.id, item.batchid))
+            .limit(1);
+          if (invBatch?.sellingprice) price = parseFloat(invBatch.sellingprice);
+        }
       } else if (item.batchid && !isValidUUID(item.batchid)) {
         console.log(`Skipping batch lookup - invalid batchid format: ${item.batchid}`);
       }

@@ -233,14 +233,14 @@ export default function PharmacyDashboard({
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs text-muted-foreground">Today&apos;s Sales</p>
-                          <p className="text-2xl font-bold">${(stats?.sales.todayRevenue ?? 0).toFixed(2)}</p>
+                          <p className="text-2xl font-bold">{(stats?.sales.todayRevenue ?? 0).toLocaleString()} IQD</p>
                         </div>
                         <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center">
                           <DollarSign className="h-5 w-5 text-green-600" />
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        Total: <span className="font-medium">${(stats?.sales.totalRevenue ?? 0).toFixed(2)}</span>
+                        Total: <span className="font-medium">{(stats?.sales.totalRevenue ?? 0).toLocaleString()} IQD</span>
                       </p>
                     </CardContent>
                   </Card>
