@@ -213,13 +213,10 @@ export async function POST(request: NextRequest) {
           .returning();
         createdItems.push(saleItem);
 
-        // Deduct inventory ONLY for OTC_WALKIN and NEW_PRESCRIPTION
-        // (DISPENSED_ORDER inventory was already deducted during dispense)
-        if (
-          (data.saleType === "OTC_WALKIN" ||
-            data.saleType === "NEW_PRESCRIPTION") &&
-          item.drugId
-        ) {
+        // Create stock movements for ALL sale types to track POS sales
+        // For OTC_WALKIN and NEW_PRESCRIPTION: also deduct inventory
+        // For DISPENSED_ORDER: create movement record only (inventory already deducted during dispense)
+        if (item.drugId) {
           const drugId = item.drugId;
           // Find stock level for this drug (+ batch if specified)
           const stockFilter = item.batchId
@@ -236,24 +233,30 @@ export async function POST(request: NextRequest) {
             .limit(1);
 
           if (sl) {
-            // Deduct quantity
-            const newQty = Math.max(0, sl.quantity - item.quantity);
-            await tx
-              .update(stockLevels)
-              .set({
-                quantity: newQty,
-                updatedat: new Date(),
-              })
-              .where(eq(stockLevels.stocklevelid, sl.stocklevelid));
+            // Deduct inventory ONLY for OTC_WALKIN and NEW_PRESCRIPTION
+            // (DISPENSED_ORDER inventory was already deducted during dispense)
+            if (
+              data.saleType === "OTC_WALKIN" ||
+              data.saleType === "NEW_PRESCRIPTION"
+            ) {
+              const newQty = Math.max(0, sl.quantity - item.quantity);
+              await tx
+                .update(stockLevels)
+                .set({
+                  quantity: newQty,
+                  updatedat: new Date(),
+                })
+                .where(eq(stockLevels.stocklevelid, sl.stocklevelid));
+            }
 
-            // Create DISPENSE stock movement
+            // Create DISPENSE stock movement for ALL sale types
             await tx.insert(stockMovements).values({
               drugid: drugId,
               batchid: item.batchId || sl.batchid || null,
               locationid: sl.locationid, // use the stock level's location
               type: "DISPENSE",
               quantity: -item.quantity,
-              reason: `POS Sale ${saleNumber}`,
+              reason: `POS Sale ${saleNumber} (${data.saleType})`,
               referenceid: sale.saleid,
               performedby: user.userid,
             });
@@ -265,7 +268,7 @@ export async function POST(request: NextRequest) {
               locationid: defaultLocationId,
               type: "DISPENSE",
               quantity: -item.quantity,
-              reason: `POS Sale ${saleNumber} (no stock record)`,
+              reason: `POS Sale ${saleNumber} (${data.saleType}) (no stock record)`,
               referenceid: sale.saleid,
               performedby: user.userid,
             });

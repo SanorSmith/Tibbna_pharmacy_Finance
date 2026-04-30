@@ -119,13 +119,12 @@ export function ShoppingCart({
                       <Input
                         type="number"
                         min={1}
-                        max={item.prescribedQuantity ? (item.prescribedQuantity - (item.quantitydispensed || 0)) : undefined}
                         value={item.quantity}
                         onChange={(e) => {
                           const newQuantity = parseInt(e.target.value) || 1;
-                          const maxQuantity = item.prescribedQuantity ? (item.prescribedQuantity - (item.quantitydispensed || 0)) : Infinity;
-                          const validQuantity = Math.min(newQuantity, maxQuantity);
-                          onUpdateQuantity(item.cartItemId, validQuantity);
+                          if (newQuantity >= 1) {
+                            onUpdateQuantity(item.cartItemId, newQuantity);
+                          }
                         }}
                         className="h-6 w-12 text-center text-sm p-0"
                       />
@@ -136,7 +135,6 @@ export function ShoppingCart({
                         onClick={() =>
                           onUpdateQuantity(item.cartItemId, item.quantity + 1)
                         }
-                        disabled={!!(item.prescribedQuantity && item.quantity >= (item.prescribedQuantity - (item.quantitydispensed || 0)))}
                       >
                         <Plus className="h-3 w-3" />
                       </Button>

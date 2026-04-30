@@ -177,10 +177,7 @@ export default function POSClientPage({
       setCart((prev) =>
         prev.map((item) => {
           if (item.cartItemId !== cartItemId) return item;
-          // Cap at prescribed quantity if from a prescription
-          const maxQty = item.prescribedQuantity || Infinity;
-          const clampedQty = Math.min(quantity, maxQty);
-          return { ...item, quantity: clampedQty, totalAmount: clampedQty * item.unitPrice };
+          return { ...item, quantity, totalAmount: quantity * item.unitPrice };
         })
       );
     },
