@@ -21,6 +21,7 @@ import {
   stockLocations,
 } from "@/lib/db/tables/pharmacy-stock";
 import { drugBatches } from "@/lib/db/tables/pharmacy-drugs";
+import { inventoryStock, itemBatches, stockTransactions } from "@/lib/db/schema";
 import { PHARMACY_ITEM_STATUS, type PharmacyItemStatus } from "@/lib/db/tables/pharmacy-orders";
 import { eq, and, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
@@ -218,63 +219,74 @@ export async function POST(request: NextRequest) {
         // For DISPENSED_ORDER: create movement record only (inventory already deducted during dispense)
         if (item.drugId) {
           const drugId = item.drugId;
-          // Find stock level for this drug (+ batch if specified)
-          const stockFilter = item.batchId
-            ? and(
-                eq(stockLevels.drugid, drugId),
-                eq(stockLevels.batchid, item.batchId)
-              )
-            : eq(stockLevels.drugid, drugId);
+          
+          // UNIFIED INVENTORY SYSTEM: Find inventory stock for this drug
+          // Join through items table to find stock by drug_id
+          console.log(`[POS Inventory Debug] Looking for stock with drug_id=${drugId}`);
+          const invStockQuery = await tx.execute(sql`
+            SELECT 
+              ist.id,
+              ist.batch_id as batchid,
+              ist.quantity,
+              ist.warehouse_id as warehouseid
+            FROM inventory_stock ist
+            INNER JOIN item_batches ib ON ib.id = ist.batch_id
+            INNER JOIN items i ON i.id = ib.item_id
+            WHERE i.drug_id = ${drugId}
+              AND ist.quantity > 0
+            ORDER BY ib.expiry_date ASC NULLS LAST
+            LIMIT 1
+          `);
 
-          const [sl] = await tx
-            .select()
-            .from(stockLevels)
-            .where(stockFilter)
-            .limit(1);
+          console.log(`[POS Inventory Debug] Query result:`, invStockQuery);
+          const invStock = (invStockQuery as any)[0] as {
+            id: string;
+            batchid: string;
+            quantity: number;
+            warehouseid: string;
+          } | undefined;
 
-          if (sl) {
-            // Deduct inventory ONLY for OTC_WALKIN and NEW_PRESCRIPTION
-            // (DISPENSED_ORDER inventory was already deducted during dispense)
-            if (
-              data.saleType === "OTC_WALKIN" ||
-              data.saleType === "NEW_PRESCRIPTION"
-            ) {
-              const newQty = Math.max(0, sl.quantity - item.quantity);
-              await tx
-                .update(stockLevels)
-                .set({
-                  quantity: newQty,
-                  updatedat: new Date(),
-                })
-                .where(eq(stockLevels.stocklevelid, sl.stocklevelid));
-            }
+          if (invStock) {
+            console.log(`[POS Inventory] Found stock: batch=${invStock.batchid}, qty=${invStock.quantity}, saleType=${data.saleType}`);
+            // Deduct inventory for all sale types
+            const newQty = Math.max(0, invStock.quantity - item.quantity);
+            console.log(`[POS Inventory] Deducting ${item.quantity} from ${invStock.quantity} → ${newQty}`);
+            await tx
+              .update(inventoryStock)
+              .set({
+                quantity: newQty,
+                lastupdated: new Date(),
+              })
+              .where(eq(inventoryStock.id, invStock.id));
 
-            // Create DISPENSE stock movement for ALL sale types
+            // Create stock movement for audit trail (without batchid to avoid FK constraint)
             await tx.insert(stockMovements).values({
               drugid: drugId,
-              batchid: item.batchId || sl.batchid || null,
-              locationid: sl.locationid, // use the stock level's location
+              batchid: null, // Don't use unified batch ID - it's not in drug_batches table
+              locationid: defaultLocationId || sql`NULL`,
               type: "DISPENSE",
               quantity: -item.quantity,
-              reason: `POS Sale ${saleNumber} (${data.saleType})`,
+              reason: `POS Sale ${saleNumber} (${data.saleType}) - Batch: ${invStock.batchid}`,
               referenceid: sale.saleid,
               performedby: user.userid,
             });
-          } else if (defaultLocationId) {
-            // No stock level found — still create audit movement
-            await tx.insert(stockMovements).values({
-              drugid: drugId,
-              batchid: item.batchId || null,
-              locationid: defaultLocationId,
-              type: "DISPENSE",
-              quantity: -item.quantity,
-              reason: `POS Sale ${saleNumber} (${data.saleType}) (no stock record)`,
-              referenceid: sale.saleid,
-              performedby: user.userid,
-            });
+          } else {
             console.warn(
-              `[POS] No stock level for drug ${drugId}, movement created with default location`
+              `[POS] No inventory stock for drug ${drugId}, creating audit transaction only`
             );
+            // Create audit transaction even if no stock found
+            if (defaultLocationId) {
+              await tx.insert(stockMovements).values({
+                drugid: drugId,
+                batchid: item.batchId || null,
+                locationid: defaultLocationId,
+                type: "DISPENSE",
+                quantity: -item.quantity,
+                reason: `POS Sale ${saleNumber} (${data.saleType}) (no stock record)`,
+                referenceid: sale.saleid,
+                performedby: user.userid,
+              });
+            }
           }
         }
       }

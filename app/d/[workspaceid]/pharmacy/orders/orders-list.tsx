@@ -225,19 +225,19 @@ export default function PharmacyOrdersPage({
 
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-3">
-          <Card className="shadow-sm bg-purple-100 border-purple-200">
+          <Card className="shadow-sm bg-gray-100 border-purple-200">
             <CardContent className="py-4 px-4 text-center">
-              <p className="text-sm font-semibold text-purple-900">Total orders {counts.all}</p>
+              <p className="text-sm font-semibold text-black-500">Total orders {counts.all}</p>
             </CardContent>
           </Card>
-          <Card className="shadow-sm bg-green-100 border-green-200">
+          <Card className="shadow-sm bg-gray-100 border-green-200">
             <CardContent className="py-4 px-4 text-center">
-              <p className="text-sm font-semibold text-green-900">Complete orders {counts.DISPENSED}</p>
+              <p className="text-sm font-semibold text-black-900">Complete orders {counts.DISPENSED}</p>
             </CardContent>
           </Card>
-          <Card className="shadow-sm bg-yellow-100 border-yellow-200">
+          <Card className="shadow-sm bg-gray-100 border-yellow-200">
             <CardContent className="py-4 px-4 text-center">
-              <p className="text-sm font-semibold text-yellow-900">Pending orders {counts.PENDING}</p>
+              <p className="text-sm font-semibold text-black-900">Pending orders {counts.PENDING}</p>
             </CardContent>
           </Card>
         </div>

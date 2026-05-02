@@ -29,6 +29,8 @@ export const drugs = pgTable(
     // Link to global drug catalog (Phase 2 hybrid model)
     globaldrugid: uuid("globaldrugid")
       .references(() => globalDrugs.drugid, { onDelete: "set null" }),
+    // Link to unified inventory system (bidirectional)
+    itemid: uuid("itemid"), // Foreign key added via SQL migration to avoid circular reference
     name: text("name").notNull(),
     genericname: text("genericname"),
     atccode: text("atccode"),
@@ -58,6 +60,7 @@ export const drugs = pgTable(
   (table) => ({
     workspaceIdx: index("drugs_workspace_idx").on(table.workspaceid),
     globalDrugIdx: index("drugs_global_drug_idx").on(table.globaldrugid),
+    itemIdx: index("drugs_item_idx").on(table.itemid),
     barcodeIdx: index("drugs_barcode_idx").on(table.barcode),
     atcIdx: index("drugs_atc_idx").on(table.atccode),
   })

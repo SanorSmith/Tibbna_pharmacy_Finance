@@ -11,6 +11,7 @@ import {
   drugs,
   stockLevels,
   invoices,
+  posSales,
 } from "@/lib/db/schema";
 import { eq, and, sql, lt, gte, count } from "drizzle-orm";
 
@@ -88,7 +89,16 @@ export async function GET(
       .innerJoin(pharmacyOrders, eq(invoices.orderid, pharmacyOrders.orderid))
       .where(eq(pharmacyOrders.workspaceid, workspaceid));
 
-    // Today's sales
+    // 4b. Sales stats (from POS sales)
+    const [posSalesStats] = await db
+      .select({
+        totalSales: sql<string>`COALESCE(SUM(${posSales.totalamount}::numeric), 0)`,
+        totalInvoices: count(),
+      })
+      .from(posSales)
+      .where(eq(posSales.workspaceid, workspaceid));
+
+    // Today's sales (invoices)
     const [todaySales] = await db
       .select({
         total: sql<string>`COALESCE(SUM(${invoices.total}::numeric), 0)`,
@@ -99,6 +109,19 @@ export async function GET(
         and(
           eq(pharmacyOrders.workspaceid, workspaceid),
           gte(invoices.createdat, todayStart)
+        )
+      );
+
+    // Today's sales (POS)
+    const [todayPosSales] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${posSales.totalamount}::numeric), 0)`,
+      })
+      .from(posSales)
+      .where(
+        and(
+          eq(posSales.workspaceid, workspaceid),
+          gte(posSales.createdat, todayStart)
         )
       );
 
@@ -189,9 +212,9 @@ export async function GET(
         todayVisits: Number(todayStats?.uniquePatients || 0),
       },
       sales: {
-        totalRevenue: parseFloat(salesStats?.totalSales || "0"),
-        todayRevenue: parseFloat(todaySales?.total || "0"),
-        totalInvoices: Number(salesStats?.totalInvoices || 0),
+        totalRevenue: parseFloat(salesStats?.totalSales || "0") + parseFloat(posSalesStats?.totalSales || "0"),
+        todayRevenue: parseFloat(todaySales?.total || "0") + parseFloat(todayPosSales?.total || "0"),
+        totalInvoices: Number(salesStats?.totalInvoices || 0) + Number(posSalesStats?.totalInvoices || 0),
         paidInvoices: Number(salesStats?.paidInvoices || 0),
       },
       overdue: {

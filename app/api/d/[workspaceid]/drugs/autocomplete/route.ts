@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { db } from "@/lib/db";
 import { drugs, globalDrugs, items, warehouseSections } from "@/lib/db/schema";
-import { eq, and, or, ilike } from "drizzle-orm";
+import { eq, and, or, ilike, sql } from "drizzle-orm";
 
 export async function GET(
   request: NextRequest,
@@ -34,45 +34,38 @@ export async function GET(
 
     // Phase 2: Join workspace drugs with global catalog and items for storage location
     // This allows searching standardized drug names while respecting workspace inventory
-    const results = await db
-      .select({
-        drugid: drugs.drugid,
-        name: drugs.name,
-        genericname: drugs.genericname,
-        form: drugs.form,
-        strength: drugs.strength,
-        unit: drugs.unit,
-        route: drugs.description, // Contains route info
-        atccode: drugs.atccode,
-        categoryid: drugs.categoryid,
-        interaction: drugs.interaction,
-        warning: drugs.warning,
-        nationalcode: drugs.nationalcode,
-        // Workspace-specific fields
-        barcode: drugs.barcode,
-        manufacturer: drugs.manufacturer,
-        insuranceapproved: drugs.insuranceapproved,
-        // Storage location fields from items and warehouse_sections
-        storageLocationId: items.storagelocationid,
-        storageLocationName: warehouseSections.sectionname,
-        storageLocation: warehouseSections.binlocation,
-        storageType: warehouseSections.sectiontype,
-        shelf: warehouseSections.shelf,
-      })
-      .from(drugs)
-      .leftJoin(items, eq(items.drugid, drugs.drugid))
-      .leftJoin(warehouseSections, eq(warehouseSections.id, items.storagelocationid))
-      .where(
-        and(
-          eq(drugs.workspaceid, workspaceid),
-          eq(drugs.isactive, true),
-          or(
-            ilike(drugs.name, `%${query}%`),
-            ilike(drugs.genericname, `%${query}%`)
-          )
-        )
-      )
-      .limit(10);
+    // Use DISTINCT ON to prevent duplicate drug IDs from multiple items
+    const results = await db.execute(sql`
+      SELECT DISTINCT ON (d.drugid)
+        d.drugid,
+        d.name,
+        d.genericname,
+        d.form,
+        d.strength,
+        d.unit,
+        d.description as route,
+        d.atccode,
+        d.category,
+        d.interaction,
+        d.warning,
+        d.nationalcode,
+        d.barcode,
+        d.manufacturer,
+        d.insuranceapproved,
+        i.storage_location_id as "storageLocationId",
+        ws.sectionname as "storageLocationName",
+        ws.bin_location as "storageLocation",
+        ws.section_type as "storageType",
+        ws.shelf
+      FROM drugs d
+      LEFT JOIN items i ON i.drug_id = d.drugid
+      LEFT JOIN warehouse_sections ws ON ws.id = i.storage_location_id
+      WHERE d.workspaceid = ${workspaceid}
+        AND d.isactive = true
+        AND (d.name ILIKE ${'%' + query + '%'} OR d.genericname ILIKE ${'%' + query + '%'})
+      ORDER BY d.drugid
+      LIMIT 10
+    `);
 
     // Ensure all fields are properly serialized
     const sanitizedResults = results.map(drug => ({
@@ -83,7 +76,7 @@ export async function GET(
       unit: drug.unit || null,
       route: drug.route || null,
       atccode: drug.atccode || null,
-      categoryid: drug.categoryid || null,
+      category: drug.category || null,
       interaction: drug.interaction || null,
       warning: drug.warning || null,
       nationalcode: drug.nationalcode || null,

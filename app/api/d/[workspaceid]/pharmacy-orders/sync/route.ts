@@ -138,11 +138,13 @@ export async function POST(
           const priceResult = await pool.query(`
             SELECT ib.selling_price
             FROM items i
-            LEFT JOIN item_batches ib ON ib.item_id = i.id
+            INNER JOIN item_batches ib ON ib.item_id = i.id
+            INNER JOIN inventory_stock ist ON ist.batch_id = ib.id
             WHERE i.name ILIKE $1
               AND i.is_active = true
-              AND ib.quantity > 0
-            ORDER BY ib.expiry_date ASC
+              AND ist.quantity > 0
+              AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+            ORDER BY ib.expiry_date ASC NULLS LAST
             LIMIT 1
           `, [drugName]);
           
