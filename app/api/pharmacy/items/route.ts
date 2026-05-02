@@ -122,6 +122,19 @@ export async function GET(req: NextRequest) {
         OR i.inventory_category = 'pharmacy'
         OR ist.warehouse_id IS NOT NULL
       )
+      AND (
+        -- Only show items that have inventory records (batches or stock)
+        EXISTS (
+          SELECT 1 FROM item_batches ib_check
+          WHERE ib_check.item_id = i.id
+            AND ib_check.warehouse_id = ANY($1::uuid[])
+        )
+        OR EXISTS (
+          SELECT 1 FROM inventory_stock ist_check
+          WHERE ist_check.item_id = i.id
+            AND ist_check.warehouse_id = ANY($1::uuid[])
+        )
+      )
     AND (
         $2 = '%'
         OR i.name ILIKE $2

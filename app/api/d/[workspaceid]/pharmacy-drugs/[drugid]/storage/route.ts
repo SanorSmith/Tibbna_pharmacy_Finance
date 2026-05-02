@@ -61,7 +61,7 @@ export async function GET(
         LEFT JOIN item_batches ib ON ib.item_id = i.id
         LEFT JOIN warehouses w ON w.id = ib.warehouse_id
         WHERE (i.drug_id = $1 OR i.name ILIKE $2)
-          AND i.workspaceid = $3
+          AND i.workspace_id = $3
           AND i.is_active = true
         ORDER BY ib.expiry_date ASC NULLS LAST
       `;

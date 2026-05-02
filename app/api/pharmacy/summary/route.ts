@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     const whIds = whRes.rows.map((r: any) => r.id);
 
-    // Get pharmacy inventory summary matching the items API logic
+    // Get pharmacy inventory summary - only count items that have inventory records
     const summary = await pool.query(`
       WITH item_stock AS (
         SELECT 
@@ -46,6 +46,19 @@ export async function GET(req: NextRequest) {
             i.inventory_category = 'pharmacy'
             OR i.inventorycategory = 'pharmacy'
             OR ist.warehouse_id IS NOT NULL
+          )
+          AND (
+            -- Only count items that have inventory records (batches or stock)
+            EXISTS (
+              SELECT 1 FROM item_batches ib_check
+              WHERE ib_check.item_id = i.id
+                AND ib_check.warehouse_id = ANY($1::uuid[])
+            )
+            OR EXISTS (
+              SELECT 1 FROM inventory_stock ist_check
+              WHERE ist_check.item_id = i.id
+                AND ist_check.warehouse_id = ANY($1::uuid[])
+            )
           )
         GROUP BY i.id, i.reorder_level
       )

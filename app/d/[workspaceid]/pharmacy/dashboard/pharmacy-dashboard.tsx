@@ -282,7 +282,7 @@ export default function PharmacyDashboard({
                       {/* Pharmacy Inventory Summary */}
                       <div className="grid grid-cols-3 gap-2 mb-4">
                         <div 
-                          className="text-center p-2 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+                          className="text-center p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
                           onClick={() => {
                             setInventoryStockFilter("all");
                             setActiveTab("inventory");
@@ -293,7 +293,7 @@ export default function PharmacyDashboard({
                           <p className="text-xs text-muted-foreground">Total Items</p>
                         </div>
                         <div 
-                          className="text-center p-2 bg-amber-50 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors"
+                          className="text-center p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors"
                           onClick={() => {
                             setInventoryStockFilter("lowstock");
                             setActiveTab("inventory");
@@ -466,17 +466,6 @@ export default function PharmacyDashboard({
                     </CardContent>
                   </Card>
                 </div>
-
-                {/* Drug Interaction card */}
-                <Card
-                  className="shadow-sm hover:shadow-md transition-shadow cursor-pointer text-white"
-                  style={{ backgroundColor: PRIMARY }}
-                >
-                  <CardContent className="flex items-center justify-center py-6">
-                    <FlaskConical className="h-6 w-6 text-white/80 mr-3" />
-                    <span className="text-white font-semibold text-base">Check drug interaction</span>
-                  </CardContent>
-                </Card>
               </div>
             )}
       </TabsContent>

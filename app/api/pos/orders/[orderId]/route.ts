@@ -55,63 +55,56 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         expirydate: drugBatches.expirydate,
         sellingprice: drugBatches.sellingprice,
         purchaseprice: drugBatches.purchaseprice,
-        // Best available batch selling price (matches POS search pattern: in-stock + non-expired)
+        // Best available batch selling price (UNIFIED INVENTORY SYSTEM)
         bestBatchPrice: sql<string>`(
-          SELECT db.sellingprice
-          FROM drug_batches db
-          WHERE db.drugid = ${pharmacyOrderItems.drugid}
-            AND db.expirydate > CURRENT_DATE
-            AND db.batchid IN (
-              SELECT psl.batchid FROM pharmacy_stock_levels psl
-              WHERE psl.drugid = ${pharmacyOrderItems.drugid} AND psl.quantity > 0
-            )
-          ORDER BY db.expirydate ASC
+          SELECT ib.selling_price
+          FROM items i
+          INNER JOIN item_batches ib ON ib.item_id = i.id
+          INNER JOIN inventory_stock ist ON ist.batch_id = ib.id
+          WHERE i.drug_id = ${pharmacyOrderItems.drugid}
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+            AND ist.quantity > 0
+          ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
         )`.as("bestBatchPrice"),
-        // Best available batch purchase price (fallback, same in-stock filter)
+        // Best available batch purchase price (UNIFIED INVENTORY SYSTEM)
         bestBatchPurchasePrice: sql<string>`(
-          SELECT db.purchaseprice
-          FROM drug_batches db
-          WHERE db.drugid = ${pharmacyOrderItems.drugid}
-            AND db.expirydate > CURRENT_DATE
-            AND db.batchid IN (
-              SELECT psl.batchid FROM pharmacy_stock_levels psl
-              WHERE psl.drugid = ${pharmacyOrderItems.drugid} AND psl.quantity > 0
-            )
-          ORDER BY db.expirydate ASC
+          SELECT ib.unit_cost
+          FROM items i
+          INNER JOIN item_batches ib ON ib.item_id = i.id
+          INNER JOIN inventory_stock ist ON ist.batch_id = ib.id
+          WHERE i.drug_id = ${pharmacyOrderItems.drugid}
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+            AND ist.quantity > 0
+          ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
         )`.as("bestBatchPurchasePrice"),
-        // Available stock for this drug
+        // Available stock for this drug (UNIFIED INVENTORY SYSTEM)
         availableStock: sql<number>`COALESCE((
-          SELECT SUM(psl.quantity)
-          FROM pharmacy_stock_levels psl
-          WHERE psl.drugid = ${pharmacyOrderItems.drugid}
-            AND psl.batchid IN (
-              SELECT db.batchid FROM drug_batches db
-              WHERE db.drugid = ${pharmacyOrderItems.drugid} AND db.expirydate > CURRENT_DATE
-            )
+          SELECT SUM(ist.quantity)
+          FROM items i
+          INNER JOIN inventory_stock ist ON ist.item_id = i.id
+          WHERE i.drug_id = ${pharmacyOrderItems.drugid}
         ), 0)`.as("availableStock"),
-        // Fallback: find price by drug NAME (handles duplicate drug records across workspaces)
+        // Fallback: find price by drug NAME (UNIFIED INVENTORY SYSTEM)
         nameBasedPrice: sql<string>`(
-          SELECT db.sellingprice
-          FROM drugs d2
-          JOIN drug_batches db ON db.drugid = d2.drugid
-          JOIN pharmacy_stock_levels psl ON psl.batchid = db.batchid AND psl.drugid = d2.drugid
-          WHERE d2.name = ${pharmacyOrderItems.drugname}
-            AND db.expirydate > CURRENT_DATE
-            AND psl.quantity > 0
-            AND db.sellingprice IS NOT NULL
-          ORDER BY db.expirydate ASC
+          SELECT ib.selling_price
+          FROM items i
+          INNER JOIN item_batches ib ON ib.item_id = i.id
+          INNER JOIN inventory_stock ist ON ist.batch_id = ib.id
+          WHERE i.name ILIKE ${pharmacyOrderItems.drugname}
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+            AND ist.quantity > 0
+            AND ib.selling_price IS NOT NULL
+          ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
         )`.as("nameBasedPrice"),
-        // Fallback: stock count by drug name
+        // Fallback: stock count by drug name (UNIFIED INVENTORY SYSTEM)
         nameBasedStock: sql<number>`COALESCE((
-          SELECT SUM(psl.quantity)
-          FROM drugs d2
-          JOIN drug_batches db ON db.drugid = d2.drugid
-          JOIN pharmacy_stock_levels psl ON psl.batchid = db.batchid AND psl.drugid = d2.drugid
-          WHERE d2.name = ${pharmacyOrderItems.drugname}
-            AND db.expirydate > CURRENT_DATE
+          SELECT SUM(ist.quantity)
+          FROM items i
+          INNER JOIN inventory_stock ist ON ist.item_id = i.id
+          WHERE i.name ILIKE ${pharmacyOrderItems.drugname}
         ), 0)`.as("nameBasedStock"),
       })
       .from(pharmacyOrderItems)

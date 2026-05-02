@@ -256,7 +256,7 @@ export default function PharmacyOrderDetailPage({
                       <TableCell className="text-xs">{item.dosage || "—"}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
                       <TableCell className="text-center text-sm">
-                        {item.unitprice ? `$${parseFloat(item.unitprice).toFixed(2)}` : "—"}
+                        {item.unitprice ? `${parseFloat(item.unitprice).toFixed(2)} IQD` : "—"}
                       </TableCell>
                       <TableCell className="text-center">
                         <span
@@ -325,7 +325,7 @@ export default function PharmacyOrderDetailPage({
                     {invoice.lines?.map((line: any) => (
                       <div key={line.lineid} className="flex justify-between">
                         <span className="truncate max-w-[160px]">{line.description}</span>
-                        <span className="font-mono">${parseFloat(line.linetotal).toFixed(2)}</span>
+                        <span className="font-mono">{parseFloat(line.linetotal).toFixed(2)} IQD</span>
                       </div>
                     ))}
                   </div>
@@ -335,7 +335,7 @@ export default function PharmacyOrderDetailPage({
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span>Subtotal</span>
-                      <span className="font-mono">${parseFloat(invoice.subtotal).toFixed(2)}</span>
+                      <span className="font-mono">{parseFloat(invoice.subtotal).toFixed(2)} IQD</span>
                     </div>
                     {parseFloat(invoice.insurancecovered) > 0 && (
                       <div className="flex justify-between text-green-600">
@@ -344,14 +344,14 @@ export default function PharmacyOrderDetailPage({
                           Insurance
                         </span>
                         <span className="font-mono">
-                          -${parseFloat(invoice.insurancecovered).toFixed(2)}
+                          -{parseFloat(invoice.insurancecovered).toFixed(2)} IQD
                         </span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-base pt-1 border-t">
                       <span>Patient Pays</span>
                       <span className="font-mono">
-                        ${parseFloat(invoice.patientcopay || invoice.total).toFixed(2)}
+                        {parseFloat(invoice.patientcopay || invoice.total).toFixed(2)} IQD
                       </span>
                     </div>
                   </div>

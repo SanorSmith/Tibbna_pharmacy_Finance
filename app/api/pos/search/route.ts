@@ -3,12 +3,14 @@
  *
  * GET — search patients, dispensed orders, drugs
  * Query params: q (search term), type (patient|order|drug|all)
+ * 
+ * UPDATED: Now uses items table as primary source with bidirectional drug link
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { pharmacyOrders, patients } from "@/lib/db/schema";
+import { pharmacyOrders, patients, items, itemBatches, inventoryStock, warehouses } from "@/lib/db/schema";
 import { drugs } from "@/lib/db/tables/pharmacy-drugs";
-import { eq, or, and, ilike, sql, desc } from "drizzle-orm";
+import { eq, or, and, ilike, sql, desc, gt } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 export async function GET(request: NextRequest) {
@@ -121,59 +123,96 @@ export async function GET(request: NextRequest) {
     }
 
     // Search drugs (for OTC sales — by name, generic name, barcode)
+    // UPDATED: Use items table as primary source with bidirectional link to drugs
     if (searchType === "drug" || searchType === "all") {
+      // Get default pharmacy warehouse
+      const [warehouse] = await db
+        .select()
+        .from(warehouses)
+        .where(eq(warehouses.name, "Pharmacy"))
+        .limit(1);
+      
+      const warehouseId = warehouse?.id || "22222222-0000-0000-0000-000000000002";
+
       results.drugs = await db
         .select({
-          drugid: drugs.drugid,
-          name: drugs.name,
-          genericname: drugs.genericname,
-          form: drugs.form,
-          strength: drugs.strength,
-          barcode: drugs.barcode,
-          manufacturer: drugs.manufacturer,
+          itemId: items.id,
+          drugId: items.drugid,
+          name: items.name,
+          genericName: items.genericname,
+          form: sql<string>`${drugs.form}`.as("form"),
+          strength: sql<string>`${drugs.strength}`.as("strength"),
+          barcode: items.barcode,
+          manufacturer: items.manufacturer,
+          itemType: items.itemtype,
           // Best batch: earliest-expiry in-stock batch (FIFO)
-          batchid: sql<string>`(
-            SELECT batchid 
-            FROM drug_batches 
-            WHERE drugid = ${drugs.drugid}
-              AND expirydate > CURRENT_DATE
-              AND batchid IN (
-                SELECT batchid FROM pharmacy_stock_levels 
-                WHERE drugid = ${drugs.drugid} AND quantity > 0
+          batchId: sql<string>`(
+            SELECT id 
+            FROM item_batches 
+            WHERE item_id = ${items.id}
+              AND (expiry_date IS NULL OR expiry_date > CURRENT_DATE)
+              AND id IN (
+                SELECT batch_id FROM inventory_stock 
+                WHERE item_id = ${items.id} AND quantity > 0
               )
-            ORDER BY expirydate ASC
+            ORDER BY expiry_date ASC NULLS LAST
             LIMIT 1
-          )`.as("batchid"),
-          sellingprice: sql<string>`(
-            SELECT sellingprice 
-            FROM drug_batches 
-            WHERE drugid = ${drugs.drugid}
-              AND expirydate > CURRENT_DATE
-              AND batchid IN (
-                SELECT batchid FROM pharmacy_stock_levels 
-                WHERE drugid = ${drugs.drugid} AND quantity > 0
+          )`.as("batchId"),
+          sellingPrice: sql<number>`(
+            SELECT selling_price 
+            FROM item_batches 
+            WHERE item_id = ${items.id}
+              AND (expiry_date IS NULL OR expiry_date > CURRENT_DATE)
+              AND id IN (
+                SELECT batch_id FROM inventory_stock 
+                WHERE item_id = ${items.id} AND quantity > 0
               )
-            ORDER BY expirydate ASC
+            ORDER BY expiry_date ASC NULLS LAST
             LIMIT 1
-          )`.as("sellingprice"),
-          availablestock: sql<number>`COALESCE((
+          )`.as("sellingPrice"),
+          unitCost: sql<number>`(
+            SELECT unit_cost 
+            FROM item_batches 
+            WHERE item_id = ${items.id}
+              AND (expiry_date IS NULL OR expiry_date > CURRENT_DATE)
+              AND id IN (
+                SELECT batch_id FROM inventory_stock 
+                WHERE item_id = ${items.id} AND quantity > 0
+              )
+            ORDER BY expiry_date ASC NULLS LAST
+            LIMIT 1
+          )`.as("unitCost"),
+          availableStock: sql<number>`COALESCE((
             SELECT SUM(quantity) 
-            FROM pharmacy_stock_levels 
-            WHERE drugid = ${drugs.drugid}
-              AND batchid IN (
-                SELECT batchid FROM drug_batches 
-                WHERE drugid = ${drugs.drugid} AND expirydate > CURRENT_DATE
-              )
-          ), 0)`.as("availablestock"),
+            FROM inventory_stock 
+            WHERE item_id = ${items.id}
+              AND warehouse_id = ${warehouseId}
+              AND (batch_id IS NULL OR batch_id IN (
+                SELECT id FROM item_batches 
+                WHERE item_id = ${items.id} 
+                  AND (expiry_date IS NULL OR expiry_date > CURRENT_DATE)
+              ))
+          ), 0)`.as("availableStock"),
         })
-        .from(drugs)
+        .from(items)
+        .leftJoin(drugs, eq(items.drugid, drugs.drugid))
         .where(
           and(
-            eq(drugs.isactive, true),
+            eq(items.isactive, true),
+            eq(items.inventorycategory, "pharmacy"),
+            // Only show items that have inventory batches with stock
+            gt(sql`COALESCE((
+              SELECT SUM(quantity) 
+              FROM inventory_stock 
+              WHERE item_id = ${items.id}
+                AND warehouse_id = ${warehouseId}
+            ), 0)`, 0),
             or(
+              ilike(items.name, `%${query}%`),
+              ilike(items.genericname, `%${query}%`),
+              eq(items.barcode, query),
               ilike(drugs.name, `%${query}%`),
-              ilike(drugs.genericname, `%${query}%`),
-              eq(drugs.barcode, query)
+              ilike(drugs.genericname, `%${query}%`)
             )
           )
         )

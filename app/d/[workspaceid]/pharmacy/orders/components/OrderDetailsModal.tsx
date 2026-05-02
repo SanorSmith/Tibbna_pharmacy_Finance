@@ -872,7 +872,7 @@ export default function OrderDetailsModal({
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
                   {invoice?.insurancecovered && parseFloat(invoice.insurancecovered) > 0 
-                    ? `Insurance covers $${parseFloat(invoice.insurancecovered).toFixed(2)}` 
+                    ? `Insurance covers ${parseFloat(invoice.insurancecovered).toFixed(2)} IQD` 
                     : "No insurance coverage"}
                 </p>
               </CardContent>
@@ -934,24 +934,24 @@ export default function OrderDetailsModal({
                       <div className="flex-1 text-center">
                         <p className="text-sm text-muted-foreground">Patient pays</p>
                         <p className="text-xl font-semibold text-green-600">
-                          ${patientPay.toFixed(2)}
+                          {patientPay.toFixed(2)} IQD
                         </p>
                       </div>
                       <div className="flex-1 text-center">
                         <p className="text-sm text-muted-foreground">Insurance</p>
                         <p className="text-xl font-semibold text-blue-600">
-                          ${insurancePay.toFixed(2)}
+                          {insurancePay.toFixed(2)} IQD
                         </p>
                       </div>
                       <div className="flex-1 text-center">
                         <p className="text-sm text-muted-foreground">Doctor Share</p>
                         <p className="text-xl font-semibold text-purple-600">
-                          ${doctorShare.toFixed(2)}
+                          {doctorShare.toFixed(2)} IQD
                         </p>
                       </div>
                     </div>
                     <div className="text-xl font-semibold">
-                      Total: <span className="text-green-600">${finalTotal.toFixed(2)}</span>
+                      Total: <span className="text-green-600">{finalTotal.toFixed(2)} IQD</span>
                     </div>
                   </>
                 );
@@ -1261,9 +1261,9 @@ export default function OrderDetailsModal({
                           ? new Date(batch.expiryDate).toLocaleDateString()
                           : "N/A"}
                       </TableCell>
-                      <TableCell>{batch.unitCost ? `$${parseFloat(batch.unitCost).toFixed(2)}` : "—"}</TableCell>
+                      <TableCell>{batch.unitCost ? `${parseFloat(batch.unitCost).toFixed(2)} IQD` : "—"}</TableCell>
                       <TableCell className="font-semibold text-green-600">
-                        {batch.sellingPrice ? `$${parseFloat(batch.sellingPrice).toFixed(2)}` : "—"}
+                        {batch.sellingPrice ? `${parseFloat(batch.sellingPrice).toFixed(2)} IQD` : "—"}
                       </TableCell>
                       <TableCell>
                         <Badge 
