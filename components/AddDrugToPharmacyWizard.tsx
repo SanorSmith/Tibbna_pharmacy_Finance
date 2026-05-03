@@ -41,8 +41,8 @@ function DualSearch({ onSelect, onSelectExisting, workspaceid }: { onSelect:(dru
     const t = setTimeout(async () => {
       setLoading(true);
       const [lr, gr] = await Promise.all([
-        fetch(`/api/pharmacy/items?search=${encodeURIComponent(query)}&workspaceId=${workspaceid}`).then(r=>r.json()),
-        fetch(`/api/drugs/global?search=${encodeURIComponent(query)}`).then(r=>r.json()),
+        fetch(`/api/pharmacy/items?search=${encodeURIComponent(query)}&workspaceId=${workspaceid}&source=inventory&_t=${Date.now()}`, {cache: 'no-store'}).then(r=>r.json()),
+        fetch(`/api/drugs/global?search=${encodeURIComponent(query)}&_t=${Date.now()}`, {cache: 'no-store'}).then(r=>r.json()),
       ]);
       const items = lr.items || [];
       setLocalResults(Array.isArray(items)?items.slice(0,5):[]);
@@ -260,9 +260,10 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
     if (!form.name.trim() || isUpdate || entryType !== "medicine") return;
     const t = setTimeout(async () => {
       setCheckingExisting(true);
-      const res = await fetch(`/api/pharmacy/items?search=${encodeURIComponent(form.name)}`);
+      const res = await fetch(`/api/pharmacy/items?search=${encodeURIComponent(form.name)}&workspaceId=${workspaceid}&source=inventory&_t=${Date.now()}`, {cache: 'no-store'});
       const data = await res.json();
-      const exact = Array.isArray(data) ? data.find((i:any) => i.name.toLowerCase() === form.name.toLowerCase()) : null;
+      const items = data.items || [];
+      const exact = Array.isArray(items) ? items.find((i:any) => i.name.toLowerCase() === form.name.toLowerCase()) : null;
       if (exact) {
         setExistingItem(exact);
         setIsUpdate(true);
@@ -273,7 +274,7 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
       setCheckingExisting(false);
     }, 600);
     return () => clearTimeout(t);
-  }, [form.name, entryType]);
+  }, [form.name, entryType, workspaceid]);
 
   const fillFromGlobal = (drug:any) => {
     setForm(f=>({...f,
