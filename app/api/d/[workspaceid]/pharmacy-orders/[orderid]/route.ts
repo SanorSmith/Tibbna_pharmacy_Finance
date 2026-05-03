@@ -76,30 +76,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         drugbarcode: drugs.barcode,
         drugform: drugs.form,
         drugstrength: drugs.strength,
-        // Best available batch selling price (in-stock + non-expired via pharmacy_stock_levels)
+        // Best available batch selling price from item_batches (new system)
         bestBatchPrice: sql<string>`(
-          SELECT db.sellingprice
-          FROM drug_batches db
-          WHERE db.drugid = ${pharmacyOrderItems.drugid}
-            AND db.expirydate > CURRENT_DATE
-            AND db.batchid IN (
-              SELECT psl.batchid FROM pharmacy_stock_levels psl
-              WHERE psl.drugid = ${pharmacyOrderItems.drugid} AND psl.quantity > 0
-            )
-          ORDER BY db.expirydate ASC
+          SELECT ib.selling_price
+          FROM items i
+          JOIN item_batches ib ON ib.item_id = i.id
+          WHERE i.name = ${pharmacyOrderItems.drugname}
+            AND i.is_active = true
+            AND ib.quantity > 0
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+          ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
         )`.as("bestBatchPrice"),
         // Fallback: find price by drug NAME (handles duplicate drug records across workspaces)
         nameBasedPrice: sql<string>`(
-          SELECT db.sellingprice
-          FROM drugs d2
-          JOIN drug_batches db ON db.drugid = d2.drugid
-          JOIN pharmacy_stock_levels psl ON psl.batchid = db.batchid AND psl.drugid = d2.drugid
-          WHERE d2.name = ${pharmacyOrderItems.drugname}
-            AND db.expirydate > CURRENT_DATE
-            AND psl.quantity > 0
-            AND db.sellingprice IS NOT NULL
-          ORDER BY db.expirydate ASC
+          SELECT ib.selling_price
+          FROM items i
+          JOIN item_batches ib ON ib.item_id = i.id
+          WHERE i.name = ${pharmacyOrderItems.drugname}
+            AND i.is_active = true
+            AND ib.quantity > 0
+            AND ib.selling_price IS NOT NULL
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+          ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
         )`.as("nameBasedPrice"),
       })
@@ -116,10 +115,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const priceResult = await pool.query(`
           SELECT ib.selling_price
           FROM items i
-          LEFT JOIN item_batches ib ON ib.item_id = i.id
+          LEFT JOIN (
+            SELECT item_id, selling_price, expiry_date, quantity
+            FROM item_batches
+            WHERE quantity > 0
+          ) ib ON ib.item_id = i.id
           WHERE i.name ILIKE $1
             AND i.is_active = true
-            AND ib.quantity > 0
           ORDER BY ib.expiry_date ASC
           LIMIT 1
         `, [item.drugname]);

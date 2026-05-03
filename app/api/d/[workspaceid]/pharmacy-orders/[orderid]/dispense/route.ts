@@ -196,14 +196,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           `, [item.quantity, batchId]);
 
           if (stockUpdateResult.rows.length > 0) {
+            // Also reduce quantity in item_batches to keep in sync
+            await pool.query(`
+              UPDATE item_batches
+              SET quantity = GREATEST(0, quantity - $1)
+              WHERE id = $2
+            `, [item.quantity, batchId]);
+
             // Successfully dispensed from the scanned batch
             await db
               .update(pharmacyOrderItems)
               .set({ status: "DISPENSED" })
               .where(eq(pharmacyOrderItems.itemid, item.itemid));
-            
+
             dispensedCount++;
-            console.log(`Dispensed ${item.quantity} units from batch (inventory_stock updated)`);
+            console.log(`Dispensed ${item.quantity} units from batch (inventory_stock and item_batches updated)`);
             continue;
           } else {
             // Insufficient quantity in the scanned batch
@@ -214,22 +221,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
         }
 
-        // Fallback: try to find any available batch for this drug by drug_id (unified inventory system)
+        // Fallback: try to find any available batch for this drug by drug_id or item name (unified inventory system)
         const batchQuery = await pool.query(`
           SELECT ib.id, ist.quantity as stock_quantity, ib.batch_number
           FROM item_batches ib
           JOIN items i ON i.id = ib.item_id
           JOIN inventory_stock ist ON ist.batch_id = ib.id
-          WHERE i.drug_id = $1
-            AND ist.quantity >= $2
+          WHERE (i.drug_id = $1 OR i.name = $2)
+            AND ist.quantity >= $3
             AND i.is_active = true
           ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
-        `, [item.drugid, item.quantity]);
+        `, [item.drugid, item.drugname, item.quantity]);
 
         if (batchQuery.rows.length > 0) {
           const batch = batchQuery.rows[0];
-          
+
           // Reduce quantity in inventory_stock (unified inventory system)
           await pool.query(`
             UPDATE inventory_stock
@@ -238,16 +245,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             WHERE batch_id = $2
           `, [item.quantity, batch.id]);
 
+          // Also reduce quantity in item_batches to keep in sync
+          await pool.query(`
+            UPDATE item_batches
+            SET quantity = GREATEST(0, quantity - $1)
+            WHERE id = $2
+          `, [item.quantity, batch.id]);
+
           await db
             .update(pharmacyOrderItems)
-            .set({ 
+            .set({
               status: "DISPENSED",
               batchid: batch.id
             })
             .where(eq(pharmacyOrderItems.itemid, item.itemid));
-          
+
           dispensedCount++;
-          console.log(`Dispensed ${item.quantity} units of ${item.drugname} from batch ${batch.batch_number} (inventory_stock updated)`);
+          console.log(`Dispensed ${item.quantity} units of ${item.drugname} from batch ${batch.batch_number} (inventory_stock and item_batches updated)`);
         } else {
           // No sufficient stock found
           backorderedCount++;

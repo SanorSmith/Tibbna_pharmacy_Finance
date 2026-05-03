@@ -166,6 +166,11 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
     unit_cost:    String(item?.unitCost     ?? ""),
     selling_price:String(item?.sellingPrice ?? ""),
     storage_location_id: item?.storageLocationId ?? "",
+    // Batch info
+    lotnumber:    "",
+    expirydate:   "",
+    warehouseid:  "",
+    initial_quantity: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
@@ -192,6 +197,11 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
         max_level: parseInt(form.max_level)||null,
         unitcost: form.unit_cost,
         sellingprice: form.selling_price,
+        // Batch info
+        lotnumber: form.lotnumber,
+        expirydate: form.expirydate,
+        warehouseid: form.warehouseid,
+        initial_quantity: parseInt(form.initial_quantity)||0,
       };
       const res = await fetch(isEdit ? `/api/pharmacy/items/${item.id}` : "/api/pharmacy/items", {
         method: isEdit?"PATCH":"POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
@@ -278,6 +288,28 @@ function ItemModal({ item, onClose, onSuccess, manufacturers, warehouses }: { it
                 {" "}({(((parseFloat(form.selling_price)-parseFloat(form.unit_cost))/parseFloat(form.unit_cost))*100).toFixed(1)}%)
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Batch Information */}
+        <div style={{gridColumn:"1/-1",borderTop:"1px solid #f3f4f6",paddingTop:12,marginTop:4}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:10}}>📦 Batch Information</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div style={s.fgroup}><label style={s.label}>Lot Number</label>
+              <input type="text" style={s.input} value={form.lotnumber} onChange={e=>set("lotnumber",e.target.value)} placeholder="e.g. LOT-2024-001"/>
+            </div>
+            <div style={s.fgroup}><label style={s.label}>Expiry Date</label>
+              <input type="date" style={s.input} value={form.expirydate} onChange={e=>set("expirydate",e.target.value)}/>
+            </div>
+            <div style={s.fgroup}><label style={s.label}>Warehouse</label>
+              <select style={s.input} value={form.warehouseid} onChange={e=>set("warehouseid",e.target.value)}>
+                <option value="">Select warehouse</option>
+                {warehouses?.map((w:any)=><option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </div>
+            <div style={s.fgroup}><label style={s.label}>Initial Quantity</label>
+              <input type="number" style={s.input} value={form.initial_quantity} onChange={e=>set("initial_quantity",e.target.value)} placeholder="0"/>
+            </div>
           </div>
         </div>
 

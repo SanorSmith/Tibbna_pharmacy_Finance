@@ -15,13 +15,14 @@ export async function GET(
     `SELECT
       ib.id,
       ib.batch_number     AS "batchNumber",
-      ib.quantity,
+      COALESCE(ist.quantity, 0) AS quantity,
       ib.unit_cost        AS "unitCost",
       ib.selling_price    AS "sellingPrice",
       ib.expiry_date      AS "expiryDate",
       ib.created_at       AS "createdAt",
       w.name              AS "warehouseName"
     FROM item_batches ib
+    LEFT JOIN inventory_stock ist ON ist.batch_id = ib.id
     LEFT JOIN warehouses w ON w.id = ib.warehouse_id
     WHERE ib.item_id = $1
     ORDER BY ib.expiry_date ASC NULLS LAST`,
