@@ -62,24 +62,41 @@ export async function POST(
     // If form/strength/atccode provided and itemtype is drug, create a drug record
     let finalDrugId = drugid;
     if (itemtype === "drug" && (form || strength || atccode) && !drugid) {
-      const [newDrug] = await db
-        .insert(drugs)
-        .values({
-          workspaceid,
-          name,
-          genericname: genericname || null,
-          form: form || null,
-          strength: strength || null,
-          unit: uom || null,
-          atccode: atccode || null,
-          manufacturer: manufacturer || null,
-          barcode: barcode || null,
-          isactive: true,
-        })
-        .returning();
-      
-      finalDrugId = newDrug.drugid;
-      console.log('[Items POST] Created drug record:', finalDrugId);
+      // Check if drug with same name already exists in this workspace
+      const [existingDrug] = await db
+        .select()
+        .from(drugs)
+        .where(
+          and(
+            eq(drugs.workspaceid, workspaceid),
+            eq(drugs.name, name)
+          )
+        )
+        .limit(1);
+
+      if (existingDrug) {
+        finalDrugId = existingDrug.drugid;
+        console.log('[Items POST] Using existing drug record:', finalDrugId);
+      } else {
+        const [newDrug] = await db
+          .insert(drugs)
+          .values({
+            workspaceid,
+            name,
+            genericname: genericname || null,
+            form: form || null,
+            strength: strength || null,
+            unit: uom || null,
+            atccode: atccode || null,
+            manufacturer: manufacturer || null,
+            barcode: barcode || null,
+            isactive: true,
+          })
+          .returning();
+        
+        finalDrugId = newDrug.drugid;
+        console.log('[Items POST] Created drug record:', finalDrugId);
+      }
     }
 
     // Handle storage location - find or create warehouse section
@@ -121,23 +138,98 @@ export async function POST(
       }
     }
 
-    // Check if item with same itemcode already exists in this workspace
-    const existing = await db
+    // Check if item with same name already exists in this workspace
+    const existingByName = await db
       .select()
       .from(items)
       .where(
         and(
           eq(items.workspaceid, workspaceid),
-          eq(items.itemcode, finalItemcode)
+          eq(items.name, name)
         )
       )
       .limit(1);
 
-    if (existing.length > 0) {
-      console.log('[Items POST] Item already exists:', existing[0].itemcode);
+    // If item exists, use it to add batch/stock info
+    if (existingByName.length > 0) {
+      console.log('[Items POST] Item with same name already exists, using existing:', existingByName[0].name);
+      const existingItem = existingByName[0];
+      let batchId = null;
+      let stockAdded = false;
+
+      // If addStock is true and warehouse/batch info provided, create batch and stock for existing item
+      if (addStock && warehouseid && batchnumber && quantity > 0) {
+        // Verify warehouse exists
+        const [warehouse] = await db
+          .select()
+          .from(warehouses)
+          .where(eq(warehouses.id, warehouseid))
+          .limit(1);
+
+        if (!warehouse) {
+          return NextResponse.json(
+            { error: "Warehouse not found" },
+            { status: 400 }
+          );
+        }
+
+        // Create batch
+        batchId = crypto.randomUUID();
+        await db.insert(itemBatches).values({
+          id: batchId,
+          itemid: existingItem.id,
+          warehouseid,
+          batchnumber,
+          quantity,
+          unitcost,
+          sellingprice,
+          expirydate: expirydate ? new Date(expirydate) : null,
+        });
+
+        // Create or update inventory stock record with batch_id
+        const existingStock = await db
+          .select()
+          .from(inventoryStock)
+          .where(
+            and(
+              eq(inventoryStock.itemid, existingItem.id),
+              eq(inventoryStock.warehouseid, warehouseid)
+            )
+          )
+          .limit(1);
+
+        if (existingStock.length > 0) {
+          // Update existing stock
+          await db
+            .update(inventoryStock)
+            .set({
+              quantity: existingStock[0].quantity + quantity,
+              batchid: batchId,
+            })
+            .where(eq(inventoryStock.id, existingStock[0].id));
+        } else {
+          // Create new stock record
+          await db.insert(inventoryStock).values({
+            id: crypto.randomUUID(),
+            itemid: existingItem.id,
+            batchid: batchId,
+            warehouseid,
+            quantity,
+            reservedquantity: 0,
+          });
+        }
+        stockAdded = true;
+      }
+
       return NextResponse.json(
-        { error: `Item with itemcode "${finalItemcode}" already exists in workspace` },
-        { status: 409 }
+        {
+          message: stockAdded ? "Batch/stock added to existing item" : "Existing item found, no stock added (warehouse/quantity not provided)",
+          item: existingItem,
+          batchId,
+          existing: true,
+          stockAdded,
+        },
+        { status: 200 }
       );
     }
 
@@ -195,10 +287,11 @@ export async function POST(
         expirydate: expirydate ? new Date(expirydate) : null,
       });
 
-      // Create inventory stock record
+      // Create inventory stock record with batch_id
       await db.insert(inventoryStock).values({
         id: crypto.randomUUID(),
         itemid: itemId,
+        batchid: batchId,
         warehouseid,
         quantity,
         reservedquantity: 0,

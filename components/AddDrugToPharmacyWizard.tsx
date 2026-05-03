@@ -41,7 +41,7 @@ function DualSearch({ onSelect, onSelectExisting, workspaceid }: { onSelect:(dru
     const t = setTimeout(async () => {
       setLoading(true);
       const [lr, gr] = await Promise.all([
-        fetch(`/api/pharmacy/items?search=${encodeURIComponent(query)}&workspaceId=${workspaceid}&source=inventory`).then(r=>r.json()),
+        fetch(`/api/pharmacy/items?search=${encodeURIComponent(query)}&workspaceId=${workspaceid}`).then(r=>r.json()),
         fetch(`/api/drugs/global?search=${encodeURIComponent(query)}`).then(r=>r.json()),
       ]);
       const items = lr.items || [];
@@ -230,6 +230,7 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
     storage_location: "",
     storage_type: "",
     expiry_date:  "",
+    lot_number:   "",
     price_type:             "fixed",
     insurance_coverage_pct: "0",
     selling_price:          "",
@@ -323,10 +324,12 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
           atccode: form.atccode || undefined,
           storage_location: form.storage_location || undefined,
           storage_type: form.storage_type || undefined,
+          minlevel: form.min_level ? parseInt(form.min_level) : undefined,
+          maxlevel: form.max_level ? parseInt(form.max_level) : undefined,
           // Add stock if warehouse and quantity provided
           addStock: !!form.warehouseid && !!form.initial_quantity && parseFloat(form.initial_quantity) > 0,
           warehouseid: form.warehouseid,
-          batchnumber: `B${Date.now()}`,
+          batchnumber: form.lot_number || `B${Date.now()}`,
           quantity: form.initial_quantity ? parseFloat(form.initial_quantity) : 0,
           unitcost: form.unit_cost ? parseFloat(form.unit_cost) : undefined,
           sellingprice: form.selling_price ? parseFloat(form.selling_price) : undefined,
@@ -548,7 +551,7 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
                     {form.price_type==="insurance" && parseFloat(form.insurance_coverage_pct)>0 ? (
                       <span>🏥 Insurance pays: <strong style={{color:"#6366f1"}}>${insurancePays.toFixed(2)}</strong> · 👤 Patient pays: <strong style={{color:"#16a34a"}}>${patientPays.toFixed(2)}</strong></span>
                     ) : (
-                      <span style={{color:"#16a34a"}}>👤 Patient pays full price: <strong>${sellingPrice.toFixed(2)}</strong></span>
+                      <span style={{color:"#16a34a"}}>👤 Patient pays full price: <strong>{sellingPrice.toFixed(2)} IQD</strong></span>
                     )}
                   </div>
                 )}
@@ -573,6 +576,8 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
                   <input type="number" style={isUpdate?s.inputHL:s.input} value={form.initial_quantity} onChange={e=>set("initial_quantity",e.target.value)}/>
                   {isUpdate&&<div style={{fontSize:11,color:"#6366f1",marginTop:4}}>New total: {(parseInt(existingItem?.totalStock)||0)+(parseInt(form.initial_quantity)||0)}</div>}
                 </div>
+                <div style={s.fgroup}><label style={s.label}>Lot Number</label><input style={s.input} value={form.lot_number} onChange={e=>set("lot_number",e.target.value)} placeholder="B123456789"/></div>
+                <div style={s.fgroup}><label style={s.label}>Expiry Date</label><input type="date" style={s.input} value={form.expiry_date} onChange={e=>set("expiry_date",e.target.value)}/></div>
                 {!isUpdate && <>
                   <div style={s.fgroup}><label style={s.label}>Item Code</label><input style={s.input} value={form.itemcode} onChange={e=>set("itemcode",e.target.value)} placeholder="Auto if blank"/></div>
                   <div style={s.fgroup}><label style={s.label}>Unit of Measure</label>

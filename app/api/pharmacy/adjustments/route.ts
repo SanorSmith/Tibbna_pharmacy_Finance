@@ -44,6 +44,15 @@ export async function POST(req: NextRequest) {
   if (!itemId || !warehouseId || adjustmentQty == null || adjustmentQty === "" || !reason)
     return NextResponse.json({ error: "Item, warehouse, quantity and reason are required" }, { status: 400 });
 
+  // Verify item exists
+  const itemCheck = await pool.query(
+    `SELECT id, name FROM items WHERE id = $1`,
+    [itemId]
+  );
+  if (itemCheck.rows.length === 0) {
+    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  }
+
   const adjId = crypto.randomUUID();
 
   // Update item type and manufacturer if provided
@@ -100,6 +109,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Update or create batch with pricing if provided
+  let createdBatchId = batchId;
   if (unitCost !== null || sellingPrice !== null) {
     const batchCheck = await pool.query(
       `SELECT id FROM item_batches 
@@ -117,12 +127,25 @@ export async function POST(req: NextRequest) {
          WHERE id = $3`,
         [unitCost, sellingPrice, batchCheck.rows[0].id]
       );
+      createdBatchId = batchCheck.rows[0].id;
     } else {
       // Create new batch with pricing
-      await pool.query(
+      const batchResult = await pool.query(
         `INSERT INTO item_batches (id, item_id, warehouse_id, batch_number, quantity, unit_cost, selling_price)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)`,
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+         RETURNING id`,
         [itemId, warehouseId, `BATCH-${Date.now()}`, parseInt(adjustmentQty), unitCost, sellingPrice]
+      );
+      createdBatchId = batchResult.rows[0].id;
+    }
+
+    // Update inventory_stock with batch_id if it was NULL
+    if (createdBatchId && (!batchId || batchId === null)) {
+      await pool.query(
+        `UPDATE inventory_stock 
+         SET batch_id = $1
+         WHERE item_id = $2 AND warehouse_id = $3 AND (batch_id IS NULL OR batch_id = '')`,
+        [createdBatchId, itemId, warehouseId]
       );
     }
   }
