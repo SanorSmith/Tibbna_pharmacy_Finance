@@ -28,16 +28,15 @@ export async function GET(
         ilike(drugs.name, pattern),
         ilike(drugs.genericname, pattern),
         ilike(drugs.nationalcode, pattern),
-        ilike(drugs.barcode, pattern),
-        ilike(drugs.category, pattern)
+        ilike(drugs.barcode, pattern)
       );
     }
 
-    const rows = await db
-      .select()
-      .from(drugs)
-      .where(whereClause)
-      .orderBy(desc(drugs.createdat));
+    const query = db.select().from(drugs);
+    if (whereClause) {
+      query.where(whereClause);
+    }
+    const rows = await query.orderBy(desc(drugs.createdat));
 
     return NextResponse.json({ drugs: rows });
   } catch (error) {
@@ -77,7 +76,6 @@ export async function POST(
         barcode: body.barcode || null,
         manufacturer: body.manufacturer || null,
         nationalcode: body.nationalcode || null,
-        category: body.category || null,
         description: body.description || null,
         interaction: body.interaction || null,
         warning: body.warning || null,
