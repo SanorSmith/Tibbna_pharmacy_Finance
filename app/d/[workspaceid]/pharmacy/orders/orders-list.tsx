@@ -224,23 +224,25 @@ export default function PharmacyOrdersPage({
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="shadow-sm bg-gray-100 border-purple-200">
-            <CardContent className="py-4 px-4 text-center">
-              <p className="text-sm font-semibold text-black-500">Total orders {counts.all}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm bg-gray-100 border-green-200">
-            <CardContent className="py-4 px-4 text-center">
-              <p className="text-sm font-semibold text-black-900">Complete orders {counts.DISPENSED}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm bg-gray-100 border-yellow-200">
-            <CardContent className="py-4 px-4 text-center">
-              <p className="text-sm font-semibold text-black-900">Pending orders {counts.PENDING}</p>
-            </CardContent>
-          </Card>
-        </div>
+     <div className="grid grid-cols-3 gap-2">
+  <Card className="h-9 shadow-sm bg-gray-100 border-purple-200">
+    <CardContent className="flex items-center justify-center h-full px-3">
+      <p className="text-sm font-bold">Total orders {counts.all}</p>
+    </CardContent>
+  </Card>
+
+  <Card className="h-9 shadow-sm bg-gray-100 border-green-200">
+    <CardContent className="flex items-center justify-center h-full px-3">
+      <p className="text-sm font-bold">Complete {counts.DISPENSED}</p>
+    </CardContent>
+  </Card>
+
+  <Card className="h-9 shadow-sm bg-gray-100 border-yellow-200">
+    <CardContent className="flex items-center justify-center h-full px-3">
+      <p className="text-sm font-bold">Pending {counts.PENDING}</p>
+    </CardContent>
+  </Card>
+</div>
 
         {/* Filters */}
         <div className="flex items-center gap-3">
