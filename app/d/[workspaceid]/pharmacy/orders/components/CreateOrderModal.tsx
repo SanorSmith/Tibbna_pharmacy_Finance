@@ -102,9 +102,12 @@ export default function CreateOrderModal({
     current_medications: '',
   });
 
+  // Only load insurance companies when modal is opened
   useEffect(() => {
-    loadInsuranceCompanies();
-  }, []);
+    if (open) {
+      loadInsuranceCompanies();
+    }
+  }, [open]);
 
   const loadInsuranceCompanies = async () => {
     try {

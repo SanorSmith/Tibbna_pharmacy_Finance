@@ -15,6 +15,7 @@ import {
   pharmacyOrderItems,
   patientCreditAccounts,
 } from "@/lib/db/schema";
+import { invoices, invoiceLines } from "@/lib/db/tables/pharmacy-invoices";
 import {
   stockLevels,
   stockMovements,
@@ -421,6 +422,58 @@ export async function POST(request: NextRequest) {
         console.log(
           `[POS] Order ${data.pharmacyOrderId}: ${dispensedItems}/${totalItems} items dispensed → ${orderStatus}`
         );
+
+        // 5b. Create or update pharmacy invoice
+        const [existingInvoice] = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.orderid, data.pharmacyOrderId))
+          .limit(1);
+
+        if (existingInvoice) {
+          // Update existing invoice to PAID
+          await tx
+            .update(invoices)
+            .set({
+              status: paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID",
+              updatedat: new Date(),
+            })
+            .where(eq(invoices.invoiceid, existingInvoice.invoiceid));
+          
+          console.log(`[POS] Updated invoice ${existingInvoice.invoicenumber} to ${paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID"}`);
+        } else {
+          // Create new invoice
+          const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
+          const [newInvoice] = await tx
+            .insert(invoices)
+            .values({
+              orderid: data.pharmacyOrderId,
+              patientid: data.patientId || null,
+              invoicenumber: invoiceNumber,
+              status: paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID",
+              subtotal: data.subtotal.toFixed(2),
+              insurancecovered: "0.00",
+              patientcopay: data.totalAmount.toFixed(2),
+              total: data.totalAmount.toFixed(2),
+            })
+            .returning();
+
+          // Create invoice line items from cart
+          for (const item of data.items) {
+            await tx.insert(invoiceLines).values({
+              invoiceid: newInvoice.invoiceid,
+              drugid: item.drugId || null,
+              description: item.drugName,
+              quantity: item.quantity,
+              unitprice: item.unitPrice.toFixed(2),
+              linetotal: (item.unitPrice * item.quantity).toFixed(2),
+              insurancecovered: "0.00",
+              patientpays: (item.unitPrice * item.quantity).toFixed(2),
+            });
+          }
+
+          console.log(`[POS] Created invoice ${invoiceNumber} with status ${paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID"}`);
+        }
       }
 
       return {

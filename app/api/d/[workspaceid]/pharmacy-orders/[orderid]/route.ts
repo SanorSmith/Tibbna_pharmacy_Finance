@@ -29,14 +29,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-    // Fetch order with prescriber name
+    // Fetch order with prescriber and dispenser names
     const [orderData] = await db
       .select({
         order: pharmacyOrders,
-        prescribername: users.name,
+        prescribername: sql<string>`prescriber.name`.as('prescribername'),
+        dispensedbyname: sql<string>`dispenser.name`.as('dispensedbyname'),
       })
       .from(pharmacyOrders)
-      .leftJoin(users, eq(pharmacyOrders.prescriberid, users.userid))
+      .leftJoin(sql`users AS prescriber`, sql`prescriber.userid = ${pharmacyOrders.prescriberid}`)
+      .leftJoin(sql`users AS dispenser`, sql`dispenser.userid = ${pharmacyOrders.dispensedby}`)
       .where(eq(pharmacyOrders.orderid, orderid))
       .limit(1);
 
@@ -44,7 +46,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    const order = { ...orderData.order, prescribername: orderData.prescribername };
+    const order = { 
+      ...orderData.order, 
+      prescribername: orderData.prescribername,
+      dispensedbyname: orderData.dispensedbyname
+    };
 
     // Patient
     let patient = null;

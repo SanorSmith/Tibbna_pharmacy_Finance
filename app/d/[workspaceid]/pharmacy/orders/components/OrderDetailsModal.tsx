@@ -189,26 +189,50 @@ export default function OrderDetailsModal({
           : dosageStr.split(',').map(p => p.trim());
         
         parts.forEach(part => {
-          // Dose amount and unit
-          const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
-          if (doseMatch) {
-            details.doseamount = doseMatch[1];
-            details.doseunit = doseMatch[2];
+          const lower = part.toLowerCase();
+          
+          // Dose amount and unit - check for number followed by unit
+          const trimmed = part.trim();
+          let numberMatch = '';
+          let i = 0;
+          while (i < trimmed.length && (trimmed[i] === '.' || (trimmed[i] >= '0' && trimmed[i] <= '9'))) {
+            numberMatch += trimmed[i];
+            i++;
+          }
+          if (numberMatch && (numberMatch !== '.')) {
+            const unitPart = trimmed.substring(numberMatch.length).trim().toLowerCase();
+            const units = ['mg', 'g', 'ml', 'mcg', 'tablet', 'capsule', 'puff', 'u', 'tu', 'mu', 'mmol'];
+            if (units.some(u => unitPart === u || unitPart.startsWith(u))) {
+              details.doseamount = numberMatch;
+              details.doseunit = unitPart;
+            }
           }
           
-          // Route
-          if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
+          // Route - check for route keywords
+          const routes = ['oral', 'parenteral', 'nasal', 'rectal', 'vaginal', 'implant', 'inhalation', 'instillation', 'sublingual', 'transdermal'];
+          if (routes.some(r => lower === r)) {
             details.route = part;
           }
           
-          // Timing directions
-          if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
+          // Timing directions - check for timing keywords
+          const timings = ['once', 'twice', 'three times', 'four times', 'five times', 'every', 'as needed', 'when needed', 'prn', 'at bedtime', 'with meals', 'before meals', 'after meals', 'daily', 'hourly', 'weekly', 'monthly'];
+          if (timings.some(t => lower === t)) {
             details.timingdirections = part;
           }
           
-          // Duration
-          if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
-            details.duration = part.replace(/^for\s+/i, '');
+          // Duration - check for duration patterns
+          if (lower.startsWith('for ') || lower === 'until finished') {
+            details.duration = part.substring(4).trim();
+          } else {
+            const lowerPart = part.toLowerCase();
+            const hasDay = lowerPart.includes('day');
+            const hasWeek = lowerPart.includes('week');
+            const hasMonth = lowerPart.includes('month');
+            const trimmed = part.trim();
+            const startsWithNumber = trimmed.length > 0 && trimmed[0] >= '0' && trimmed[0] <= '9';
+            if (startsWithNumber && (hasDay || hasWeek || hasMonth)) {
+              details.duration = part;
+            }
           }
         });
         
@@ -309,7 +333,10 @@ export default function OrderDetailsModal({
 
         pdf.addImage(imgData, 'PNG', 0, 0, 15, contentHeightCm);
         
-        const medicationName = item.drugname.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+        const medicationName = item.drugname.split('').map((c: string) => {
+          const code = c.charCodeAt(0);
+          return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122) ? c : '_';
+        }).join('').substring(0, 20);
         const filename = `medication-card-${medicationName}-${orderid.slice(0, 8)}-${Date.now()}.pdf`;
         pdf.save(filename);
       } catch (error) {
@@ -322,6 +349,118 @@ export default function OrderDetailsModal({
     } catch (error) {
       console.error('Error in handleDownloadIndividualPDF:', error);
       alert('Error generating PDF. Please try again.');
+    }
+  };
+
+  const handlePrintInvoice = async () => {
+    if (!invoice || !data) {
+      alert('No invoice available to print');
+      return;
+    }
+
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      let yPos = 20;
+
+      // Header
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('INVOICE', pageWidth / 2, yPos, { align: 'center' });
+      
+      yPos += 15;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Invoice #: ${invoice.invoicenumber}`, 20, yPos);
+      pdf.text(`Date: ${new Date(invoice.createdat).toLocaleDateString()}`, pageWidth - 20, yPos, { align: 'right' });
+      
+      yPos += 10;
+      pdf.text(`Status: ${invoice.status}`, 20, yPos);
+      
+      // Patient Info
+      yPos += 15;
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Patient Information:', 20, yPos);
+      yPos += 7;
+      pdf.setFont('helvetica', 'normal');
+      const patientName = patient ? `${patient.firstname} ${patient.lastname}` : 'N/A';
+      pdf.text(`Name: ${patientName}`, 20, yPos);
+      yPos += 6;
+      if (patient?.nationalid) {
+        pdf.text(`National ID: ${patient.nationalid}`, 20, yPos);
+        yPos += 6;
+      }
+      if (patient?.phone) {
+        pdf.text(`Phone: ${patient.phone}`, 20, yPos);
+        yPos += 6;
+      }
+
+      // Items Table
+      yPos += 10;
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Items:', 20, yPos);
+      yPos += 7;
+      
+      // Table headers
+      pdf.setFontSize(9);
+      pdf.text('Description', 20, yPos);
+      pdf.text('Qty', 110, yPos, { align: 'center' });
+      pdf.text('Unit Price', 135, yPos, { align: 'center' });
+      pdf.text('Total', 180, yPos, { align: 'right' });
+      yPos += 5;
+      pdf.line(20, yPos, 190, yPos);
+      yPos += 5;
+      
+      // Table rows
+      pdf.setFont('helvetica', 'normal');
+      items.forEach((item: any) => {
+        const price = parseFloat(item.bestBatchPrice || item.unitprice || item.nameBasedPrice || '0');
+        const total = price * (item.quantity || 1);
+        
+        pdf.text(item.drugname.substring(0, 35), 20, yPos);
+        pdf.text(String(item.quantity || 1), 110, yPos, { align: 'center' });
+        pdf.text(`${price.toFixed(2)}`, 135, yPos, { align: 'center' });
+        pdf.text(`${total.toFixed(2)}`, 180, yPos, { align: 'right' });
+        yPos += 6;
+      });
+      
+      // Totals
+      yPos += 5;
+      pdf.line(20, yPos, 190, yPos);
+      yPos += 7;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Subtotal:', 120, yPos);
+      pdf.text(`${parseFloat(invoice.subtotal || '0').toFixed(2)} IQD`, 170, yPos, { align: 'right' });
+      yPos += 6;
+      
+      if (parseFloat(invoice.insurancecovered || '0') > 0) {
+        pdf.text('Insurance Covered:', 120, yPos);
+        pdf.text(`${parseFloat(invoice.insurancecovered).toFixed(2)} IQD`, 170, yPos, { align: 'right' });
+        yPos += 6;
+      }
+      
+      pdf.text('Patient Copay:', 120, yPos);
+      pdf.text(`${parseFloat(invoice.patientcopay || '0').toFixed(2)} IQD`, 170, yPos, { align: 'right' });
+      yPos += 6;
+      
+      pdf.setFontSize(11);
+      pdf.text('Total:', 120, yPos);
+      pdf.text(`${parseFloat(invoice.total).toFixed(2)} IQD`, 170, yPos, { align: 'right' });
+      
+      // Footer
+      yPos += 20;
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'italic');
+      pdf.text('Thank you for your business!', pageWidth / 2, yPos, { align: 'center' });
+      
+      // Save PDF
+      pdf.save(`invoice-${invoice.invoicenumber}.pdf`);
+    } catch (error) {
+      console.error('Error generating invoice PDF:', error);
+      alert('Error generating invoice. Please try again.');
     }
   };
 
@@ -552,16 +691,18 @@ export default function OrderDetailsModal({
     let dose = "";
     let route = "";
     
-    // Extract dose (look for mg, g, ml, etc.)
-    const dosePart = uniqueParts.find(part => 
-      /\d+\s*(mg|g|ml|mcg|tablet|capsule)/i.test(part)
-    );
+    // Extract dose (look for mg, g, ml, etc.) using string methods
+    const dosePart = uniqueParts.find(part => {
+      const lower = part.toLowerCase();
+      return lower.includes('mg') || lower.includes('g ') || lower.includes('ml') || lower.includes('mcg') || lower.includes('tablet') || lower.includes('capsule');
+    });
     if (dosePart) dose = dosePart;
     
-    // Extract route (look for route keywords)
-    const routePart = uniqueParts.find(part => 
-      /oral|intravenous|iv|topical|inhalation|injection|subcutaneous|im/i.test(part)
-    );
+    // Extract route (look for route keywords) using string methods
+    const routePart = uniqueParts.find(part => {
+      const lower = part.toLowerCase();
+      return lower.includes('oral') || lower.includes('intravenous') || lower.includes('iv') || lower.includes('topical') || lower.includes('inhalation') || lower.includes('injection') || lower.includes('subcutaneous') || lower.includes('im');
+    });
     if (routePart) route = routePart;
     
     return { dose, route };
@@ -573,6 +714,11 @@ export default function OrderDetailsModal({
     items: [],
     invoice: null,
   };
+  
+  // Debug: Log invoice data
+  if (order.status === "DISPENSED") {
+    console.log('Order is DISPENSED. Invoice data:', invoice);
+  }
   const pendingCount = items.filter((i: any) => i.status === "PENDING").length;
   const scannedCount = items.filter(
     (i: any) => i.status === "SCANNED" || i.status === "DISPENSED" || i.status === "SUBSTITUTED"
@@ -601,6 +747,34 @@ export default function OrderDetailsModal({
               <Button variant="outline" size="sm" className="bg-orange-500 text-white hover:bg-orange-600">
                 {order.status}
               </Button>
+              {order.status === "DISPENSED" && (
+                invoice ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className={`${
+                      invoice.status === 'PAID' ? 'bg-green-500 text-white hover:bg-green-600' : 
+                      invoice.status === 'PARTIALLY_PAID' ? 'bg-orange-500 text-white hover:bg-orange-600' : 
+                      invoice.status === 'ISSUED' ? 'bg-red-500 text-white hover:bg-red-600' :
+                      'bg-gray-500 text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    {invoice.status === 'PAID' ? 'PAID' : 
+                     invoice.status === 'PARTIALLY_PAID' ? 'PARTIALLY PAID' : 
+                     invoice.status === 'ISSUED' ? 'UNPAID' :
+                     invoice.status || 'NO STATUS'}
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="bg-yellow-500 text-white hover:bg-yellow-600"
+                    title="No invoice found - Complete payment in POS"
+                  >
+                    NO INVOICE
+                  </Button>
+                )
+              )}
               <Button variant="ghost" size="sm" onClick={onClose}>
                 <X className="h-4 w-4" />
               </Button>
@@ -657,75 +831,48 @@ export default function OrderDetailsModal({
         )}
 
         <div className="flex flex-1 flex-col gap-4">
-          {/* Medications List */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium text-lg">Medications</h3>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Left Column - Medications */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-lg">Medications</h3>
+              </div>
+              <div className="flex flex-col gap-3 overflow-y-auto max-h-[600px]">
               {items.map((item: any) => {
-                    // Parse dosage string to extract structured information
-                    const parseDosageDetails = (dosageStr: string) => {
-                      if (!dosageStr) return {};
-                      
-                      const details: any = {};
-                      
-                      // Handle both pipe-separated and comma-separated dosage strings
-                      const parts = dosageStr.includes('|') 
-                        ? dosageStr.split('|').map(p => p.trim())
-                        : dosageStr.split(',').map(p => p.trim());
-                      
-                      parts.forEach(part => {
-                        // Dose amount and unit (e.g., "500 mg", "1 tablet")
-                        const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
-                        if (doseMatch) {
-                          details.doseamount = doseMatch[1];
-                          details.doseunit = doseMatch[2];
-                        }
-                        
-                        // Route (Oral, Parenteral, etc.)
-                        if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
-                          details.route = part;
-                        }
-                        
-                        // Timing directions - more specific to avoid conflicts
-                        if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
-                          details.timingdirections = part;
-                        }
-                        
-                        // Duration - more specific pattern to avoid conflicts
-                        if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
-                          details.duration = part.replace(/^for\s+/i, '');
-                        }
-                        
-                        // Instructions
-                        if (/^(with food|before meals|after meals|with water|swallow whole|chew|dissolve|shake well|avoid alcohol)/i.test(part)) {
-                          details.instructions = part;
-                        }
-                        
-                        // Usage - more specific to avoid conflicts
-                        if (/^for (headache|fever|pain|high blood pressure|diabetes|infection|asthma|allergies|stomach pain|diarrhea|anxiety|anemia|vitamin deficiency)$/i.test(part)) {
-                          details.usage = part;
-                        }
-                      });
-                      
-                      return details;
-                    };
-                    
-                    const doseInfo = parseDosageDetails(item.dosage || '');
-                    
                     return (
                 <Card key={item.itemid} className="p-3 min-w-[320px] flex-shrink-0">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
-                      <h4 
-                        className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
-                        onClick={() => handleDrugClick(item)}
-                      >
-                        {item.drugname}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <h4 
+                          className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
+                          onClick={() => handleDrugClick(item)}
+                        >
+                          {item.drugname}
+                        </h4>
+                        {(() => {
+                          // Extract dose from dosage string using string methods
+                          const doseIndex = item.dosage?.toLowerCase().indexOf('dose:');
+                          if (doseIndex !== undefined && doseIndex !== -1) {
+                            const afterDose = item.dosage.substring(doseIndex + 5);
+                            const pipeIndex = afterDose.indexOf('|');
+                            const doseValue = pipeIndex !== -1 
+                              ? afterDose.substring(0, pipeIndex).trim()
+                              : afterDose.trim();
+                            if (doseValue) {
+                              return (
+                                <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                  {doseValue}
+                                </span>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="text-sm text-muted-foreground">{item.quantity ? `x${(item.quantity || 0) - (item.quantitydispensed || 0)}` : ""}</p>
+                        <p className="text-sm text-muted-foreground">{item.quantity ? String('x' + ((item.quantity || 0) - (item.quantitydispensed || 0))) : ""}</p>
                         {(() => {
                           const price = parseFloat(item.bestBatchPrice || '0') > 0
                             ? parseFloat(item.bestBatchPrice)
@@ -767,272 +914,226 @@ export default function OrderDetailsModal({
                     </div>
                   </div>
                   
-                  {/* Dose Information */}
-                  {Object.keys(doseInfo).length > 0 && (
-                    <div className="space-y-1 text-sm mb-2">
-                      {doseInfo.doseamount && doseInfo.doseunit && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Dose:</span>
-                          <Badge variant="outline" className="text-xs">
-                            {doseInfo.doseamount} {doseInfo.doseunit}
-                          </Badge>
-                        </div>
-                      )}
-                      {doseInfo.route && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Route:</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {doseInfo.route}
-                          </Badge>
-                        </div>
-                      )}
-                      {doseInfo.timingdirections && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Timing:</span>
-                          <span className="text-xs">{doseInfo.timingdirections}</span>
-                        </div>
-                      )}
-                      {doseInfo.duration && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Duration:</span>
-                          <span className="text-xs">{doseInfo.duration}</span>
-                        </div>
-                      )}
-                      {doseInfo.instructions && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Instructions:</span>
-                          <span className="text-xs">{doseInfo.instructions}</span>
-                        </div>
-                      )}
-                      {doseInfo.usage && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Usage:</span>
-                          <span className="text-xs">{doseInfo.usage}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* Dosage Instructions */}
+                  {item.dosage && (() => {
+                    // Remove "Dose: X mg" from the dosage string using string methods
+                    const doseIndex = item.dosage.toLowerCase().indexOf('dose:');
+                    let dosageWithoutDose = item.dosage.trim();
+                    if (doseIndex !== -1) {
+                      const afterDose = item.dosage.substring(doseIndex + 5);
+                      const pipeIndex = afterDose.indexOf('|');
+                      if (pipeIndex !== -1) {
+                        dosageWithoutDose = afterDose.substring(pipeIndex + 1).trim();
+                      } else {
+                        dosageWithoutDose = afterDose.trim();
+                      }
+                    }
+                    if (!dosageWithoutDose) return null;
+                    
+                    // Split into parts and group into 3 rows
+                    const parts = dosageWithoutDose.split('|').map((p: string) => p.trim()).filter((p: string) => p);
+                    const itemsPerRow = Math.ceil(parts.length / 3);
+                    const rows = [
+                      parts.slice(0, itemsPerRow),
+                      parts.slice(itemsPerRow, itemsPerRow * 2),
+                      parts.slice(itemsPerRow * 2)
+                    ].filter(row => row.length > 0);
+                    
+                    return (
+                      <div className="space-y-1 text-sm mb-2 bg-blue-50 p-2 rounded">
+                        <div className="text-xs font-medium text-blue-900 mb-1">📋 Instructions:</div>
+                        {rows.map((row, idx) => (
+                          <div key={idx} className="text-xs text-gray-700">
+                            {row.join(' | ')}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   
                   {item.notes && <div className="text-sm text-muted-foreground"><strong>Notes:</strong> {item.notes}</div>}
                   {item.alternativemedicine && <div className="text-sm text-muted-foreground"><strong>Alternative:</strong> {item.alternativemedicine}</div>}
                   {item.interaction && item.interaction !== "None" && <div className="text-sm text-red-600"><strong>Interaction:</strong> {item.interaction}</div>}
                 </Card>
-                    );
-                  })}
+              );
+            })}
             </div>
-          </div>
+            </div>
 
-          {/* Dosage Instructions Section */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Dosage Instructions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {order.notes ? (
-                  (() => {
-                    const orderNotes = order.notes;
-                    const usageMatch = orderNotes.match(/Usage:\s*(.*?)(?=\s*\|\s*Valid until:|$|\s*\|\s*Instructions:)/i);
-                    const instructionsMatch = orderNotes.match(/Instructions:\s*(.*?)(?=\s*\|\s*Issued from:|$)/i);
+            {/* Right Column - Other Info */}
+            <div className="space-y-4">
+              {/* Combined Pricing Card */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Pricing Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const calculateTotalFromItems = () => {
+                      return items.reduce((total: number, item: any) => {
+                        const price = parseFloat(item.bestBatchPrice || '0') > 0
+                          ? parseFloat(item.bestBatchPrice)
+                          : parseFloat(item.unitprice || '0') > 0
+                            ? parseFloat(item.unitprice)
+                            : parseFloat(item.nameBasedPrice || '0') > 0
+                              ? parseFloat(item.nameBasedPrice)
+                              : 0;
+                        return total + (price * (item.quantity || 1));
+                      }, 0);
+                    };
+
+                    const totalFromInvoice = invoice?.total ? parseFloat(invoice.total) : 0;
+                    const totalFromItems = calculateTotalFromItems();
+                    const finalTotal = totalFromInvoice || totalFromItems;
+
+                    const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
+                    const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
+                    
+                    const patientPay = patientFromInvoice || finalTotal;
+                    const insurancePay = insuranceFromInvoice || 0;
+                    const doctorShare = finalTotal - patientPay - insurancePay;
+                    const insurancePercentage = invoice?.insurancecovered ? String(Math.round((parseFloat(invoice.insurancecovered) / parseFloat(invoice.total || "1")) * 100)) + "%" : "0%";
 
                     return (
-                      <div className="border-l-4 border-blue-500 pl-2">
-                        {usageMatch && (
-                          <div className="text-sm">
-                            <strong>Usage:</strong> {usageMatch[1]}
-                          </div>
-                        )}
-                        {instructionsMatch && (
-                          <div className="text-sm">
-                            <strong>Instructions:</strong> {instructionsMatch[1]}
-                          </div>
-                        )}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Insurance Coverage</span>
+                          <span className="font-semibold text-blue-600">{insurancePercentage}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Patient pays</span>
+                          <span className="font-semibold text-green-600">{patientPay.toFixed(2)} IQD</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Insurance</span>
+                          <span className="font-semibold text-blue-600">{insurancePay.toFixed(2)} IQD</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Doctor Share</span>
+                          <span className="font-semibold text-purple-600">{doctorShare.toFixed(2)} IQD</span>
+                        </div>
+                        <div className="border-t pt-3 flex justify-between items-center">
+                          <span className="font-semibold">Total</span>
+                          <span className="font-bold text-lg text-green-600">{finalTotal.toFixed(2)} IQD</span>
+                        </div>
                       </div>
                     );
-                  })()
-                ) : (
-                  <p className="text-sm text-muted-foreground">No order notes available for dosage instructions.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  })()}
+                </CardContent>
+              </Card>
 
-          {/* Insurance and Pharmacist Notes Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Insurance benefits
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-center mb-1">
-                  {invoice?.insurancecovered ? `${Math.round((parseFloat(invoice.insurancecovered) / parseFloat(invoice.total || "1")) * 100)}%` : "0%"}
-                </div>
-                <p className="text-sm text-muted-foreground text-center">
-                  {invoice?.insurancecovered && parseFloat(invoice.insurancecovered) > 0 
-                    ? `Insurance covers ${parseFloat(invoice.insurancecovered).toFixed(2)} IQD` 
-                    : "No insurance coverage"}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Pharmacist notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <textarea
-                  className="w-full h-16 p-1 text-sm border rounded resize-none"
-                  placeholder="Add pharmacist notes..."
-                  value={order.pharmacistnotes || ""}
-                  onChange={(e) => {
-                    console.log("Pharmacist notes updated:", e.target.value);
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Total Price Section */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Total price</CardTitle>
-            </CardHeader>
-            <CardContent>
+              {/* Pharmacist Notes - Only show if there are notes */}
               {(() => {
-                // Calculate total from individual medication items if invoice data is not available
-                const calculateTotalFromItems = () => {
-                  return items.reduce((total: number, item: any) => {
-                    const price = parseFloat(item.bestBatchPrice || '0') > 0
-                      ? parseFloat(item.bestBatchPrice)
-                      : parseFloat(item.unitprice || '0') > 0
-                        ? parseFloat(item.unitprice)
-                        : parseFloat(item.nameBasedPrice || '0') > 0
-                          ? parseFloat(item.nameBasedPrice)
-                          : 0;
-                    return total + (price * (item.quantity || 1));
-                  }, 0);
-                };
-
-                const totalFromInvoice = invoice?.total ? parseFloat(invoice.total) : 0;
-                const totalFromItems = calculateTotalFromItems();
-                const finalTotal = totalFromInvoice || totalFromItems;
-
-                const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
-                const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
+                const hasPharmacistNotes = items.some((item: any) => item.pharmacistnotes && item.pharmacistnotes.trim());
+                if (!hasPharmacistNotes) return null;
                 
-                // Use invoice data if available, otherwise calculate based on items
-                const patientPay = patientFromInvoice || finalTotal;
-                const insurancePay = insuranceFromInvoice || 0;
-                const doctorShare = finalTotal - patientPay - insurancePay;
-
                 return (
-                  <>
-                    <div className="flex gap-4 mb-2">
-                      <div className="flex-1 text-center">
-                        <p className="text-sm text-muted-foreground">Patient pays</p>
-                        <p className="text-xl font-semibold text-green-600">
-                          {patientPay.toFixed(2)} IQD
-                        </p>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Pharmacist notes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {items.map((item: any) => {
+                          if (!item.pharmacistnotes || !item.pharmacistnotes.trim()) return null;
+                          return (
+                            <div key={item.itemid} className="text-sm">
+                              <p className="font-medium text-gray-700">{item.drugname}:</p>
+                              <p className="text-muted-foreground pl-3">{item.pharmacistnotes}</p>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div className="flex-1 text-center">
-                        <p className="text-sm text-muted-foreground">Insurance</p>
-                        <p className="text-xl font-semibold text-blue-600">
-                          {insurancePay.toFixed(2)} IQD
-                        </p>
-                      </div>
-                      <div className="flex-1 text-center">
-                        <p className="text-sm text-muted-foreground">Doctor Share</p>
-                        <p className="text-xl font-semibold text-purple-600">
-                          {doctorShare.toFixed(2)} IQD
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-xl font-semibold">
-                      Total: <span className="text-green-600">{finalTotal.toFixed(2)} IQD</span>
-                    </div>
-                  </>
+                    </CardContent>
+                  </Card>
                 );
               })()}
-            </CardContent>
-          </Card>
 
-          {/* Bottom Actions Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Indication</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {order.notes?.match(/Indication:\s*(.*?)(?=\s*\||$)/i)?.[1] || "No indication specified"}
-                </p>
-              </CardContent>
-            </Card>
+              {/* Indication - Only show if there is an indication */}
+              {(() => {
+                const indicationIndex = order.notes?.toLowerCase().indexOf('indication:');
+                let indication = "";
+                
+                if (indicationIndex !== undefined && indicationIndex !== -1) {
+                  const afterIndication = order.notes.substring(indicationIndex + 11);
+                  const pipeIndex = afterIndication.indexOf('|');
+                  indication = pipeIndex !== -1 
+                    ? afterIndication.substring(0, pipeIndex).trim()
+                    : afterIndication.trim();
+                }
+                
+                if (!indication) return null;
+                
+                return (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Indication</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{indication}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Drug Interactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {items.some((item: any) => item.interaction && item.interaction !== "None") 
-                    ? "⚠️ Drug interactions detected - review required" 
-                    : "✅ No drug interactions detected"}
-                </p>
-              </CardContent>
-            </Card>
+              {/* Dispensing Information Card */}
+              {order.status === "DISPENSED" && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Dispensing Information
+                      </CardTitle>
+                      {invoice && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePrintInvoice}
+                          className="gap-2"
+                        >
+                          <Printer className="h-4 w-4" />
+                          Print Invoice
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 text-sm flex-wrap">
+                      <div>
+                        <span className="font-medium text-gray-700">Dispensed:</span>{' '}
+                        <span className="text-muted-foreground">{order.dispensedat ? new Date(order.dispensedat).toLocaleString() : "N/A"}</span>
+                      </div>
+                      <div className="border-l pl-4">
+                        <span className="font-medium text-gray-700">By:</span>{' '}
+                        <span className="text-muted-foreground">{(order as any).dispensedbyname || order.dispensedby || "N/A"}</span>
+                      </div>
+                      <div className="border-l pl-4">
+                        <span className="font-medium text-gray-700">Received By:</span>{' '}
+                        <span className="text-muted-foreground">{patient?.firstname && patient?.lastname ? String(patient.firstname + ' ' + patient.lastname) : "N/A"}</span>
+                      </div>
+                      <div className="border-l pl-4">
+                        <span className="font-medium text-gray-700">Payment:</span>{' '}
+                        <span className={`font-semibold ${
+                          invoice?.status === 'PAID' ? 'text-green-600' : 
+                          invoice?.status === 'PARTIALLY_PAID' ? 'text-orange-600' : 
+                          'text-red-600'
+                        }`}>
+                          {invoice?.status === 'PAID' ? '✓ Paid' : 
+                           invoice?.status === 'PARTIALLY_PAID' ? 'Partially Paid' : 
+                           invoice?.status === 'ISSUED' ? 'Unpaid' :
+                           invoice?.status || 'No Invoice'}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-
-          {/* Dispensing Information Card */}
-          {order.status === "DISPENSED" && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Dispensing Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="font-medium">Dispensed Date</p>
-                    <p className="text-muted-foreground">{order.dispensedat ? new Date(order.dispensedat).toLocaleString() : "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Dispensed By</p>
-                    <p className="text-muted-foreground">{order.dispensedby || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Collection Date</p>
-                    <p className="text-muted-foreground">{order.collectedat ? new Date(order.collectedat).toLocaleDateString() : "Not collected"}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Collected By</p>
-                    <p className="text-muted-foreground">{order.collectedby || "Not collected"}</p>
-                  </div>
-                </div>
-                {!order.collectedby && (
-                  <div className="mt-4 pt-4 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => {
-                        // TODO: Add patient collection functionality
-                        alert("Patient collection feature to be implemented");
-                      }}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Mark as Collected by {patient?.firstname} {patient?.lastname}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Action Buttons */}
           {(() => {

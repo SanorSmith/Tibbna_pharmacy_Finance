@@ -93,10 +93,24 @@ export default function PharmacyOrdersPage({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Use React Query to cache orders
-  const { data: orders = [], isLoading: loading, refetch } = useQuery({
-    queryKey: ["pharmacy-orders", workspaceid, statusFilter],
+  // Fetch order counts on mount (lightweight)
+  const { data: countsData } = useQuery({
+    queryKey: ["pharmacy-orders-counts", workspaceid],
     queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/pharmacy-orders/counts`);
+      if (!res.ok) throw new Error("Failed to fetch counts");
+      const data = await res.json();
+      return data.counts || { all: 0, PENDING: 0, IN_PROGRESS: 0, DISPENSED: 0 };
+    },
+    staleTime: 60000, // Cache for 1 minute
+    refetchOnWindowFocus: false,
+  });
+
+  // Use React Query to cache orders - only fetch when search is active
+  const { data: orders = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ["pharmacy-orders", workspaceid, statusFilter, search],
+    queryFn: async () => {
+      if (!search.trim()) return []; // Don't fetch if no search query
       const qs = statusFilter !== "all" ? `?status=${statusFilter}` : "";
       const res = await fetch(`/api/d/${workspaceid}/pharmacy-orders${qs}`);
       if (!res.ok) throw new Error("Failed to fetch");
@@ -105,6 +119,7 @@ export default function PharmacyOrdersPage({
     },
     staleTime: 30000, // Cache for 30 seconds
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    enabled: search.trim().length > 0, // Only enable query when search is active
   });
 
   const handleSync = () => {
@@ -124,16 +139,14 @@ export default function PharmacyOrdersPage({
     onSuccess: (data) => {
       setSyncMessage(`Synced ${data.synced} new, ${data.skipped} existing`);
       queryClient.invalidateQueries({ queryKey: ["pharmacy-orders", workspaceid] });
+      queryClient.invalidateQueries({ queryKey: ["pharmacy-orders-counts", workspaceid] });
     },
     onError: () => {
       setSyncMessage("Network error during sync");
     },
   });
 
-  // Auto-sync on page load
-  useEffect(() => {
-    syncMutation.mutate();
-  }, []);
+  // Removed auto-sync on page load - sync only when user clicks refresh
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -178,7 +191,8 @@ export default function PharmacyOrdersPage({
     setCurrentPage(1);
   }, [statusFilter, dateFilter, search]);
 
-  const counts = {
+  // Use counts from API or fallback to filtered orders when searching
+  const counts = countsData || {
     all: orders.length,
     PENDING: orders.filter((o) => o.status === "PENDING").length,
     IN_PROGRESS: orders.filter((o) => o.status === "IN_PROGRESS").length,
@@ -285,15 +299,17 @@ export default function PharmacyOrdersPage({
       <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
         <Card>
         <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Loading orders...</span>
-            </div>
-          ) : !search.trim() ? (
+          {!search.trim() ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Search className="h-12 w-12 text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Search for a patient to view orders</p>
+              <p className="text-lg font-medium text-gray-700 mb-1">Search to View Orders</p>
+              <p className="text-sm text-muted-foreground">Enter patient name, national ID, or order ID to find orders</p>
+            </div>
+          ) : loading ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-3" />
+              <p className="text-sm font-medium text-gray-700">Searching orders...</p>
+              <p className="text-xs text-muted-foreground mt-1">Please wait while we find matching orders</p>
             </div>
           ) : paginatedOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
