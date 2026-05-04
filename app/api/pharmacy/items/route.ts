@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       i.itemcode,
       i.name,
       i.generic_name       AS "generic_Name",
-      i.itemtype           AS "itemType",
+      i.item_type          AS "itemType",
       i.inventorycategory  AS "inventoryCategory",
       i.uom,
       i.min_level          AS "minLevel",
@@ -196,16 +196,29 @@ export async function POST(req: NextRequest) {
     try {
       await client.query('BEGIN');
 
-      // Create item
+      // Create drug record first with form, strength, and unit
+      let drugId = null;
+      if (form || strength) {
+        const drugResult = await client.query(
+          `INSERT INTO drugs (workspaceid, name, genericname, form, strength, unit, isactive, createdat, updatedat)
+           VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
+           RETURNING drugid`,
+          [workspaceid, name, name, form || 'tablet', strength || '', body.unit || 'mg']
+        );
+        drugId = drugResult.rows[0].drugid;
+        console.log('[Pharmacy Items API] Created drug:', drugId);
+      }
+
+      // Create item linked to drug
       const itemResult = await client.query(
-        `INSERT INTO items (name, item_code, item_type, inventory_category, uom, is_active, workspace_id, created_at, updated_at)
-         VALUES ($1, $2, 'medicine', 'pharmacy', 'tablet', true, $3, NOW(), NOW())
+        `INSERT INTO items (name, item_code, item_type, inventory_category, uom, drug_id, is_active, workspace_id, created_at, updated_at)
+         VALUES ($1, $2, 'medicine', 'pharmacy', $3, $4, true, $5, NOW(), NOW())
          RETURNING id`,
-        [name, name.substring(0, 20).toUpperCase(), workspaceid]
+        [name, name.substring(0, 20).toUpperCase(), body.unit || 'tablet', drugId, workspaceid]
       );
 
       const itemId = itemResult.rows[0].id;
-      console.log('[Pharmacy Items API] Created item:', itemId);
+      console.log('[Pharmacy Items API] Created item:', itemId, 'linked to drug:', drugId);
 
       // Create batch if provided
       let batchId = null;

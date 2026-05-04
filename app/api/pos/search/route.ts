@@ -125,11 +125,14 @@ export async function GET(request: NextRequest) {
     // Search drugs (for OTC sales — by name, generic name, barcode)
     // UPDATED: Use items table as primary source with bidirectional link to drugs
     if (searchType === "drug" || searchType === "all") {
-      // Get default pharmacy warehouse
+      // Get default pharmacy warehouse by type
       const [warehouse] = await db
         .select()
         .from(warehouses)
-        .where(eq(warehouses.name, "Pharmacy"))
+        .where(and(
+          sql`${warehouses.warehousetype} = 'pharmacy'`,
+          eq(warehouses.isactive, true)
+        ))
         .limit(1);
       
       const warehouseId = warehouse?.id || "22222222-0000-0000-0000-000000000002";
