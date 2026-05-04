@@ -285,12 +285,17 @@ export default function PharmacyOrdersPage({
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              <span className="text-muted-foreground">Loading orders...</span>
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading orders...</span>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : !search.trim() ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <Pill className="h-10 w-10 text-muted-foreground mb-3" />
+              <Search className="h-12 w-12 text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">Search for a patient to view orders</p>
+            </div>
+          ) : paginatedOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Package className="h-12 w-12 text-muted-foreground mb-2" />
               <p className="text-muted-foreground">No orders found</p>
             </div>
           ) : (
@@ -396,8 +401,8 @@ export default function PharmacyOrdersPage({
             </Table>
           )}
           
-          {/* Pagination Controls */}
-          {!loading && filtered.length > 0 && (
+          {/* Pagination Controls - only show when search is active and more than 50 results */}
+          {!loading && search.trim() && filtered.length > 50 && (
             <div className="flex items-center justify-between px-4 py-3 border-t">
               <div className="text-sm text-muted-foreground">
                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} orders
