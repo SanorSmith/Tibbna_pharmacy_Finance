@@ -2,10 +2,10 @@
  * GET /api/d/[workspaceid]/drugs/autocomplete
  * Search drugs by name for autocomplete with full drug details
  * 
- * Phase 2 Hybrid Model:
- * - Searches global drug catalog for standardized drug information
- * - Filters by workspace inventory (only shows drugs available in this workspace)
- * - Returns combined data from global catalog + workspace-specific details
+ * Pharmacy Order Model:
+ * - Searches only pharmacy inventory items (items table)
+ * - Only shows drugs that are actually in stock
+ * - Returns item details with storage location
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -32,38 +32,44 @@ export async function GET(
       return NextResponse.json({ drugs: [] });
     }
 
-    // Phase 2: Join workspace drugs with global catalog and items for storage location
-    // This allows searching standardized drug names while respecting workspace inventory
-    // Use DISTINCT ON to prevent duplicate drug IDs from multiple items
+    // Search only pharmacy inventory items with stock
+    // Return drug_id if available, otherwise use item_id
     const results = await db.execute(sql`
-      SELECT DISTINCT ON (d.drugid)
-        d.drugid,
-        d.name,
-        d.genericname,
-        d.form,
-        d.strength,
-        d.unit,
-        d.description as route,
-        d.atccode,
-        d.category,
-        d.interaction,
-        d.warning,
-        d.nationalcode,
-        d.barcode,
-        d.manufacturer,
-        d.insuranceapproved,
+      SELECT DISTINCT ON (i.id)
+        COALESCE(i.drug_id, i.id) as drugid,
+        i.id as itemid,
+        i.name,
+        i.generic_name as genericname,
+        COALESCE(gd.form, d.form, '') as form,
+        COALESCE(gd.strength, d.strength, '') as strength,
+        COALESCE(gd.unit, d.unit, i.uom) as unit,
+        COALESCE(gd.description, d.description, '') as route,
+        COALESCE(gd.atccode, d.atccode, '') as atccode,
+        COALESCE(gd.category, d.category, '') as category,
+        COALESCE(gd.interaction, d.interaction, '') as interaction,
+        COALESCE(gd.warning, d.warning, '') as warning,
+        COALESCE(gd.nationalcode, d.nationalcode, '') as nationalcode,
+        i.barcode,
+        i.manufacturer,
+        false as insuranceapproved,
         i.storage_location_id as "storageLocationId",
         ws.sectionname as "storageLocationName",
         ws.bin_location as "storageLocation",
         ws.section_type as "storageType",
         ws.shelf
-      FROM drugs d
-      LEFT JOIN items i ON i.drug_id = d.drugid
+      FROM items i
+      LEFT JOIN drugs d ON d.drugid = i.drug_id AND d.workspaceid = ${workspaceid}
+      LEFT JOIN global_drugs gd ON gd.drugid = i.drug_id
       LEFT JOIN warehouse_sections ws ON ws.id = i.storage_location_id
-      WHERE d.workspaceid = ${workspaceid}
-        AND d.isactive = true
-        AND (d.name ILIKE ${'%' + query + '%'} OR d.genericname ILIKE ${'%' + query + '%'})
-      ORDER BY d.drugid
+      WHERE i.workspace_id = ${workspaceid}
+        AND i.is_active = true
+        AND (i.inventorycategory = 'pharmacy' OR i.inventory_category = 'pharmacy')
+        AND (i.name ILIKE ${'%' + query + '%'} OR i.generic_name ILIKE ${'%' + query + '%'})
+        AND EXISTS (
+          SELECT 1 FROM inventory_stock ist
+          WHERE ist.item_id = i.id AND ist.quantity > 0
+        )
+      ORDER BY i.id, i.name
       LIMIT 10
     `);
 

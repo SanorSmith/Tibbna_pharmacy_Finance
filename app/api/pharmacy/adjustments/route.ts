@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       await pool.query(
         `UPDATE inventory_stock 
          SET batch_id = $1
-         WHERE item_id = $2 AND warehouse_id = $3 AND (batch_id IS NULL OR batch_id = '')`,
+         WHERE item_id = $2 AND warehouse_id = $3 AND batch_id IS NULL`,
         [createdBatchId, itemId, warehouseId]
       );
     }

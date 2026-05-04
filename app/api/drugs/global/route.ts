@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await globalPool.query(
-      `SELECT
+      `SELECT DISTINCT ON (name, form, strength)
         drugid,
         name,
         genericname,
@@ -44,8 +44,8 @@ export async function GET(req: NextRequest) {
           OR nationalcode ILIKE $1
         )
       ORDER BY
-        CASE WHEN name ILIKE $2 THEN 0 ELSE 1 END,
-        name
+        name, form, strength,
+        CASE WHEN name ILIKE $2 THEN 0 ELSE 1 END
       LIMIT 20`,
       [`%${search}%`, `${search}%`]
     );

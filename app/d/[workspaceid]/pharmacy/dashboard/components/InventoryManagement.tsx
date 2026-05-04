@@ -55,6 +55,7 @@ interface InventoryItem {
   itemid: string;
   name: string;
   genericname: string | null;
+  itemType: string;
   form: string;
   strength: string;
   unit: string;
@@ -257,7 +258,8 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8 text-xs"></TableHead>
-                  <TableHead className="text-xs">Drug Name</TableHead>
+                  <TableHead className="text-xs">Item Name</TableHead>
+                  <TableHead className="text-xs">Type</TableHead>
                   <TableHead className="text-xs">Form / Strength</TableHead>
                   <TableHead className="text-xs">Manufacturer</TableHead>
                   <TableHead className="text-xs">Packaging</TableHead>
@@ -312,6 +314,11 @@ export default function InventoryManagement({ workspaceid }: { workspaceid: stri
                               <p className="text-[11px] text-muted-foreground">{item.genericname}</p>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px] capitalize">
+                            {item.itemType || 'medicine'}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-sm">{item.form} / {item.strength}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{item.manufacturer || "—"}</TableCell>

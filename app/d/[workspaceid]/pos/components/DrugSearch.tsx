@@ -9,16 +9,17 @@ import { Search, Pill, Loader2, Plus } from "lucide-react";
 import type { CartItem } from "../pos-page";
 
 type Drug = {
-  drugid: string;
+  itemId: string;
+  drugId: string;
   name: string;
-  genericname: string;
+  genericName: string;
   form: string;
   strength: string;
   barcode: string | null;
   manufacturer: string | null;
-  batchid: string | null;
-  sellingprice: string | null;
-  availablestock: number;
+  batchId: string | null;
+  sellingPrice: number | null;
+  availableStock: number;
 };
 
 type Props = {
@@ -50,14 +51,14 @@ export function DrugSearch({ onAddToCart }: Props) {
   };
 
   const addDrug = (d: Drug) => {
-    const price = d.sellingprice ? parseFloat(d.sellingprice) : 0;
+    const price = d.sellingPrice ? d.sellingPrice : 0;
     onAddToCart({
-      drugId: d.drugid,
+      drugId: d.drugId,
       drugName: d.name,
-      genericName: d.genericname,
+      genericName: d.genericName,
       form: d.form,
       strength: d.strength,
-      batchId: d.batchid,
+      batchId: d.batchId,
       quantity: 1,
       unitPrice: price,
       discountPercent: 0,
@@ -111,14 +112,14 @@ export function DrugSearch({ onAddToCart }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-auto">
             {drugs.map((d) => (
               <div
-                key={d.drugid}
+                key={d.itemId}
                 className="border rounded-md p-3 hover:border-[#618FF5] transition-colors group"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{d.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {d.genericname}
+                      {d.genericName}
                     </p>
                     <div className="flex gap-1 mt-1">
                       {d.form && (
@@ -134,12 +135,12 @@ export function DrugSearch({ onAddToCart }: Props) {
                     </div>
                     <div className="flex items-center gap-3 mt-1.5">
                       <span className="text-sm font-semibold text-green-700">
-                        {d.sellingprice
-                          ? `${parseFloat(d.sellingprice).toLocaleString()} IQD`
+                        {d.sellingPrice
+                          ? `${d.sellingPrice.toLocaleString()} IQD`
                           : "No price"}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Stock: {d.availablestock ?? 0}
+                        Stock: {d.availableStock ?? 0}
                       </span>
                     </div>
                   </div>
@@ -148,7 +149,7 @@ export function DrugSearch({ onAddToCart }: Props) {
                     variant="ghost"
                     className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => addDrug(d)}
-                    disabled={!d.sellingprice || (d.availablestock ?? 0) <= 0}
+                    disabled={!d.sellingPrice || (d.availableStock ?? 0) <= 0}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>

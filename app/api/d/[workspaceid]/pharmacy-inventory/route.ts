@@ -13,6 +13,7 @@ import {
   warehouseSections,
   stockTransactions,
 } from "@/lib/db/schema";
+import { drugs } from "@/lib/db/tables/pharmacy-drugs";
 import { eq, sql, desc, and } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
@@ -45,6 +46,7 @@ export async function GET(
         itemid: items.id,
         name: items.name,
         genericname: items.genericname,
+        itemType: items.itemtype,
         itemcode: items.itemcode,
         uom: items.uom,
         barcode: items.barcode,
@@ -52,9 +54,16 @@ export async function GET(
         isactive: items.isactive,
         reorderlevel: items.reorderlevel,
         inventorycategory: items.inventorycategory,
+        form: sql<string>`COALESCE(${drugs.form}, '')`,
+        strength: sql<string>`COALESCE(${drugs.strength}, '')`,
+        unit: sql<string>`COALESCE(${drugs.unit}, ${items.uom})`,
+        packagingtype: items.packagingtype,
+        packagesize: items.packagesize,
+        tabletsperpack: items.tabletsperpack,
         totalStock: sql<number>`COALESCE(SUM(${inventoryStock.quantity}), 0)::int`,
       })
       .from(items)
+      .leftJoin(drugs, eq(items.drugid, drugs.drugid))
       .leftJoin(inventoryStock, eq(items.id, inventoryStock.itemid))
       .leftJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
       .where(eq(items.workspaceid, workspaceid))
@@ -62,19 +71,29 @@ export async function GET(
         items.id,
         items.name,
         items.genericname,
+        items.itemtype,
         items.itemcode,
         items.uom,
         items.barcode,
         items.manufacturer,
         items.isactive,
         items.reorderlevel,
-        items.inventorycategory
+        items.inventorycategory,
+        items.packagingtype,
+        items.packagesize,
+        items.tabletsperpack,
+        drugs.form,
+        drugs.strength,
+        drugs.unit
       )
       .orderBy(items.name);
 
     console.log('[Pharmacy Inventory] Query returned', allItems.length, 'items for workspace', workspaceid);
     console.log('[Pharmacy Inventory] Sample items:', allItems.slice(0, 3).map(i => ({
       name: i.name,
+      itemType: i.itemType,
+      form: i.form,
+      strength: i.strength,
       inventorycategory: i.inventorycategory,
       totalStock: i.totalStock,
       isactive: i.isactive
