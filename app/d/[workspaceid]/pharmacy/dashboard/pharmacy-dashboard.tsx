@@ -156,13 +156,6 @@ export default function PharmacyDashboard({
             Drug registration
           </TabsTrigger>
           <TabsTrigger
-            value="drug-interactions"
-            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
-          >
-            <AlertCircle className="h-4 w-4" />
-            Drug Interactions
-          </TabsTrigger>
-          <TabsTrigger
             value="inventory"
             className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
           >
@@ -535,12 +528,6 @@ export default function PharmacyDashboard({
         )}
       </TabsContent>
 
-      {/* Drug Interactions Tab */}
-      <TabsContent value="drug-interactions" className="mt-4 px-4">
-        {loadedTabs.has("drug-interactions") && (
-          <DrugInteractions workspaceid={workspaceid} />
-        )}
-      </TabsContent>
 
       {/* Inventory Tab */}
       <TabsContent value="inventory" className="mt-4 px-4">
