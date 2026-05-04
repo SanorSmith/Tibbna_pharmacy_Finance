@@ -770,11 +770,11 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
 
   const fetchPharmReport = useCallback(async () => {
     setReportLoading(true);
-    const res = await fetch(`/api/reports?type=${reportType}&category=pharmacy`);
+    const res = await fetch(`/api/reports?type=${reportType}&category=pharmacy&workspaceId=${workspaceid}`);
     const data = await res.json();
     setPharmReports(Array.isArray(data)?data:(data.rows??[]));
     setReportLoading(false);
-  }, [reportType]);
+  }, [reportType, workspaceid]);
 
   const fetchOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -992,21 +992,21 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
 
       <div style={{...s.content, marginTop:8}}>
         {/* Summary cards */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
           {[
             {label:"Total Items",value:totalItems,color:"#16a34a",bg:"#f3f4f6",filter:"all" as const},
             {label:"Low Stock",value:lowStock,color:"#f59e0b",bg:"#f3f4f6",filter:"lowstock" as const},
             {label:"Out of Stock",value:outOfStock,color:"#ef4444",bg:"#f3f4f6",filter:"outofstock" as const}
           ].map(m=>(
-            <div 
-              key={m.label} 
-              style={{background:m.bg,borderRadius:10,padding:"14px 18px",cursor:"pointer",border:stockFilter===m.filter?`2px solid ${m.color}`:"2px solid transparent",transition:"all 0.2s"}}
+            <div
+              key={m.label}
+              style={{background:m.bg,borderRadius:6,padding:"2px",cursor:"pointer",border:stockFilter===m.filter?`2px solid ${m.color}`:"2px solid transparent",transition:"all 0.2s",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center"}}
               onClick={()=>setStockFilter(m.filter)}
-              onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+              onMouseEnter={e=>e.currentTarget.style.transform="translateY(-1px)"}
               onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
             >
-              <div style={{fontSize:11,fontWeight:600,color:m.color,marginBottom:4}}>{m.label}</div>
-              <div style={{fontSize:28,fontWeight:700,color:"#111827"}}>{m.value}</div>
+              <div style={{fontSize:10,fontWeight:700,color:m.color,marginBottom:0}}>{m.label}</div>
+              <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>{m.value}</div>
             </div>
           ))}
         </div>
@@ -2024,25 +2024,25 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
               </div>
               {reportLoading?<div style={{padding:40,textAlign:"center",color:"#9ca3af"}}>Loading report...</div>
               :pharmReports.length===0?<div style={{padding:40,textAlign:"center",color:"#9ca3af"}}>No data. <button onClick={fetchPharmReport} style={{color:"#6366f1",background:"none",border:"none",cursor:"pointer"}}>Refresh →</button></div>
-              :<div style={{overflowX:"auto"}}>
+              :<div style={{overflowX:"auto",maxHeight:300,overflowY:"auto"}}>
                 {reportType==="stock" && (
-                  <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead><tr>{["Item","Code","UOM","Total Stock","Reserved","Available","Reorder","Unit Cost","Selling Price","Total Value","Status"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead><tr>{["Item","Code","UOM","Total Stock","Reserved","Available","Reorder","Unit Cost","Selling Price","Total Value","Status"].map(h=><th key={h} style={{...s.th,padding:"4px 6px",fontSize:10}}>{h}</th>)}</tr></thead>
                     <tbody>
                       {pharmReports.map((r:any,i:number)=>{
                         const avail=parseInt(r.totalStock||0)-parseInt(r.reservedStock||0);
                         const val=avail*(parseFloat(r.unitCost||0));
                         const sc=avail===0?{bg:"#fee2e2",color:"#991b1b",label:"Out"}:avail<=parseInt(r.reorderLevel||0)?{bg:"#fef3c7",color:"#92400e",label:"Low"}:{bg:"#d1fae5",color:"#065f46",label:"OK"};
-                        return (<tr key={i}><td style={{...s.td,fontWeight:600}}>{r.name}</td><td style={{...s.td,fontFamily:"monospace",fontSize:11,color:"#6b7280"}}>{r.itemcode}</td><td style={s.td}>{r.uom}</td><td style={{...s.td,fontWeight:700}}>{r.totalStock||0}</td><td style={{...s.td,color:"#d97706"}}>{r.reservedStock||0}</td><td style={{...s.td,fontWeight:700,color:sc.color}}>{avail}</td><td style={{...s.td,color:"#6b7280"}}>{r.reorderLevel||0}</td><td style={s.td}>{r.unitCost?`$${parseFloat(r.unitCost).toFixed(2)}`:"—"}</td><td style={{...s.td,color:"#16a34a",fontWeight:600}}>{r.sellingPrice?`$${parseFloat(r.sellingPrice).toFixed(2)}`:"—"}</td><td style={{...s.td,fontWeight:600,color:"#6366f1"}}>${val.toFixed(2)}</td><td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span></td></tr>);
+                        return (<tr key={i}><td style={{...s.td,fontWeight:600,padding:"2px 6px",fontSize:11}}>{r.name}</td><td style={{...s.td,fontFamily:"monospace",fontSize:9,color:"#6b7280",padding:"2px 6px"}}>{r.itemcode}</td><td style={{...s.td,padding:"2px 6px",fontSize:11}}>{r.uom}</td><td style={{...s.td,fontWeight:700,padding:"2px 6px",fontSize:11}}>{r.totalStock||0}</td><td style={{...s.td,color:"#d97706",padding:"2px 6px",fontSize:11}}>{r.reservedStock||0}</td><td style={{...s.td,fontWeight:700,color:sc.color,padding:"2px 6px",fontSize:11}}>{avail}</td><td style={{...s.td,color:"#6b7280",padding:"2px 6px",fontSize:11}}>{r.reorderLevel||0}</td><td style={{...s.td,padding:"2px 6px",fontSize:11}}>{r.unitCost?`$${parseFloat(r.unitCost).toFixed(2)}`:"—"}</td><td style={{...s.td,color:"#16a34a",fontWeight:600,padding:"2px 6px",fontSize:11}}>{r.sellingPrice?`$${parseFloat(r.sellingPrice).toFixed(2)}`:"—"}</td><td style={{...s.td,fontWeight:600,color:"#6366f1",padding:"2px 6px",fontSize:11}}>${val.toFixed(2)}</td><td style={{...s.td,padding:"2px 6px",fontSize:11}}><span style={{fontSize:9,fontWeight:600,padding:"0px 4px",borderRadius:10,background:sc.bg,color:sc.color}}>{sc.label}</span></td></tr>);
                       })}
                     </tbody>
-                    <tfoot><tr style={{background:"#f9fafb"}}><td colSpan={9} style={{...s.td,fontWeight:700,textAlign:"right" as const}}>Total Value:</td><td style={{...s.td,fontWeight:700,color:"#6366f1",fontSize:15}}>${pharmReports.reduce((sum:number,r:any)=>{const a=parseInt(r.totalStock||0)-parseInt(r.reservedStock||0);return sum+a*(parseFloat(r.unitCost||0));},0).toFixed(2)}</td><td style={s.td}></td></tr></tfoot>
+                    <tfoot><tr style={{background:"#f9fafb"}}><td colSpan={9} style={{...s.td,fontWeight:700,textAlign:"right",padding:"2px 6px",fontSize:11}}>Total Value:</td><td style={{...s.td,fontWeight:700,color:"#6366f1",fontSize:12,padding:"2px 6px"}}>${pharmReports.reduce((sum:number,r:any)=>{const a=parseInt(r.totalStock||0)-parseInt(r.reservedStock||0);return sum+a*(parseFloat(r.unitCost||0));},0).toFixed(2)}</td><td style={{...s.td,padding:"2px 6px",fontSize:11}}></td></tr></tfoot>
                   </table>
                 )}
                 {reportType==="consumption" && (
-                  <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead><tr>{["Item","Code","Type","Total Qty","Transactions","Last Movement"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                    <tbody>{pharmReports.map((r:any,i:number)=>(<tr key={i}><td style={{...s.td,fontWeight:600}}>{r.itemname||r.name}</td><td style={{...s.td,fontFamily:"monospace",fontSize:11,color:"#6b7280"}}>{r.itemcode}</td><td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#dbeafe",color:"#1d4ed8"}}>{r.transactiontype||r.type}</span></td><td style={{...s.td,fontWeight:700}}>{r.totalqty||r.quantity}</td><td style={s.td}>{r.txcount||"—"}</td><td style={{...s.td,fontSize:12,color:"#6b7280"}}>{r.lastmoved?new Date(r.lastmoved).toLocaleDateString():"—"}</td></tr>))}</tbody>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead><tr>{["Item","Code","Type","Total Qty","Transactions","Last Movement"].map(h=><th key={h} style={{...s.th,padding:"4px 6px",fontSize:10}}>{h}</th>)}</tr></thead>
+                    <tbody>{pharmReports.map((r:any,i:number)=>(<tr key={i}><td style={{...s.td,fontWeight:600,padding:"2px 6px",fontSize:11}}>{r.itemname||r.name}</td><td style={{...s.td,fontFamily:"monospace",fontSize:9,color:"#6b7280",padding:"2px 6px"}}>{r.itemcode}</td><td style={{...s.td,padding:"2px 6px",fontSize:11}}><span style={{fontSize:9,fontWeight:600,padding:"0px 4px",borderRadius:10,background:"#dbeafe",color:"#1d4ed8"}}>{r.transactiontype||r.type}</span></td><td style={{...s.td,fontWeight:700,padding:"2px 6px",fontSize:11}}>{r.totalqty||r.quantity}</td><td style={{...s.td,padding:"2px 6px",fontSize:11}}>{r.txcount||"—"}</td><td style={{...s.td,fontSize:10,color:"#6b7280",padding:"2px 6px"}}>{r.lastmoved?new Date(r.lastmoved).toLocaleDateString():"—"}</td></tr>))}</tbody>
                   </table>
                 )}
               </div>}
