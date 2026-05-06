@@ -34,14 +34,18 @@ export async function GET(
 
     // Search only pharmacy inventory items with stock
     // Return drug_id if available, otherwise use item_id
+    // Extract strength from name if not in drug tables (e.g., "Paracetamol 500mg" -> "500mg")
     const results = await db.execute(sql`
       SELECT DISTINCT ON (i.id)
         COALESCE(i.drug_id, i.id) as drugid,
         i.id as itemid,
         i.name,
         i.generic_name as genericname,
-        COALESCE(gd.form, d.form, '') as form,
-        COALESCE(gd.strength, d.strength, '') as strength,
+        COALESCE(gd.form, d.form, i.item_type::text, '') as form,
+        COALESCE(
+          NULLIF(gd.strength, ''), 
+          NULLIF(d.strength, '')
+        ) as strength,
         COALESCE(gd.unit, d.unit, i.uom) as unit,
         COALESCE(gd.description, d.description, '') as route,
         COALESCE(gd.atccode, d.atccode, '') as atccode,

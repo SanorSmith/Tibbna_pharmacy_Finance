@@ -474,6 +474,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       validPatientId = null;
     }
     
+    console.log('[Invoice Creation] Creating invoice with:', {
+      orderid,
+      patientid: validPatientId,
+      invoicenumber: invoiceNumber,
+      subtotal: subtotal.toFixed(2),
+      lineItemsCount: lineValues.length
+    });
+    
     const [inv] = await db
       .insert(invoices)
       .values({
@@ -488,9 +496,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
+    console.log('[Invoice Creation] Invoice created successfully:', {
+      invoiceid: inv.invoiceid,
+      invoicenumber: inv.invoicenumber,
+      status: inv.status,
+      total: inv.total
+    });
+
     for (const lv of lineValues) {
       await db.insert(invoiceLines).values({ ...lv, invoiceid: inv.invoiceid });
     }
+    
+    console.log(`[Invoice Creation] Added ${lineValues.length} line items to invoice ${inv.invoiceid}`);
 
     // Create OpenEHR ACTION.medication composition
     let dispenseCompositionUid: string | null = null;

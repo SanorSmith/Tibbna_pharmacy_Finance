@@ -290,8 +290,14 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
   };
 
   const handleSubmit = async () => {
+    console.log('[AddDrug] Submitting:', { isUpdate, name: form.name, warehouse: form.warehouseid, quantity: form.initial_quantity });
     if (!form.name.trim()) { setError("Drug name is required"); return; }
     if (!form.manufacturer.trim()) { setError("Manufacturer is required"); return; }
+    if (!form.warehouseid) { setError("Warehouse is required"); return; }
+    if (!form.initial_quantity || parseFloat(form.initial_quantity) <= 0) { 
+      setError("Quantity is required and must be greater than 0"); 
+      return; 
+    }
     setLoading(true);
     try {
       if (isUpdate && existingItem) {
@@ -342,6 +348,18 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error??"Failed");
+        
+        // Show message if item already existed
+        if (data.existing) {
+          console.log('[AddDrug] Item already exists:', data.message);
+          if (!data.stockAdded) {
+            setError(`"${form.name}" already exists in inventory but has no stock. Please search for it in the list above and click "Update Stock →" to add inventory.`);
+            setLoading(false);
+            return;
+          }
+          // If stock was added successfully, show success message
+          alert(`Stock added successfully to existing item "${form.name}"!`);
+        }
       }
       onSuccess(); onClose();
     } catch(e:any) { setError(e.message); }
@@ -397,8 +415,24 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
             </div>
           )}
 
-          {/* Dual Search - shown before entry type selector */}
-          {!isUpdate && (
+          {/* Entry type selector - shown first */}
+          {!entryType && !isUpdate && (
+            <div style={{marginBottom:20}}>
+              <label style={{...s.label,marginBottom:8}}>What are you adding?</label>
+              <select 
+                style={{...s.input,fontSize:14,fontWeight:600,padding:"12px 10px"}}
+                value={entryType || ""}
+                onChange={(e) => setEntryType(e.target.value as "medicine"|"item")}
+              >
+                <option value="" disabled>Select type...</option>
+                <option value="medicine">💊 Medicine / Drug - Prescription or OTC drug</option>
+                <option value="item">📦 Item / Supply - Device, cosmetic, supply</option>
+              </select>
+            </div>
+          )}
+
+          {/* Dual Search - shown after entry type selection */}
+          {!isUpdate && entryType && (
             <DualSearch
               workspaceid={workspaceid}
               onSelect={(drug)=>{
@@ -420,35 +454,18 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
               }}
             />
           )}
-
-          {/* Entry type selector */}
-          {!entryType && !isUpdate && (
-            <div style={{marginBottom:20}}>
-              <div style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:12}}>What are you adding?</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                <button onClick={()=>setEntryType("medicine")} style={{padding:"16px",borderRadius:10,border:"2px solid #6366f1",background:"#eef2ff",cursor:"pointer",textAlign:"left" as const}}>
-                  <div style={{fontSize:18,marginBottom:4}}>💊</div>
-                  <div style={{fontWeight:700,fontSize:14,color:"#6366f1"}}>Medicine / Drug</div>
-                  <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>Prescription or OTC drug</div>
-                </button>
-                <button onClick={()=>setEntryType("item")} style={{padding:"16px",borderRadius:10,border:"2px solid #16a34a",background:"#f0fdf4",cursor:"pointer",textAlign:"left" as const}}>
-                  <div style={{fontSize:18,marginBottom:4}}>📦</div>
-                  <div style={{fontWeight:700,fontSize:14,color:"#16a34a"}}>Item / Supply</div>
-                  <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>Device, cosmetic, supply</div>
-                </button>
-              </div>
-            </div>
-          )}
           {checkingExisting && <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>🔍 Checking pharmacy inventory...</div>}
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            {/* Item/Medicine name */}
-            <div style={{gridColumn:"1/-1",...s.fgroup}}>
-              <label style={s.label}>{entryType === "item" ? "Item Name" : "Medicine Name"} *</label>
-              <input style={s.input} value={form.name} onChange={e=>set("name",e.target.value)} placeholder={entryType === "item" ? "e.g. Syringe 10ml" : "e.g. Amoxicillin"}/>
-            </div>
+          {/* Only show form after entry type is selected */}
+          {(entryType || isUpdate) && (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {/* Item/Medicine name */}
+              <div style={{gridColumn:"1/-1",...s.fgroup}}>
+                <label style={s.label}>{entryType === "item" ? "Item Name" : "Medicine Name"} *</label>
+                <input style={s.input} value={form.name} onChange={e=>set("name",e.target.value)} placeholder={entryType === "item" ? "e.g. Syringe 10ml" : "e.g. Amoxicillin"}/>
+              </div>
 
-            {!isUpdate && entryType === "medicine" && <>
+              {!isUpdate && entryType === "medicine" && <>
               <div style={s.fgroup}><label style={s.label}>Generic Name</label><input style={s.input} value={form.genericname} onChange={e=>set("genericname",e.target.value)}/></div>
               <div style={s.fgroup}><label style={s.label}>ATC Code</label><input style={s.input} value={form.atccode} onChange={e=>set("atccode",e.target.value)} placeholder="e.g. J01CA04"/></div>
               <div style={s.fgroup}><label style={s.label}>Form</label>
@@ -591,13 +608,14 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
                 </>}
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div style={{padding:"16px 24px",borderTop:"1px solid #f3f4f6",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <button onClick={onClose} style={{...s.btn("ghost"),border:"1px solid #e5e7eb"}}>Cancel</button>
-          <button onClick={handleSubmit} disabled={loading} style={{...s.btn(isUpdate?"green":"purple"),display:"flex",alignItems:"center",gap:6}}>
+          <button onClick={handleSubmit} disabled={loading || (!entryType && !isUpdate)} style={{...s.btn(isUpdate?"green":"purple"),display:"flex",alignItems:"center",gap:6,opacity:(!entryType && !isUpdate)?0.5:1,cursor:(!entryType && !isUpdate)?"not-allowed":"pointer"}}>
             {loading?"Saving...":isUpdate?<><Icon d={icons.check} size={13} color="#fff"/> Update Stock</>:<><Icon d={icons.check} size={13} color="#fff"/> Add {entryType === "item" ? "Item" : "Medicine"}</>}
           </button>
         </div>

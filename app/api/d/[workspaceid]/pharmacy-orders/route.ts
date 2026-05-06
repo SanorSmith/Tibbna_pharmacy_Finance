@@ -13,6 +13,7 @@ import {
   drugs,
   users,
 } from "@/lib/db/schema";
+import { invoices } from "@/lib/db/tables/pharmacy-invoices";
 import { stockLevels } from "@/lib/db/tables/pharmacy-stock";
 import { drugBatches } from "@/lib/db/tables/pharmacy-drugs";
 import { eq, and, desc, ilike, sql, inArray, asc, gt } from "drizzle-orm";
@@ -135,6 +136,15 @@ export async function GET(
       .from(pharmacyOrderItems)
       .where(inArray(pharmacyOrderItems.orderid, orderIds)) : [];
 
+    // Fetch invoices for each order
+    const invoicesData = orderIds.length > 0 ? await db
+      .select({
+        orderid: invoices.orderid,
+        status: invoices.status,
+      })
+      .from(invoices)
+      .where(inArray(invoices.orderid, orderIds)) : [];
+
     // Group items by order
     const itemsByOrder = items.reduce((acc, item) => {
       if (!acc[item.orderid]) acc[item.orderid] = [];
@@ -142,24 +152,31 @@ export async function GET(
       return acc;
     }, {} as Record<string, typeof items>);
 
+    // Group invoices by order
+    const invoicesByOrder = invoicesData.reduce((acc, inv) => {
+      acc[inv.orderid] = inv.status;
+      return acc;
+    }, {} as Record<string, string>);
+
     // Calculate payment status and add items to orders
     const ordersWithDetails = orders.map(order => {
       const orderItems = itemsByOrder[order.orderid] || [];
       const totalAmount = orderItems.reduce((sum, item) => 
         sum + (parseFloat(item.unitprice || "0") * item.quantity), 0
       );
-      const isPaid = order.status === "DISPENSED" && totalAmount > 0;
       
-      // Determine payment status
+      // Get actual payment status from invoice, or calculate if no invoice
+      const invoiceStatus = invoicesByOrder[order.orderid];
       let paymentStatus: string;
-      if (order.status === "IN_PROGRESS") {
-        // Partially dispensed orders
+      
+      if (invoiceStatus) {
+        // Use actual invoice status
+        paymentStatus = invoiceStatus;
+      } else if (order.status === "DISPENSED") {
+        // Dispensed but no invoice - show as unpaid
+        paymentStatus = "UNPAID";
+      } else if (order.status === "IN_PROGRESS" || order.status === "PARTIALLY_DISPENSED") {
         paymentStatus = "PARTIALLY_PAID";
-      } else if (totalAmount === 0) {
-        // No payment required (free items, insurance-only, etc.)
-        paymentStatus = order.status === "DISPENSED" ? "PAID" : "UNPAID";
-      } else if (isPaid) {
-        paymentStatus = "PAID";
       } else {
         paymentStatus = "UNPAID";
       }
@@ -268,16 +285,45 @@ export async function POST(
         }
       }
 
-      // Construct dosage string from detailed fields
+      // Construct comprehensive dosage string from detailed fields
       let dosageString = item.dosage || "";
       if (!dosageString && item.doseAmount && item.doseUnit) {
-        // Build dosage string: "100 mg, Oral, Once daily"
+        // Build comprehensive dosage string with all fields
         const parts = [];
-        parts.push(`${item.doseAmount} ${item.doseUnit}`);
-        if (item.route) parts.push(item.route);
-        if (item.timingDirections) parts.push(item.timingDirections);
-        if (item.directionDuration) parts.push(`for ${item.directionDuration}`);
-        dosageString = parts.join(", ");
+        
+        // Dose
+        parts.push(`Dose: ${item.doseAmount} ${item.doseUnit}`);
+        
+        // Route
+        if (item.route) parts.push(`Route: ${item.route}`);
+        
+        // Timing
+        if (item.timingDirections) parts.push(`Timing: ${item.timingDirections}`);
+        
+        // Duration
+        if (item.directionDuration) parts.push(`Duration: ${item.directionDuration}`);
+        
+        // Instructions
+        if (item.additionalInstruction) parts.push(`Instructions: ${item.additionalInstruction}`);
+        
+        // Usage
+        if (item.usage) parts.push(`Usage: ${item.usage}`);
+        
+        // Valid Until
+        if (item.validUntil) parts.push(`Valid Until: ${item.validUntil}`);
+        
+        // As Required
+        if (item.asRequired) {
+          parts.push(`As Required (PRN): Yes${item.asRequiredCriterion ? ` - ${item.asRequiredCriterion}` : ''}`);
+        }
+        
+        // Clinical Indication
+        if (item.clinicalIndication) parts.push(`Clinical Indication: ${item.clinicalIndication}`);
+        
+        // Pharmacist Notes
+        if (item.pharmacistNotes) parts.push(`Pharmacist Notes: ${item.pharmacistNotes}`);
+        
+        dosageString = parts.join(" | ");
       }
 
       // Create item for the order with selected batch

@@ -27,11 +27,11 @@ const icons = {
 };
 
 const s: Record<string, any> = {
-  page:    { fontFamily: "Inter,sans-serif", minHeight: "100vh", background: "#f8f9fa", color: "#111827" },
+  page:    { fontFamily: "Inter,sans-serif", minHeight: "100vh", background: "#ffffff", color: "#111827" },
   header:  { background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "0 24px", height: 56, display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 10 },
   content: { padding: 24, maxWidth: 1400, margin: "0 auto" },
   tabs:    { display: "flex", gap: 4, marginBottom: 16, background: "#f3f4f6", flexWrap: "wrap" as const, borderRadius: 10, padding: "4px", position: "sticky" as const, top: 56, zIndex: 9 },
-  tab:     (a: boolean) => ({ padding: "10px 18px", fontSize: 13, fontWeight: a?700:500, border: "none", background: a?"#6366f1":"transparent", cursor: "pointer", borderBottom: "none", color: a?"#fff":"#6b7280", borderRadius: 8, margin: "4px 2px" }),
+  tab:     (a: boolean) => ({ padding: "10px 18px", fontSize: 13, fontWeight: 700, border: "1px solid #d1d5db", background: a?"#6366f1":"#f3f4f6", cursor: "pointer", color: a?"#fff":"#6b7280", borderRadius: 8, margin: "4px 2px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)" }),
   card:    { background: "#f3f4f6", borderRadius: 10, border: "1px solid #e5e7eb", overflow: "hidden", marginBottom: 16 },
   th:      { padding: "10px 12px", textAlign: "left" as const, fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" as const, background: "#f9fafb", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" as const },
   td:      { padding: "10px 12px", borderBottom: "1px solid #f9fafb", fontSize: 13, color: "#111827" },
@@ -699,8 +699,9 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
         fetch("/api/warehouses")
       ]);
       const [iData,dData,cData,sData,wData] = await Promise.all([iRes.json(),dRes.json(),cRes.json(),sRes.json(),wRes.json()]);
+      console.log('[PharmacyInventoryPage] Raw API response:', { hasItems: !!iData?.items, isArray: Array.isArray(iData), itemsLength: iData?.items?.length, iData });
       const itemsArray = iData?.items ?? (Array.isArray(iData)?iData:[]);
-      console.log('[PharmacyInventoryPage] First 3 items:', itemsArray.slice(0, 3).map((i:any) => ({ name: i.name, itemType: i.itemType, uom: i.uom })));
+      console.log('[PharmacyInventoryPage] Processed items array:', { length: itemsArray.length, first3: itemsArray.slice(0, 3).map((i:any) => ({ name: i.name, itemType: i.itemType, uom: i.uom })) });
       setItems(itemsArray);
       setDispenses(Array.isArray(dData)?dData:[]);
       setControlled(Array.isArray(cData)?cData:[]);

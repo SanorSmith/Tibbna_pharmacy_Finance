@@ -95,15 +95,21 @@ export async function GET(req: NextRequest) {
       MIN(CASE WHEN ib.expiry_date IS NOT NULL AND ib.quantity > 0
           THEN ib.expiry_date END)                 AS "nearestExpiry",
       (SELECT ib2.unit_cost FROM item_batches ib2
+        INNER JOIN inventory_stock ist2 ON ist2.batch_id = ib2.id
         WHERE ib2.item_id = i.id
           AND ib2.warehouse_id = ANY($1::uuid[])
           AND ib2.unit_cost IS NOT NULL
-        ORDER BY ib2.created_at DESC LIMIT 1)      AS "unitCost",
+          AND (ib2.expiry_date IS NULL OR ib2.expiry_date > CURRENT_DATE)
+          AND ist2.quantity > 0
+        ORDER BY ib2.expiry_date ASC NULLS LAST LIMIT 1)      AS "unitCost",
       (SELECT ib3.selling_price FROM item_batches ib3
+        INNER JOIN inventory_stock ist3 ON ist3.batch_id = ib3.id
         WHERE ib3.item_id = i.id
           AND ib3.warehouse_id = ANY($1::uuid[])
           AND ib3.selling_price IS NOT NULL
-        ORDER BY ib3.created_at DESC LIMIT 1)      AS "sellingPrice"
+          AND (ib3.expiry_date IS NULL OR ib3.expiry_date > CURRENT_DATE)
+          AND ist3.quantity > 0
+        ORDER BY ib3.expiry_date ASC NULLS LAST LIMIT 1)      AS "sellingPrice"
     FROM items i
     LEFT JOIN (
       SELECT 
@@ -128,21 +134,6 @@ export async function GET(req: NextRequest) {
         OR i.inventory_category = 'pharmacy'
         OR stock_agg.item_id IS NOT NULL
       )
-      ${source === 'inventory' ? `
-      AND (
-        -- Only show items that have inventory records (batches or stock)
-        EXISTS (
-          SELECT 1 FROM item_batches ib_check
-          WHERE ib_check.item_id = i.id
-            AND ib_check.warehouse_id = ANY($1::uuid[])
-        )
-        OR EXISTS (
-          SELECT 1 FROM inventory_stock ist_check
-          WHERE ist_check.item_id = i.id
-            AND ist_check.warehouse_id = ANY($1::uuid[])
-        )
-      )
-      ` : ''}
     AND (
         $2 = '%'
         OR i.name ILIKE $2
