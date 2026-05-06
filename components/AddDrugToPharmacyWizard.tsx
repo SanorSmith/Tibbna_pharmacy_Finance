@@ -444,12 +444,18 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
                 setExistingItem(item);
                 setForm(f=>({
                   ...f,
-                  name: item.name,
-                  genericname: item.genericName ?? f.genericname,
-                  form: item.itemType ?? f.form,
-                  unit_cost: String(item.unitCost ?? ""),
-                  selling_price: String(item.sellingPrice ?? ""),
-                  uom: item.uom ?? f.uom,
+                  name: item.name || "",
+                  genericname: item.generic_Name || item.genericName || "",
+                  form: item.itemType || f.form,
+                  unit_cost: String(item.unitCost || ""),
+                  selling_price: String(item.sellingPrice || ""),
+                  uom: item.uom || f.uom,
+                  manufacturer: item.manufacturer || "",
+                  supplier: item.supplierName || "",
+                  storage_location: item.storageLocationName || item.storageLocation || "",
+                  storage_type: item.storageType || "",
+                  barcode: item.barcode || "",
+                  itemcode: item.itemcode || "",
                 }));
               }}
             />
