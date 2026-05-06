@@ -440,7 +440,6 @@ export function AddDrugToPharmacyWizard({ warehouses, workspaceid, prefill, onCl
                 fillFromGlobal(drug);
               }}
               onSelectExisting={(item)=>{
-                console.log('[AddDrug] Selected existing item:', item);
                 setIsUpdate(true);
                 setExistingItem(item);
                 setForm(f=>({
