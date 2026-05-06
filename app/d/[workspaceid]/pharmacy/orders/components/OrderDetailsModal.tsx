@@ -1161,7 +1161,7 @@ export default function OrderDetailsModal({
                   }}
                 >
                   <ScanBarcode className="h-4 w-4" />
-                  Begin Dispensing
+                  Go to Checkout
                 </Button>
               ) : (
                 <Button 

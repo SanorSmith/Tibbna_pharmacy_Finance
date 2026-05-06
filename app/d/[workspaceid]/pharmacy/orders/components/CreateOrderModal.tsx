@@ -171,7 +171,7 @@ export default function CreateOrderModal({
   }, [patientSearch, workspaceid]);
 
   const handleAddItem = () => {
-    if (!currentItem.drugname || currentItem.quantity < 1) {
+    if (!currentItem.drugname || currentItem.quantity < 1 || !currentItem.additionalInstruction?.trim()) {
       return;
     }
 
@@ -1140,7 +1140,7 @@ export default function CreateOrderModal({
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Instructions</Label>
+                  <Label className="text-xs">Instructions *</Label>
                   <Select
                     value={currentItem.additionalInstruction}
                     onValueChange={(value) =>
@@ -1236,7 +1236,7 @@ export default function CreateOrderModal({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs">Instructions</Label>
+                  <Label className="text-xs">Instructions *</Label>
                   <Input
                     placeholder="e.g., Take with food"
                     value={currentItem.additionalInstruction}
@@ -1279,7 +1279,7 @@ export default function CreateOrderModal({
               variant="outline"
               size="sm"
               onClick={handleAddItem}
-              disabled={!currentItem.drugname || currentItem.quantity < 1}
+              disabled={!currentItem.drugname || currentItem.quantity < 1 || !currentItem.additionalInstruction?.trim()}
               className=" w-full bg-gray-100 hover:bg-green-300 text-gray-900 gap-2"
             >
               <Plus className="h-4 w-4 mr-2" />
