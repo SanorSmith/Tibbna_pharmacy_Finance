@@ -35,6 +35,7 @@ import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
 import DrugInteractions from "./components/DrugInteractions";
 import PharmacyInventoryPage from "../../pharmacy-inventory/page";
+import PharmacyTodos from "./components/PharmacyTodos";
 
 const PRIMARY = "#618FF5";
 
@@ -82,9 +83,7 @@ export default function PharmacyDashboard({
     const fetchPharmacyStats = async () => {
       try {
         console.log('[PharmacyDashboard] Fetching stats for workspace:', workspaceid);
-        // Add cache-busting to force fresh data
-        const cacheBuster = Date.now();
-        const res = await fetch(`/api/pharmacy/summary?workspaceId=${workspaceid}&_cb=${cacheBuster}`);
+        const res = await fetch(`/api/pharmacy/summary?workspaceId=${workspaceid}`);
         if (res.ok) {
           const data = await res.json();
           if (!data.error) {
@@ -106,9 +105,9 @@ export default function PharmacyDashboard({
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    staleTime: 0, // Always fetch fresh data (disable cache)
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: true, // Only fetch on initial mount
+    refetchOnMount: false, // Use cached data if available
     enabled: !!workspaceid, // Only run query when workspaceid is available
   });
 
@@ -161,13 +160,6 @@ export default function PharmacyDashboard({
           >
             <Warehouse className="h-4 w-4" />
             Inventory
-          </TabsTrigger>
-          <TabsTrigger
-            value="insurance"
-            className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
-          >
-            <Shield className="h-4 w-4" />
-            Insurance
           </TabsTrigger>
           <TabsTrigger
             value="todo"
@@ -536,17 +528,10 @@ export default function PharmacyDashboard({
         )}
       </TabsContent>
 
-      {/* Insurance Tab */}
-      <TabsContent value="insurance" className="mt-4 px-4">
-        {loadedTabs.has("insurance") && (
-          <PlaceholderTab title="Insurance" description="Insurance management — coming soon" icon={<Shield className="h-12 w-12 text-gray-300" />} />
-        )}
-      </TabsContent>
-
       {/* To Do Tab */}
       <TabsContent value="todo" className="mt-4 px-4">
         {loadedTabs.has("todo") && (
-          <PlaceholderTab title="To Do" description="Task management and reminders" icon={<ListTodo className="h-12 w-12 text-gray-300" />} />
+          <PharmacyTodos workspaceid={workspaceid} />
         )}
       </TabsContent>
     </Tabs>

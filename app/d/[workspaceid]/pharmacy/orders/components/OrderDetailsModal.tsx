@@ -985,17 +985,24 @@ export default function OrderDetailsModal({
                       }, 0);
                     };
 
-                    const totalFromInvoice = invoice?.total ? parseFloat(invoice.total) : 0;
                     const totalFromItems = calculateTotalFromItems();
-                    const finalTotal = totalFromInvoice || totalFromItems;
+                    const finalTotal = totalFromItems;
 
+                    // Get invoice amounts (only for dispensed items)
+                    const invoiceTotal = invoice?.total ? parseFloat(invoice.total) : 0;
                     const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
                     const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
                     
-                    const patientPay = patientFromInvoice || finalTotal;
-                    const insurancePay = insuranceFromInvoice || 0;
-                    const doctorShare = finalTotal - patientPay - insurancePay;
-                    const insurancePercentage = invoice?.insurancecovered ? String(Math.round((parseFloat(invoice.insurancecovered) / parseFloat(invoice.total || "1")) * 100)) + "%" : "0%";
+                    // Calculate remaining amount (for pending items)
+                    const remainingDue = finalTotal - invoiceTotal;
+                    
+                    // Patient pays = what they already paid + what's remaining
+                    const patientPay = patientFromInvoice + remainingDue;
+                    const insurancePay = insuranceFromInvoice;
+                    const doctorShare = 0; // No doctor share in this system
+                    const insurancePercentage = invoice?.insurancecovered && invoiceTotal > 0
+                      ? String(Math.round((parseFloat(invoice.insurancecovered) / invoiceTotal) * 100)) + "%"
+                      : "0%";
 
                     return (
                       <div className="space-y-3">
@@ -1004,16 +1011,23 @@ export default function OrderDetailsModal({
                           <span className="font-semibold text-blue-600">{insurancePercentage}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Patient pays</span>
-                          <span className="font-semibold text-green-600">{patientPay.toFixed(2)} IQD</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Insurance</span>
+                          <span className="text-muted-foreground">Insurance Covered</span>
                           <span className="font-semibold text-blue-600">{insurancePay.toFixed(2)} IQD</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-muted-foreground">Doctor Share</span>
                           <span className="font-semibold text-purple-600">{doctorShare.toFixed(2)} IQD</span>
+                        </div>
+                        <div className="border-t pt-2 mt-2"></div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Amount Paid</span>
+                          <span className="font-semibold text-green-600">{patientFromInvoice.toFixed(2)} IQD</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Remaining Due</span>
+                          <span className={`font-semibold ${remainingDue > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                            {remainingDue.toFixed(2)} IQD
+                          </span>
                         </div>
                         <div className="border-t pt-3 flex justify-between items-center">
                           <span className="font-semibold">Total</span>
