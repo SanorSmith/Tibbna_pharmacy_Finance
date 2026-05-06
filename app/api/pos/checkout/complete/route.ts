@@ -87,12 +87,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = checkoutSchema.parse(body);
 
-    // Validate: payments total must match sale total
+    // Calculate payments total
     const paymentsTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
-    if (paymentsTotal < data.totalAmount - 0.01) {
+    
+    // Validate: at least some payment is provided
+    if (paymentsTotal <= 0) {
       return NextResponse.json(
         {
-          error: "Insufficient payment",
+          error: "Payment required",
           expected: data.totalAmount,
           received: paymentsTotal,
         },
@@ -431,18 +433,48 @@ export async function POST(request: NextRequest) {
           .limit(1);
 
         if (existingInvoice) {
-          // Update existing invoice to PAID
+          // For existing invoice, calculate cumulative payments from all POS sales for this order
+          const previousSales = await tx
+            .select({
+              totalamount: posSales.totalamount,
+            })
+            .from(posSales)
+            .where(eq(posSales.pharmacyorderid, data.pharmacyOrderId));
+          
+          // Calculate total amount paid across all sales (including current one)
+          const cumulativePayments = previousSales.reduce(
+            (sum, s) => sum + parseFloat(s.totalamount || "0"),
+            paymentsTotal // Add current payment
+          );
+          
+          // Get the full invoice total
+          const invoiceTotal = parseFloat(existingInvoice.total || "0");
+          
+          // Determine invoice status based on cumulative payments vs full invoice total
+          const TOLERANCE = 0.01;
+          const isFullyPaid = cumulativePayments >= (invoiceTotal - TOLERANCE);
+          const invoiceStatus = isFullyPaid ? "PAID" : "PARTIALLY_PAID";
+          
+          console.log(`[POS] Invoice payment check: cumulativePayments=${cumulativePayments}, invoiceTotal=${invoiceTotal}, status=${invoiceStatus}`);
+          
+          // Update existing invoice
           await tx
             .update(invoices)
             .set({
-              status: paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID",
+              status: invoiceStatus,
               updatedat: new Date(),
             })
             .where(eq(invoices.invoiceid, existingInvoice.invoiceid));
           
-          console.log(`[POS] Updated invoice ${existingInvoice.invoicenumber} to ${paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID"}`);
+          console.log(`[POS] Updated invoice ${existingInvoice.invoicenumber} to ${invoiceStatus}`);
         } else {
-          // Create new invoice
+          // Create new invoice - for first payment, compare payment against cart total
+          const TOLERANCE = 0.01;
+          const isFullyPaid = paymentsTotal >= (data.totalAmount - TOLERANCE);
+          const invoiceStatus = isFullyPaid ? "PAID" : "PARTIALLY_PAID";
+          
+          console.log(`[POS] Creating new invoice: paymentsTotal=${paymentsTotal}, totalAmount=${data.totalAmount}, status=${invoiceStatus}`);
+          
           const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
           const [newInvoice] = await tx
             .insert(invoices)
@@ -450,7 +482,7 @@ export async function POST(request: NextRequest) {
               orderid: data.pharmacyOrderId,
               patientid: data.patientId || null,
               invoicenumber: invoiceNumber,
-              status: paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID",
+              status: invoiceStatus,
               subtotal: data.subtotal.toFixed(2),
               insurancecovered: "0.00",
               patientcopay: data.totalAmount.toFixed(2),
@@ -472,7 +504,7 @@ export async function POST(request: NextRequest) {
             });
           }
 
-          console.log(`[POS] Created invoice ${invoiceNumber} with status ${paymentsTotal >= data.totalAmount ? "PAID" : "PARTIALLY_PAID"}`);
+          console.log(`[POS] Created invoice ${invoiceNumber} with status ${invoiceStatus}`);
         }
       }
 

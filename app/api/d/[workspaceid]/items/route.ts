@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { items, itemBatches, inventoryStock, warehouses, warehouseSections, drugs } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 export async function POST(
@@ -63,7 +63,22 @@ export async function POST(
     let finalDrugId = drugid;
     if (itemtype === "drug" && (form || strength || atccode) && !drugid) {
       // Check if drug with same name already exists in this workspace
-      const [existingDrug] = await db
+      // First, try to find exact match by name + strength + form
+      const exactMatch = await db
+        .select()
+        .from(drugs)
+        .where(
+          and(
+            eq(drugs.workspaceid, workspaceid),
+            eq(drugs.name, name),
+            strength ? eq(drugs.strength, strength) : sql`${drugs.strength} IS NULL`,
+            form ? eq(drugs.form, form) : sql`${drugs.form} IS NULL`
+          )
+        )
+        .limit(1);
+      
+      // If no exact match, find by name only (for logging duplicates)
+      const allMatchingDrugs = await db
         .select()
         .from(drugs)
         .where(
@@ -71,12 +86,27 @@ export async function POST(
             eq(drugs.workspaceid, workspaceid),
             eq(drugs.name, name)
           )
-        )
-        .limit(1);
+        );
+      
+      console.log('[Items POST] Found', exactMatch.length, 'exact matches and', allMatchingDrugs.length, 'total drugs with name:', name);
+      
+      const [existingDrug] = exactMatch.length > 0 ? exactMatch : [];
 
       if (existingDrug) {
         finalDrugId = existingDrug.drugid;
-        console.log('[Items POST] Using existing drug record:', finalDrugId);
+        console.log('[Items POST] Using existing drug record:', finalDrugId, 'for', name, strength, form);
+        
+        // Update generic name and manufacturer if provided
+        if (genericname || manufacturer) {
+          await db
+            .update(drugs)
+            .set({
+              genericname: genericname || existingDrug.genericname,
+              manufacturer: manufacturer || existingDrug.manufacturer,
+            })
+            .where(eq(drugs.drugid, existingDrug.drugid));
+          console.log('[Items POST] Updated existing drug metadata');
+        }
       } else {
         const [newDrug] = await db
           .insert(drugs)
@@ -152,13 +182,29 @@ export async function POST(
 
     // If item exists, use it to add batch/stock info
     if (existingByName.length > 0) {
-      console.log('[Items POST] Item with same name already exists, using existing:', existingByName[0].name);
+      console.log('[Items POST] Item with same name already exists:', existingByName[0].name, 'ID:', existingByName[0].id);
       const existingItem = existingByName[0];
       let batchId = null;
       let stockAdded = false;
+      
+      // Update drug record if strength/form provided and drug exists
+      if (existingItem.drugid && (strength || form)) {
+        await db
+          .update(drugs)
+          .set({
+            strength: strength || undefined,
+            form: form || undefined,
+            genericname: genericname || undefined,
+            manufacturer: manufacturer || undefined,
+          })
+          .where(eq(drugs.drugid, existingItem.drugid));
+        console.log('[Items POST] Updated drug record with new strength/form');
+      }
 
       // If addStock is true and warehouse/batch info provided, create batch and stock for existing item
+      console.log('[Items POST] Checking stock addition:', { addStock, warehouseid, batchnumber, quantity });
       if (addStock && warehouseid && batchnumber && quantity > 0) {
+        console.log('[Items POST] Adding stock to existing item:', { quantity, warehouseid, batchnumber });
         // Verify warehouse exists
         const [warehouse] = await db
           .select()
@@ -175,6 +221,7 @@ export async function POST(
 
         // Create batch
         batchId = crypto.randomUUID();
+        console.log('[Items POST] Creating batch:', batchId, 'with quantity:', quantity);
         await db.insert(itemBatches).values({
           id: batchId,
           itemid: existingItem.id,
@@ -221,6 +268,7 @@ export async function POST(
         stockAdded = true;
       }
 
+      console.log('[Items POST] Returning existing item response:', { stockAdded, batchId, itemId: existingItem.id });
       return NextResponse.json(
         {
           message: stockAdded ? "Batch/stock added to existing item" : "Existing item found, no stock added (warehouse/quantity not provided)",
@@ -235,6 +283,7 @@ export async function POST(
 
     // Create the item
     const itemId = crypto.randomUUID();
+    console.log('[Items POST] Creating new item:', name, 'with drugid:', finalDrugId);
     const [newItem] = await db
       .insert(items)
       .values({
@@ -257,6 +306,8 @@ export async function POST(
         isactive: true,
       })
       .returning();
+    
+    console.log('[Items POST] Successfully created item:', newItem.id, newItem.name);
 
     // If addStock is true and warehouse/batch info provided, create batch and stock
     if (addStock && warehouseid && batchnumber && quantity > 0) {

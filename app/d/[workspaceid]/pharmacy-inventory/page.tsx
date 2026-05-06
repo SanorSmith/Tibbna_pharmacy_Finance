@@ -699,8 +699,9 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
         fetch("/api/warehouses")
       ]);
       const [iData,dData,cData,sData,wData] = await Promise.all([iRes.json(),dRes.json(),cRes.json(),sRes.json(),wRes.json()]);
+      console.log('[PharmacyInventoryPage] Raw API response:', { hasItems: !!iData?.items, isArray: Array.isArray(iData), itemsLength: iData?.items?.length, iData });
       const itemsArray = iData?.items ?? (Array.isArray(iData)?iData:[]);
-      console.log('[PharmacyInventoryPage] First 3 items:', itemsArray.slice(0, 3).map((i:any) => ({ name: i.name, itemType: i.itemType, uom: i.uom })));
+      console.log('[PharmacyInventoryPage] Processed items array:', { length: itemsArray.length, first3: itemsArray.slice(0, 3).map((i:any) => ({ name: i.name, itemType: i.itemType, uom: i.uom })) });
       setItems(itemsArray);
       setDispenses(Array.isArray(dData)?dData:[]);
       setControlled(Array.isArray(cData)?cData:[]);
