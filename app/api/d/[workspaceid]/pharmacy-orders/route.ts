@@ -14,6 +14,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { invoices } from "@/lib/db/tables/pharmacy-invoices";
+import { posSales } from "@/lib/db/tables/pos-schema";
 import { stockLevels } from "@/lib/db/tables/pharmacy-stock";
 import { drugBatches } from "@/lib/db/tables/pharmacy-drugs";
 import { eq, and, desc, ilike, sql, inArray, asc, gt } from "drizzle-orm";
@@ -94,56 +95,88 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
 
-    const conditions: any[] = [eq(pharmacyOrders.workspaceid, workspaceid)];
-    if (status) conditions.push(eq(pharmacyOrders.status, status as any));
+    // Build base conditions for pharmacy orders table
+    const baseConditions: any[] = [eq(pharmacyOrders.workspaceid, workspaceid)];
+    if (status) baseConditions.push(eq(pharmacyOrders.status, status as any));
 
-    const orders = await db
-      .select({
-        orderid: pharmacyOrders.orderid,
-        patientid: pharmacyOrders.patientid,
-        status: pharmacyOrders.status,
-        source: pharmacyOrders.source,
-        priority: pharmacyOrders.priority,
-        notes: pharmacyOrders.notes,
-        openehrorderid: pharmacyOrders.openehrorderid,
-        dispensedby: pharmacyOrders.dispensedby,
-        dispensedat: pharmacyOrders.dispensedat,
-        createdat: pharmacyOrders.createdat,
-        updatedat: pharmacyOrders.updatedat,
-        patientfirst: patients.firstname,
-        patientlast: patients.lastname,
-        prescriberid: pharmacyOrders.prescriberid,
-        prescribername: users.name,
-        metadata: pharmacyOrders.metadata,
-      })
-      .from(pharmacyOrders)
-      .leftJoin(patients, eq(pharmacyOrders.patientid, patients.patientid))
-      .leftJoin(users, eq(pharmacyOrders.prescriberid, users.userid))
-      .where(and(...conditions))
-      .orderBy(desc(pharmacyOrders.createdat))
-      .limit(200);
+    // Run all queries in parallel for better performance
+    const [orders, items, invoicesData, posSalesData] = await Promise.all([
+      // Fetch orders with patient name search
+      (async () => {
+        let query = db
+          .select({
+            orderid: pharmacyOrders.orderid,
+            patientid: pharmacyOrders.patientid,
+            status: pharmacyOrders.status,
+            source: pharmacyOrders.source,
+            priority: pharmacyOrders.priority,
+            notes: pharmacyOrders.notes,
+            openehrorderid: pharmacyOrders.openehrorderid,
+            dispensedby: pharmacyOrders.dispensedby,
+            dispensedat: pharmacyOrders.dispensedat,
+            createdat: pharmacyOrders.createdat,
+            updatedat: pharmacyOrders.updatedat,
+            patientfirst: patients.firstname,
+            patientlast: patients.lastname,
+            prescriberid: pharmacyOrders.prescriberid,
+            prescribername: users.name,
+            metadata: pharmacyOrders.metadata,
+          })
+          .from(pharmacyOrders)
+          .leftJoin(patients, eq(pharmacyOrders.patientid, patients.patientid))
+          .leftJoin(users, eq(pharmacyOrders.prescriberid, users.userid));
 
-    // Fetch order items for each order
-    const orderIds = orders.map(o => o.orderid);
-    const items = orderIds.length > 0 ? await db
-      .select({
-        orderid: pharmacyOrderItems.orderid,
-        drugname: pharmacyOrderItems.drugname,
-        quantity: pharmacyOrderItems.quantity,
-        unitprice: pharmacyOrderItems.unitprice,
-      })
-      .from(pharmacyOrderItems)
-      .where(inArray(pharmacyOrderItems.orderid, orderIds)) : [];
+        // Build WHERE conditions including patient search
+        const whereConditions = [...baseConditions];
+        if (search && search.trim()) {
+          whereConditions.push(
+            sql`(LOWER(${patients.firstname}) LIKE LOWER(${'%' + search.trim() + '%'}) OR LOWER(${patients.lastname}) LIKE LOWER(${'%' + search.trim() + '%'}))`
+          );
+        }
 
-    // Fetch invoices for each order
-    const invoicesData = orderIds.length > 0 ? await db
-      .select({
-        orderid: invoices.orderid,
-        status: invoices.status,
-      })
-      .from(invoices)
-      .where(inArray(invoices.orderid, orderIds)) : [];
+        return query
+          .where(and(...whereConditions))
+          .orderBy(desc(pharmacyOrders.createdat))
+          .limit(200);
+      })(),
+
+      // Fetch all order items (we'll filter by orderIds after)
+      db
+        .select({
+          orderid: pharmacyOrderItems.orderid,
+          drugname: pharmacyOrderItems.drugname,
+          quantity: pharmacyOrderItems.quantity,
+          unitprice: pharmacyOrderItems.unitprice,
+        })
+        .from(pharmacyOrderItems)
+        .innerJoin(pharmacyOrders, eq(pharmacyOrderItems.orderid, pharmacyOrders.orderid))
+        .where(and(...baseConditions))
+        .orderBy(desc(pharmacyOrders.createdat))
+        .limit(1000),
+
+      // Fetch all invoices
+      db
+        .select({
+          orderid: invoices.orderid,
+          status: invoices.status,
+          total: invoices.total,
+        })
+        .from(invoices)
+        .innerJoin(pharmacyOrders, eq(invoices.orderid, pharmacyOrders.orderid))
+        .where(and(...baseConditions)),
+
+      // Fetch all POS sales for these orders to calculate cumulative payments
+      db
+        .select({
+          pharmacyorderid: posSales.pharmacyorderid,
+          totalamount: posSales.totalamount,
+        })
+        .from(posSales)
+        .innerJoin(pharmacyOrders, eq(posSales.pharmacyorderid, pharmacyOrders.orderid))
+        .where(and(...baseConditions)),
+    ]);
 
     // Group items by order
     const itemsByOrder = items.reduce((acc, item) => {
@@ -154,9 +187,19 @@ export async function GET(
 
     // Group invoices by order
     const invoicesByOrder = invoicesData.reduce((acc, inv) => {
-      acc[inv.orderid] = inv.status;
+      acc[inv.orderid] = { status: inv.status, total: inv.total };
       return acc;
-    }, {} as Record<string, string>);
+    }, {} as Record<string, { status: string; total: string }>);
+
+    // Group POS sales by order and calculate cumulative payments
+    const paymentsByOrder = posSalesData.reduce((acc, sale) => {
+      if (!sale.pharmacyorderid) return acc;
+      if (!acc[sale.pharmacyorderid]) {
+        acc[sale.pharmacyorderid] = 0;
+      }
+      acc[sale.pharmacyorderid] += parseFloat(sale.totalamount || "0");
+      return acc;
+    }, {} as Record<string, number>);
 
     // Calculate payment status and add items to orders
     const ordersWithDetails = orders.map(order => {
@@ -165,18 +208,29 @@ export async function GET(
         sum + (parseFloat(item.unitprice || "0") * item.quantity), 0
       );
       
-      // Get actual payment status from invoice, or calculate if no invoice
-      const invoiceStatus = invoicesByOrder[order.orderid];
+      const invoice = invoicesByOrder[order.orderid];
+      const cumulativePayments = paymentsByOrder[order.orderid] || 0;
       let paymentStatus: string;
       
-      if (invoiceStatus) {
-        // Use actual invoice status
-        paymentStatus = invoiceStatus;
+      // If order is partially dispensed, payment status should be PARTIALLY_PAID
+      // even if the invoice for dispensed items is fully paid
+      if (order.status === "PARTIALLY_DISPENSED" || order.status === "IN_PROGRESS") {
+        paymentStatus = "PARTIALLY_PAID";
+      } else if (invoice) {
+        // Calculate payment status based on cumulative payments vs invoice total
+        const invoiceTotal = parseFloat(invoice.total || "0");
+        const TOLERANCE = 0.01;
+        
+        if (cumulativePayments >= (invoiceTotal - TOLERANCE)) {
+          paymentStatus = "PAID";
+        } else if (cumulativePayments > 0) {
+          paymentStatus = "PARTIALLY_PAID";
+        } else {
+          paymentStatus = "UNPAID";
+        }
       } else if (order.status === "DISPENSED") {
         // Dispensed but no invoice - show as unpaid
         paymentStatus = "UNPAID";
-      } else if (order.status === "IN_PROGRESS" || order.status === "PARTIALLY_DISPENSED") {
-        paymentStatus = "PARTIALLY_PAID";
       } else {
         paymentStatus = "UNPAID";
       }

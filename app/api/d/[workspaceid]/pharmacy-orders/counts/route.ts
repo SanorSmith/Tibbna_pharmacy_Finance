@@ -5,10 +5,10 @@ import { eq, sql } from "drizzle-orm";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { workspaceid: string } }
+  { params }: { params: Promise<{ workspaceid: string }> }
 ) {
   try {
-    const { workspaceid } = params;
+    const { workspaceid } = await params;
 
     // Get counts for each status
     const result = await db

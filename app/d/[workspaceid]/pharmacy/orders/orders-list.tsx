@@ -111,14 +111,21 @@ export default function PharmacyOrdersPage({
     queryKey: ["pharmacy-orders", workspaceid, statusFilter, search],
     queryFn: async () => {
       if (!search.trim()) return []; // Don't fetch if no search query
-      const qs = statusFilter !== "all" ? `?status=${statusFilter}` : "";
+      
+      // Build query string with status and search filters
+      const params = new URLSearchParams();
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      if (search.trim()) params.append("search", search.trim());
+      
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/d/${workspaceid}/pharmacy-orders${qs}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       return data.orders || [];
     },
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 10 * 1000, // Cache for 10 seconds (shorter for testing)
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnMount: false, // Use cached data if available
     enabled: search.trim().length > 0, // Only enable query when search is active
   });
 
