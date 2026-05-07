@@ -176,9 +176,7 @@ export const posSaleItems = pgTable(
     drugid: uuid("drugid")
       .references(() => drugs.drugid),
     drugname: text("drugname").notNull(),
-    batchid: uuid("batchid").references(() => drugBatches.batchid, {
-      onDelete: "set null",
-    }),
+    batchid: uuid("batchid"), // No FK - can reference either drug_batches or item_batches during migration
     lotnumber: text("lotnumber"),
     expirydate: date("expirydate"),
 

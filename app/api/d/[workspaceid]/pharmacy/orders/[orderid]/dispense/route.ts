@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/user";
 import { getUserWorkspaces } from "@/lib/db/queries/workspace";
 import { db } from "@/lib/db";
-import { pharmacyOrders, pharmacyOrderItems, patients, drugBatches } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { pharmacyOrders, pharmacyOrderItems, patients, drugBatches, warehouses, inventoryStock, stockTransactions } from "@/lib/db/schema";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { UserWorkspace } from "@/lib/db/tables/workspace";
 import { createMedicationDispenseComposition, MEDICATION_DISPENSE_ACTION_STATES } from "@/lib/openehr/medication-dispense";
 import { createOpenEHRComposition, getOpenEHREHRBySubjectId } from "@/lib/openehr/openehr";
@@ -151,6 +151,60 @@ export async function POST(
           notes: dispenseData.notes,
         })
         .where(eq(pharmacyOrderItems.itemid, item.itemid));
+
+      // Deduct inventory stock
+      const dispenseQuantity = dispenseData.quantity || item.quantity;
+      if (dispenseQuantity > 0) {
+        // Find pharmacy warehouse
+        const pharmacyWarehouse = await db
+          .select({ id: warehouses.id })
+          .from(warehouses)
+          .where(eq(warehouses.warehousetype, 'pharmacy'))
+          .limit(1);
+
+        if (pharmacyWarehouse.length > 0) {
+          // Find inventory stock record for this item
+          if (item.drugid) {
+            const stockRecord = await db
+              .select()
+              .from(inventoryStock)
+              .where(
+                and(
+                  eq(inventoryStock.itemid, item.drugid),
+                  eq(inventoryStock.warehouseid, pharmacyWarehouse[0].id),
+                  dispenseData.batchid ? eq(inventoryStock.batchid, dispenseData.batchid) : isNotNull(inventoryStock.batchid)
+                )
+              )
+              .limit(1);
+
+            if (stockRecord.length > 0) {
+              const newQuantity = Math.max(0, stockRecord[0].quantity - dispenseQuantity);
+              await db
+                .update(inventoryStock)
+                .set({ 
+                  quantity: newQuantity,
+                  lastupdated: new Date()
+                })
+                .where(eq(inventoryStock.id, stockRecord[0].id));
+
+              // Create stock transaction record
+              await db
+                .insert(stockTransactions)
+                .values({
+                  itemid: item.drugid,
+                  warehouseid: pharmacyWarehouse[0].id,
+                  batchid: dispenseData.batchid || item.batchid,
+                  transactiontype: 'DISPENSE',
+                  quantity: -dispenseQuantity,
+                  referenceid: orderid,
+                  referencetype: 'PHARMACY_ORDER',
+                  createdat: new Date(),
+                  createdby: user.userid,
+                });
+            }
+          }
+        }
+      }
     }
 
     // Update pharmacy order

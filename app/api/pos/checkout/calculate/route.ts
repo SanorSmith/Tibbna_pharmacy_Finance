@@ -2,24 +2,23 @@
  * POS Checkout Calculate API
  *
  * POST — calculate subtotal, tax, insurance coverage, copay, totals
- * 
- * UPDATED: Now accepts itemId as primary identifier and uses inventory_stock
+ *
+ * Uses the unified inventory system: inventory_stock for stock validation
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { insuranceCompanies, inventoryStock, warehouses, drugs } from "@/lib/db/schema";
-import { stockLevels } from "@/lib/db/tables/pharmacy-stock";
-import { eq, and } from "drizzle-orm";
+import { insuranceCompanies, inventoryStock } from "@/lib/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 import { z } from "zod";
 
 const calculateSchema = z.object({
   items: z.array(
     z.object({
-      itemId: z.string().uuid().optional(), // Primary identifier
-      drugId: z.string().uuid().optional(), // Fallback for backward compatibility
+      drugId: z.string().uuid().optional().nullable(),
+      itemId: z.string().uuid().optional().nullable(),
       drugName: z.string(),
-      batchId: z.string().uuid().optional(),
+      batchId: z.string().uuid().optional().nullable(),
       quantity: z.number().int().positive(),
       unitPrice: z.number().nonnegative(),
     })
@@ -80,88 +79,48 @@ export async function POST(request: NextRequest) {
     const total = afterDiscount + taxAmount;
     const patientCopay = total - insuranceCoverage;
 
-    // Get default pharmacy warehouse
-    const [warehouse] = await db
-      .select()
-      .from(warehouses)
-      .where(eq(warehouses.name, "Pharmacy"))
-      .limit(1);
-    
-    const warehouseId = warehouse?.id || "22222222-0000-0000-0000-000000000002";
-
-    // Validate stock availability for each item using inventory_stock
+    // Validate stock availability using inventory_stock (unified system)
     const stockWarnings: string[] = [];
     for (const item of data.items) {
-      // Resolve itemId from drugId if not provided (backward compatibility)
+      // Resolve item_id: use itemId directly, or look up from drugId
       let resolvedItemId = item.itemId;
       if (!resolvedItemId && item.drugId) {
-        const [drug] = await db
-          .select({ itemid: drugs.itemid })
-          .from(drugs)
-          .where(eq(drugs.drugid, item.drugId))
-          .limit(1);
-        resolvedItemId = drug?.itemid || null;
+        const found = await db.execute(sql`
+          SELECT id FROM items WHERE drug_id = ${item.drugId} LIMIT 1
+        `);
+        resolvedItemId = (found as any)?.[0]?.id || null;
+      }
+      if (!resolvedItemId && item.drugName) {
+        const found = await db.execute(sql`
+          SELECT id FROM items WHERE name = ${item.drugName} LIMIT 1
+        `);
+        resolvedItemId = (found as any)?.[0]?.id || null;
       }
 
       if (resolvedItemId) {
-        // Use new inventory_stock system
-        const stockFilter = item.batchId
-          ? and(
-              eq(inventoryStock.itemid, resolvedItemId),
-              eq(inventoryStock.batchid, item.batchId),
-              eq(inventoryStock.warehouseid, warehouseId)
-            )
-          : and(
-              eq(inventoryStock.itemid, resolvedItemId),
-              eq(inventoryStock.warehouseid, warehouseId)
-            );
+        // Check total available stock from inventory_stock
+        const stockResult = await db.execute(sql`
+          SELECT COALESCE(SUM(ist.quantity - ist.reserved_quantity), 0) as available
+          FROM inventory_stock ist
+          LEFT JOIN item_batches ib ON ib.id = ist.batch_id AND ib.item_id = ist.item_id
+          WHERE ist.item_id = ${resolvedItemId}
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP OR ib.id IS NULL)
+            AND (ib.is_quarantined = false OR ib.id IS NULL)
+            AND ist.quantity > 0
+            ${item.batchId ? sql`AND ist.batch_id = ${item.batchId}` : sql``}
+        `);
+        const available = parseInt((stockResult as any)?.[0]?.available || "0");
+        
+        console.log(`[POS Calculate] Stock check for ${item.drugName}: resolvedItemId=${resolvedItemId}, available=${available}, requested=${item.quantity}`);
 
-        const stockRecords = await db
-          .select()
-          .from(inventoryStock)
-          .where(stockFilter);
-
-        if (stockRecords.length === 0) {
+        if (available <= 0) {
           stockWarnings.push(
-            `${item.drugName}: no stock record found${item.batchId ? ' for this batch' : ''}`
+            `${item.drugName}: no stock record found`
           );
-        } else {
-          const totalAvailable = stockRecords.reduce(
-            (sum, record) => sum + (record.quantity - record.reservedquantity),
-            0
-          );
-          if (totalAvailable < item.quantity) {
-            stockWarnings.push(
-              `${item.drugName}: only ${totalAvailable} available (requested ${item.quantity})`
-            );
-          }
-        }
-      } else if (item.drugId) {
-        // Fallback to legacy stock system for backward compatibility
-        const stockFilter = item.batchId
-          ? and(
-              eq(stockLevels.drugid, item.drugId),
-              eq(stockLevels.batchid, item.batchId)
-            )
-          : eq(stockLevels.drugid, item.drugId);
-
-        const [sl] = await db
-          .select()
-          .from(stockLevels)
-          .where(stockFilter)
-          .limit(1);
-
-        if (!sl) {
+        } else if (available < item.quantity) {
           stockWarnings.push(
-            `${item.drugName}: no stock record found (legacy system)`
+            `${item.drugName}: only ${available} available (requested ${item.quantity})`
           );
-        } else {
-          const available = sl.quantity - sl.reservedquantity;
-          if (available < item.quantity) {
-            stockWarnings.push(
-              `${item.drugName}: only ${available} available (requested ${item.quantity})`
-            );
-          }
         }
       }
     }

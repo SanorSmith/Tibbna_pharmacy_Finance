@@ -9,17 +9,16 @@ import { Search, Pill, Loader2, Plus } from "lucide-react";
 import type { CartItem } from "../pos-page";
 
 type Drug = {
-  itemId: string;
-  drugId: string;
+  drugid: string;
   name: string;
-  genericName: string;
+  genericname: string;
   form: string;
   strength: string;
   barcode: string | null;
   manufacturer: string | null;
-  batchId: string | null;
-  sellingPrice: number | null;
-  availableStock: number;
+  batchid: string | null;
+  sellingprice: string | null;
+  availablestock: number;
 };
 
 type Props = {
@@ -51,20 +50,21 @@ export function DrugSearch({ onAddToCart }: Props) {
   };
 
   const addDrug = (d: Drug) => {
-    const price = d.sellingPrice ? d.sellingPrice : 0;
+    const price = d.sellingprice ? parseFloat(d.sellingprice) : 0;
     onAddToCart({
-      drugId: d.drugId,
+      drugId: d.drugid,
       drugName: d.name,
-      genericName: d.genericName,
+      genericName: d.genericname,
       form: d.form,
       strength: d.strength,
-      batchId: d.batchId,
+      batchId: d.batchid,
       quantity: 1,
       unitPrice: price,
       discountPercent: 0,
       discountAmount: 0,
       taxAmount: 0,
       totalAmount: price,
+      availableStock: d.availablestock,
     });
   };
 
@@ -110,16 +110,16 @@ export function DrugSearch({ onAddToCart }: Props) {
           </div>
         ) : drugs.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-auto">
-            {drugs.map((d) => (
+            {drugs.map((d, index) => (
               <div
-                key={d.itemId}
+                key={`${d.drugid || d.name}-${index}`}
                 className="border rounded-md p-3 hover:border-[#618FF5] transition-colors group"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{d.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {d.genericName}
+                      {d.genericname}
                     </p>
                     <div className="flex gap-1 mt-1">
                       {d.form && (
@@ -135,12 +135,12 @@ export function DrugSearch({ onAddToCart }: Props) {
                     </div>
                     <div className="flex items-center gap-3 mt-1.5">
                       <span className="text-sm font-semibold text-green-700">
-                        {d.sellingPrice
-                          ? `${d.sellingPrice.toLocaleString()} IQD`
+                        {d.sellingprice
+                          ? `${parseFloat(d.sellingprice).toLocaleString()} IQD`
                           : "No price"}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Stock: {d.availableStock ?? 0}
+                        Stock: {d.availablestock ?? 0}
                       </span>
                     </div>
                   </div>
@@ -149,7 +149,7 @@ export function DrugSearch({ onAddToCart }: Props) {
                     variant="ghost"
                     className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => addDrug(d)}
-                    disabled={!d.sellingPrice || (d.availableStock ?? 0) <= 0}
+                    disabled={!d.sellingprice || (d.availablestock ?? 0) <= 0}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>

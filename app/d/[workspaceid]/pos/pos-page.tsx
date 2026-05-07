@@ -38,6 +38,7 @@ export type CartItem = {
   pharmacyOrderItemId?: string | null;
   prescribedQuantity?: number;
   quantitydispensed?: number;
+  availableStock?: number;
 };
 
 type ShiftData = {
@@ -294,6 +295,7 @@ export default function POSClientPage({
               order={dispensedOrder}
               onAddToCart={addToCart}
               cartItems={cart}
+              workspaceid={workspaceid}
             />
             <DrugSearch onAddToCart={addToCart} />
           </div>

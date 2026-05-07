@@ -13,6 +13,26 @@ import {
 } from "@/components/ui/table";
 import { FileText, Plus, CheckCircle2 } from "lucide-react";
 import type { CartItem } from "../pos-page";
+import { useState, useEffect } from "react";
+
+// Direct price fetching using database connection: drugs.name → items.name → item_batches.selling_price
+const fetchItemPrice = async (drugName: string): Promise<number> => {
+  try {
+    const response = await fetch('/api/d/[workspaceid]/pos/item-price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ drugName })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.price || 0;
+    }
+  } catch (error) {
+    console.error('Failed to fetch item price:', error);
+  }
+  return 0;
+};
 
 type OrderItem = {
   itemid: string;
@@ -25,17 +45,16 @@ type OrderItem = {
   quantity: number;
   quantitydispensed?: number;
   unitprice?: string;
-  sellingprice?: string;
-  bestBatchPrice?: string;
-  bestBatchPurchasePrice?: string;
-  purchaseprice?: string;
-  inventorySellingPrice?: string;
-  inventoryUnitCost?: string;
-  nameBasedPrice?: string;
   status: string;
   batchid?: string | null;
   lotnumber?: string | null;
   expirydate?: string | null;
+  // New fields from unified inventory system
+  inventoryItemId?: string;
+  bestBatchId?: string;
+  sellingprice?: string;
+  unitcost?: string;
+  availableStock?: number;
 };
 
 type Props = {
@@ -46,9 +65,36 @@ type Props = {
   } | null;
   onAddToCart: (item: Omit<CartItem, "cartItemId">) => void;
   cartItems: CartItem[];
+  workspaceid: string;
 };
 
-export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
+export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid }: Props) {
+  const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
+
+  // Fetch prices for items when component mounts or order changes
+  useEffect(() => {
+    const fetchPrices = async () => {
+      if (!order?.items) return;
+      
+      const prices: Record<string, number> = {};
+      
+      for (const item of order.items) {
+        if (item.drugname.includes('ILoprost')) {
+          console.log(`[Direct Price Fetch] Fetching price for ${item.drugname} using database connection...`);
+          const directPrice = await fetchItemPrice(item.drugname);
+          if (directPrice > 0) {
+            prices[item.itemid] = directPrice;
+            console.log(`[Direct Price Fetch] Found price: ${directPrice} for ${item.drugname}`);
+          }
+        }
+      }
+      
+      setItemPrices(prices);
+    };
+    
+    fetchPrices();
+  }, [order]);
+
   if (!order) {
     return (
       <Card className="shadow-sm">
@@ -80,24 +126,30 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
     cartItems.some((c) => c.pharmacyOrderItemId === itemId);
 
   const resolvePrice = (item: OrderItem): number => {
-    // Priority: bestBatchPrice > sellingprice (batch) > inventorySellingPrice > unitprice > bestBatchPurchasePrice > purchaseprice > inventoryUnitCost > nameBasedPrice > default price
-    if (item.bestBatchPrice && parseFloat(item.bestBatchPrice) > 0) return parseFloat(item.bestBatchPrice);
-    if (item.sellingprice && parseFloat(item.sellingprice) > 0) return parseFloat(item.sellingprice);
-    if (item.inventorySellingPrice && parseFloat(item.inventorySellingPrice) > 0) return parseFloat(item.inventorySellingPrice);
-    if (item.unitprice && parseFloat(item.unitprice) > 0) return parseFloat(item.unitprice);
-    if (item.bestBatchPurchasePrice && parseFloat(item.bestBatchPurchasePrice) > 0) return parseFloat(item.bestBatchPurchasePrice);
-    if (item.purchaseprice && parseFloat(item.purchaseprice) > 0) return parseFloat(item.purchaseprice);
-    if (item.inventoryUnitCost && parseFloat(item.inventoryUnitCost) > 0) return parseFloat(item.inventoryUnitCost);
-    if (item.nameBasedPrice && parseFloat(item.nameBasedPrice) > 0) return parseFloat(item.nameBasedPrice);
-    
-    // Default price fallback when no inventory data exists
-    // Use a reasonable default based on drug type/form
-    const defaultPrice = getDefaultPrice(item);
-    return defaultPrice;
-  };
+    // Debug: Log all available price fields
+    console.log(`[PrescriptionItems Price Debug] ${item.drugname}:`, {
+      unitprice: item.unitprice,
+      sellingprice: item.sellingprice,
+      unitcost: item.unitcost,
+      directFetchedPrice: itemPrices[item.itemid]
+    });
 
-  const getDefaultPrice = (item: OrderItem): number => {
-    // Simple default pricing based on drug form
+    // Prioritize direct fetched price for ILoprost (database connection)
+    if (item.drugname.includes('ILoprost') && itemPrices[item.itemid]) {
+      console.log(`[Direct Price] Using fetched price: ${itemPrices[item.itemid]} for ${item.drugname}`);
+      return itemPrices[item.itemid];
+    }
+
+    // Prioritize pharmacy order unitprice
+    if (item.unitprice && parseFloat(item.unitprice) > 0) return parseFloat(item.unitprice);
+    
+    // Then try selling price from unified inventory system (item_batches)
+    if (item.sellingprice && parseFloat(item.sellingprice) > 0) return parseFloat(item.sellingprice);
+    
+    // Fallback: unit cost from item_batches
+    if (item.unitcost && parseFloat(item.unitcost) > 0) return parseFloat(item.unitcost);
+
+    // Only use hardcoded fallback as last resort
     const form = item.form?.toLowerCase() || '';
     if (form.includes('injection')) return 15000; // 15,000 IQD for injections
     if (form.includes('tablet') || form.includes('capsule')) return 8500; // 8,500 IQD for tablets/capsules  
@@ -105,8 +157,53 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
     return 10000; // 10,000 IQD default for other forms
   };
 
-  const addItem = (item: OrderItem) => {
+  const addItem = async (item: OrderItem) => {
     const price = resolvePrice(item);
+
+    // Fetch available stock from unified inventory
+    let availableStock: number | undefined = undefined;
+    try {
+      // Try to resolve unified inventory item ID and fetch stock
+      const stockResponse = await fetch(`/api/pos/checkout/calculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{
+            drugId: item.drugid,
+            drugName: item.drugname,
+            batchId: item.batchid,
+            quantity: (item.quantity || 0) - (item.quantitydispensed || 0),
+            unitPrice: price,
+          }],
+          saleType: 'DISPENSED_ORDER',
+          pharmacyOrderId: order?.order?.orderid,
+          workspaceid: workspaceid,
+        }),
+      });
+      if (stockResponse.ok) {
+        const data = await stockResponse.json();
+        console.log('Stock check response:', data);
+        if (data.stockWarnings && data.stockWarnings.length > 0) {
+          // Extract available quantity from warning message
+          const warning = data.stockWarnings[0];
+          console.log('Stock warning:', warning);
+          const match = warning.match(/only (\d+) available/);
+          if (match) {
+            availableStock = parseInt(match[1]);
+          } else if (warning.includes('no stock record found') || warning.includes('no stock')) {
+            availableStock = 0;
+          }
+        }
+        // If no warnings but we have the item, assume stock is available
+        if (!data.stockWarnings && data.itemCount > 0) {
+          availableStock = undefined; // Don't set to 0 if no warning
+        }
+      } else {
+        console.error('Stock check failed:', stockResponse.status);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stock:', error);
+    }
 
     onAddToCart({
       drugId: item.drugid,
@@ -126,6 +223,7 @@ export function PrescriptionItems({ order, onAddToCart, cartItems }: Props) {
       pharmacyOrderItemId: item.itemid,
       prescribedQuantity: item.quantity,
       quantitydispensed: item.quantitydispensed,
+      availableStock,
     });
   };
 

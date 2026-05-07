@@ -15,14 +15,6 @@ import {
   pharmacyOrderItems,
   patientCreditAccounts,
 } from "@/lib/db/schema";
-import { invoices, invoiceLines } from "@/lib/db/tables/pharmacy-invoices";
-import {
-  stockLevels,
-  stockMovements,
-  stockLocations,
-} from "@/lib/db/tables/pharmacy-stock";
-import { drugBatches } from "@/lib/db/tables/pharmacy-drugs";
-import { inventoryStock, itemBatches, stockTransactions } from "@/lib/db/schema";
 import { PHARMACY_ITEM_STATUS, type PharmacyItemStatus } from "@/lib/db/tables/pharmacy-orders";
 import { eq, and, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
@@ -31,7 +23,13 @@ import { z } from "zod";
 const saleItemSchema = z.object({
   drugId: z.string().uuid().optional().nullable(),
   drugName: z.string(),
-  batchId: z.string().uuid().optional().nullable(),
+  batchId: z.string().optional().nullable().transform(val => {
+    // Handle empty strings as null
+    if (!val || val.trim() === "") return null;
+    // Validate UUID format, return null if invalid
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+    return uuidRegex.test(val) ? val : null;
+  }),
   lotNumber: z.string().optional().nullable(),
   expiryDate: z.string().optional().nullable(),
   quantity: z.number().int().positive(),
@@ -87,14 +85,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = checkoutSchema.parse(body);
 
-    // Calculate payments total
+    // Run migration to drop FK constraint if it exists (one-time)
+    try {
+      await db.execute(sql`
+        ALTER TABLE pos_sale_items DROP CONSTRAINT IF EXISTS pos_sale_items_batchid_drug_batches_batchid_fk
+      `);
+      console.log("[POS Checkout] Migration: Dropped FK constraint on pos_sale_items.batchid");
+    } catch (error) {
+      // Ignore error if constraint doesn't exist or migration already run
+      console.log("[POS Checkout] Migration skipped:", error instanceof Error ? error.message : String(error));
+    }
+
+    // Validate: payments total must match sale total
     const paymentsTotal = data.payments.reduce((sum, p) => sum + p.amount, 0);
-    
-    // Validate: at least some payment is provided
-    if (paymentsTotal <= 0) {
+    if (paymentsTotal < data.totalAmount - 0.01) {
       return NextResponse.json(
         {
-          error: "Payment required",
+          error: "Insufficient payment",
           expected: data.totalAmount,
           received: paymentsTotal,
         },
@@ -102,13 +109,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get a default location for stock movements (first available)
-    let defaultLocationId: string | null = null;
-    const [loc] = await db
-      .select({ locationid: stockLocations.locationid })
-      .from(stockLocations)
-      .limit(1);
-    defaultLocationId = loc?.locationid || null;
+    // Get default warehouse for inventory deductions
+    const warehouseResult = await db.execute(sql`
+      SELECT id FROM warehouses WHERE is_active = true ORDER BY name LIMIT 1
+    `);
+    const defaultWarehouseId = (warehouseResult as any)?.[0]?.id || null;
 
     const result = await db.transaction(async (tx) => {
       // 1. Generate sale number
@@ -165,16 +170,21 @@ export async function POST(request: NextRequest) {
       const createdItems = [];
       for (const item of data.items) {
 
-        // If batch specified, verify price against batch sellingprice
+        // Use the cart price (unitPrice) - don't override with batch price
+        // The cart already has the correct price from the pharmacy order
         let verifiedPrice = item.unitPrice;
+        
+        // Only verify batch price exists for validation, but don't override cart price
         if (item.batchId) {
-          const [batch] = await tx
-            .select({ sellingprice: drugBatches.sellingprice })
-            .from(drugBatches)
-            .where(eq(drugBatches.batchid, item.batchId))
-            .limit(1);
-          if (batch?.sellingprice) {
-            verifiedPrice = parseFloat(batch.sellingprice);
+          const batchResult = await tx.execute(sql`
+            SELECT selling_price
+            FROM item_batches
+            WHERE id = ${item.batchId}
+            LIMIT 1
+          `);
+          const batch = (batchResult as any)?.[0];
+          if (batch?.selling_price) {
+            console.log(`[POS Checkout] Cart price: ${verifiedPrice}, Batch price: ${batch.selling_price} - keeping cart price`);
           }
         }
 
@@ -188,7 +198,6 @@ export async function POST(request: NextRequest) {
             .limit(1);
           resolvedDrugId = orderItem?.drugid || null;
         }
-        // If still no drugId, find by drug name in the drugs table
         if (!resolvedDrugId) {
           const found = await tx.execute(sql`
             SELECT drugid FROM drugs WHERE name = ${item.drugName} LIMIT 1
@@ -197,15 +206,101 @@ export async function POST(request: NextRequest) {
           resolvedDrugId = row?.drugid || null;
         }
 
+        // Resolve inventory item ID for stock deduction
+        let resolvedItemId: string | null = null;
+        if (item.batchId) {
+          const found = await tx.execute(sql`
+            SELECT item_id FROM item_batches WHERE id = ${item.batchId} LIMIT 1
+          `);
+          resolvedItemId = (found as any)?.[0]?.item_id || null;
+        }
+        if (!resolvedItemId && resolvedDrugId) {
+          const found = await tx.execute(sql`
+            SELECT id FROM items WHERE drug_id = ${resolvedDrugId} LIMIT 1
+          `);
+          resolvedItemId = (found as any)?.[0]?.id || null;
+        }
+        if (!resolvedItemId) {
+          const found = await tx.execute(sql`
+            SELECT id FROM items WHERE name = ${item.drugName} LIMIT 1
+          `);
+          resolvedItemId = (found as any)?.[0]?.id || null;
+        }
+
+        // Auto-select best batch if item.batchId is null
+        let finalBatchId = item.batchId;
+        let finalLotNumber = item.lotNumber;
+        let finalExpiryDate = item.expiryDate;
+        
+        if (!finalBatchId && resolvedItemId) {
+          const bestBatch = await tx.execute(sql`
+            SELECT ib.id, ib.batch_number, ib.expiry_date
+            FROM item_batches ib
+            JOIN inventory_stock ist ON ist.item_id = ib.item_id AND ist.batch_id = ib.id
+            WHERE ib.item_id = ${resolvedItemId}
+              AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP)
+              AND ib.is_quarantined = false
+              AND ist.quantity > 0
+            ORDER BY ib.expiry_date ASC NULLS LAST
+            LIMIT 1
+          `);
+          const bestRow = (bestBatch as any)?.[0];
+          if (bestRow) {
+            finalBatchId = bestRow.id;
+            finalLotNumber = bestRow.batch_number;
+            finalExpiryDate = bestRow.expiry_date;
+          } else {
+            // Fallback: Try to find item by name if drug_id mapping has no stock
+            console.log(`[POS Checkout] No stock found for resolved item ${resolvedItemId}, trying name fallback`);
+            const itemByName = await tx.execute(sql`
+              SELECT id FROM items WHERE name = ${item.drugName} LIMIT 1
+            `);
+            const nameRow = (itemByName as any)?.[0];
+            if (nameRow && nameRow.id !== resolvedItemId) {
+              resolvedItemId = nameRow.id;
+              console.log(`[POS Checkout] Fallback to item by name: ${resolvedItemId}`);
+              const fallbackBatch = await tx.execute(sql`
+                SELECT ib.id, ib.batch_number, ib.expiry_date
+                FROM item_batches ib
+                JOIN inventory_stock ist ON ist.item_id = ib.item_id AND ist.batch_id = ib.id
+                WHERE ib.item_id = ${resolvedItemId}
+                  AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP)
+                  AND ib.is_quarantined = false
+                  AND ist.quantity > 0
+                ORDER BY ib.expiry_date ASC NULLS LAST
+                LIMIT 1
+              `);
+              const fallbackRow = (fallbackBatch as any)?.[0];
+              if (fallbackRow) {
+                finalBatchId = fallbackRow.id;
+                finalLotNumber = fallbackRow.batch_number;
+                finalExpiryDate = fallbackRow.expiry_date;
+              }
+            }
+          }
+        }
+        
+        // If batchId was provided (either from request or auto-selected), ensure lot/expiry are set
+        if (finalBatchId && !finalLotNumber) {
+          const batchInfo = await tx.execute(sql`
+            SELECT batch_number, expiry_date FROM item_batches WHERE id = ${finalBatchId} LIMIT 1
+          `);
+          const batchRow = (batchInfo as any)?.[0];
+          if (batchRow) {
+            finalLotNumber = finalLotNumber || batchRow.batch_number;
+            finalExpiryDate = finalExpiryDate || batchRow.expiry_date;
+          }
+        }
+
         const [saleItem] = await tx
           .insert(posSaleItems)
           .values({
             saleid: sale.saleid,
-            drugid: resolvedDrugId || sql`NULL`  as any, // may be null if drug not found
+            drugid: resolvedDrugId || sql`NULL` as any,
             drugname: item.drugName,
-            batchid: item.batchId || null,
-            lotnumber: item.lotNumber || null,
-            expirydate: item.expiryDate || null,
+            batchid: finalBatchId || null,
+            lotnumber: finalLotNumber || null,
+            expirydate: finalExpiryDate || null,
             quantity: item.quantity,
             unitprice: verifiedPrice.toFixed(2),
             discountpercent: (item.discountPercent || 0).toFixed(2),
@@ -217,80 +312,59 @@ export async function POST(request: NextRequest) {
           .returning();
         createdItems.push(saleItem);
 
-        // Create stock movements for ALL sale types to track POS sales
-        // For OTC_WALKIN and NEW_PRESCRIPTION: also deduct inventory
-        // For DISPENSED_ORDER: create movement record only (inventory already deducted during dispense)
-        if (item.drugId) {
-          const drugId = item.drugId;
-          
-          // UNIFIED INVENTORY SYSTEM: Find inventory stock for this drug
-          // Join through items table to find stock by drug_id
-          console.log(`[POS Inventory Debug] Looking for stock with drug_id=${drugId}`);
-          const invStockQuery = await tx.execute(sql`
-            SELECT 
-              ist.id,
-              ist.batch_id as batchid,
-              ist.quantity,
-              ist.warehouse_id as warehouseid
-            FROM inventory_stock ist
-            INNER JOIN item_batches ib ON ib.id = ist.batch_id
-            INNER JOIN items i ON i.id = ib.item_id
-            WHERE i.drug_id = ${drugId}
-              AND ist.quantity > 0
-            ORDER BY ib.expiry_date ASC NULLS LAST
+        // Deduct inventory for all sale types since dispense process doesn't use unified inventory yet
+        console.log(`[POS Checkout] Sale type: ${data.saleType}, resolvedItemId: ${resolvedItemId}`);
+        if (resolvedItemId && finalBatchId) {
+          // Get warehouse_id from inventory_stock for the selected batch
+          const stockInfo = await tx.execute(sql`
+            SELECT warehouse_id FROM inventory_stock
+            WHERE item_id = ${resolvedItemId} AND batch_id = ${finalBatchId}
             LIMIT 1
           `);
+          const warehouseIdForDeduction = (stockInfo as any)?.[0]?.warehouse_id || defaultWarehouseId;
 
-          console.log(`[POS Inventory Debug] Query result:`, invStockQuery);
-          const invStock = (invStockQuery as any)[0] as {
-            id: string;
-            batchid: string;
-            quantity: number;
-            warehouseid: string;
-          } | undefined;
+          console.log(`[POS Checkout] Deducting from item ${resolvedItemId}, batch ${finalBatchId}, warehouse ${warehouseIdForDeduction}`);
+          
+          // Deduct from inventory_stock
+          await tx.execute(sql`
+            UPDATE inventory_stock
+            SET quantity = GREATEST(quantity - ${item.quantity}, 0),
+                last_updated = NOW()
+            WHERE item_id = ${resolvedItemId}
+              AND batch_id = ${finalBatchId}
+              AND warehouse_id = ${warehouseIdForDeduction}
+          `);
 
-          if (invStock) {
-            console.log(`[POS Inventory] Found stock: batch=${invStock.batchid}, qty=${invStock.quantity}, saleType=${data.saleType}`);
-            // Deduct inventory for all sale types
-            const newQty = Math.max(0, invStock.quantity - item.quantity);
-            console.log(`[POS Inventory] Deducting ${item.quantity} from ${invStock.quantity} → ${newQty}`);
-            await tx
-              .update(inventoryStock)
-              .set({
-                quantity: newQty,
-                lastupdated: new Date(),
-              })
-              .where(eq(inventoryStock.id, invStock.id));
-
-            // Create stock movement for audit trail (without batchid to avoid FK constraint)
-            await tx.insert(stockMovements).values({
-              drugid: drugId,
-              batchid: null, // Don't use unified batch ID - it's not in drug_batches table
-              locationid: defaultLocationId || sql`NULL`,
-              type: "DISPENSE",
-              quantity: -item.quantity,
-              reason: `POS Sale ${saleNumber} (${data.saleType}) - Batch: ${invStock.batchid}`,
-              referenceid: sale.saleid,
-              performedby: user.userid,
-            });
-          } else {
-            console.warn(
-              `[POS] No inventory stock for drug ${drugId}, creating audit transaction only`
-            );
-            // Create audit transaction even if no stock found
-            if (defaultLocationId) {
-              await tx.insert(stockMovements).values({
-                drugid: drugId,
-                batchid: item.batchId || null,
-                locationid: defaultLocationId,
-                type: "DISPENSE",
-                quantity: -item.quantity,
-                reason: `POS Sale ${saleNumber} (${data.saleType}) (no stock record)`,
-                referenceid: sale.saleid,
-                performedby: user.userid,
-              });
-            }
-          }
+          // Create stock_transaction audit record
+          await tx.execute(sql`
+            INSERT INTO stock_transactions (
+              item_id,
+              warehouse_id,
+              batch_id,
+              transaction_type,
+              quantity,
+              reference_type,
+              reference_id,
+              notes,
+              created_by
+            )
+            VALUES (
+              ${resolvedItemId},
+              ${warehouseIdForDeduction},
+              ${finalBatchId},
+              'DISPENSE',
+              ${-item.quantity},
+              'POS_SALE',
+              ${sale.saleid},
+              ${`POS Sale ${saleNumber}`},
+              ${user.userid}
+            )
+          `);
+          console.log(`[POS Checkout] Stock deduction completed`);
+        } else {
+          console.warn(
+            `[POS] No inventory stock found for item ${resolvedItemId} (${item.drugName}), skipping deduction`
+          );
         }
       }
 
@@ -424,88 +498,6 @@ export async function POST(request: NextRequest) {
         console.log(
           `[POS] Order ${data.pharmacyOrderId}: ${dispensedItems}/${totalItems} items dispensed → ${orderStatus}`
         );
-
-        // 5b. Create or update pharmacy invoice
-        const [existingInvoice] = await tx
-          .select()
-          .from(invoices)
-          .where(eq(invoices.orderid, data.pharmacyOrderId))
-          .limit(1);
-
-        if (existingInvoice) {
-          // For existing invoice, calculate cumulative payments from all POS sales for this order
-          const previousSales = await tx
-            .select({
-              totalamount: posSales.totalamount,
-            })
-            .from(posSales)
-            .where(eq(posSales.pharmacyorderid, data.pharmacyOrderId));
-          
-          // Calculate total amount paid across all sales (including current one)
-          const cumulativePayments = previousSales.reduce(
-            (sum, s) => sum + parseFloat(s.totalamount || "0"),
-            paymentsTotal // Add current payment
-          );
-          
-          // Get the full invoice total
-          const invoiceTotal = parseFloat(existingInvoice.total || "0");
-          
-          // Determine invoice status based on cumulative payments vs full invoice total
-          const TOLERANCE = 0.01;
-          const isFullyPaid = cumulativePayments >= (invoiceTotal - TOLERANCE);
-          const invoiceStatus = isFullyPaid ? "PAID" : "PARTIALLY_PAID";
-          
-          console.log(`[POS] Invoice payment check: cumulativePayments=${cumulativePayments}, invoiceTotal=${invoiceTotal}, status=${invoiceStatus}`);
-          
-          // Update existing invoice
-          await tx
-            .update(invoices)
-            .set({
-              status: invoiceStatus,
-              updatedat: new Date(),
-            })
-            .where(eq(invoices.invoiceid, existingInvoice.invoiceid));
-          
-          console.log(`[POS] Updated invoice ${existingInvoice.invoicenumber} to ${invoiceStatus}`);
-        } else {
-          // Create new invoice - for first payment, compare payment against cart total
-          const TOLERANCE = 0.01;
-          const isFullyPaid = paymentsTotal >= (data.totalAmount - TOLERANCE);
-          const invoiceStatus = isFullyPaid ? "PAID" : "PARTIALLY_PAID";
-          
-          console.log(`[POS] Creating new invoice: paymentsTotal=${paymentsTotal}, totalAmount=${data.totalAmount}, status=${invoiceStatus}`);
-          
-          const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
-          const [newInvoice] = await tx
-            .insert(invoices)
-            .values({
-              orderid: data.pharmacyOrderId,
-              patientid: data.patientId || null,
-              invoicenumber: invoiceNumber,
-              status: invoiceStatus,
-              subtotal: data.subtotal.toFixed(2),
-              insurancecovered: "0.00",
-              patientcopay: data.totalAmount.toFixed(2),
-              total: data.totalAmount.toFixed(2),
-            })
-            .returning();
-
-          // Create invoice line items from cart
-          for (const item of data.items) {
-            await tx.insert(invoiceLines).values({
-              invoiceid: newInvoice.invoiceid,
-              drugid: item.drugId || null,
-              description: item.drugName,
-              quantity: item.quantity,
-              unitprice: item.unitPrice.toFixed(2),
-              linetotal: (item.unitPrice * item.quantity).toFixed(2),
-              insurancecovered: "0.00",
-              patientpays: (item.unitPrice * item.quantity).toFixed(2),
-            });
-          }
-
-          console.log(`[POS] Created invoice ${invoiceNumber} with status ${invoiceStatus}`);
-        }
       }
 
       return {
@@ -531,7 +523,9 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("[POS Checkout]", error);
+    console.error("[POS Checkout] Error:", error);
+    console.error("[POS Checkout] Error details:", JSON.stringify(error, null, 2));
+    console.error("[POS Checkout] Error stack:", error instanceof Error ? error.stack : "No stack");
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: error.issues },

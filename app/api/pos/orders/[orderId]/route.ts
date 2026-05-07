@@ -2,12 +2,21 @@
  * POS Order Details API
  *
  * GET — dispensed order with items, drug info, batch info, patient
+ *
+ * Uses the unified inventory system: items → item_batches → inventory_stock
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { pharmacyOrders, pharmacyOrderItems, patients } from "@/lib/db/schema";
-import { drugs, drugBatches } from "@/lib/db/tables/pharmacy-drugs";
-import { eq, sql } from "drizzle-orm";
+import {
+  posSales,
+  posSaleItems,
+  pharmacyOrders,
+  pharmacyOrderItems,
+  patients,
+} from "@/lib/db/schema";
+import { drugs } from "@/lib/db/tables/pharmacy-drugs";
+import * as schema from "@/lib/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 type RouteParams = { params: Promise<{ orderId: string }> };
@@ -32,8 +41,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Get order items with drug and batch info
-    const items = await db
+    // Get order items with drug info and prices from unified inventory system
+    const orderItems = await db
       .select({
         itemid: pharmacyOrderItems.itemid,
         orderid: pharmacyOrderItems.orderid,
@@ -45,71 +54,99 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         unitprice: pharmacyOrderItems.unitprice,
         status: pharmacyOrderItems.status,
         batchid: pharmacyOrderItems.batchid,
-        // Drug details
+        // Drug details from drugs table
         genericname: drugs.genericname,
         form: drugs.form,
         strength: drugs.strength,
         barcode: drugs.barcode,
-        // Batch details (if assigned to order)
-        lotnumber: drugBatches.lotnumber,
-        expirydate: drugBatches.expirydate,
-        sellingprice: drugBatches.sellingprice,
-        purchaseprice: drugBatches.purchaseprice,
-        // Best available batch selling price (UNIFIED INVENTORY SYSTEM)
-        bestBatchPrice: sql<string>`(
-          SELECT ib.selling_price
-          FROM items i
-          INNER JOIN item_batches ib ON ib.item_id = i.id
-          INNER JOIN inventory_stock ist ON ist.batch_id = ib.id
+        // --- Unified inventory system: items → item_batches → inventory_stock ---
+        // Item ID from items table (linked by drug_id or name)
+        inventoryItemId: sql<string>`(
+          SELECT i.id FROM items i
           WHERE i.drug_id = ${pharmacyOrderItems.drugid}
-            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+             OR i.name = ${pharmacyOrderItems.drugname}
+          LIMIT 1
+        )`.as("inventoryItemId"),
+        // Best batch ID (FIFO: earliest-expiry, non-quarantined, in-stock)
+        bestBatchId: sql<string>`(
+          SELECT ib.id
+          FROM items i
+          JOIN item_batches ib ON ib.item_id = i.id
+          JOIN inventory_stock ist ON ist.item_id = i.id AND ist.batch_id = ib.id
+          WHERE (i.drug_id = ${pharmacyOrderItems.drugid} OR i.name = ${pharmacyOrderItems.drugname})
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP)
+            AND ib.is_quarantined = false
             AND ist.quantity > 0
           ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
-        )`.as("bestBatchPrice"),
-        // Best available batch purchase price (UNIFIED INVENTORY SYSTEM)
-        bestBatchPurchasePrice: sql<string>`(
-          SELECT ib.unit_cost
-          FROM items i
-          INNER JOIN item_batches ib ON ib.item_id = i.id
-          INNER JOIN inventory_stock ist ON ist.batch_id = ib.id
-          WHERE i.drug_id = ${pharmacyOrderItems.drugid}
-            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
-            AND ist.quantity > 0
-          ORDER BY ib.expiry_date ASC NULLS LAST
-          LIMIT 1
-        )`.as("bestBatchPurchasePrice"),
-        // Available stock for this drug (UNIFIED INVENTORY SYSTEM)
-        availableStock: sql<number>`COALESCE((
-          SELECT SUM(ist.quantity)
-          FROM items i
-          INNER JOIN inventory_stock ist ON ist.item_id = i.id
-          WHERE i.drug_id = ${pharmacyOrderItems.drugid}
-        ), 0)`.as("availableStock"),
-        // Fallback: find price by drug NAME (UNIFIED INVENTORY SYSTEM)
-        nameBasedPrice: sql<string>`(
+        )`.as("bestBatchId"),
+        // Selling price from best FIFO batch
+        sellingprice: sql<string>`(
           SELECT ib.selling_price
           FROM items i
-          INNER JOIN item_batches ib ON ib.item_id = i.id
-          INNER JOIN inventory_stock ist ON ist.batch_id = ib.id
-          WHERE i.name ILIKE ${pharmacyOrderItems.drugname}
-            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_DATE)
+          JOIN item_batches ib ON ib.item_id = i.id
+          JOIN inventory_stock ist ON ist.item_id = i.id AND ist.batch_id = ib.id
+          WHERE (i.drug_id = ${pharmacyOrderItems.drugid} OR i.name = ${pharmacyOrderItems.drugname})
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP)
+            AND ib.is_quarantined = false
             AND ist.quantity > 0
             AND ib.selling_price IS NOT NULL
           ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
-        )`.as("nameBasedPrice"),
-        // Fallback: stock count by drug name (UNIFIED INVENTORY SYSTEM)
-        nameBasedStock: sql<number>`COALESCE((
+        )`.as("sellingprice"),
+        // Unit cost from best FIFO batch
+        unitcost: sql<string>`(
+          SELECT ib.unit_cost
+          FROM items i
+          JOIN item_batches ib ON ib.item_id = i.id
+          JOIN inventory_stock ist ON ist.item_id = i.id AND ist.batch_id = ib.id
+          WHERE (i.drug_id = ${pharmacyOrderItems.drugid} OR i.name = ${pharmacyOrderItems.drugname})
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP)
+            AND ib.is_quarantined = false
+            AND ist.quantity > 0
+          ORDER BY ib.expiry_date ASC NULLS LAST
+          LIMIT 1
+        )`.as("unitcost"),
+        // Batch number from best FIFO batch
+        lotnumber: sql<string>`(
+          SELECT ib.batch_number
+          FROM items i
+          JOIN item_batches ib ON ib.item_id = i.id
+          JOIN inventory_stock ist ON ist.item_id = i.id AND ist.batch_id = ib.id
+          WHERE (i.drug_id = ${pharmacyOrderItems.drugid} OR i.name = ${pharmacyOrderItems.drugname})
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP)
+            AND ib.is_quarantined = false
+            AND ist.quantity > 0
+          ORDER BY ib.expiry_date ASC NULLS LAST
+          LIMIT 1
+        )`.as("lotnumber"),
+        // Expiry date from best FIFO batch
+        expirydate: sql<string>`(
+          SELECT ib.expiry_date
+          FROM items i
+          JOIN item_batches ib ON ib.item_id = i.id
+          JOIN inventory_stock ist ON ist.item_id = i.id AND ist.batch_id = ib.id
+          WHERE (i.drug_id = ${pharmacyOrderItems.drugid} OR i.name = ${pharmacyOrderItems.drugname})
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP)
+            AND ib.is_quarantined = false
+            AND ist.quantity > 0
+          ORDER BY ib.expiry_date ASC NULLS LAST
+          LIMIT 1
+        )`.as("expirydate"),
+        // Total available stock across all valid batches (including those without batches)
+        availableStock: sql<number>`COALESCE((
           SELECT SUM(ist.quantity)
           FROM items i
-          INNER JOIN inventory_stock ist ON ist.item_id = i.id
-          WHERE i.name ILIKE ${pharmacyOrderItems.drugname}
-        ), 0)`.as("nameBasedStock"),
+          JOIN inventory_stock ist ON ist.item_id = i.id
+          LEFT JOIN item_batches ib ON ib.id = ist.batch_id AND ib.item_id = i.id
+          WHERE (i.drug_id = ${pharmacyOrderItems.drugid} OR i.name = ${pharmacyOrderItems.drugname})
+            AND (ib.expiry_date IS NULL OR ib.expiry_date > CURRENT_TIMESTAMP OR ib.id IS NULL)
+            AND (ib.is_quarantined = false OR ib.id IS NULL)
+            AND ist.quantity > 0
+        ), 0)`.as("availableStock"),
       })
       .from(pharmacyOrderItems)
       .leftJoin(drugs, eq(pharmacyOrderItems.drugid, drugs.drugid))
-      .leftJoin(drugBatches, eq(pharmacyOrderItems.batchid, drugBatches.batchid))
       .where(eq(pharmacyOrderItems.orderid, orderId));
 
     // Get patient if exists
@@ -123,36 +160,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       patient = p || null;
     }
 
-    // Debug: log price data AND check ALL inventory tables
-    for (const item of items as any[]) {
-      console.log(`[POS Price Debug] Drug: ${item.drugname} | drugid: ${item.drugid} | bestBatchPrice: ${item.bestBatchPrice} | nameBasedPrice: ${item.nameBasedPrice} | nameBasedStock: ${item.nameBasedStock} | availableStock: ${item.availableStock}`);
-      
-      // Check which inventory tables actually exist and have data
-      const inventoryCheck = await db.execute(sql`
-        SELECT 
-          'pharmacy_stock_levels' as table_name,
-          COUNT(*) as records,
-          SUM(quantity) as total_qty,
-          NULL as avg_price
-        FROM pharmacy_stock_levels psl
-        WHERE psl.drugid = ${item.drugid}
-        
-        UNION ALL
-        
-        SELECT 
-          'drug_batches' as table_name,
-          COUNT(*) as records,
-          0 as total_qty,
-          AVG(sellingprice) as avg_price
-        FROM drug_batches db
-        WHERE db.drugid = ${item.drugid}
-      `);
-      console.log(`[POS All Inventory Tables] "${item.drugname}":`, inventoryCheck);
-    }
-
     return NextResponse.json({
       order,
-      items,
+      items: orderItems,
       patient,
     });
   } catch (error) {

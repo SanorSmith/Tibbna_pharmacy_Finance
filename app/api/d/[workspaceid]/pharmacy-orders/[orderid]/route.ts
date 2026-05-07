@@ -107,6 +107,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           ORDER BY ib.expiry_date ASC NULLS LAST
           LIMIT 1
         )`.as("nameBasedPrice"),
+        // Fallback: selling price from item_batches (dual-schema inventory system)
+        inventorySellingPrice: sql<string>`(
+          SELECT ib.selling_price
+          FROM items i
+          JOIN item_batches ib ON ib.item_id = i.id
+          WHERE i.name = ${pharmacyOrderItems.drugname}
+            AND ib.selling_price IS NOT NULL
+          ORDER BY ib.created_at DESC
+          LIMIT 1
+        )`.as("inventorySellingPrice"),
       })
       .from(pharmacyOrderItems)
       .leftJoin(drugs, eq(pharmacyOrderItems.drugid, drugs.drugid))

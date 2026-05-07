@@ -45,7 +45,6 @@ import {
   MapPin,
   Download,
 } from "lucide-react";
-import { Toast } from "@/components/ui/toast";
 import MedicationCardPrintPreview from "./MedicationCardPrintPreview";
 
 type OrderDetail = {
@@ -80,12 +79,6 @@ export default function OrderDetailsModal({
   const [scanMessage, setScanMessage] = useState("");
   const [selectedDrug, setSelectedDrug] = useState<any>(null);
   const [showDrugDetails, setShowDrugDetails] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-
-  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
-    setToast({ message, type });
-  };
-  const [error, setError] = useState<string | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   // Print medication card
@@ -189,50 +182,26 @@ export default function OrderDetailsModal({
           : dosageStr.split(',').map(p => p.trim());
         
         parts.forEach(part => {
-          const lower = part.toLowerCase();
-          
-          // Dose amount and unit - check for number followed by unit
-          const trimmed = part.trim();
-          let numberMatch = '';
-          let i = 0;
-          while (i < trimmed.length && (trimmed[i] === '.' || (trimmed[i] >= '0' && trimmed[i] <= '9'))) {
-            numberMatch += trimmed[i];
-            i++;
-          }
-          if (numberMatch && (numberMatch !== '.')) {
-            const unitPart = trimmed.substring(numberMatch.length).trim().toLowerCase();
-            const units = ['mg', 'g', 'ml', 'mcg', 'tablet', 'capsule', 'puff', 'u', 'tu', 'mu', 'mmol'];
-            if (units.some(u => unitPart === u || unitPart.startsWith(u))) {
-              details.doseamount = numberMatch;
-              details.doseunit = unitPart;
-            }
+          // Dose amount and unit
+          const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
+          if (doseMatch) {
+            details.doseamount = doseMatch[1];
+            details.doseunit = doseMatch[2];
           }
           
-          // Route - check for route keywords
-          const routes = ['oral', 'parenteral', 'nasal', 'rectal', 'vaginal', 'implant', 'inhalation', 'instillation', 'sublingual', 'transdermal'];
-          if (routes.some(r => lower === r)) {
+          // Route
+          if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
             details.route = part;
           }
           
-          // Timing directions - check for timing keywords
-          const timings = ['once', 'twice', 'three times', 'four times', 'five times', 'every', 'as needed', 'when needed', 'prn', 'at bedtime', 'with meals', 'before meals', 'after meals', 'daily', 'hourly', 'weekly', 'monthly'];
-          if (timings.some(t => lower === t)) {
+          // Timing directions
+          if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
             details.timingdirections = part;
           }
           
-          // Duration - check for duration patterns
-          if (lower.startsWith('for ') || lower === 'until finished') {
-            details.duration = part.substring(4).trim();
-          } else {
-            const lowerPart = part.toLowerCase();
-            const hasDay = lowerPart.includes('day');
-            const hasWeek = lowerPart.includes('week');
-            const hasMonth = lowerPart.includes('month');
-            const trimmed = part.trim();
-            const startsWithNumber = trimmed.length > 0 && trimmed[0] >= '0' && trimmed[0] <= '9';
-            if (startsWithNumber && (hasDay || hasWeek || hasMonth)) {
-              details.duration = part;
-            }
+          // Duration
+          if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
+            details.duration = part.replace(/^for\s+/i, '');
           }
         });
         
@@ -333,10 +302,7 @@ export default function OrderDetailsModal({
 
         pdf.addImage(imgData, 'PNG', 0, 0, 15, contentHeightCm);
         
-        const medicationName = item.drugname.split('').map((c: string) => {
-          const code = c.charCodeAt(0);
-          return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122) ? c : '_';
-        }).join('').substring(0, 20);
+        const medicationName = item.drugname.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
         const filename = `medication-card-${medicationName}-${orderid.slice(0, 8)}-${Date.now()}.pdf`;
         pdf.save(filename);
       } catch (error) {
@@ -349,118 +315,6 @@ export default function OrderDetailsModal({
     } catch (error) {
       console.error('Error in handleDownloadIndividualPDF:', error);
       alert('Error generating PDF. Please try again.');
-    }
-  };
-
-  const handlePrintInvoice = async () => {
-    if (!invoice || !data) {
-      alert('No invoice available to print');
-      return;
-    }
-
-    try {
-      const { default: jsPDF } = await import('jspdf');
-      
-      const pdf = new jsPDF();
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      let yPos = 20;
-
-      // Header
-      pdf.setFontSize(20);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('INVOICE', pageWidth / 2, yPos, { align: 'center' });
-      
-      yPos += 15;
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`Invoice #: ${invoice.invoicenumber}`, 20, yPos);
-      pdf.text(`Date: ${new Date(invoice.createdat).toLocaleDateString()}`, pageWidth - 20, yPos, { align: 'right' });
-      
-      yPos += 10;
-      pdf.text(`Status: ${invoice.status}`, 20, yPos);
-      
-      // Patient Info
-      yPos += 15;
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Patient Information:', 20, yPos);
-      yPos += 7;
-      pdf.setFont('helvetica', 'normal');
-      const patientName = patient ? `${patient.firstname} ${patient.lastname}` : 'N/A';
-      pdf.text(`Name: ${patientName}`, 20, yPos);
-      yPos += 6;
-      if (patient?.nationalid) {
-        pdf.text(`National ID: ${patient.nationalid}`, 20, yPos);
-        yPos += 6;
-      }
-      if (patient?.phone) {
-        pdf.text(`Phone: ${patient.phone}`, 20, yPos);
-        yPos += 6;
-      }
-
-      // Items Table
-      yPos += 10;
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Items:', 20, yPos);
-      yPos += 7;
-      
-      // Table headers
-      pdf.setFontSize(9);
-      pdf.text('Description', 20, yPos);
-      pdf.text('Qty', 110, yPos, { align: 'center' });
-      pdf.text('Unit Price', 135, yPos, { align: 'center' });
-      pdf.text('Total', 180, yPos, { align: 'right' });
-      yPos += 5;
-      pdf.line(20, yPos, 190, yPos);
-      yPos += 5;
-      
-      // Table rows
-      pdf.setFont('helvetica', 'normal');
-      items.forEach((item: any) => {
-        const price = parseFloat(item.bestBatchPrice || item.unitprice || item.nameBasedPrice || '0');
-        const total = price * (item.quantity || 1);
-        
-        pdf.text(item.drugname.substring(0, 35), 20, yPos);
-        pdf.text(String(item.quantity || 1), 110, yPos, { align: 'center' });
-        pdf.text(`${price.toFixed(2)}`, 135, yPos, { align: 'center' });
-        pdf.text(`${total.toFixed(2)}`, 180, yPos, { align: 'right' });
-        yPos += 6;
-      });
-      
-      // Totals
-      yPos += 5;
-      pdf.line(20, yPos, 190, yPos);
-      yPos += 7;
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Subtotal:', 120, yPos);
-      pdf.text(`${parseFloat(invoice.subtotal || '0').toFixed(2)} IQD`, 170, yPos, { align: 'right' });
-      yPos += 6;
-      
-      if (parseFloat(invoice.insurancecovered || '0') > 0) {
-        pdf.text('Insurance Covered:', 120, yPos);
-        pdf.text(`${parseFloat(invoice.insurancecovered).toFixed(2)} IQD`, 170, yPos, { align: 'right' });
-        yPos += 6;
-      }
-      
-      pdf.text('Patient Copay:', 120, yPos);
-      pdf.text(`${parseFloat(invoice.patientcopay || '0').toFixed(2)} IQD`, 170, yPos, { align: 'right' });
-      yPos += 6;
-      
-      pdf.setFontSize(11);
-      pdf.text('Total:', 120, yPos);
-      pdf.text(`${parseFloat(invoice.total).toFixed(2)} IQD`, 170, yPos, { align: 'right' });
-      
-      // Footer
-      yPos += 20;
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'italic');
-      pdf.text('Thank you for your business!', pageWidth / 2, yPos, { align: 'center' });
-      
-      // Save PDF
-      pdf.save(`invoice-${invoice.invoicenumber}.pdf`);
-    } catch (error) {
-      console.error('Error generating invoice PDF:', error);
-      alert('Error generating invoice. Please try again.');
     }
   };
 
@@ -506,15 +360,10 @@ export default function OrderDetailsModal({
 
   useEffect(() => {
     if (open) {
-      setError(null); // Clear any previous errors
-      setScanningMode(false); // Reset scanning mode
-      setScannedItems(new Set()); // Clear scanned items
-      setBarcodeInput(""); // Clear barcode input
-      setScanMessage(""); // Clear scan message
       fetchOrder();
       fetchInsurance();
     }
-  }, [open, orderid, fetchOrder, fetchInsurance]);
+  }, [open, fetchOrder, fetchInsurance]);
 
   const handleDispense = async () => {
     setDispensing(true);
@@ -553,8 +402,29 @@ export default function OrderDetailsModal({
   const handleScan = async (barcode: string) => {
     setScanMessage("");
     
-    if (!barcode || barcode.trim().length === 0) {
-      setScanMessage("❌ Please enter a barcode");
+    // Dummy barcode testing - accept common formats
+    const dummyBarcodes = ["1234567890123", "9876543210987", "5555555555555", "1111111111111"];
+    
+    if (!dummyBarcodes.includes(barcode)) {
+      setScanMessage("❌ Invalid barcode. Try: 1234567890123, 9876543210987, 5555555555555, or 1111111111111");
+      return;
+    }
+
+    // Find first unscanned item
+    const unscannedItem = items.find((item: any) => 
+      !scannedItems.has(item.itemid) && item.status === "PENDING"
+    );
+
+    // Debug logging
+    console.log("Scan Debug:", {
+      totalItems: items.length,
+      scannedItemsCount: scannedItems.size,
+      scannedItems: Array.from(scannedItems),
+      itemStatuses: items.map((item: any) => ({ id: item.itemid, status: item.status, name: item.drugname }))
+    });
+
+    if (!unscannedItem) {
+      setScanMessage("✅ All items have been scanned!");
       return;
     }
 
@@ -565,14 +435,15 @@ export default function OrderDetailsModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            barcode: barcode.trim()
+            itemid: unscannedItem.itemid,
+            barcode: barcode 
           }),
         }
       );
       
       if (res.ok) {
-        const data = await res.json();
-        setScanMessage(`✅ ${data.message}`);
+        setScannedItems(prev => new Set([...prev, unscannedItem.itemid]));
+        setScanMessage(`✅ Scanned: ${unscannedItem.drugname}`);
         setBarcodeInput("");
         
         // Refresh order data
@@ -593,57 +464,38 @@ export default function OrderDetailsModal({
         { method: "POST" }
       );
       const json = await res.json();
-      console.log('Dispense response:', { ok: res.ok, status: res.status, json });
-      if (!res.ok) {
-        const errorMsg = json.error || json.message || "Failed to dispense";
-        console.log('Setting error:', errorMsg);
-        setError(errorMsg);
-        return;
-      }
+      if (!res.ok) throw new Error(json.error);
       await fetchOrder();
       setScanningMode(false);
       setScannedItems(new Set());
     } catch (err: any) {
-      console.error('Dispense error:', err);
-      setError(err.message || "Failed to dispense order");
+      console.error(err);
     } finally {
       setDispensing(false);
     }
   };
 
-  const handleDrugClick = async (item: any) => {
+  const handleDrugClick = async (drugId: string, drugName: string) => {
     try {
-      // Use itemid if drugid is not available
-      const identifier = item.drugid && item.drugid !== 'null' ? item.drugid : item.itemid;
-      const endpoint = item.drugid && item.drugid !== 'null' 
-        ? `/api/d/${workspaceid}/pharmacy-drugs/${item.drugid}/storage`
-        : `/api/d/${workspaceid}/items/${item.itemid}/storage`;
-      
-      const res = await fetch(endpoint);
+      // Fetch drug storage details
+      const res = await fetch(`/api/d/${workspaceid}/pharmacy-drugs/${drugId}/storage`);
       if (res.ok) {
         const drugDetails = await res.json();
-        setSelectedDrug(drugDetails);
+        setSelectedDrug({ ...drugDetails, drugname: drugName });
         setShowDrugDetails(true);
       } else {
-        const errorData = await res.json();
-        showToast(errorData.error || "Item not found or no storage information available", "info");
-        // Show modal with no storage info
+        // If API doesn't exist, show placeholder data
         setSelectedDrug({
-          drugname: item.drugname,
-          drugid: item.drugid,
-          batches: []
+          drugname: drugName,
+          drugid: drugId,
+          batches: [
+            { batchid: "123", stock: "fridge 1", shelf: "A1", number: 7, expiredate: "13-4-2026", status: "Low" }
+          ]
         });
         setShowDrugDetails(true);
       }
-    } catch (error) {
-      showToast("Error fetching drug details. Please try again.", "error");
-      // Show modal with error state
-      setSelectedDrug({
-        drugname: item.drugname,
-        drugid: item.drugid,
-        batches: []
-      });
-      setShowDrugDetails(true);
+    } catch (err) {
+      console.error("Failed to fetch drug details:", err);
     }
   };
 
@@ -691,18 +543,16 @@ export default function OrderDetailsModal({
     let dose = "";
     let route = "";
     
-    // Extract dose (look for mg, g, ml, etc.) using string methods
-    const dosePart = uniqueParts.find(part => {
-      const lower = part.toLowerCase();
-      return lower.includes('mg') || lower.includes('g ') || lower.includes('ml') || lower.includes('mcg') || lower.includes('tablet') || lower.includes('capsule');
-    });
+    // Extract dose (look for mg, g, ml, etc.)
+    const dosePart = uniqueParts.find(part => 
+      /\d+\s*(mg|g|ml|mcg|tablet|capsule)/i.test(part)
+    );
     if (dosePart) dose = dosePart;
     
-    // Extract route (look for route keywords) using string methods
-    const routePart = uniqueParts.find(part => {
-      const lower = part.toLowerCase();
-      return lower.includes('oral') || lower.includes('intravenous') || lower.includes('iv') || lower.includes('topical') || lower.includes('inhalation') || lower.includes('injection') || lower.includes('subcutaneous') || lower.includes('im');
-    });
+    // Extract route (look for route keywords)
+    const routePart = uniqueParts.find(part => 
+      /oral|intravenous|iv|topical|inhalation|injection|subcutaneous|im/i.test(part)
+    );
     if (routePart) route = routePart;
     
     return { dose, route };
@@ -714,11 +564,6 @@ export default function OrderDetailsModal({
     items: [],
     invoice: null,
   };
-  
-  // Debug: Log invoice data
-  if (order.status === "DISPENSED") {
-    console.log('Order is DISPENSED. Invoice data:', invoice);
-  }
   const pendingCount = items.filter((i: any) => i.status === "PENDING").length;
   const scannedCount = items.filter(
     (i: any) => i.status === "SCANNED" || i.status === "DISPENSED" || i.status === "SUBSTITUTED"
@@ -747,40 +592,12 @@ export default function OrderDetailsModal({
               <Button variant="outline" size="sm" className="bg-orange-500 text-white hover:bg-orange-600">
                 {order.status}
               </Button>
-              {order.status === "DISPENSED" && (
-                invoice ? (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className={`${
-                      invoice.status === 'PAID' ? 'bg-green-500 text-white hover:bg-green-600' : 
-                      invoice.status === 'PARTIALLY_PAID' ? 'bg-orange-500 text-white hover:bg-orange-600' : 
-                      invoice.status === 'ISSUED' ? 'bg-red-500 text-white hover:bg-red-600' :
-                      'bg-gray-500 text-white hover:bg-gray-600'
-                    }`}
-                  >
-                    {invoice.status === 'PAID' ? 'PAID' : 
-                     invoice.status === 'PARTIALLY_PAID' ? 'PARTIALLY PAID' : 
-                     invoice.status === 'ISSUED' ? 'UNPAID' :
-                     invoice.status || 'NO STATUS'}
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="bg-yellow-500 text-white hover:bg-yellow-600"
-                    title="No invoice found - Complete payment in POS"
-                  >
-                    NO INVOICE
-                  </Button>
-                )
-              )}
               <Button variant="ghost" size="sm" onClick={onClose}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
-
+          
           {/* Compact Patient Info */}
           <div className="bg-muted/50 p-3 rounded-md text-sm">
             <div className="flex items-center gap-6">
@@ -799,88 +616,87 @@ export default function OrderDetailsModal({
           </div>
         </DialogHeader>
 
-        {/* Error Alert */}
-        {error && (
-          <div style={{
-            margin: '16px 0',
-            padding: '16px',
-            backgroundColor: '#fee2e2',
-            border: '2px solid #dc2626',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px'
-          }}>
-            <AlertTriangle style={{ width: '20px', height: '20px', color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: '#991b1b', fontSize: '14px', margin: 0 }}>Error</p>
-              <p style={{ color: '#991b1b', fontSize: '14px', margin: '4px 0 0 0' }}>{error}</p>
-            </div>
-            <button onClick={() => setError(null)} style={{
-              width: '24px',
-              height: '24px',
-              padding: 0,
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: '#dc2626'
-            }}>
-              <X style={{ width: '16px', height: '16px' }} />
-            </button>
-          </div>
-        )}
-
         <div className="flex flex-1 flex-col gap-4">
-          {/* Two Column Layout */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Left Column - Medications */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-lg">Medications</h3>
-              </div>
-              <div className="flex flex-col gap-3 overflow-y-auto max-h-[600px]">
+          {/* Medications List */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-lg">Medications</h3>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
               {items.map((item: any) => {
+                    // Parse dosage string to extract structured information
+                    const parseDosageDetails = (dosageStr: string) => {
+                      if (!dosageStr) return {};
+                      
+                      const details: any = {};
+                      
+                      // Handle both pipe-separated and comma-separated dosage strings
+                      const parts = dosageStr.includes('|') 
+                        ? dosageStr.split('|').map(p => p.trim())
+                        : dosageStr.split(',').map(p => p.trim());
+                      
+                      parts.forEach(part => {
+                        // Dose amount and unit (e.g., "500 mg", "1 tablet")
+                        const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
+                        if (doseMatch) {
+                          details.doseamount = doseMatch[1];
+                          details.doseunit = doseMatch[2];
+                        }
+                        
+                        // Route (Oral, Parenteral, etc.)
+                        if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
+                          details.route = part;
+                        }
+                        
+                        // Timing directions - more specific to avoid conflicts
+                        if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
+                          details.timingdirections = part;
+                        }
+                        
+                        // Duration - more specific pattern to avoid conflicts
+                        if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
+                          details.duration = part.replace(/^for\s+/i, '');
+                        }
+                        
+                        // Instructions
+                        if (/^(with food|before meals|after meals|with water|swallow whole|chew|dissolve|shake well|avoid alcohol)/i.test(part)) {
+                          details.instructions = part;
+                        }
+                        
+                        // Usage - more specific to avoid conflicts
+                        if (/^for (headache|fever|pain|high blood pressure|diabetes|infection|asthma|allergies|stomach pain|diarrhea|anxiety|anemia|vitamin deficiency)$/i.test(part)) {
+                          details.usage = part;
+                        }
+                      });
+                      
+                      return details;
+                    };
+                    
+                    const doseInfo = parseDosageDetails(item.dosage || '');
+                    
                     return (
                 <Card key={item.itemid} className="p-3 min-w-[320px] flex-shrink-0">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 
-                          className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
-                          onClick={() => handleDrugClick(item)}
-                        >
-                          {item.drugname}
-                        </h4>
-                        {(() => {
-                          // Extract dose from dosage string using string methods
-                          const doseIndex = item.dosage?.toLowerCase().indexOf('dose:');
-                          if (doseIndex !== undefined && doseIndex !== -1) {
-                            const afterDose = item.dosage.substring(doseIndex + 5);
-                            const pipeIndex = afterDose.indexOf('|');
-                            const doseValue = pipeIndex !== -1 
-                              ? afterDose.substring(0, pipeIndex).trim()
-                              : afterDose.trim();
-                            if (doseValue) {
-                              return (
-                                <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                  {doseValue}
-                                </span>
-                              );
-                            }
-                          }
-                          return null;
-                        })()}
-                      </div>
+                      <h4 
+                        className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
+                        onClick={() => handleDrugClick(item.drugid, item.drugname)}
+                      >
+                        {item.drugname}
+                      </h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="text-sm text-muted-foreground">{item.quantity ? String('x' + ((item.quantity || 0) - (item.quantitydispensed || 0))) : ""}</p>
+                        <p className="text-sm text-muted-foreground">{item.quantity ? `x${(item.quantity || 0) - (item.quantitydispensed || 0)}` : ""}</p>
                         {(() => {
+                          // Priority: bestBatchPrice > unitprice > nameBasedPrice > inventorySellingPrice
                           const price = parseFloat(item.bestBatchPrice || '0') > 0
                             ? parseFloat(item.bestBatchPrice)
                             : parseFloat(item.unitprice || '0') > 0
                               ? parseFloat(item.unitprice)
                               : parseFloat(item.nameBasedPrice || '0') > 0
                                 ? parseFloat(item.nameBasedPrice)
-                                : 0;
+                                : parseFloat(item.inventorySellingPrice || '0') > 0
+                                  ? parseFloat(item.inventorySellingPrice)
+                                  : 0;
                           return price > 0 ? (
                             <div className="flex items-center gap-1">
                               <span className="text-sm font-medium text-green-600">
@@ -914,253 +730,290 @@ export default function OrderDetailsModal({
                     </div>
                   </div>
                   
-                  {/* Dosage Instructions */}
-                  {item.dosage && (() => {
-                    // Remove "Dose: X mg" from the dosage string using string methods
-                    const doseIndex = item.dosage.toLowerCase().indexOf('dose:');
-                    let dosageWithoutDose = item.dosage.trim();
-                    if (doseIndex !== -1) {
-                      const afterDose = item.dosage.substring(doseIndex + 5);
-                      const pipeIndex = afterDose.indexOf('|');
-                      if (pipeIndex !== -1) {
-                        dosageWithoutDose = afterDose.substring(pipeIndex + 1).trim();
-                      } else {
-                        dosageWithoutDose = afterDose.trim();
-                      }
-                    }
-                    if (!dosageWithoutDose) return null;
-                    
-                    // Split into parts and group into 3 rows
-                    const parts = dosageWithoutDose.split('|').map((p: string) => p.trim()).filter((p: string) => p);
-                    const itemsPerRow = Math.ceil(parts.length / 3);
-                    const rows = [
-                      parts.slice(0, itemsPerRow),
-                      parts.slice(itemsPerRow, itemsPerRow * 2),
-                      parts.slice(itemsPerRow * 2)
-                    ].filter(row => row.length > 0);
-                    
-                    return (
-                      <div className="space-y-1 text-sm mb-2 bg-blue-50 p-2 rounded">
-                        <div className="text-xs font-medium text-blue-900 mb-1">📋 Instructions:</div>
-                        {rows.map((row, idx) => (
-                          <div key={idx} className="text-xs text-gray-700">
-                            {row.join(' | ')}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                  {/* Dose Information */}
+                  {Object.keys(doseInfo).length > 0 && (
+                    <div className="space-y-1 text-sm mb-2">
+                      {doseInfo.doseamount && doseInfo.doseunit && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Dose:</span>
+                          <Badge variant="outline" className="text-xs">
+                            {doseInfo.doseamount} {doseInfo.doseunit}
+                          </Badge>
+                        </div>
+                      )}
+                      {doseInfo.route && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Route:</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {doseInfo.route}
+                          </Badge>
+                        </div>
+                      )}
+                      {doseInfo.timingdirections && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Timing:</span>
+                          <span className="text-xs">{doseInfo.timingdirections}</span>
+                        </div>
+                      )}
+                      {doseInfo.duration && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Duration:</span>
+                          <span className="text-xs">{doseInfo.duration}</span>
+                        </div>
+                      )}
+                      {doseInfo.instructions && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Instructions:</span>
+                          <span className="text-xs">{doseInfo.instructions}</span>
+                        </div>
+                      )}
+                      {doseInfo.usage && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">Usage:</span>
+                          <span className="text-xs">{doseInfo.usage}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {item.notes && <div className="text-sm text-muted-foreground"><strong>Notes:</strong> {item.notes}</div>}
                   {item.alternativemedicine && <div className="text-sm text-muted-foreground"><strong>Alternative:</strong> {item.alternativemedicine}</div>}
                   {item.interaction && item.interaction !== "None" && <div className="text-sm text-red-600"><strong>Interaction:</strong> {item.interaction}</div>}
                 </Card>
-              );
-            })}
-            </div>
-            </div>
-
-            {/* Right Column - Other Info */}
-            <div className="space-y-4">
-              {/* Combined Pricing Card */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Pricing Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const calculateTotalFromItems = () => {
-                      return items.reduce((total: number, item: any) => {
-                        const price = parseFloat(item.bestBatchPrice || '0') > 0
-                          ? parseFloat(item.bestBatchPrice)
-                          : parseFloat(item.unitprice || '0') > 0
-                            ? parseFloat(item.unitprice)
-                            : parseFloat(item.nameBasedPrice || '0') > 0
-                              ? parseFloat(item.nameBasedPrice)
-                              : 0;
-                        return total + (price * (item.quantity || 1));
-                      }, 0);
-                    };
-
-                    const totalFromItems = calculateTotalFromItems();
-                    const finalTotal = totalFromItems;
-
-                    // Get invoice amounts (only for dispensed items)
-                    const invoiceTotal = invoice?.total ? parseFloat(invoice.total) : 0;
-                    const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
-                    const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
-                    
-                    // Calculate remaining amount (for pending items)
-                    const remainingDue = finalTotal - invoiceTotal;
-                    
-                    // Patient pays = what they already paid + what's remaining
-                    const patientPay = patientFromInvoice + remainingDue;
-                    const insurancePay = insuranceFromInvoice;
-                    const doctorShare = 0; // No doctor share in this system
-                    const insurancePercentage = invoice?.insurancecovered && invoiceTotal > 0
-                      ? String(Math.round((parseFloat(invoice.insurancecovered) / invoiceTotal) * 100)) + "%"
-                      : "0%";
-
-                    return (
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Insurance Coverage</span>
-                          <span className="font-semibold text-blue-600">{insurancePercentage}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Insurance Covered</span>
-                          <span className="font-semibold text-blue-600">{insurancePay.toFixed(2)} IQD</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Doctor Share</span>
-                          <span className="font-semibold text-purple-600">{doctorShare.toFixed(2)} IQD</span>
-                        </div>
-                        <div className="border-t pt-2 mt-2"></div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Amount Paid</span>
-                          <span className="font-semibold text-green-600">{patientFromInvoice.toFixed(2)} IQD</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Remaining Due</span>
-                          <span className={`font-semibold ${remainingDue > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
-                            {remainingDue.toFixed(2)} IQD
-                          </span>
-                        </div>
-                        <div className="border-t pt-3 flex justify-between items-center">
-                          <span className="font-semibold">Total</span>
-                          <span className="font-bold text-lg text-green-600">{finalTotal.toFixed(2)} IQD</span>
-                        </div>
-                      </div>
                     );
-                  })()}
-                </CardContent>
-              </Card>
-
-              {/* Pharmacist Notes - Only show if there are notes */}
-              {(() => {
-                const hasPharmacistNotes = items.some((item: any) => item.pharmacistnotes && item.pharmacistnotes.trim());
-                if (!hasPharmacistNotes) return null;
-                
-                return (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Pharmacist notes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {items.map((item: any) => {
-                          if (!item.pharmacistnotes || !item.pharmacistnotes.trim()) return null;
-                          return (
-                            <div key={item.itemid} className="text-sm">
-                              <p className="font-medium text-gray-700">{item.drugname}:</p>
-                              <p className="text-muted-foreground pl-3">{item.pharmacistnotes}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })()}
-
-              {/* Indication - Only show if there is an indication */}
-              {(() => {
-                const indicationIndex = order.notes?.toLowerCase().indexOf('indication:');
-                let indication = "";
-                
-                if (indicationIndex !== undefined && indicationIndex !== -1) {
-                  const afterIndication = order.notes.substring(indicationIndex + 11);
-                  const pipeIndex = afterIndication.indexOf('|');
-                  indication = pipeIndex !== -1 
-                    ? afterIndication.substring(0, pipeIndex).trim()
-                    : afterIndication.trim();
-                }
-                
-                if (!indication) return null;
-                
-                return (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Indication</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">{indication}</p>
-                    </CardContent>
-                  </Card>
-                );
-              })()}
-
-              {/* Dispensing Information Card */}
-              {order.status === "DISPENSED" && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Dispensing Information
-                      </CardTitle>
-                      {invoice && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handlePrintInvoice}
-                          className="gap-2"
-                        >
-                          <Printer className="h-4 w-4" />
-                          Print Invoice
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 text-sm flex-wrap">
-                      <div>
-                        <span className="font-medium text-gray-700">Dispensed:</span>{' '}
-                        <span className="text-muted-foreground">{order.dispensedat ? new Date(order.dispensedat).toLocaleString() : "N/A"}</span>
-                      </div>
-                      <div className="border-l pl-4">
-                        <span className="font-medium text-gray-700">By:</span>{' '}
-                        <span className="text-muted-foreground">{(order as any).dispensedbyname || order.dispensedby || "N/A"}</span>
-                      </div>
-                      <div className="border-l pl-4">
-                        <span className="font-medium text-gray-700">Received By:</span>{' '}
-                        <span className="text-muted-foreground">{patient?.firstname && patient?.lastname ? String(patient.firstname + ' ' + patient.lastname) : "N/A"}</span>
-                      </div>
-                      <div className="border-l pl-4">
-                        <span className="font-medium text-gray-700">Payment:</span>{' '}
-                        <span className={`font-semibold ${
-                          invoice?.status === 'PAID' ? 'text-green-600' : 
-                          invoice?.status === 'PARTIALLY_PAID' ? 'text-orange-600' : 
-                          'text-red-600'
-                        }`}>
-                          {invoice?.status === 'PAID' ? '✓ Paid' : 
-                           invoice?.status === 'PARTIALLY_PAID' ? 'Partially Paid' : 
-                           invoice?.status === 'ISSUED' ? 'Unpaid' :
-                           invoice?.status || 'No Invoice'}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                  })}
             </div>
           </div>
 
+          {/* Dosage Instructions Section */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Dosage Instructions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {order.notes ? (
+                  (() => {
+                    const orderNotes = order.notes;
+                    const usageMatch = orderNotes.match(/Usage:\s*(.*?)(?=\s*\|\s*Valid until:|$|\s*\|\s*Instructions:)/i);
+                    const instructionsMatch = orderNotes.match(/Instructions:\s*(.*?)(?=\s*\|\s*Issued from:|$)/i);
+
+                    return (
+                      <div className="border-l-4 border-blue-500 pl-2">
+                        {usageMatch && (
+                          <div className="text-sm">
+                            <strong>Usage:</strong> {usageMatch[1]}
+                          </div>
+                        )}
+                        {instructionsMatch && (
+                          <div className="text-sm">
+                            <strong>Instructions:</strong> {instructionsMatch[1]}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <p className="text-sm text-muted-foreground">No order notes available for dosage instructions.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Insurance and Pharmacist Notes Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Insurance benefits
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-center mb-1">
+                  {invoice?.insurancecovered ? `${Math.round((parseFloat(invoice.insurancecovered) / parseFloat(invoice.total || "1")) * 100)}%` : "0%"}
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  {invoice?.insurancecovered && parseFloat(invoice.insurancecovered) > 0 
+                    ? `Insurance covers $${parseFloat(invoice.insurancecovered).toFixed(2)}` 
+                    : "No insurance coverage"}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Pharmacist notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <textarea
+                  className="w-full h-16 p-1 text-sm border rounded resize-none"
+                  placeholder="Add pharmacist notes..."
+                  value={order.pharmacistnotes || ""}
+                  onChange={(e) => {
+                    console.log("Pharmacist notes updated:", e.target.value);
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Total Price Section */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Total price</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Calculate total from individual medication items if invoice data is not available
+                const calculateTotalFromItems = () => {
+                  return items.reduce((total: number, item: any) => {
+                    const price = parseFloat(item.bestBatchPrice || '0') > 0
+                      ? parseFloat(item.bestBatchPrice)
+                      : parseFloat(item.unitprice || '0') > 0
+                        ? parseFloat(item.unitprice)
+                        : parseFloat(item.nameBasedPrice || '0') > 0
+                          ? parseFloat(item.nameBasedPrice)
+                          : 0;
+                    return total + (price * (item.quantity || 1));
+                  }, 0);
+                };
+
+                const totalFromInvoice = invoice?.total ? parseFloat(invoice.total) : 0;
+                const totalFromItems = calculateTotalFromItems();
+                const finalTotal = totalFromInvoice || totalFromItems;
+
+                const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
+                const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
+                
+                // Use invoice data if available, otherwise calculate based on items
+                const patientPay = patientFromInvoice || finalTotal;
+                const insurancePay = insuranceFromInvoice || 0;
+                const doctorShare = finalTotal - patientPay - insurancePay;
+
+                return (
+                  <>
+                    <div className="flex gap-4 mb-2">
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-muted-foreground">Patient pays</p>
+                        <p className="text-xl font-semibold text-green-600">
+                          ${patientPay.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-muted-foreground">Insurance</p>
+                        <p className="text-xl font-semibold text-blue-600">
+                          ${insurancePay.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-muted-foreground">Doctor Share</p>
+                        <p className="text-xl font-semibold text-purple-600">
+                          ${doctorShare.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-xl font-semibold">
+                      Total: <span className="text-green-600">${finalTotal.toFixed(2)}</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Bottom Actions Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Indication</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {order.notes?.match(/Indication:\s*(.*?)(?=\s*\||$)/i)?.[1] || "No indication specified"}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Drug Interactions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {items.some((item: any) => item.interaction && item.interaction !== "None") 
+                    ? "⚠️ Drug interactions detected - review required" 
+                    : "✅ No drug interactions detected"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Dispensing Information Card */}
+          {order.status === "DISPENSED" && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Dispensing Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium">Dispensed Date</p>
+                    <p className="text-muted-foreground">{order.dispensedat ? new Date(order.dispensedat).toLocaleString() : "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Dispensed By</p>
+                    <p className="text-muted-foreground">{order.dispensedby || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Collection Date</p>
+                    <p className="text-muted-foreground">{order.collectedat ? new Date(order.collectedat).toLocaleDateString() : "Not collected"}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Collected By</p>
+                    <p className="text-muted-foreground">{order.collectedby || "Not collected"}</p>
+                  </div>
+                </div>
+                {!order.collectedby && (
+                  <div className="mt-4 pt-4 border-t">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        // TODO: Add patient collection functionality
+                        alert("Patient collection feature to be implemented");
+                      }}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Mark as Collected by {patient?.firstname} {patient?.lastname}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Action Buttons */}
-          {(() => {
-            console.log('Action buttons check:', { status: order.status, scanningMode, showButtons: order.status !== "DISPENSED" && order.status !== "CANCELLED" });
-            return order.status !== "DISPENSED" && order.status !== "CANCELLED";
-          })() && (
+          {order.status !== "DISPENSED" && order.status !== "CANCELLED" && (
             <div className="flex gap-3 justify-end">
               <Button
-                variant="outline"
-                onClick={onClose}
+                variant="destructive"
+                onClick={handleCancel}
+                disabled={cancelling}
                 className="gap-2"
               >
-                Close
+                {cancelling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cancelling...
+                  </>
+                ) : (
+                  "Cancel"
+                )}
               </Button>
               {!scanningMode ? (
                 <Button 
@@ -1175,7 +1028,7 @@ export default function OrderDetailsModal({
                   }}
                 >
                   <ScanBarcode className="h-4 w-4" />
-                  Go to Checkout
+                  Begin Dispensing
                 </Button>
               ) : (
                 <Button 
@@ -1198,7 +1051,7 @@ export default function OrderDetailsModal({
                   Scan Medications for Dispensing
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Scan each medication barcode from the inventory.
+                  Scan each medication barcode. Use dummy barcodes for testing.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1207,6 +1060,10 @@ export default function OrderDetailsModal({
                   <span className="text-sm font-medium">
                     Progress: {scannedItems.size} / {items.length}
                   </span>
+                  {/* Debug info */}
+                  <div className="text-xs text-muted-foreground">
+                    Debug: {scannedItems.size} === {items.length} = {scannedItems.size === items.length ? "YES" : "NO"}
+                  </div>
                   <div className="flex gap-1">
                     {items.map((item: any) => (
                       <div
@@ -1221,10 +1078,10 @@ export default function OrderDetailsModal({
 
                 {/* Barcode Input */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Enter Barcode:</label>
+                  <label className="text-sm font-medium">Enter Barcode (for testing):</label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Scan or enter item barcode"
+                      placeholder="Enter dummy barcode (e.g., 1234567890123)"
                       value={barcodeInput}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBarcodeInput(e.target.value)}
                       onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -1243,6 +1100,9 @@ export default function OrderDetailsModal({
                       Scan
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Test barcodes: 1234567890123, 9876543210987, 5555555555555, 1111111111111
+                  </p>
                 </div>
 
                 {/* Scan Message */}
@@ -1253,6 +1113,26 @@ export default function OrderDetailsModal({
                     {scanMessage}
                   </div>
                 )}
+
+                {/* Quick Test Buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleScan("1234567890123")}
+                    className="text-xs"
+                  >
+                    Quick Scan: 1234567890123
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleScan("9876543210987")}
+                    className="text-xs"
+                  >
+                    Quick Scan: 9876543210987
+                  </Button>
+                </div>
 
                 {/* Complete Dispensing */}
                 <div className="space-y-2">
@@ -1305,139 +1185,65 @@ export default function OrderDetailsModal({
 
     {/* Drug Details Modal */}
     <Dialog open={showDrugDetails} onOpenChange={setShowDrugDetails}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{selectedDrug?.drugname} - Storage Information</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            {selectedDrug?.form && selectedDrug?.strength && `${selectedDrug.form} • ${selectedDrug.strength}`}
-          </p>
         </DialogHeader>
-        <div className="space-y-4">
-          {/* Storage Location Info */}
-          {selectedDrug?.storageLocation && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">📍</div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-green-900 mb-1">Storage Location</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-green-800">Location:</span>
-                      <span className="text-green-900">{selectedDrug.storageLocation}</span>
-                      {selectedDrug.storageType && (
-                        <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-300">
-                          {selectedDrug.storageType}
-                        </Badge>
-                      )}
-                    </div>
-                    {selectedDrug.binLocation && (
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-green-800">Bin:</span>
-                        <span className="text-green-900">{selectedDrug.binLocation}</span>
-                      </div>
-                    )}
-                    {selectedDrug.warehouseName && (
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-green-800">Warehouse:</span>
-                        <span className="text-green-900">{selectedDrug.warehouseName}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Once click on the drug name will show the storage
+          </p>
           <p className="text-sm text-blue-600 font-medium">
-            Scan the drug barcode to dispense
+            Scan the drug barcode
           </p>
           
-          {/* Batches Table */}
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead>Batch Number</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Expiry Date</TableHead>
-                  <TableHead>Unit Cost</TableHead>
-                  <TableHead>Selling Price</TableHead>
+                  <TableHead>Drug ID</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>Shelf</TableHead>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Expire Date</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {selectedDrug?.batches && selectedDrug.batches.length > 0 ? (
-                  selectedDrug.batches.map((batch: any, index: number) => (
-                    <TableRow key={batch.batchid || index}>
-                      <TableCell className="font-mono text-xs">{batch.batchNumber || batch.batchid || "N/A"}</TableCell>
-                      <TableCell className="font-semibold">{batch.quantity || "0"}</TableCell>
-                      <TableCell className="text-sm">
-                        {batch.expiryDate 
-                          ? new Date(batch.expiryDate).toLocaleDateString()
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell>{batch.unitCost ? `${parseFloat(batch.unitCost).toFixed(2)} IQD` : "—"}</TableCell>
-                      <TableCell className="font-semibold text-green-600">
-                        {batch.sellingPrice ? `${parseFloat(batch.sellingPrice).toFixed(2)} IQD` : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={batch.status === "Low" ? "destructive" : batch.status === "Out of Stock" ? "secondary" : "default"}
-                          className="text-xs"
-                        >
-                          {batch.status || "Available"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-3">
-                        <AlertTriangle className="h-12 w-12 text-amber-500" />
-                        <div className="space-y-1">
-                          <p className="font-semibold text-amber-900">This drug is not found in inventory</p>
-                          <p className="text-sm text-muted-foreground">
-                            No batch or storage information available. Please add this drug to inventory before dispensing.
-                          </p>
-                        </div>
-                      </div>
+                {selectedDrug?.batches?.map((batch: any, index: number) => (
+                  <TableRow key={batch.batchid || index}>
+                    <TableCell>{batch.batchid || selectedDrug.drugid}</TableCell>
+                    <TableCell>{batch.stock || batch.location || "N/A"}</TableCell>
+                    <TableCell>{batch.shelf || "N/A"}</TableCell>
+                    <TableCell>{batch.number || batch.quantity || "0"}</TableCell>
+                    <TableCell>{batch.expiredate || batch.expirydate || "N/A"}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={batch.status === "Low" ? "destructive" : "default"}
+                        className="text-xs"
+                      >
+                        {batch.status || "Available"}
+                      </Badge>
                     </TableCell>
                   </TableRow>
-                )}
+                ))}
               </TableBody>
             </Table>
           </div>
 
-          {selectedDrug?.batches && selectedDrug.batches.length > 0 ? (
-            <p className="text-sm text-red-600">
-              Once the drug is scanned, the inventory system will be updated and price added to the invoice
-            </p>
-          ) : (
-            <p className="text-sm text-amber-600 font-medium">
-              ⚠️ This medication cannot be dispensed until it is added to the inventory system
-            </p>
-          )}
+          <p className="text-sm text-red-600">
+            Once the drug scanned the inventory system should be updated and price add to the invoice
+          </p>
 
           <div className="flex justify-end">
-            <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-               onClick={() => setShowDrugDetails(false)}>
-              Close
+            <Button onClick={() => setShowDrugDetails(false)}>
+              ok
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
 
-    {/* Toast Notification */}
-    {toast && (
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast(null)}
-      />
-    )}
     {/* Print Preview Dialog */}
     <MedicationCardPrintPreview
       open={showPrintPreview}

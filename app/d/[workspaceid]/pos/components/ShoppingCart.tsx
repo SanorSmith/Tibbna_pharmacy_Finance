@@ -40,6 +40,18 @@ export function ShoppingCart({
   onCheckout,
   hasShift,
 }: Props) {
+  // Aggregate quantities by drugName (not drugId) since same drug may have different IDs in old vs new system
+  const aggregatedQuantities = items.reduce((acc, item) => {
+    acc[item.drugName] = (acc[item.drugName] || 0) + item.quantity;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Check if any aggregated quantity exceeds available stock or if stock is 0
+  const hasInsufficientStock = items.some(item => {
+    const totalQuantity = aggregatedQuantities[item.drugName];
+    return item.availableStock !== undefined && (totalQuantity > item.availableStock || item.availableStock === 0);
+  });
+
   return (
     <Card className="shadow-sm h-full flex flex-col">
       <CardHeader className="py-3 px-4 flex flex-row items-center justify-between flex-shrink-0">
@@ -151,6 +163,13 @@ export function ShoppingCart({
                       )}
                     </div>
                   </div>
+                  {/* Stock availability warning */}
+                  {item.availableStock !== undefined && (aggregatedQuantities[item.drugName] > item.availableStock || item.availableStock === 0) && (
+                    <div className="flex items-center gap-1 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 rounded px-2 py-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {item.availableStock === 0 ? 'Out of stock' : `Only ${item.availableStock} available (cart total: ${aggregatedQuantities[item.drugName]})`}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -189,11 +208,17 @@ export function ShoppingCart({
                   Open a shift before checkout
                 </div>
               )}
+              {hasInsufficientStock && (
+                <div className="flex items-center gap-1 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 rounded px-2 py-1.5">
+                  <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                  Insufficient stock for checkout
+                </div>
+              )}
               <Button
                 className="w-full gap-2 bg-[#618FF5] text-white hover:bg-[#4a7ae0] font-semibold"
                 size="lg"
                 onClick={onCheckout}
-                disabled={items.length === 0 || !hasShift}
+                disabled={items.length === 0 || !hasShift || hasInsufficientStock}
               >
                 <CartIcon className="h-5 w-5" />
                 Checkout ({total.toFixed(2)})

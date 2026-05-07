@@ -37,7 +37,12 @@ export async function GET(req: NextRequest) {
         SELECT 
           i.id,
           i.reorder_level,
-          COALESCE(SUM(ist.quantity), 0) as total_stock
+          COALESCE(SUM(ist.quantity), 0) as total_stock,
+          (SELECT ib.unit_cost FROM item_batches ib
+            WHERE ib.item_id = i.id
+              AND ib.warehouse_id = ANY($1::uuid[])
+              AND ib.unit_cost IS NOT NULL
+            ORDER BY ib.created_at DESC LIMIT 1) as unit_cost
         FROM items i
         LEFT JOIN inventory_stock ist ON ist.item_id = i.id AND ist.warehouse_id = ANY($1::uuid[])
         WHERE i.is_active = true 
@@ -65,7 +70,8 @@ export async function GET(req: NextRequest) {
       SELECT 
         COUNT(*) as total_items,
         COUNT(*) FILTER (WHERE total_stock > 0 AND total_stock <= reorder_level) as low_stock,
-        COUNT(*) FILTER (WHERE total_stock = 0) as out_of_stock
+        COUNT(*) FILTER (WHERE total_stock = 0) as out_of_stock,
+        COALESCE(SUM(total_stock * COALESCE(unit_cost, 0)), 0) as total_value
       FROM item_stock
     `, [whIds, workspaceId]);
 
@@ -87,7 +93,7 @@ export async function GET(req: NextRequest) {
       totalItems: parseInt(result.total_items) || 0,
       lowStock: parseInt(result.low_stock) || 0,
       outOfStock: parseInt(result.out_of_stock) || 0,
-      totalValue: 0, // Calculate based on unit cost if needed
+      totalValue: parseFloat(result.total_value) || 0,
       expiringSoon: parseInt(expiringResult.expiring_soon) || 0,
       criticalItems: parseInt(result.low_stock) || 0 // Low stock items as critical
     };

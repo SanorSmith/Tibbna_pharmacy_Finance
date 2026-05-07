@@ -1,14 +1,16 @@
 /**
- * POS Drug Details API
+ * POS Drug/Item Details API
  *
- * GET — full drug details with available batches, prices, stock
+ * GET — full item details with available batches, prices, stock
+ *
+ * Accepts either a drug UUID (drugs.drugid) or an item UUID (items.id).
+ * Uses the unified inventory system: items → item_batches → inventory_stock
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { drugs } from "@/lib/db/tables/pharmacy-drugs";
-import { drugBatches } from "@/lib/db/tables/pharmacy-drugs";
-import { stockLevels } from "@/lib/db/tables/pharmacy-stock";
-import { eq, and, gt, sql } from "drizzle-orm";
+import { items, itemBatches, inventoryStock } from "@/lib/db/schema";
+import { eq, and, or, sql, gt } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 type RouteParams = { params: Promise<{ drugId: string }> };
@@ -22,40 +24,66 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { drugId } = await params;
 
-    // Get drug details
-    const [drug] = await db
+    // Try to find the item — by items.id first, then by items.drug_id
+    let [item] = await db
       .select()
-      .from(drugs)
-      .where(eq(drugs.drugid, drugId))
+      .from(items)
+      .where(eq(items.id, drugId))
       .limit(1);
 
-    if (!drug) {
-      return NextResponse.json({ error: "Drug not found" }, { status: 404 });
+    if (!item) {
+      [item] = await db
+        .select()
+        .from(items)
+        .where(eq(items.drugid, drugId))
+        .limit(1);
     }
 
-    // Get all available batches with prices and current stock
+    if (!item) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    // Get drug-specific details if linked
+    let drugDetails = null;
+    if (item.drugid) {
+      const [d] = await db
+        .select()
+        .from(drugs)
+        .where(eq(drugs.drugid, item.drugid))
+        .limit(1);
+      drugDetails = d || null;
+    }
+
+    // Get all available batches with prices and current stock from inventory_stock
     const batches = await db
       .select({
-        batchid: drugBatches.batchid,
-        lotnumber: drugBatches.lotnumber,
-        expirydate: drugBatches.expirydate,
-        sellingprice: drugBatches.sellingprice,
-        purchaseprice: drugBatches.purchaseprice,
-        barcode: drugBatches.barcode,
+        batchid: itemBatches.id,
+        batchnumber: itemBatches.batchnumber,
+        expirydate: itemBatches.expirydate,
+        sellingprice: itemBatches.sellingprice,
+        unitcost: itemBatches.unitcost,
+        isquarantined: itemBatches.isquarantined,
+        manufacturedate: itemBatches.manufacturedate,
         currentstock: sql<number>`COALESCE((
-          SELECT SUM(sl.quantity) FROM pharmacy_stock_levels sl
-          WHERE sl.drugid = ${drugBatches.drugid}
-            AND sl.batchid = ${drugBatches.batchid}
+          SELECT SUM(ist.quantity)
+          FROM inventory_stock ist
+          WHERE ist.item_id = ${itemBatches.itemid}
+            AND ist.batch_id = ${itemBatches.id}
+            AND ist.quantity > 0
         ), 0)`.as("currentstock"),
       })
-      .from(drugBatches)
+      .from(itemBatches)
       .where(
         and(
-          eq(drugBatches.drugid, drugId),
-          gt(drugBatches.expirydate, sql`CURRENT_DATE`)
+          eq(itemBatches.itemid, item.id),
+          eq(itemBatches.isquarantined, false),
+          or(
+            sql`${itemBatches.expirydate} IS NULL`,
+            gt(itemBatches.expirydate, sql`CURRENT_TIMESTAMP`)
+          )
         )
       )
-      .orderBy(drugBatches.expirydate);
+      .orderBy(sql`${itemBatches.expirydate} ASC NULLS LAST`);
 
     // Filter to only in-stock batches
     const inStockBatches = batches.filter((b) => Number(b.currentstock) > 0);
@@ -67,7 +95,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     );
 
     return NextResponse.json({
-      drug,
+      item,
+      drug: drugDetails,
       batches: inStockBatches,
       totalStock,
       // Recommended price from earliest-expiry in-stock batch (FIFO)
