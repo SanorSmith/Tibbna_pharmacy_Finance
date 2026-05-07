@@ -986,6 +986,21 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
         <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>Pharmacy Inventory</span>
         <div style={{marginLeft:"auto",display:"flex",gap:8}}>
           <button onClick={fetchAll} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",display:"flex",alignItems:"center",gap:5}}><Icon d={icons.refresh} size={13} color="#374151"/></button>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/orders`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
+            📋 Create Order
+          </Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/grn`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
+            📥 Goods Receipt
+          </Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/claims`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
+            ⚠️ Claims
+          </Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/returns`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
+            🚚 Returns
+          </Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/vendors`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
+            🏭 Vendors
+          </Link>
           <button onClick={()=>{setDrugPrefill(null);setShowAddDrug(true);}} style={{...s.btn("purple"),display:"flex",alignItems:"center",gap:6}}><Icon d={icons.pill} size={13} color="#fff"/> Add Medicine</button>
 
         </div>

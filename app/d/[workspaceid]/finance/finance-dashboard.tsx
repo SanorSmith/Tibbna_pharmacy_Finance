@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
 } from "lucide-react";
+import PageHeader from "@/app/components/PageHeader";
 import FinanceOverview from "./components/finance-overview";
 import ChartOfAccounts from "./components/chart-of-accounts";
 import JournalEntries from "./components/journal-entries";
@@ -56,13 +57,12 @@ export default function FinanceDashboard({ workspaceid, userName, userId }: Prop
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b bg-white px-6 py-4">
-        <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Financial management, accounting &amp; reports
-        </p>
-      </div>
-
+      <PageHeader
+        title="Finance"
+        backPath={`/d/${workspaceid}`}
+        description="Financial management, accounting & reports"
+      />
+      
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
         <div className="border-b bg-white px-6">
           <TabsList className="h-12 bg-transparent gap-2 -mb-px">
