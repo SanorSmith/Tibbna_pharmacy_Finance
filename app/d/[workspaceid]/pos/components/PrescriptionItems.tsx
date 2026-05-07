@@ -58,14 +58,17 @@ type OrderItem = {
 };
 
 type Props = {
-  order: any;
+  order: {
+    order: any;
+    items: OrderItem[];
+    patient: any;
+  } | null;
   onAddToCart: (item: Omit<CartItem, "cartItemId">) => void;
   cartItems: CartItem[];
   workspaceid: string;
-  autoLoadItem?: any;
 };
 
-export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid, autoLoadItem }: Props) {
+export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid }: Props) {
   const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
 
   // Fetch prices for items when component mounts or order changes
@@ -102,69 +105,13 @@ export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid, 
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {autoLoadItem ? (
-            // Display auto-loaded inventory item from Begin Dispensing
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="bg-muted/50 text-xs">Drug</TableHead>
-                  <TableHead className="bg-muted/50 text-xs text-center">Qty</TableHead>
-                  <TableHead className="bg-muted/50 text-xs text-right">Price</TableHead>
-                  <TableHead className="bg-muted/50 text-xs text-right w-[60px]">Add</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell>
-                    <div className="text-sm font-medium">{autoLoadItem.drugname}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {autoLoadItem.form} | Lot: {autoLoadItem.batchNumber} | Exp: {autoLoadItem.expiryDate ? new Date(autoLoadItem.expiryDate).toLocaleDateString() : 'N/A'}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center text-sm">{autoLoadItem.quantity}</TableCell>
-                  <TableCell className="text-right text-sm font-medium text-green-700">
-                    {autoLoadItem.sellingPrice ? parseFloat(autoLoadItem.sellingPrice).toLocaleString() : 'N/A'} IQD
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 w-7 p-0"
-                      onClick={() => {
-                        onAddToCart({
-                          drugId: autoLoadItem.itemid,
-                          drugName: autoLoadItem.drugname,
-                          genericName: autoLoadItem.genericname,
-                          form: autoLoadItem.form,
-                          strength: autoLoadItem.strength,
-                          batchId: autoLoadItem.batchid,
-                          lotNumber: autoLoadItem.batchNumber,
-                          expiryDate: autoLoadItem.expiryDate,
-                          quantity: autoLoadItem.quantity,
-                          unitPrice: autoLoadItem.sellingPrice ? parseFloat(autoLoadItem.sellingPrice) : 0,
-                          discountPercent: 0,
-                          discountAmount: 0,
-                          taxAmount: 0,
-                          totalAmount: autoLoadItem.sellingPrice ? parseFloat(autoLoadItem.sellingPrice) * autoLoadItem.quantity : 0,
-                          availableStock: autoLoadItem.availableStock,
-                        });
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-6">
-              <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No prescription loaded</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Search for a patient to see their dispensed orders
-              </p>
-            </div>
-          )}
+          <div className="text-center py-6">
+            <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No prescription loaded</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Search for a patient to see their dispensed orders
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -211,73 +158,70 @@ export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid, 
   };
 
   const addItem = async (item: OrderItem) => {
-    const price = resolvePrice(item);
-
-    // Fetch available stock from unified inventory
-    let availableStock: number | undefined = undefined;
     try {
-      // Try to resolve unified inventory item ID and fetch stock
-      const stockResponse = await fetch(`/api/pos/checkout/calculate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [{
-            drugId: item.drugid,
-            drugName: item.drugname,
-            batchId: item.batchid,
-            quantity: (item.quantity || 0) - (item.quantitydispensed || 0),
-            unitPrice: price,
-          }],
-          saleType: 'DISPENSED_ORDER',
-          pharmacyOrderId: order?.order?.orderid,
-          workspaceid: workspaceid,
-        }),
-      });
-      if (stockResponse.ok) {
-        const data = await stockResponse.json();
-        console.log('Stock check response:', data);
-        if (data.stockWarnings && data.stockWarnings.length > 0) {
-          // Extract available quantity from warning message
-          const warning = data.stockWarnings[0];
-          console.log('Stock warning:', warning);
-          const match = warning.match(/only (\d+) available/);
-          if (match) {
-            availableStock = parseInt(match[1]);
-          } else if (warning.includes('no stock record found') || warning.includes('no stock')) {
-            availableStock = 0;
-          }
-        }
-        // If no warnings but we have the item, assume stock is available
-        if (!data.stockWarnings && data.itemCount > 0) {
-          availableStock = undefined; // Don't set to 0 if no warning
-        }
-      } else {
-        console.error('Stock check failed:', stockResponse.status);
+      // Fetch inventory items for the drug using items.drugid → drugs.drugid relationship
+      const orderId = order?.order?.orderid;
+      if (!orderId || !item.drugid) {
+        console.error('[PrescriptionItems] Missing order ID or drug ID');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to fetch stock:', error);
-    }
 
-    onAddToCart({
-      drugId: item.drugid,
-      drugName: item.drugname,
-      genericName: item.genericname,
-      form: item.form,
-      strength: item.strength,
-      batchId: item.batchid,
-      lotNumber: item.lotnumber,
-      expiryDate: item.expirydate,
-      quantity: (item.quantity || 0) - (item.quantitydispensed || 0),
-      unitPrice: price,
-      discountPercent: 0,
-      discountAmount: 0,
-      taxAmount: 0,
-      totalAmount: price * ((item.quantity || 0) - (item.quantitydispensed || 0)),
-      pharmacyOrderItemId: item.itemid,
-      prescribedQuantity: item.quantity,
-      quantitydispensed: item.quantitydispensed,
-      availableStock,
-    });
+      const inventoryResponse = await fetch(
+        `/api/d/${workspaceid}/pharmacy/orders/${orderId}/inventory-items?drugid=${item.drugid}`
+      );
+      
+      if (!inventoryResponse.ok) {
+        console.error('[PrescriptionItems] Failed to fetch inventory items');
+        return;
+      }
+
+      const inventoryData = await inventoryResponse.json();
+      const inventoryItems = inventoryData.items || [];
+
+      if (inventoryItems.length === 0) {
+        console.error('[PrescriptionItems] No inventory items found for drug');
+        return;
+      }
+
+      // Select the first inventory item and its first batch (FIFO)
+      const selectedItem = inventoryItems[0];
+      const selectedBatch = selectedItem.batches && selectedItem.batches.length > 0 
+        ? selectedItem.batches[0] 
+        : null;
+
+      if (!selectedBatch) {
+        console.error('[PrescriptionItems] No available batches');
+        return;
+      }
+
+      const price = selectedBatch.sellingPrice ? parseFloat(selectedBatch.sellingPrice) : resolvePrice(item);
+      const quantity = (item.quantity || 0) - (item.quantitydispensed || 0);
+
+      onAddToCart({
+        drugId: item.drugid,
+        drugName: item.drugname,
+        genericName: item.genericname,
+        form: item.form,
+        strength: item.strength,
+        batchId: selectedBatch.batchId,
+        lotNumber: selectedBatch.batchNumber,
+        expiryDate: selectedBatch.expiryDate,
+        quantity: quantity,
+        unitPrice: price,
+        discountPercent: 0,
+        discountAmount: 0,
+        taxAmount: 0,
+        totalAmount: price * quantity,
+        pharmacyOrderItemId: item.itemid,
+        prescribedQuantity: item.quantity,
+        quantitydispensed: item.quantitydispensed,
+        availableStock: selectedBatch.quantity,
+      });
+
+      console.log('[PrescriptionItems] Added item to cart:', item.drugname, 'Batch:', selectedBatch.batchNumber);
+    } catch (error) {
+      console.error('[PrescriptionItems] Error adding item:', error);
+    }
   };
 
   const addAll = () => {

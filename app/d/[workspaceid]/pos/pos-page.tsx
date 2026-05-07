@@ -64,7 +64,6 @@ export default function POSClientPage({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [currentShift, setCurrentShift] = useState<ShiftData | null>(null);
   const [shiftLoading, setShiftLoading] = useState(true);
-  const [autoLoadInventoryItem, setAutoLoadInventoryItem] = useState<any>(null);
 
   // Load current shift on mount
   useEffect(() => {
@@ -75,24 +74,11 @@ export default function POSClientPage({
   useEffect(() => {
     const orderId = searchParams.get('orderId');
     const patientId = searchParams.get('patientId');
-    const drugId = searchParams.get('drugId');
-    const quantity = searchParams.get('quantity');
     
-    if (drugId) {
-      // Auto-load inventory item from drugId
-      console.log('[POS] Auto-loading inventory item from drugId:', { drugId, quantity });
-      handleDrugIdLoad(drugId, quantity ? parseInt(quantity) : 1);
-    }
-    
-    if (patientId && patientId !== 'undefined') {
-      // Auto-load patient
-      console.log('[POS] Auto-loading patient from URL:', { patientId });
-      handlePatientSelect(patientId);
-    }
-    
-    if (orderId && !drugId) {
+    if (orderId) {
       console.log('[POS] Auto-loading from URL params:', { orderId, patientId });
       
+      // Load order to show items in Prescription Items card
       if (patientId && patientId !== 'undefined') {
         // Auto-load patient first, then the order
         handlePatientSelect(patientId).then(() => {
@@ -118,41 +104,40 @@ export default function POSClientPage({
     }
   };
 
-  // Handle loading inventory item from drugId (from Begin Dispensing)
-  const handleDrugIdLoad = async (drugId: string, quantity: number) => {
+  // Handle loading inventory item from inventory selection modal
+  const handleInventoryItemLoad = async (itemId: string, batchId: string, quantity: number, pharmacyOrderItemId?: string) => {
     try {
-      // Fetch inventory items using the drug-to-item transformation API
-      const res = await fetch(`/api/d/${workspaceid}/pharmacy/orders/temp/inventory-items-by-drug?drugId=${drugId}`);
+      // Fetch inventory item details using the new API
+      const res = await fetch(`/api/d/${workspaceid}/pharmacy/orders/temp/inventory-item?itemId=${itemId}&batchId=${batchId}`);
       if (!res.ok) {
-        console.error("[POS] Failed to fetch inventory items:", res.status);
+        console.error("[POS] Failed to fetch inventory item:", res.status);
         return;
       }
       const data = await res.json();
       
-      if (data.items && data.items.length > 0) {
-        // Set the inventory item to be displayed in Prescription Items section
-        const firstItem = data.items[0];
-        const firstBatch = firstItem.batches[0];
-        
-        setAutoLoadInventoryItem({
-          itemid: drugId, // Use drugId as itemid for prescription items compatibility
-          drugname: firstItem.itemName,
-          genericname: firstItem.genericName,
-          form: firstItem.form,
-          strength: firstItem.strength,
-          quantity: quantity,
-          batchid: firstBatch.batchId,
-          batchNumber: firstBatch.batchNumber,
-          expiryDate: firstBatch.expiryDate,
-          sellingPrice: firstBatch.sellingPrice,
-          availableStock: firstItem.totalStock,
-          inventoryItemId: firstItem.itemId,
-        });
-        
-        console.log("[POS] Auto-loaded inventory item into Prescription Items:", firstItem.itemName);
-      }
+      // Add to cart with correct availableStock from the selected batch
+      addToCart({
+        drugId: data.drugId,
+        drugName: data.itemName,
+        genericName: data.genericName,
+        form: data.form,
+        strength: data.strength,
+        batchId: batchId,
+        lotNumber: data.batchNumber,
+        expiryDate: data.expiryDate,
+        quantity: quantity,
+        unitPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : 0,
+        discountPercent: 0,
+        discountAmount: 0,
+        taxAmount: 0,
+        totalAmount: data.sellingPrice ? parseFloat(data.sellingPrice) * quantity : 0,
+        availableStock: data.batchQuantity, // Use the actual batch quantity
+        pharmacyOrderItemId: pharmacyOrderItemId, // Link to prescription item
+      });
+      
+      console.log("[POS] Added inventory item to cart:", data.itemName, "Qty:", quantity, "Stock:", data.batchQuantity, "OrderItem:", pharmacyOrderItemId);
     } catch (error) {
-      console.error("[POS] Error loading inventory item from drugId:", error);
+      console.error("[POS] Error loading inventory item:", error);
     }
   };
 
@@ -271,117 +256,57 @@ export default function POSClientPage({
 
       {/* Header */}
       <div className="flex-shrink-0 p-4 pt-0 space-y-3">
-        {patient ? (
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <CartIcon className="h-6 w-6" />
-                Point of Sale
-              </h1>
-              <div className="mt-2 flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-blue-700">
-                    {patient.firstname} {patient.lastname}
-                  </span>
-                  {patient.nationalid && (
-                    <span className="text-xs text-muted-foreground">
-                      ID: {patient.nationalid}
-                    </span>
-                  )}
-                </div>
-                {patient.phone && (
-                  <span className="text-xs text-muted-foreground">
-                    {patient.phone}
-                  </span>
-                )}
-                {patient.dateofbirth && (
-                  <span className="text-xs text-muted-foreground">
-                    DOB: {new Date(patient.dateofbirth).toLocaleDateString()}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">
-                {userName}
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  (window.location.href = `/d/${workspaceid}/pos/shifts`)
-                }
-                className="gap-1"
-              >
-                <Clock className="h-4 w-4" />
-                Shifts
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  (window.location.href = `/d/${workspaceid}/pos/reports`)
-                }
-                className="gap-1"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Reports
-              </Button>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <CartIcon className="h-6 w-6" />
+              Point of Sale
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {currentShift ? (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Shift {currentShift.shiftnumber} | Since{" "}
+                  {new Date(currentShift.openingtime).toLocaleTimeString()}
+                </span>
+              ) : shiftLoading ? (
+                "Loading shift..."
+              ) : (
+                <span className="flex items-center gap-1 text-orange-600">
+                  <AlertCircle className="h-3 w-3" />
+                  No active shift — open a shift to start selling
+                </span>
+              )}
+            </p>
           </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <CartIcon className="h-6 w-6" />
-                Point of Sale
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {currentShift ? (
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Shift {currentShift.shiftnumber} | Since{" "}
-                    {new Date(currentShift.openingtime).toLocaleTimeString()}
-                  </span>
-                ) : shiftLoading ? (
-                  "Loading shift..."
-                ) : (
-                  <span className="flex items-center gap-1 text-orange-600">
-                    <AlertCircle className="h-3 w-3" />
-                    No active shift — open a shift to start selling
-                  </span>
-                )}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">
-                {userName}
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  (window.location.href = `/d/${workspaceid}/pos/shifts`)
-                }
-                className="gap-1"
-              >
-                <Clock className="h-4 w-4" />
-                Shifts
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  (window.location.href = `/d/${workspaceid}/pos/reports`)
-                }
-                className="gap-1"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Reports
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              {userName}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                (window.location.href = `/d/${workspaceid}/pos/shifts`)
+              }
+              className="gap-1"
+            >
+              <Clock className="h-4 w-4" />
+              Shifts
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                (window.location.href = `/d/${workspaceid}/pos/reports`)
+              }
+              className="gap-1"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Reports
+            </Button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Main 3-Column Layout */}
@@ -409,7 +334,6 @@ export default function POSClientPage({
               onAddToCart={addToCart}
               cartItems={cart}
               workspaceid={workspaceid}
-              autoLoadItem={autoLoadInventoryItem}
             />
             <DrugSearch onAddToCart={addToCart} />
           </div>

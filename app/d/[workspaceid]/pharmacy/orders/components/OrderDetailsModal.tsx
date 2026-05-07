@@ -82,26 +82,17 @@ export default function OrderDetailsModal({
   const [selectedDrug, setSelectedDrug] = useState<any>(null);
   const [showDrugDetails, setShowDrugDetails] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [showInventorySelection, setShowInventorySelection] = useState(false);
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [loadingInventory, setLoadingInventory] = useState(false);
 
-  // Fetch inventory items for a drug using items.drugid → drugs.drugid relationship
-  const fetchInventoryItems = async (drugid: string) => {
-    setLoadingInventory(true);
-    try {
-      const response = await fetch(
-        `/api/d/${workspaceid}/pharmacy/orders/${orderid}/inventory-items?drugid=${drugid}`
-      );
-      if (!response.ok) throw new Error("Failed to fetch inventory items");
-      const data = await response.json();
-      setInventoryItems(data.items || []);
-      setShowInventorySelection(true);
-    } catch (error) {
-      console.error("[Inventory Items] Error:", error);
-    } finally {
-      setLoadingInventory(false);
-    }
+  // Fetch inventory items for all drugs in the order and redirect to POS
+  const handleBeginDispensing = async () => {
+    // Simply redirect to POS with order ID (no auto-add)
+    // Items will be added individually from Prescription Items card
+    const patientId = patient?.patientid;
+    const url = patientId
+      ? `/d/${workspaceid}/pos?orderId=${orderid}&patientId=${patientId}`
+      : `/d/${workspaceid}/pos?orderId=${orderid}`;
+    window.location.href = url;
   };
 
   // Print medication card
@@ -1041,27 +1032,15 @@ export default function OrderDetailsModal({
               {!scanningMode ? (
                 <Button 
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                  onClick={() => {
-                    // Redirect to POS with auto-add action for inventory item
-                    if (items.length > 0 && items[0].drugid) {
-                      // Use the first drug's inventory item
-                      const patientId = patient?.patientid;
-                      const url = patientId
-                        ? `/d/${workspaceid}/pos?orderId=${orderid}&patientId=${patientId}&drugId=${items[0].drugid}&quantity=${items[0]?.quantity || 1}`
-                        : `/d/${workspaceid}/pos?orderId=${orderid}&drugId=${items[0].drugid}&quantity=${items[0]?.quantity || 1}`;
-                      window.location.href = url;
-                    } else {
-                      // Fallback: Open POS page with order pre-loaded
-                      const patientId = patient?.patientid;
-                      const url = patientId
-                        ? `/d/${workspaceid}/pos?orderId=${orderid}&patientId=${patientId}`
-                        : `/d/${workspaceid}/pos?orderId=${orderid}`;
-                      window.location.href = url;
-                    }
-                  }}
+                  onClick={handleBeginDispensing}
+                  disabled={loadingInventory}
                 >
-                  <ScanBarcode className="h-4 w-4" />
-                  Begin Dispensing
+                  {loadingInventory ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ScanBarcode className="h-4 w-4" />
+                  )}
+                  {loadingInventory ? 'Loading...' : 'Begin Dispensing'}
                 </Button>
               ) : (
                 <Button 
@@ -1285,90 +1264,6 @@ export default function OrderDetailsModal({
       items={items}
       workspaceid={workspaceid}
     />
-
-    {/* Inventory Selection Modal */}
-    <Dialog open={showInventorySelection} onOpenChange={setShowInventorySelection}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Select Inventory Item for Dispensing</DialogTitle>
-          <DialogDescription>
-            Choose an inventory item with available stock to dispense this order.
-          </DialogDescription>
-        </DialogHeader>
-        {loadingInventory ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        ) : inventoryItems.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No inventory items found with available stock for this drug.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {inventoryItems.map((item) => (
-              <Card key={item.itemId}>
-                <CardHeader>
-                  <CardTitle className="text-base">{item.itemName}</CardTitle>
-                  <CardDescription>
-                    {item.genericName} • {item.form} • {item.strength}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Drug</TableHead>
-                        <TableHead className="text-center">Qty</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right w-[60px]">Add</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {item.batches.map((batch: any, idx: number) => (
-                        <TableRow key={`${item.itemId}-${idx}`}>
-                          <TableCell>
-                            <div className="text-sm font-medium">{item.itemName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {item.form} | Lot: {batch.batchNumber} | Exp: {batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : 'N/A'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center text-sm">{batch.quantity}</TableCell>
-                          <TableCell className="text-right text-sm font-medium text-green-700">
-                            {batch.sellingPrice ? parseFloat(batch.sellingPrice).toLocaleString() : 'N/A'} IQD
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 w-7 p-0"
-                              onClick={() => {
-                                // Add to POS cart and redirect
-                                const patientId = patient?.patientid;
-                                const url = patientId
-                                  ? `/d/${workspaceid}/pos?orderId=${orderid}&patientId=${patientId}&itemId=${item.itemId}&batchId=${batch.batchId}&quantity=${items[0]?.quantity || 1}`
-                                  : `/d/${workspaceid}/pos?orderId=${orderid}&itemId=${item.itemId}&batchId=${batch.batchId}&quantity=${items[0]?.quantity || 1}`;
-                                window.location.href = url;
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-        <div className="flex justify-end">
-          <Button onClick={() => setShowInventorySelection(false)}>
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   </>
   );
 }
