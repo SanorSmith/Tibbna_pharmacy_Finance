@@ -58,17 +58,14 @@ type OrderItem = {
 };
 
 type Props = {
-  order: {
-    order: any;
-    items: OrderItem[];
-    patient: any;
-  } | null;
+  order: any;
   onAddToCart: (item: Omit<CartItem, "cartItemId">) => void;
   cartItems: CartItem[];
   workspaceid: string;
+  autoLoadItem?: any;
 };
 
-export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid }: Props) {
+export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid, autoLoadItem }: Props) {
   const [itemPrices, setItemPrices] = useState<Record<string, number>>({});
 
   // Fetch prices for items when component mounts or order changes
@@ -105,13 +102,69 @@ export function PrescriptionItems({ order, onAddToCart, cartItems, workspaceid }
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          <div className="text-center py-6">
-            <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No prescription loaded</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Search for a patient to see their dispensed orders
-            </p>
-          </div>
+          {autoLoadItem ? (
+            // Display auto-loaded inventory item from Begin Dispensing
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="bg-muted/50 text-xs">Drug</TableHead>
+                  <TableHead className="bg-muted/50 text-xs text-center">Qty</TableHead>
+                  <TableHead className="bg-muted/50 text-xs text-right">Price</TableHead>
+                  <TableHead className="bg-muted/50 text-xs text-right w-[60px]">Add</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>
+                    <div className="text-sm font-medium">{autoLoadItem.drugname}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {autoLoadItem.form} | Lot: {autoLoadItem.batchNumber} | Exp: {autoLoadItem.expiryDate ? new Date(autoLoadItem.expiryDate).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center text-sm">{autoLoadItem.quantity}</TableCell>
+                  <TableCell className="text-right text-sm font-medium text-green-700">
+                    {autoLoadItem.sellingPrice ? parseFloat(autoLoadItem.sellingPrice).toLocaleString() : 'N/A'} IQD
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      onClick={() => {
+                        onAddToCart({
+                          drugId: autoLoadItem.itemid,
+                          drugName: autoLoadItem.drugname,
+                          genericName: autoLoadItem.genericname,
+                          form: autoLoadItem.form,
+                          strength: autoLoadItem.strength,
+                          batchId: autoLoadItem.batchid,
+                          lotNumber: autoLoadItem.batchNumber,
+                          expiryDate: autoLoadItem.expiryDate,
+                          quantity: autoLoadItem.quantity,
+                          unitPrice: autoLoadItem.sellingPrice ? parseFloat(autoLoadItem.sellingPrice) : 0,
+                          discountPercent: 0,
+                          discountAmount: 0,
+                          taxAmount: 0,
+                          totalAmount: autoLoadItem.sellingPrice ? parseFloat(autoLoadItem.sellingPrice) * autoLoadItem.quantity : 0,
+                          availableStock: autoLoadItem.availableStock,
+                        });
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-6">
+              <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No prescription loaded</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Search for a patient to see their dispensed orders
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
