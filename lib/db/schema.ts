@@ -52,9 +52,12 @@ export const requisitionStatusEnum = pgEnum("requisition_status", [
 export const workspaces = pgTable("workspaces", {
   workspaceid: uuid("workspaceid").primaryKey().defaultRandom(),
   name:        text("name").notNull(),
-  isactive:    boolean("isactive").default(true),
-  createdat:   timestamp("createdat", { withTimezone: true }).defaultNow(),
-  updatedat:   timestamp("updatedat", { withTimezone: true }).defaultNow(),
+  type:        text("type").notNull(),
+  description: text("description"),
+  isactive:    boolean("isactive").notNull().default(true),
+  settings:    jsonb("settings").default("{}"),
+  createdat:   timestamp("createdat", { withTimezone: true }).defaultNow().notNull(),
+  updatedat:   timestamp("updatedat", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -65,6 +68,7 @@ export const users = pgTable("users", {
   email:       text("email").notNull().unique(),
   image:       text("image"),
   password:    text("password"),
+  isactive:    boolean("isactive").notNull().default(true),
   theme:       text("theme").default("system"),
   language:    text("language").default("en"),
   permissions: jsonb("permissions").default("[]"),
@@ -875,3 +879,4 @@ export * from "./tables/finance-audit";
 
 // ─── POS Module ─────────────────────────────────────────────────────────────
 export * from "./tables/pos-schema";
+export * from "./tables/pos-returns-schema";

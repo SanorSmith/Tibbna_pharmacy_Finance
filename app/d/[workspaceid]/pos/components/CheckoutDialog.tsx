@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Printer,
 } from "lucide-react";
 import type { CartItem } from "../pos-page";
 
@@ -79,7 +80,9 @@ export function CheckoutDialog({
   const [success, setSuccess] = useState<{
     saleNumber: string;
     change: number;
+    saleData?: any;
   } | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   const paymentsTotal = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = total - paymentsTotal;
@@ -151,6 +154,7 @@ export function CheckoutDialog({
       setSuccess({
         saleNumber: data.saleNumber,
         change: parseFloat(data.sale.changeamount),
+        saleData: data.sale,
       });
     } catch (err: any) {
       setError(err.message || "Checkout failed");
@@ -168,6 +172,110 @@ export function CheckoutDialog({
     setPayments([{ method: "CASH", amount: total }]);
     setCashReceived(total.toString());
     onClose();
+  };
+
+  const handlePrintReceipt = () => {
+    if (!receiptRef.current) return;
+    
+    const printContent = receiptRef.current.innerHTML;
+    const printWindow = window.open('', '', 'width=400,height=600');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${success?.saleNumber}</title>
+        <style>
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 0;
+            padding: 10px;
+            width: 280px;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+          }
+          .header h1 {
+            font-size: 16px;
+            margin: 0 0 5px 0;
+          }
+          .header p {
+            margin: 2px 0;
+            font-size: 11px;
+          }
+          .info {
+            margin-bottom: 10px;
+            font-size: 11px;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+          }
+          .items {
+            margin: 10px 0;
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            padding: 10px 0;
+          }
+          .item {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+            font-size: 11px;
+          }
+          .item-name {
+            flex: 1;
+          }
+          .item-qty {
+            text-align: center;
+            width: 40px;
+          }
+          .item-price {
+            text-align: right;
+            width: 70px;
+          }
+          .totals {
+            margin-top: 10px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+          }
+          .total-row.grand {
+            font-weight: bold;
+            font-size: 14px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 10px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 10px;
+            border-top: 1px dashed #000;
+            padding-top: 10px;
+          }
+          .payment {
+            margin-top: 10px;
+            border-top: 1px dashed #000;
+            padding-top: 5px;
+          }
+        </style>
+      </head>
+      <body>
+        ${printContent}
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   return (
@@ -197,12 +305,130 @@ export function CheckoutDialog({
                 </p>
               </div>
             )}
-            <Button
-              onClick={handleClose}
-              className="bg-[#618FF5] text-white hover:bg-[#4a7ae0]"
-            >
-              New Sale
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button
+                onClick={handlePrintReceipt}
+                variant="outline"
+                className="gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                Print Receipt
+              </Button>
+              <Button
+                onClick={handleClose}
+                className="bg-[#618FF5] text-white hover:bg-[#4a7ae0]"
+              >
+                New Sale
+              </Button>
+            </div>
+            
+            {/* Hidden receipt template for printing */}
+            <div ref={receiptRef} className="hidden">
+              <div className="header">
+                <h1>PHARMACY RECEIPT</h1>
+                <p>Tibbna Pharmacy</p>
+                <p>License: PH-2024-001</p>
+                <p>Address: Baghdad, Iraq</p>
+                <p>Tel: +964 780 000 0000</p>
+              </div>
+              
+              <div className="info">
+                <div className="info-row">
+                  <span>Receipt #:</span>
+                  <span>{success.saleNumber}</span>
+                </div>
+                <div className="info-row">
+                  <span>Date:</span>
+                  <span>{new Date().toLocaleString()}</span>
+                </div>
+                <div className="info-row">
+                  <span>Cashier:</span>
+                  <span>POS-{workspaceId.slice(0, 8)}</span>
+                </div>
+                {patient?.patient && (
+                  <>
+                    <div className="info-row">
+                      <span>Patient:</span>
+                      <span>{patient.patient.firstname} {patient.patient.lastname}</span>
+                    </div>
+                    <div className="info-row">
+                      <span>Patient ID:</span>
+                      <span>{patient.patient.patientid?.slice(0, 8)}...</span>
+                    </div>
+                  </>
+                )}
+                {dispensedOrder?.order?.orderid && (
+                  <div className="info-row">
+                    <span>Order #:</span>
+                    <span>{dispensedOrder.order.orderid?.slice(0, 8)}...</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="items">
+                <div className="item" style={{fontWeight: 'bold'}}>
+                  <span className="item-name">Item</span>
+                  <span className="item-qty">Qty</span>
+                  <span className="item-price">Price</span>
+                </div>
+                {cart.map((item, idx) => (
+                  <div key={idx} className="item">
+                    <span className="item-name">{item.drugName}</span>
+                    <span className="item-qty">{item.quantity}</span>
+                    <span className="item-price">{(item.quantity * item.unitPrice).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="totals">
+                <div className="total-row">
+                  <span>Subtotal:</span>
+                  <span>{subtotal.toFixed(2)} IQD</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="total-row">
+                    <span>Discount:</span>
+                    <span>-{discountAmount.toFixed(2)} IQD</span>
+                  </div>
+                )}
+                {taxAmount > 0 && (
+                  <div className="total-row">
+                    <span>Tax:</span>
+                    <span>{taxAmount.toFixed(2)} IQD</span>
+                  </div>
+                )}
+                <div className="total-row grand">
+                  <span>TOTAL:</span>
+                  <span>{total.toFixed(2)} IQD</span>
+                </div>
+              </div>
+
+              <div className="payment">
+                <div className="info-row">
+                  <span>Payment Method:</span>
+                  <span>{payments[0].method}</span>
+                </div>
+                {payments[0].method === "CASH" && (
+                  <div className="info-row">
+                    <span>Cash Received:</span>
+                    <span>{parseFloat(cashReceived).toFixed(2)} IQD</span>
+                  </div>
+                )}
+                {success.change > 0 && (
+                  <div className="info-row">
+                    <span>Change:</span>
+                    <span>{success.change.toFixed(2)} IQD</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="footer">
+                <p>Thank you for choosing Tibbna Pharmacy</p>
+                <p>Please keep this receipt for warranty</p>
+                <p>For inquiries: support@tibbna.com</p>
+                <p style={{marginTop: '10px'}}>*** End of Receipt ***</p>
+              </div>
+            </div>
           </div>
         ) : (
           /* Payment form */

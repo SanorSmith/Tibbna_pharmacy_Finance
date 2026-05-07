@@ -6,6 +6,7 @@ import {
   primaryKey,
   foreignKey,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { users } from "./user";
 
@@ -28,6 +29,7 @@ export const workspaces = pgTable("workspaces", {
   name: text("name").notNull(),
   type: text("type").notNull().$type<WorkspaceType>(),
   description: text("description"),
+  isactive: boolean("isactive").notNull().default(true),
   settings: jsonb("settings").default("{}").$type<WorkspaceSettings>(),
   createdat: timestamp("createdat").defaultNow().notNull(),
   updatedat: timestamp("updatedat").defaultNow().notNull(),

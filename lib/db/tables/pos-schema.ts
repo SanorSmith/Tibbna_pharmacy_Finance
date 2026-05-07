@@ -25,6 +25,7 @@ import { patients } from "./patient";
 import { pharmacyOrders, pharmacyOrderItems } from "./pharmacy-orders";
 import { insuranceCompanies } from "./pharmacy-insurance";
 import { drugs, drugBatches } from "./pharmacy-drugs";
+import { posReturns } from "./pos-returns-schema";
 
 // ── Sale types ──────────────────────────────────────────────────────────
 export const POS_SALE_TYPE = {
@@ -85,6 +86,24 @@ export const CREDIT_ACCOUNT_STATUS = {
 
 export type CreditAccountStatus =
   (typeof CREDIT_ACCOUNT_STATUS)[keyof typeof CREDIT_ACCOUNT_STATUS];
+
+// ── Receipt types ─────────────────────────────────────────────────────────
+export const POS_RECEIPT_TYPE = {
+  SALE: "SALE",
+  RETURN: "RETURN",
+  SHIFT: "SHIFT",
+} as const;
+
+export type PosReceiptType = (typeof POS_RECEIPT_TYPE)[keyof typeof POS_RECEIPT_TYPE];
+
+// ── Print formats ─────────────────────────────────────────────────────────
+export const POS_PRINT_FORMAT = {
+  PDF: "PDF",
+  THERMAL: "THERMAL",
+  BROWSER: "BROWSER",
+} as const;
+
+export type PosPrintFormat = (typeof POS_PRINT_FORMAT)[keyof typeof POS_PRINT_FORMAT];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. POS Sales (Main transactions)
@@ -292,6 +311,7 @@ export const posShifts = pgTable(
       .notNull()
       .references(() => users.userid),
     shiftnumber: text("shiftnumber").notNull().unique(),
+    isactive: boolean("isactive").notNull().default(true),
 
     openingtime: timestamp("openingtime", { withTimezone: true })
       .notNull()
@@ -397,3 +417,61 @@ export const patientCreditAccounts = pgTable(
 
 export type PatientCreditAccount = typeof patientCreditAccounts.$inferSelect;
 export type NewPatientCreditAccount = typeof patientCreditAccounts.$inferInsert;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. POS Receipt Reprints (Track reprint history for audit)
+// ═══════════════════════════════════════════════════════════════════════════
+export const posReceiptReprints = pgTable(
+  "pos_receipt_reprints",
+  {
+    reprintid: uuid("reprintid").primaryKey().defaultRandom(),
+    workspaceid: uuid("workspaceid")
+      .notNull()
+      .references(() => workspaces.workspaceid, { onDelete: "cascade" }),
+
+    // Reference to original document (one of these)
+    saleid: uuid("saleid").references(() => posSales.saleid, {
+      onDelete: "set null",
+    }),
+    returnid: uuid("returnid").references(() => posReturns.returnid, {
+      onDelete: "set null",
+    }),
+    shiftid: uuid("shiftid").references(() => posShifts.shiftid, {
+      onDelete: "set null",
+    }),
+
+    // Type of receipt
+    receipttype: text("receipttype")
+      .notNull()
+      .$type<PosReceiptType>(),
+
+    // Reprint details
+    reprintdate: timestamp("reprintdate", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    cashierid: uuid("cashierid")
+      .notNull()
+      .references(() => users.userid),
+    printformat: text("printformat")
+      .notNull()
+      .$type<PosPrintFormat>(),
+    reason: text("reason"), // Optional reason for reprint
+
+    createdat: timestamp("createdat", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    workspaceIdx: index("idx_pos_receipt_reprints_workspace").on(
+      table.workspaceid
+    ),
+    saleIdx: index("idx_pos_receipt_reprints_sale").on(table.saleid),
+    returnIdx: index("idx_pos_receipt_reprints_return").on(table.returnid),
+    shiftIdx: index("idx_pos_receipt_reprints_shift").on(table.shiftid),
+    dateIdx: index("idx_pos_receipt_reprints_date").on(table.reprintdate),
+    cashierIdx: index("idx_pos_receipt_reprints_cashier").on(table.cashierid),
+  })
+);
+
+export type PosReceiptReprint = typeof posReceiptReprints.$inferSelect;
+export type NewPosReceiptReprint = typeof posReceiptReprints.$inferInsert;

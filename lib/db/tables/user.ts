@@ -1,4 +1,11 @@
-import { pgTable, uuid, text, timestamp, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  jsonb,
+  boolean,
+} from "drizzle-orm/pg-core";
 
 export type UserTheme = "light" | "dark" | "system";
 export type UserLanguage = "en" | "sv";
@@ -10,6 +17,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   image: text("image"),
   password: text("password"),
+  isactive: boolean("isactive").notNull().default(true),
   theme: text("theme").default("system").$type<UserTheme>(),
   language: text("language").default("en").$type<UserLanguage>(),
   permissions: jsonb("permissions").default("[]").$type<UserPermissions[]>(),

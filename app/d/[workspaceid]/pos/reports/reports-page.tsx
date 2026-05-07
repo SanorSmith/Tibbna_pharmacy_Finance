@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,11 @@ import {
   Banknote,
   Shield,
   Wallet,
+  RotateCcw,
+  Users,
+  Clock,
+  FileSpreadsheet,
+  Package,
 } from "lucide-react";
 import { PharmacyNav } from "../components/PharmacyNav";
 
@@ -71,14 +77,18 @@ export default function ReportsClientPage({
 }: {
   workspaceid: string;
 }) {
+  const router = useRouter();
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"dashboard" | "daily">("dashboard");
 
   useEffect(() => {
-    fetchReport();
-  }, [date]);
+    if (view === "daily") {
+      fetchReport();
+    }
+  }, [date, view]);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -98,6 +108,114 @@ export default function ReportsClientPage({
     }
   };
 
+  const reportCards = [
+    {
+      title: "Daily Sales",
+      description: "Transaction details, hourly distribution & top drugs",
+      icon: ShoppingCart,
+      color: "text-blue-600",
+      bgColor: "bg-blue-100 dark:bg-blue-900/30",
+      action: () => setView("daily"),
+    },
+    {
+      title: "Shift Reports",
+      description: "Cash reconciliation, variance & shift history",
+      icon: Clock,
+      color: "text-purple-600",
+      bgColor: "bg-purple-100 dark:bg-purple-900/30",
+      action: () => router.push(`/d/${workspaceid}/pos/reports/shifts`),
+    },
+    {
+      title: "Returns Analysis",
+      description: "Refunds, reasons & restocking data",
+      icon: RotateCcw,
+      color: "text-red-600",
+      bgColor: "bg-red-100 dark:bg-red-900/30",
+      action: () => router.push(`/d/${workspaceid}/pos/reports/returns`),
+    },
+    {
+      title: "Product Performance",
+      description: "Top sellers, revenue per product",
+      icon: Package,
+      color: "text-green-600",
+      bgColor: "bg-green-100 dark:bg-green-900/30",
+      action: () => router.push(`/d/${workspaceid}/pos/reports/products`),
+    },
+    {
+      title: "Cashier Performance",
+      description: "Sales per cashier, shift accuracy",
+      icon: Users,
+      color: "text-amber-600",
+      bgColor: "bg-amber-100 dark:bg-amber-900/30",
+      action: () => router.push(`/d/${workspaceid}/pos/reports/cashiers`),
+    },
+    {
+      title: "Financial Overview",
+      description: "Revenue, refunds, net profit, margins",
+      icon: DollarSign,
+      color: "text-teal-600",
+      bgColor: "bg-teal-100 dark:bg-teal-900/30",
+      action: () => router.push(`/d/${workspaceid}/pos/reports/financial`),
+    },
+  ];
+
+  if (view === "dashboard") {
+    return (
+      <div className="flex flex-1 flex-col h-full overflow-auto">
+        <PharmacyNav workspaceid={workspaceid} activeTab="pos" />
+        <div className="p-4 pt-0 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() =>
+                  (window.location.href = `/d/${workspaceid}/pos`)
+                }
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  <BarChart3 className="h-6 w-6" />
+                  POS Reports & Analytics
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Comprehensive sales, returns, and performance reporting
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {reportCards.map((report) => (
+              <Card
+                key={report.title}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={report.action}
+              >
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2.5 rounded-lg ${report.bgColor}`}>
+                      <report.icon className={`h-5 w-5 ${report.color}`} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{report.title}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {report.description}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col h-full overflow-auto">
       <PharmacyNav workspaceid={workspaceid} activeTab="pos" />
@@ -110,9 +228,7 @@ export default function ReportsClientPage({
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() =>
-                  (window.location.href = `/d/${workspaceid}/pos`)
-                }
+                onClick={() => setView("dashboard")}
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>

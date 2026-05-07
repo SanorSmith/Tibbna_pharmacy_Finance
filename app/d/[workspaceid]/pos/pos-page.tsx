@@ -10,6 +10,8 @@ import {
   Clock,
   BarChart3,
   AlertCircle,
+  RotateCcw,
+  FileText,
 } from "lucide-react";
 import { SearchBar } from "./components/SearchBar";
 import { PatientInfo } from "./components/PatientInfo";
@@ -18,6 +20,7 @@ import { DrugSearch } from "./components/DrugSearch";
 import { ShoppingCart } from "./components/ShoppingCart";
 import { CheckoutDialog } from "./components/CheckoutDialog";
 import { PharmacyNav } from "./components/PharmacyNav";
+import ReprintReceiptDialog from "./components/ReprintReceiptDialog";
 
 export type CartItem = {
   cartItemId: number;
@@ -64,6 +67,7 @@ export default function POSClientPage({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [currentShift, setCurrentShift] = useState<ShiftData | null>(null);
   const [shiftLoading, setShiftLoading] = useState(true);
+  const [reprintDialogOpen, setReprintDialogOpen] = useState(false);
 
   // Load current shift on mount
   useEffect(() => {
@@ -298,12 +302,32 @@ export default function POSClientPage({
               variant="outline"
               size="sm"
               onClick={() =>
+                (window.location.href = `/d/${workspaceid}/pos/returns`)
+              }
+              className="gap-1"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Returns
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
                 (window.location.href = `/d/${workspaceid}/pos/reports`)
               }
               className="gap-1"
             >
               <BarChart3 className="h-4 w-4" />
               Reports
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReprintDialogOpen(true)}
+              className="gap-1"
+            >
+              <FileText className="h-4 w-4" />
+              Reprint Receipt
             </Button>
           </div>
         </div>
@@ -371,6 +395,13 @@ export default function POSClientPage({
         shiftId={currentShift?.shiftid || null}
         workspaceId={workspaceid}
         onSuccess={clearAll}
+      />
+
+      {/* Reprint Receipt Dialog */}
+      <ReprintReceiptDialog
+        open={reprintDialogOpen}
+        onClose={() => setReprintDialogOpen(false)}
+        workspaceid={workspaceid}
       />
     </div>
   );
