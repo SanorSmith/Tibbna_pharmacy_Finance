@@ -1,10 +1,80 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Search, RefreshCw, Eye, Truck, X } from 'lucide-react';
+import Link from 'next/link';
 import type { SupplierReturn } from '@/lib/types/procurement';
 import PageHeader from '@/app/components/PageHeader';
+import { PharmacyNav } from "@/components/pharmacy/PharmacyNav";
+
+const Icon = ({ d, size = 16, color = "currentColor" }: { d: string; size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+);
+
+const icons = {
+  chevronDown: "M6 9l6 6 6-6",
+};
+
+// ── Dropdown Menu Component ────────────────────────────────────────────────────
+function DropdownMenu({ label, isOpen, onToggle, onClose, children }: { label: string; isOpen: boolean; onToggle: () => void; onClose: () => void; children: any }) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen, onClose]);
+
+  return (
+    <div style={{ position: "relative" }} ref={menuRef}>
+      <button
+        onClick={onToggle}
+        style={{
+          padding: "10px 18px",
+          fontSize: 13,
+          fontWeight: 700,
+          border: "1px solid #e5e7eb",
+          background: isOpen ? "#ffffff" : "transparent",
+          cursor: "pointer",
+          color: isOpen ? "#2563eb" : "#6b7280",
+          borderRadius: 6,
+          margin: "4px 2px",
+          boxShadow: isOpen ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+          display: "flex",
+          alignItems: "center",
+          gap: 6
+        }}
+      >
+        {label}
+        <Icon d={icons.chevronDown} size={12} color={isOpen ? "#2563eb" : "#6b7280"} />
+      </button>
+      {isOpen && (
+        <div style={{
+          position: "absolute",
+          top: "100%",
+          left: 0,
+          minWidth: 180,
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          zIndex: 100,
+          marginTop: 4,
+          padding: 4
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SupplierReturnsPage() {
   const params = useParams();
@@ -19,6 +89,11 @@ export default function SupplierReturnsPage() {
   const [vendors, setVendors] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [claims, setClaims] = useState<any[]>([]);
+
+  // Navigation dropdowns
+  const [procurementOpen, setProcurementOpen] = useState(false);
+  const [partnersOpen, setPartnersOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
 
   const fetchVendors = async () => {
     try {
@@ -99,11 +174,63 @@ export default function SupplierReturnsPage() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', marginTop: '8px' }}>
-      <PageHeader
-        title="Supplier Returns"
-        backPath={`/d/${workspaceid}/pharmacy-inventory`}
-        description="Track items returned to suppliers for credit or replacement"
-      />
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",background:"#ffffff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:10,marginLeft:"-24px",marginRight:"-24px"}}>
+        <span style={{fontSize:24,fontWeight:700,color:"#111827"}}>Supplier Returns</span>
+      </div>
+
+      {/* Pharmacy Navigation */}
+      <PharmacyNav workspaceid={workspaceid} activeTab="inventory" />
+
+      {/* Unified Navigation Bar */}
+      <div style={{display:"flex",gap:4,marginBottom:16,background:"#f9fafb",flexWrap:"wrap",borderRadius:8,padding:4,marginTop:16,alignItems:"center"}}>
+        {/* Standalone Tabs */}
+        <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{padding:"10px 18px",fontSize:13,fontWeight:700,border:"1px solid #e5e7eb",background:"transparent",cursor:"pointer",color:"#6b7280",borderRadius:6,margin:"4px 2px",textDecoration:"none",display:"block"}}>Items</Link>
+        <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{padding:"10px 18px",fontSize:13,fontWeight:700,border:"1px solid #e5e7eb",background:"transparent",cursor:"pointer",color:"#6b7280",borderRadius:6,margin:"4px 2px",textDecoration:"none",display:"block"}}>Shop List</Link>
+        <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{padding:"10px 18px",fontSize:13,fontWeight:700,border:"1px solid #e5e7eb",background:"transparent",cursor:"pointer",color:"#6b7280",borderRadius:6,margin:"4px 2px",textDecoration:"none",display:"block"}}>Reports</Link>
+
+        {/* Procurement Dropdown */}
+        <DropdownMenu 
+          label="Procurement" 
+          isOpen={procurementOpen} 
+          onToggle={()=>setProcurementOpen(!procurementOpen)} 
+          onClose={()=>setProcurementOpen(false)}
+        >
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setProcurementOpen(false)}>Create Order</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setProcurementOpen(false)}>Goods Receipt</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/claims`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setProcurementOpen(false)}>Claims</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/returns`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer",background:"#f3f4f6"}} onClick={()=>setProcurementOpen(false)}>Returns</Link>
+        </DropdownMenu>
+
+        {/* Partners Dropdown */}
+        <DropdownMenu 
+          label="Partners" 
+          isOpen={partnersOpen} 
+          onToggle={()=>setPartnersOpen(!partnersOpen)} 
+          onClose={()=>setPartnersOpen(false)}
+        >
+          <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setPartnersOpen(false)}>Suppliers</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setPartnersOpen(false)}>Manufacturers</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/vendors`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setPartnersOpen(false)}>Vendors</Link>
+        </DropdownMenu>
+
+        {/* Inventory Dropdown */}
+        <DropdownMenu 
+          label="Inventory" 
+          isOpen={inventoryOpen} 
+          onToggle={()=>setInventoryOpen(!inventoryOpen)} 
+          onClose={()=>setInventoryOpen(false)}
+        >
+          <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setInventoryOpen(false)}>Stock</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setInventoryOpen(false)}>History</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setInventoryOpen(false)}>Storage</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer"}} onClick={()=>setInventoryOpen(false)}>Unit of Measure</Link>
+        </DropdownMenu>
+
+        {/* Action Buttons */}
+        <button onClick={fetchReturns} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"1px solid #e5e7eb",background:"#ffffff",cursor:"pointer",color:"#374151",borderRadius:6,margin:"4px 2px"}}>Refresh</button>
+        <button onClick={()=>setShowCreateDialog(true)} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"none",background:"#2563eb",cursor:"pointer",color:"#ffffff",borderRadius:6,margin:"4px 2px"}}>Add Medicine</button>
+      </div>
       
       {/* Info Banner */}
       <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
