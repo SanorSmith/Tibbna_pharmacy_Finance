@@ -1,0 +1,192 @@
+---
+alwaysApply: true
+---
+**Tibbna - For the people** built with Next.js 15, PostgreSQL, and modern TypeScript stack.
+
+## Development Commands
+
+```bash
+npm run lint            # Run ESLint
+npm run tsx             # Run TS check
+npm run translate       # Run translate script that fixes all ttt errors
+npm run test            # Run playwright tests
+```
+
+## Critical Architecture Rules
+
+### File Structure and Naming
+
+- **ALL files must be lowercase** - no exceptions
+- Use `@` alias for imports from project root
+- Relative imports only for files in same directory or below
+
+### Database Patterns
+
+- Primary keys follow `tablename + "id"` pattern (e.g., `userid`, `workspaceid`)
+- All table definitions in `/lib/db/tables/` with required type exports:
+  ```typescript
+  export type TableName = typeof tablename.$inferSelect;
+  export type NewTableName = typeof tablename.$inferInsert;
+  ```
+- Add exports to `/lib/db/schema.ts`: `export * from "./tables/tablename";`
+- Import types from database tables: `import { Workspace } from "@/lib/db/tables/workspace";`
+- Use `jsonb` fields with proper TypeScript interfaces for settings
+
+### Workspace Model (Core Entity)
+
+- **Workspaces** are the primary organizational unit
+- Types: `"hospital"` | `"laboratory"` | `"pharmacy"`
+- Users belong to workspaces with roles: `"doctor"` | `"nurse"` | `"lab_technician"` | `"pharmacist"` | `"receptionist"` | `"administrator"`
+- Workspace settings stored in `jsonb` field with typed interface
+
+### Client/Server Separation - CRITICAL
+
+- **NEVER import database utilities in client components** (causes TLS/Node.js errors)
+- Database queries only allowed in:
+  - Server components (no "use client")
+  - Server actions ("use server")
+  - API routes (`/app/api/`)
+- Pass data from server components to client components as props
+- Common error: importing `getUserWorkspaces()` in client components
+
+### Server Actions Pattern
+
+Required pattern for all server actions:
+
+```typescript
+"use server";
+
+export async function actionName(formData: FormData) {
+  try {
+    const user = await getUser();
+    if (!user) return { success: false, error: "User not authenticated" };
+
+    // validation and logic here
+
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: "Error message" };
+  }
+}
+```
+
+**CRITICAL**: Never put `redirect()` inside try-catch blocks (causes NEXT_REDIRECT errors)
+
+### Dynamic Routes (Next.js App Router)
+
+- Directory naming: `[paramname]` (no spaces)
+- Always await params in components:
+
+  ```typescript
+  interface PageProps {
+    params: Promise<{ workspaceid: string }>;
+  }
+
+  export default async function Page({ params }: PageProps) {
+    const { workspaceid } = await params;
+    // Always validate user access to the workspace
+  }
+  ```
+
+### Navigation Logic
+
+- User with no workspaces → `/d/new`
+- User with workspaces → `/d/[firstworkspaceid]`
+- Always use `getUserWorkspaces()` utility for workspace access checks
+- Validate user access to workspaces in all layouts/pages
+
+## Translation System
+
+**ALL user-facing text must use `ttt()` function with English keys**
+
+```typescript
+"use client";
+import { useLanguage } from "@/hooks/use-language";
+
+export function Component() {
+  const { ttt } = useLanguage();
+
+  return (
+    <div>
+      <Label>{ttt("Field Name")}</Label>
+      <Button>{ttt("Save Changes")}</Button>
+      <p>{ttt("Error message text")}</p>
+    </div>
+  );
+}
+```
+
+- **NEVER edit files inside `/content/`** - user handles translations
+- Write all translation keys in English
+- Keep messages short and consistent
+- API errors are for logs only - never forward to frontend, always use `ttt()` for user-facing errors
+- Supported languages: English (`en`), Swedish (`sv`)
+
+## Technology Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **UI**: shadcn/ui, Radix UI, Tailwind CSS
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: NextAuth.js with custom session management
+- **Forms**: React Hook Form with Zod validation
+- **Icons**: Lucide React
+- **Data Fetching**: SWR for client-side caching
+
+## Project Structure
+
+```
+app/
+├── d/                   # Dashboard layout group
+│   ├── [workspaceid]/   # Workspace-specific routes
+│   ├── empty/            # Empty workspace page
+│   └── admin/          # Admin page
+├── (landing)/           # Landing page layout group
+├── api/                 # API routes
+└── components/          # Global components
+    └── ui/             # shadcn/ui components
+
+lib/
+├── db/
+│   ├── tables/         # Database table definitions
+│   ├── queries/        # Database query functions
+│   ├── migrations/     # Drizzle migrations
+│   └── schema.ts       # Export all tables
+└── user.ts            # User authentication utilities
+
+hooks/                  # All React hooks
+contexts/               # React context providers
+content/               # Translation files (DO NOT EDIT)
+```
+
+## Common Utilities
+
+- `getUser()` - Get authenticated user
+- `useWorkspace()` - Get user's workspace
+- Session management functions in `/lib/user.ts`
+- Workspace utilities in `/lib/db/queries/workspace.ts`
+
+## Development Restrictions
+
+**DO NOT**:
+
+- Install packages without user approval
+- Run database migrations (user handles manually)
+- Edit `/content/` translation files
+- Put `redirect()` inside try-catch blocks
+- Import database functions in client components
+- Use hardcoded text (always use `ttt()`)
+- Create uppercase filenames
+- Forward API errors to frontend
+- Use `any` types (prefer proper TypeScript interfaces)
+- Run DB migrate or npm run dev. Ask me to do it and i can give you ouput
+- MOST IMPORTANTLY: DO NOT SOLVE SOMETHING ELSE THAN WHAT IS ASKED, DO NOT OPTIMIZE ANYTHING OUTSIDE THE SCOPE.
+- MOST MOST IMPORTANTLY: DO NOT CREATE BILLION FILES. SHORTEST MINI SOLUTION IS ALWAYS BEST, MODIFY AS FEW LINES AND FILES AS POSSIBLE
+
+## Testing and Quality
+
+- Run `npm run lint` after significant changes
+- Run `npm run tsx` for TypeScript checking
+- Run `npm run test` for Playwright tests
+- Validate user access to resources in all routes
+- Implement proper loading and error states
+- Use mobile-first responsive design patterns

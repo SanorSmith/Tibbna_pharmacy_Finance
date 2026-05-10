@@ -1,0 +1,12 @@
+export { DashboardTab } from './DashboardTab';
+export { VitalSignsTab } from './VitalSignsTab';
+export { DiagnosticsTab } from './DiagnosticsTab';
+export { default as OrdersTab } from './OrdersTab';
+export { LabsTab } from './LabsTab';
+export { MedsTab } from './MedsTab';
+export { CarePlansTab } from './CarePlansTab';
+export { ReferralsTab } from './ReferralsTab';
+export { VaccinationsTab } from './VaccinationsTab';
+export { NotesTab } from './NotesTab';
+export { default as AppointmentsTab } from './AppointmentsTab';
+export { default as ImagingTab } from './ImagingTab';

@@ -1,0 +1,33 @@
+@media print {
+  /* Hide everything except the selected order */
+  body * {
+    visibility: hidden;
+  }
+  
+  .print-only,
+  .print-only * {
+    visibility: visible;
+  }
+  
+  .print-only {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  
+  /* Hide print buttons and expand/collapse buttons */
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  /* Ensure content is visible */
+  .print-only .space-y-2 > div {
+    page-break-inside: avoid;
+  }
+  
+  /* Add page header */
+  @page {
+    margin: 1cm;
+  }
+}

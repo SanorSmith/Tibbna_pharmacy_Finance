@@ -1,0 +1,2708 @@
+{
+  "id": "b0993226-1a2a-44d6-81f8-92b077a00dd8",
+  "prevId": "5ae47013-ab29-4485-83c1-edf50a5e823c",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accession_samples": {
+      "name": "accession_samples",
+      "schema": "",
+      "columns": {
+        "sampleid": {
+          "name": "sampleid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "samplenumber": {
+          "name": "samplenumber",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sampletype": {
+          "name": "sampletype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "containertype": {
+          "name": "containertype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "volume": {
+          "name": "volume",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "volumeunit": {
+          "name": "volumeunit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "collectiondate": {
+          "name": "collectiondate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "collectorid": {
+          "name": "collectorid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "collectorname": {
+          "name": "collectorname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "orderid": {
+          "name": "orderid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patientid": {
+          "name": "patientid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ehrid": {
+          "name": "ehrid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subjectidentifier": {
+          "name": "subjectidentifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "barcode": {
+          "name": "barcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "qrcode": {
+          "name": "qrcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "openehrcompositionuid": {
+          "name": "openehrcompositionuid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currentstatus": {
+          "name": "currentstatus",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'RECEIVED'"
+        },
+        "currentlocation": {
+          "name": "currentlocation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accessionedby": {
+          "name": "accessionedby",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accessionedat": {
+          "name": "accessionedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "correctedat": {
+          "name": "correctedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correctedby": {
+          "name": "correctedby",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correctionreason": {
+          "name": "correctionreason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "accession_samples_workspace_idx": {
+          "name": "accession_samples_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "accession_samples_status_idx": {
+          "name": "accession_samples_status_idx",
+          "columns": [
+            {
+              "expression": "currentstatus",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "accession_samples_order_idx": {
+          "name": "accession_samples_order_idx",
+          "columns": [
+            {
+              "expression": "orderid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "accession_samples_patient_idx": {
+          "name": "accession_samples_patient_idx",
+          "columns": [
+            {
+              "expression": "patientid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "accession_samples_barcode_idx": {
+          "name": "accession_samples_barcode_idx",
+          "columns": [
+            {
+              "expression": "barcode",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "accession_samples_accessionedby_users_userid_fk": {
+          "name": "accession_samples_accessionedby_users_userid_fk",
+          "tableFrom": "accession_samples",
+          "tableTo": "users",
+          "columnsFrom": [
+            "accessionedby"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "accession_samples_correctedby_users_userid_fk": {
+          "name": "accession_samples_correctedby_users_userid_fk",
+          "tableFrom": "accession_samples",
+          "tableTo": "users",
+          "columnsFrom": [
+            "correctedby"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "accession_samples_samplenumber_unique": {
+          "name": "accession_samples_samplenumber_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "samplenumber"
+          ]
+        },
+        "accession_samples_barcode_unique": {
+          "name": "accession_samples_barcode_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "barcode"
+          ]
+        }
+      }
+    },
+    "public.sample_accession_audit_log": {
+      "name": "sample_accession_audit_log",
+      "schema": "",
+      "columns": {
+        "auditid": {
+          "name": "auditid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sampleid": {
+          "name": "sampleid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userid": {
+          "name": "userid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userrole": {
+          "name": "userrole",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previousdata": {
+          "name": "previousdata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "newdata": {
+          "name": "newdata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ipaddress": {
+          "name": "ipaddress",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sessionid": {
+          "name": "sessionid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "sample_accession_audit_sample_idx": {
+          "name": "sample_accession_audit_sample_idx",
+          "columns": [
+            {
+              "expression": "sampleid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sample_accession_audit_action_idx": {
+          "name": "sample_accession_audit_action_idx",
+          "columns": [
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sample_accession_audit_user_idx": {
+          "name": "sample_accession_audit_user_idx",
+          "columns": [
+            {
+              "expression": "userid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sample_accession_audit_timestamp_idx": {
+          "name": "sample_accession_audit_timestamp_idx",
+          "columns": [
+            {
+              "expression": "createdat",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sample_accession_audit_log_sampleid_accession_samples_sampleid_fk": {
+          "name": "sample_accession_audit_log_sampleid_accession_samples_sampleid_fk",
+          "tableFrom": "sample_accession_audit_log",
+          "tableTo": "accession_samples",
+          "columnsFrom": [
+            "sampleid"
+          ],
+          "columnsTo": [
+            "sampleid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sample_accession_audit_log_userid_users_userid_fk": {
+          "name": "sample_accession_audit_log_userid_users_userid_fk",
+          "tableFrom": "sample_accession_audit_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.sample_status_history": {
+      "name": "sample_status_history",
+      "schema": "",
+      "columns": {
+        "historyid": {
+          "name": "historyid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sampleid": {
+          "name": "sampleid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previousstatus": {
+          "name": "previousstatus",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "newstatus": {
+          "name": "newstatus",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previouslocation": {
+          "name": "previouslocation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "newlocation": {
+          "name": "newlocation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changedby": {
+          "name": "changedby",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changedat": {
+          "name": "changedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "changereason": {
+          "name": "changereason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "sample_status_history_sample_idx": {
+          "name": "sample_status_history_sample_idx",
+          "columns": [
+            {
+              "expression": "sampleid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sample_status_history_status_idx": {
+          "name": "sample_status_history_status_idx",
+          "columns": [
+            {
+              "expression": "newstatus",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sample_status_history_sampleid_accession_samples_sampleid_fk": {
+          "name": "sample_status_history_sampleid_accession_samples_sampleid_fk",
+          "tableFrom": "sample_status_history",
+          "tableTo": "accession_samples",
+          "columnsFrom": [
+            "sampleid"
+          ],
+          "columnsTo": [
+            "sampleid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sample_status_history_changedby_users_userid_fk": {
+          "name": "sample_status_history_changedby_users_userid_fk",
+          "tableFrom": "sample_status_history",
+          "tableTo": "users",
+          "columnsFrom": [
+            "changedby"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.appointments": {
+      "name": "appointments",
+      "schema": "",
+      "columns": {
+        "appointmentid": {
+          "name": "appointmentid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patientid": {
+          "name": "patientid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "doctorid": {
+          "name": "doctorid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointmentname": {
+          "name": "appointmentname",
+          "type": "appointment_name",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'new_patient'"
+        },
+        "appointmenttype": {
+          "name": "appointmenttype",
+          "type": "appointment_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'visiting'"
+        },
+        "clinicalindication": {
+          "name": "clinicalindication",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reasonforrequest": {
+          "name": "reasonforrequest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starttime": {
+          "name": "starttime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "endtime": {
+          "name": "endtime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "appointment_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scheduled'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "appointments_workspaceid_workspaces_workspaceid_fk": {
+          "name": "appointments_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "appointments",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointments_patientid_patients_patientid_fk": {
+          "name": "appointments_patientid_patients_patientid_fk",
+          "tableFrom": "appointments",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patientid"
+          ],
+          "columnsTo": [
+            "patientid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointments_doctorid_users_userid_fk": {
+          "name": "appointments_doctorid_users_userid_fk",
+          "tableFrom": "appointments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "doctorid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.audit_logs": {
+      "name": "audit_logs",
+      "schema": "",
+      "columns": {
+        "auditid": {
+          "name": "auditid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sampleid": {
+          "name": "sampleid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userrole": {
+          "name": "userrole",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previousstate": {
+          "name": "previousstate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "newstate": {
+          "name": "newstate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "ipaddress": {
+          "name": "ipaddress",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "useragent": {
+          "name": "useragent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_logs_sampleid_idx": {
+          "name": "audit_logs_sampleid_idx",
+          "columns": [
+            {
+              "expression": "sampleid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_logs_userid_idx": {
+          "name": "audit_logs_userid_idx",
+          "columns": [
+            {
+              "expression": "userid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_logs_action_idx": {
+          "name": "audit_logs_action_idx",
+          "columns": [
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_logs_timestamp_idx": {
+          "name": "audit_logs_timestamp_idx",
+          "columns": [
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_logs_sampleid_samples_sampleid_fk": {
+          "name": "audit_logs_sampleid_samples_sampleid_fk",
+          "tableFrom": "audit_logs",
+          "tableTo": "samples",
+          "columnsFrom": [
+            "sampleid"
+          ],
+          "columnsTo": [
+            "sampleid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "audit_logs_userid_users_userid_fk": {
+          "name": "audit_logs_userid_users_userid_fk",
+          "tableFrom": "audit_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.departments": {
+      "name": "departments",
+      "schema": "",
+      "columns": {
+        "departmentid": {
+          "name": "departmentid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "departments_workspaceid_workspaces_workspaceid_fk": {
+          "name": "departments_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "departments",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.labs": {
+      "name": "labs",
+      "schema": "",
+      "columns": {
+        "labid": {
+          "name": "labid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "labs_workspaceid_workspaces_workspaceid_fk": {
+          "name": "labs_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "labs",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.operations": {
+      "name": "operations",
+      "schema": "",
+      "columns": {
+        "operationid": {
+          "name": "operationid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patientid": {
+          "name": "patientid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "surgeonid": {
+          "name": "surgeonid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheduleddate": {
+          "name": "scheduleddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estimatedduration": {
+          "name": "estimatedduration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operationtype": {
+          "name": "operationtype",
+          "type": "operation_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'elective'"
+        },
+        "status": {
+          "name": "status",
+          "type": "operation_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scheduled'"
+        },
+        "preoperativeassessment": {
+          "name": "preoperativeassessment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operationname": {
+          "name": "operationname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operationdetails": {
+          "name": "operationdetails",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anesthesiatype": {
+          "name": "anesthesiatype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "theater": {
+          "name": "theater",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operationdiagnosis": {
+          "name": "operationdiagnosis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actualstarttime": {
+          "name": "actualstarttime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actualendtime": {
+          "name": "actualendtime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outcomes": {
+          "name": "outcomes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "complications": {
+          "name": "complications",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "comment": {
+          "name": "comment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "operations_workspaceid_workspaces_workspaceid_fk": {
+          "name": "operations_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "operations",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "operations_patientid_patients_patientid_fk": {
+          "name": "operations_patientid_patients_patientid_fk",
+          "tableFrom": "operations",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patientid"
+          ],
+          "columnsTo": [
+            "patientid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "operations_surgeonid_users_userid_fk": {
+          "name": "operations_surgeonid_users_userid_fk",
+          "tableFrom": "operations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "surgeonid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.patients": {
+      "name": "patients",
+      "schema": "",
+      "columns": {
+        "patientid": {
+          "name": "patientid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "firstname": {
+          "name": "firstname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "middlename": {
+          "name": "middlename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastname": {
+          "name": "lastname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nationalid": {
+          "name": "nationalid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dateofbirth": {
+          "name": "dateofbirth",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gender": {
+          "name": "gender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bloodgroup": {
+          "name": "bloodgroup",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ehrid": {
+          "name": "ehrid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medicalhistory": {
+          "name": "medicalhistory",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "patients_workspace_idx": {
+          "name": "patients_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "patients_workspaceid_workspaces_workspaceid_fk": {
+          "name": "patients_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "patients",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.pharmacies": {
+      "name": "pharmacies",
+      "schema": "",
+      "columns": {
+        "pharmacyid": {
+          "name": "pharmacyid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "pharmacies_workspaceid_workspaces_workspaceid_fk": {
+          "name": "pharmacies_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "pharmacies",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.samples": {
+      "name": "samples",
+      "schema": "",
+      "columns": {
+        "sampleid": {
+          "name": "sampleid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patientid": {
+          "name": "patientid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "orderid": {
+          "name": "orderid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sampletype": {
+          "name": "sampletype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "collectiondate": {
+          "name": "collectiondate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "receiveddate": {
+          "name": "receiveddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "analyzer": {
+          "name": "analyzer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "testgroup": {
+          "name": "testgroup",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'routine'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'COLLECTED'"
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "samples_workspaceid_idx": {
+          "name": "samples_workspaceid_idx",
+          "columns": [
+            {
+              "expression": "workspaceid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "samples_patientid_idx": {
+          "name": "samples_patientid_idx",
+          "columns": [
+            {
+              "expression": "patientid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "samples_status_idx": {
+          "name": "samples_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "samples_testgroup_idx": {
+          "name": "samples_testgroup_idx",
+          "columns": [
+            {
+              "expression": "testgroup",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "samples_collectiondate_idx": {
+          "name": "samples_collectiondate_idx",
+          "columns": [
+            {
+              "expression": "collectiondate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "samples_patientid_patients_patientid_fk": {
+          "name": "samples_patientid_patients_patientid_fk",
+          "tableFrom": "samples",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patientid"
+          ],
+          "columnsTo": [
+            "patientid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.staff": {
+      "name": "staff",
+      "schema": "",
+      "columns": {
+        "staffid": {
+          "name": "staffid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "firstname": {
+          "name": "firstname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "middlename": {
+          "name": "middlename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastname": {
+          "name": "lastname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "specialty": {
+          "name": "specialty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "staff_workspaceid_workspaces_workspaceid_fk": {
+          "name": "staff_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "staff",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.test_results": {
+      "name": "test_results",
+      "schema": "",
+      "columns": {
+        "resultid": {
+          "name": "resultid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sampleid": {
+          "name": "sampleid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "testcode": {
+          "name": "testcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "testname": {
+          "name": "testname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resultvalue": {
+          "name": "resultvalue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "referencemin": {
+          "name": "referencemin",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "referencemax": {
+          "name": "referencemax",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "referencerange": {
+          "name": "referencerange",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flag": {
+          "name": "flag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'normal'"
+        },
+        "iscritical": {
+          "name": "iscritical",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "previousvalue": {
+          "name": "previousvalue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previousdate": {
+          "name": "previousdate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "analyzerresult": {
+          "name": "analyzerresult",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validationcomment": {
+          "name": "validationcomment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "markedforrerun": {
+          "name": "markedforrerun",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "rerunreason": {
+          "name": "rerunreason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "analyzeddate": {
+          "name": "analyzeddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "test_results_sampleid_idx": {
+          "name": "test_results_sampleid_idx",
+          "columns": [
+            {
+              "expression": "sampleid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "test_results_flag_idx": {
+          "name": "test_results_flag_idx",
+          "columns": [
+            {
+              "expression": "flag",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "test_results_iscritical_idx": {
+          "name": "test_results_iscritical_idx",
+          "columns": [
+            {
+              "expression": "iscritical",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "test_results_markedforrerun_idx": {
+          "name": "test_results_markedforrerun_idx",
+          "columns": [
+            {
+              "expression": "markedforrerun",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "test_results_sampleid_samples_sampleid_fk": {
+          "name": "test_results_sampleid_samples_sampleid_fk",
+          "tableFrom": "test_results",
+          "tableTo": "samples",
+          "columnsFrom": [
+            "sampleid"
+          ],
+          "columnsTo": [
+            "sampleid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.todos": {
+      "name": "todos",
+      "schema": "",
+      "columns": {
+        "todoid": {
+          "name": "todoid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed": {
+          "name": "completed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "priority": {
+          "name": "priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'medium'"
+        },
+        "duedate": {
+          "name": "duedate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "todos_workspace_idx": {
+          "name": "todos_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "todos_user_idx": {
+          "name": "todos_user_idx",
+          "columns": [
+            {
+              "expression": "userid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "todos_workspaceid_workspaces_workspaceid_fk": {
+          "name": "todos_workspaceid_workspaces_workspaceid_fk",
+          "tableFrom": "todos",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "todos_userid_users_userid_fk": {
+          "name": "todos_userid_users_userid_fk",
+          "tableFrom": "todos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.usersessions": {
+      "name": "usersessions",
+      "schema": "",
+      "columns": {
+        "sessionid": {
+          "name": "sessionid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessiontoken": {
+          "name": "sessiontoken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deviceinfo": {
+          "name": "deviceinfo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ipaddress": {
+          "name": "ipaddress",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "useragent": {
+          "name": "useragent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lastactive": {
+          "name": "lastactive",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expiresat": {
+          "name": "expiresat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "usersessions_userid_users_userid_fk": {
+          "name": "usersessions_userid_users_userid_fk",
+          "tableFrom": "usersessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "usersessions_sessiontoken_unique": {
+          "name": "usersessions_sessiontoken_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "sessiontoken"
+          ]
+        }
+      }
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'system'"
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'en'"
+        },
+        "permissions": {
+          "name": "permissions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      }
+    },
+    "public.validation_states": {
+      "name": "validation_states",
+      "schema": "",
+      "columns": {
+        "stateid": {
+          "name": "stateid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sampleid": {
+          "name": "sampleid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currentstate": {
+          "name": "currentstate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ANALYZED'"
+        },
+        "previousstate": {
+          "name": "previousstate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validatedby": {
+          "name": "validatedby",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validateddate": {
+          "name": "validateddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "releasedby": {
+          "name": "releasedby",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "releaseddate": {
+          "name": "releaseddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejectedby": {
+          "name": "rejectedby",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejecteddate": {
+          "name": "rejecteddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejectionreason": {
+          "name": "rejectionreason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rerunrequestedby": {
+          "name": "rerunrequestedby",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rerunrequesteddate": {
+          "name": "rerunrequesteddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rerunreason": {
+          "name": "rerunreason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "validation_states_sampleid_idx": {
+          "name": "validation_states_sampleid_idx",
+          "columns": [
+            {
+              "expression": "sampleid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "validation_states_currentstate_idx": {
+          "name": "validation_states_currentstate_idx",
+          "columns": [
+            {
+              "expression": "currentstate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "validation_states_validateddate_idx": {
+          "name": "validation_states_validateddate_idx",
+          "columns": [
+            {
+              "expression": "validateddate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "validation_states_sampleid_samples_sampleid_fk": {
+          "name": "validation_states_sampleid_samples_sampleid_fk",
+          "tableFrom": "validation_states",
+          "tableTo": "samples",
+          "columnsFrom": [
+            "sampleid"
+          ],
+          "columnsTo": [
+            "sampleid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "validation_states_validatedby_users_userid_fk": {
+          "name": "validation_states_validatedby_users_userid_fk",
+          "tableFrom": "validation_states",
+          "tableTo": "users",
+          "columnsFrom": [
+            "validatedby"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "validation_states_releasedby_users_userid_fk": {
+          "name": "validation_states_releasedby_users_userid_fk",
+          "tableFrom": "validation_states",
+          "tableTo": "users",
+          "columnsFrom": [
+            "releasedby"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "validation_states_rejectedby_users_userid_fk": {
+          "name": "validation_states_rejectedby_users_userid_fk",
+          "tableFrom": "validation_states",
+          "tableTo": "users",
+          "columnsFrom": [
+            "rejectedby"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "validation_states_rerunrequestedby_users_userid_fk": {
+          "name": "validation_states_rerunrequestedby_users_userid_fk",
+          "tableFrom": "validation_states",
+          "tableTo": "users",
+          "columnsFrom": [
+            "rerunrequestedby"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "validation_states_sampleid_unique": {
+          "name": "validation_states_sampleid_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "sampleid"
+          ]
+        }
+      }
+    },
+    "public.workspaces": {
+      "name": "workspaces",
+      "schema": "",
+      "columns": {
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "settings": {
+          "name": "settings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.workspaceusers": {
+      "name": "workspaceusers",
+      "schema": "",
+      "columns": {
+        "workspaceid": {
+          "name": "workspaceid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userid": {
+          "name": "userid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "workspaceuser_workspace_fk": {
+          "name": "workspaceuser_workspace_fk",
+          "tableFrom": "workspaceusers",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspaceid"
+          ],
+          "columnsTo": [
+            "workspaceid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspaceuser_user_fk": {
+          "name": "workspaceuser_user_fk",
+          "tableFrom": "workspaceusers",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userid"
+          ],
+          "columnsTo": [
+            "userid"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workspaceusers_workspaceid_userid_pk": {
+          "name": "workspaceusers_workspaceid_userid_pk",
+          "columns": [
+            "workspaceid",
+            "userid"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    }
+  },
+  "enums": {
+    "public.appointment_name": {
+      "name": "appointment_name",
+      "schema": "public",
+      "values": [
+        "new_patient",
+        "re_visit",
+        "follow_up"
+      ]
+    },
+    "public.appointment_status": {
+      "name": "appointment_status",
+      "schema": "public",
+      "values": [
+        "scheduled",
+        "checked_in",
+        "in_progress",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "public.appointment_type": {
+      "name": "appointment_type",
+      "schema": "public",
+      "values": [
+        "visiting",
+        "video_call",
+        "home_visit"
+      ]
+    },
+    "public.operation_status": {
+      "name": "operation_status",
+      "schema": "public",
+      "values": [
+        "scheduled",
+        "in_preparation",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "postponed"
+      ]
+    },
+    "public.operation_type": {
+      "name": "operation_type",
+      "schema": "public",
+      "values": [
+        "emergency",
+        "elective",
+        "urgent"
+      ]
+    }
+  },
+  "schemas": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

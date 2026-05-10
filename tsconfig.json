@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"],
+      "@/ehr/*": ["./app/d/[workspaceid]/ehr/*"],
+      "@/lims/*": ["./app/d/[workspaceid]/lims/*"],
+      "@/pharmacy/*": ["./app/d/[workspaceid]/pharmacy/*"],
+      "@/admin/*": ["./app/d/[workspaceid]/admin/*"],
+      "@/shared/*": ["./app/d/[workspaceid]/shared/*"],
+      "@/components/ehr/*": ["./components/ehr/*"],
+      "@/components/lims/*": ["./components/lims/*"],
+      "@/components/pharmacy/*": ["./components/pharmacy/*"],
+      "@/components/admin/*": ["./components/admin/*"],
+      "@/api/ehr/*": ["./app/api/ehr/*"],
+      "@/api/lims/*": ["./app/api/lims/*"],
+      "@/api/pharmacy/*": ["./app/api/pharmacy/*"],
+      "@/api/admin/*": ["./app/api/admin/*"],
+      "@/api/shared/*": ["./app/api/shared/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", "tibbna-hospital"]
+}
