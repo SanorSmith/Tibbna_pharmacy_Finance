@@ -18,6 +18,13 @@ export default function PurchaseOrdersPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showGRNDialog, setShowGRNDialog] = useState(false);
+  const [receivedBy, setReceivedBy] = useState('');
+  const [receiptNotes, setReceiptNotes] = useState('');
+  const [itemReceivedQtys, setItemReceivedQtys] = useState<{[key: string]: string}>({});
+  const [itemBatchNumbers, setItemBatchNumbers] = useState<{[key: string]: string}>({});
+  const [itemReturnQtys, setItemReturnQtys] = useState<{[key: string]: string}>({});
+  const [itemReturnNotes, setItemReturnNotes] = useState<{[key: string]: string}>({});
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [vendors, setVendors] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -29,6 +36,7 @@ export default function PurchaseOrdersPage() {
   const [expectedDate, setExpectedDate] = useState('');
   const [notes, setNotes] = useState('');
   const [orderedBy, setOrderedBy] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [creatingOrder, setCreatingOrder] = useState(false);
 
   const fetchVendors = async () => {
@@ -93,6 +101,7 @@ export default function PurchaseOrdersPage() {
         expecteddate: expectedDate ? new Date(expectedDate) : undefined,
         notes,
         approvedby: orderedBy,
+        currency,
         items: orderItems.map(item => ({
           itemid: item.itemid,
           orderedqty: item.orderedqty,
@@ -113,6 +122,7 @@ export default function PurchaseOrdersPage() {
         setNotes('');
         setExpectedDate('');
         setOrderedBy('');
+        setCurrency('USD');
         fetchOrders();
       }
     } catch (error) {
@@ -139,6 +149,7 @@ export default function PurchaseOrdersPage() {
       setExpectedDate(order.expecteddate ? new Date(order.expecteddate).toISOString().split('T')[0] : '');
       setNotes(order.notes || '');
       setOrderedBy(order.approvedby || '');
+      setCurrency(order.currency || 'USD');
       setOrderItems(order.items || []);
       setShowEditDialog(true);
     }
@@ -151,7 +162,7 @@ export default function PurchaseOrdersPage() {
       const response = await fetch(`/api/d/${workspaceid}/procurement/orders/${orderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled' }),
+        body: JSON.stringify({ status: 'canceled' }),
       });
 
       if (response.ok) {
@@ -163,6 +174,24 @@ export default function PurchaseOrdersPage() {
       console.error('Error cancelling order:', error);
       alert('Failed to cancel order');
     }
+  };
+
+  const handleOpenGRNDialog = () => {
+    setReceivedBy('');
+    setReceiptNotes('');
+    setItemReceivedQtys({});
+    setItemBatchNumbers({});
+    setItemReturnQtys({});
+    setItemReturnNotes({});
+    // Pre-populate received quantities with ordered quantities
+    if (selectedOrder && selectedOrder.items) {
+      const initialReceivedQtys: {[key: string]: string} = {};
+      selectedOrder.items.forEach((item: any) => {
+        initialReceivedQtys[item.id] = item.orderedqty.toString();
+      });
+      setItemReceivedQtys(initialReceivedQtys);
+    }
+    setShowGRNDialog(true);
   };
 
   const fetchWarehouses = async () => {
@@ -209,13 +238,10 @@ export default function PurchaseOrdersPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft': return { background: '#f3f4f6', color: '#374151' };
       case 'pending': return { background: '#fef3c7', color: '#d97706' };
-      case 'approved': return { background: '#dbeafe', color: '#2563eb' };
-      case 'sent': return { background: '#dbeafe', color: '#2563eb' };
       case 'partial': return { background: '#f3f4f6', color: '#374151' };
-      case 'complete': return { background: '#d1fae5', color: '#16a34a' };
-      case 'cancelled': return { background: '#fee2e2', color: '#dc2626' };
+      case 'delivered': return { background: '#d1fae5', color: '#16a34a' };
+      case 'canceled': return { background: '#fee2e2', color: '#dc2626' };
       default: return { background: '#f3f4f6', color: '#374151' };
     }
   };
@@ -239,8 +265,8 @@ export default function PurchaseOrdersPage() {
           <div style={{ fontSize: '28px', fontWeight: 700 }}>{orders.filter(o => o.status === 'pending').length}</div>
         </div>
         <div style={{ background: '#fee2e2', borderRadius: '10px', padding: '14px 18px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#dc2626', marginBottom: '4px' }}>Cancelled</div>
-          <div style={{ fontSize: '28px', fontWeight: 700 }}>{orders.filter(o => o.status === 'cancelled').length}</div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#dc2626', marginBottom: '4px' }}>Canceled</div>
+          <div style={{ fontSize: '28px', fontWeight: 700 }}>{orders.filter(o => o.status === 'canceled').length}</div>
         </div>
         <div style={{ background: '#e0f2fe', borderRadius: '10px', padding: '14px 18px' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: '#0891b2', marginBottom: '4px' }}>Suppliers</div>
@@ -256,7 +282,7 @@ export default function PurchaseOrdersPage() {
           
           {/* Status Filters */}
           <div style={{ display: 'flex', gap: '5px' }}>
-            {['ALL', 'PENDING', 'PARTIAL', 'COMPLETE', 'CANCELLED'].map((status) => (
+            {['ALL', 'PENDING', 'PARTIAL', 'DELIVERED', 'CANCELED'].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -381,7 +407,7 @@ export default function PurchaseOrdersPage() {
                         <button title="Edit" onClick={() => handleEditOrder(order.id)} style={{ background: '#ede9fe', border: 'none', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer' }}>
                           <Edit style={{ width: '12px', height: '12px', color: '#5b21b6' }} />
                         </button>
-                        {order.status !== 'cancelled' && (
+                        {order.status !== 'canceled' && (
                           <button title="Cancel" onClick={() => handleCancelOrder(order.id)} style={{ background: '#fee2e2', border: 'none', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer' }}>
                             <X style={{ width: '12px', height: '12px', color: '#dc2626' }} />
                           </button>
@@ -442,6 +468,25 @@ export default function PurchaseOrdersPage() {
                       onChange={(e) => setExpectedDate(e.target.value)}
                       style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
                     />
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Currency</label>
+                    <select 
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
+                    >
+                      <option value="USD">USD - US Dollar</option>
+                      <option value="EUR">EUR - Euro</option>
+                      <option value="GBP">GBP - British Pound</option>
+                      <option value="IQD">IQD - Iraqi Dinar</option>
+                      <option value="AED">AED - UAE Dirham</option>
+                      <option value="SAR">SAR - Saudi Riyal</option>
+                      <option value="KWD">KWD - Kuwaiti Dinar</option>
+                      <option value="QAR">QAR - Qatari Riyal</option>
+                      <option value="EGP">EGP - Egyptian Pound</option>
+                      <option value="TRY">TRY - Turkish Lira</option>
+                    </select>
                   </div>
                   <div style={{ gridColumn: '1 / -1', marginBottom: '12px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Supplier</label>
@@ -603,76 +648,309 @@ export default function PurchaseOrdersPage() {
       {/* View Order Dialog */}
       {showViewDialog && selectedOrder && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#ffffff', borderRadius: '12px', width: '90%', maxWidth: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: '#ffffff', borderRadius: '12px', padding: '28px', width: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 700 }}>Order Details</div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{selectedOrder.ponumber}</div>
+                <div style={{ fontSize: '15px', fontWeight: 700 }}>📋 Order — {selectedOrder.ponumber}</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Ordered by: {selectedOrder.approvedby || selectedOrder.sentby || '—'} · {new Date(selectedOrder.orderdate).toLocaleDateString()}</div>
               </div>
               <button onClick={() => setShowViewDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X style={{ width: '18px', height: '18px', color: '#6b7280' }} />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
               </button>
             </div>
-            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Supplier</div>
-                <div style={{ fontSize: '14px', color: '#111827' }}>{selectedOrder.vendor?.name || '—'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Supplier</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{selectedOrder.vendor?.name || '—'}</div>
               </div>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Ordered By</div>
-                <div style={{ fontSize: '14px', color: '#111827' }}>{selectedOrder.approvedby || selectedOrder.sentby || '—'}</div>
+              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Supplier Email</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{selectedOrder.vendor?.contact || '—'}</div>
               </div>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Order Date</div>
-                <div style={{ fontSize: '14px', color: '#111827' }}>{new Date(selectedOrder.orderdate).toLocaleDateString()}</div>
+              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Supplier Phone</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{selectedOrder.vendor?.phone || '—'}</div>
               </div>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Expected Delivery Date</div>
-                <div style={{ fontSize: '14px', color: '#111827' }}>{selectedOrder.expecteddate ? new Date(selectedOrder.expecteddate).toLocaleDateString() : '—'}</div>
+              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Order Date</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{new Date(selectedOrder.orderdate).toLocaleDateString()}</div>
               </div>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Status</div>
-                <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: getStatusColor(selectedOrder.status).background, color: getStatusColor(selectedOrder.status).color }}>
+              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Expected Date</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{selectedOrder.expecteddate ? new Date(selectedOrder.expecteddate).toLocaleDateString() : '—'}</div>
+              </div>
+              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Status</div>
+                <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: getStatusColor(selectedOrder.status).background, color: getStatusColor(selectedOrder.status).color }}>
                   {selectedOrder.status.toUpperCase()}
                 </span>
               </div>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Total Amount</div>
-                <div style={{ fontSize: '14px', color: '#16a34a', fontWeight: 700 }}>
-                  ${typeof selectedOrder.totalamount === 'string' ? parseFloat(selectedOrder.totalamount).toFixed(2) : (selectedOrder.totalamount || 0).toFixed(2)}
-                </div>
+              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Notes</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{selectedOrder.notes || '—'}</div>
               </div>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Notes</div>
-                <div style={{ fontSize: '14px', color: '#111827' }}>{selectedOrder.notes || '—'}</div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Item</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Unit of Measure</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Ordered Qty</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Unit Cost</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedOrder.items && selectedOrder.items.map((item: any, idx: number) => (
+                  <tr key={idx}>
+                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{item.item?.name || item.name}</td>
+                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827' }}>{item.item?.uom || item.uom || '—'}</td>
+                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 700, textAlign: 'center' }}>{item.orderedqty}</td>
+                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827' }}>{selectedOrder.currency || 'USD'}${item.unitprice}</td>
+                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#6366f1', fontWeight: 600 }}>{selectedOrder.currency || 'USD'}${(item.orderedqty * item.unitprice).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: '#f9fafb' }}>
+                  <td colSpan={4} style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 700, textAlign: 'right' }}>Total:</td>
+                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '14px', color: '#6366f1', fontWeight: 700 }}>
+                    {selectedOrder.currency || 'USD'}${typeof selectedOrder.totalamount === 'string' ? parseFloat(selectedOrder.totalamount).toFixed(2) : (selectedOrder.totalamount || 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowViewDialog(false)}
+                style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid #e5e7eb', background: '#ffffff', color: '#374151' }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { setShowViewDialog(false); handleEditOrder(selectedOrder.id); }}
+                style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid #6366f1', background: '#f3f4f6', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '5px' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Edit
+              </button>
+              <button
+                onClick={() => { setShowViewDialog(false); handleOpenGRNDialog(); }}
+                style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none', background: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+              >
+                + New Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GRN Receipt Dialog */}
+      {showGRNDialog && selectedOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#ffffff', borderRadius: '12px', padding: 0, width: '1040px', maxHeight: '96vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700 }}>📥 New Goods Receipt</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Reviewing order: {selectedOrder.ponumber} · {selectedOrder.vendor?.name || 'null'}</div>
               </div>
-              {selectedOrder.items && selectedOrder.items.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Items</div>
-                  <div style={{ borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>Item</th>
-                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>Qty</th>
-                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>Unit Price</th>
-                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedOrder.items.map((item: any, idx: number) => (
-                          <tr key={idx}>
-                            <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', color: '#111827' }}>{item.itemname || item.name}</td>
-                            <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', color: '#111827' }}>{item.orderedqty}</td>
-                            <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', color: '#111827' }}>${item.unitprice}</td>
-                            <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', color: '#111827' }}>${(item.orderedqty * item.unitprice).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  onClick={() => setShowGRNDialog(false)}
+                  style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid #e5e7eb', background: '#f3f4f6', color: '#374151' }}
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={() => setShowGRNDialog(false)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: '1 1 0%' }}>
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                  <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order Info</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Order #</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{selectedOrder.ponumber}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Ordered By</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{selectedOrder.approvedby || selectedOrder.sentby || '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Date</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{new Date(selectedOrder.orderdate).toLocaleDateString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Expected</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{selectedOrder.expecteddate ? new Date(selectedOrder.expecteddate).toLocaleDateString() : '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Status</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{selectedOrder.status.toUpperCase()}</span>
+                    </div>
+                  </div>
+                  <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '12px 16px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#065f46', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Supplier Info</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Name</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{selectedOrder.vendor?.name || '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Email</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{selectedOrder.vendor?.contact || '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Phone</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{selectedOrder.vendor?.phone || '—'}</span>
+                    </div>
                   </div>
                 </div>
-              )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#dc2626', display: 'block', marginBottom: '4px' }}>Received By *</label>
+                    <input
+                      placeholder="Your name"
+                      value={receivedBy}
+                      onChange={(e) => setReceivedBy(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1', marginBottom: '12px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Notes</label>
+                    <input
+                      placeholder="Notes..."
+                      value={receiptNotes}
+                      onChange={(e) => setReceiptNotes(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', fontSize: '11px' }}>
+                  <span style={{ background: '#ffffff', border: '1px solid #e5e7eb', padding: '3px 10px', borderRadius: '20px' }}>⬜ Match</span>
+                  <span style={{ background: '#fff7ed', border: '1px solid #fb923c', padding: '3px 10px', borderRadius: '20px', color: '#9a3412' }}>🟠 Short</span>
+                  <span style={{ background: '#f0fdf4', border: '1px solid #86efac', padding: '3px 10px', borderRadius: '20px', color: '#166534' }}>🟢 Extra</span>
+                </div>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', marginBottom: '8px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb' }}>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Item</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Unit</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Ordered</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Reg. Number</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Received</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Diff</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Return Qty</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Return Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedOrder.items && selectedOrder.items.map((item: any) => (
+                        <tr key={item.id} style={{ background: '#ffffff' }}>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 600, minWidth: '140px' }}>
+                            {item.item?.name || item.name}
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '12px', color: '#6b7280' }}>
+                            {item.item?.uom || item.uom || '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 700, textAlign: 'center' }}>
+                            {item.orderedqty}
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827' }}>
+                            <input
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              placeholder=""
+                              type="text"
+                              value={itemBatchNumbers[item.id] || ''}
+                              onChange={(e) => setItemBatchNumbers({ ...itemBatchNumbers, [item.id]: e.target.value })}
+                              style={{ width: '100px', padding: '5px 6px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
+                            />
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827' }}>
+                            <input
+                              min="0"
+                              type="number"
+                              value={itemReceivedQtys[item.id] || item.orderedqty.toString()}
+                              onChange={(e) => setItemReceivedQtys({ ...itemReceivedQtys, [item.id]: e.target.value })}
+                              style={{ width: '75px', padding: '5px 6px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box', textAlign: 'center' }}
+                            />
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', textAlign: 'center' }}>
+                            <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                              {(() => {
+                                const ordered = item.orderedqty;
+                                const received = parseInt(itemReceivedQtys[item.id] || item.orderedqty.toString());
+                                const diff = received - ordered;
+                                if (diff === 0) return '—';
+                                return diff > 0 ? `+${diff}` : diff;
+                              })()}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827' }}>
+                            <input
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              placeholder="0"
+                              type="text"
+                              value={itemReturnQtys[item.id] || ''}
+                              onChange={(e) => setItemReturnQtys({ ...itemReturnQtys, [item.id]: e.target.value })}
+                              style={{ width: '75px', padding: '5px 6px', borderRadius: '8px', border: '1px solid #fca5a5', fontSize: '13px', color: '#111827', boxSizing: 'border-box', textAlign: 'center' }}
+                            />
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827' }}>
+                            <input
+                              maxLength="120"
+                              placeholder="Return reason..."
+                              type="text"
+                              value={itemReturnNotes[item.id] || ''}
+                              onChange={(e) => setItemReturnNotes({ ...itemReturnNotes, [item.id]: e.target.value })}
+                              style={{ width: '180px', padding: '5px 6px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', fontSize: '12px', marginTop: '8px' }}>
+                  <div style={{ background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: '8px', padding: '8px 14px', color: '#065f46', fontWeight: 600 }}>
+                    ✓ All match
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '14px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                {selectedOrder.items?.length || 0} items · Received by: {receivedBy || '—'}
+              </span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setShowGRNDialog(false)}
+                  style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid #e5e7eb', background: '#f3f4f6', color: '#374151' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={!receivedBy}
+                  onClick={() => alert('GRN creation coming soon')}
+                  style={{ padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none', background: '#16a34a', color: '#ffffff', minWidth: '160px', opacity: receivedBy ? 1 : 0.5 }}
+                >
+                  ✓ Confirm Receipt
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -721,6 +999,25 @@ export default function PurchaseOrdersPage() {
                       onChange={(e) => setExpectedDate(e.target.value)}
                       style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
                     />
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Currency</label>
+                    <select 
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
+                    >
+                      <option value="USD">USD - US Dollar</option>
+                      <option value="EUR">EUR - Euro</option>
+                      <option value="GBP">GBP - British Pound</option>
+                      <option value="IQD">IQD - Iraqi Dinar</option>
+                      <option value="AED">AED - UAE Dirham</option>
+                      <option value="SAR">SAR - Saudi Riyal</option>
+                      <option value="KWD">KWD - Kuwaiti Dinar</option>
+                      <option value="QAR">QAR - Qatari Riyal</option>
+                      <option value="EGP">EGP - Egyptian Pound</option>
+                      <option value="TRY">TRY - Turkish Lira</option>
+                    </select>
                   </div>
                   <div style={{ gridColumn: '1 / -1', marginBottom: '12px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Supplier</label>

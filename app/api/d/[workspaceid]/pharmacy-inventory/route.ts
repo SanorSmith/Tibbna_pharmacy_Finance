@@ -14,7 +14,7 @@ import {
   stockTransactions,
 } from "@/lib/db/schema";
 import { drugs } from "@/lib/db/tables/pharmacy-drugs";
-import { eq, sql, desc, and } from "drizzle-orm";
+import { eq, sql, desc, and, or, like } from "drizzle-orm";
 import { getUser } from "@/lib/user";
 
 // Use item's reorderlevel, fall back to 10 if not set
@@ -38,6 +38,15 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const filter = searchParams.get("filter") || "all"; // all, low, outofstock, expiring
+
+    // Build search conditions
+    const searchConditions = search
+      ? or(
+          like(items.name, `%${search}%`),
+          like(items.itemcode, `%${search}%`),
+          like(items.genericname, `%${search}%`)
+        )
+      : undefined;
 
     // Get all pharmacy items with aggregated stock for this workspace
     // Debug: Simplified filter to match summary API
@@ -66,7 +75,7 @@ export async function GET(
       .leftJoin(drugs, eq(items.drugid, drugs.drugid))
       .leftJoin(inventoryStock, eq(items.id, inventoryStock.itemid))
       .leftJoin(warehouses, eq(inventoryStock.warehouseid, warehouses.id))
-      .where(eq(items.workspaceid, workspaceid))
+      .where(searchConditions ? and(eq(items.workspaceid, workspaceid), searchConditions) : eq(items.workspaceid, workspaceid))
       .groupBy(
         items.id,
         items.name,

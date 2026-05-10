@@ -7,7 +7,6 @@ import {
   ShoppingCart,
   Pill,
   Warehouse,
-  Shield,
   ListTodo,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +17,6 @@ const TABS = [
   { label: "Point of Sale", value: "pos", icon: ShoppingCart },
   { label: "Drug registration", value: "drug-registration", icon: Pill },
   { label: "Inventory", value: "inventory", icon: Warehouse },
-  { label: "Insurance", value: "insurance", icon: Shield },
   { label: "To Do", value: "todo", icon: ListTodo },
 ];
 

@@ -33,7 +33,7 @@ import {
   FileSpreadsheet,
   Package,
 } from "lucide-react";
-import { PharmacyNav } from "../components/PharmacyNav";
+import { PharmacyNav } from "@/components/pharmacy/PharmacyNav";
 
 type DailyReport = {
   date: string;
@@ -162,6 +162,11 @@ export default function ReportsClientPage({
   if (view === "dashboard") {
     return (
       <div className="flex flex-1 flex-col h-full overflow-auto">
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",background:"#ffffff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:10}}>
+          <span style={{fontSize:24,fontWeight:700,color:"#111827"}}>POS Reports & Analytics</span>
+        </div>
+
         <PharmacyNav workspaceid={workspaceid} activeTab="pos" />
         <div className="p-4 pt-0 space-y-4">
           <div className="flex items-center justify-between">
@@ -177,10 +182,6 @@ export default function ReportsClientPage({
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                  <BarChart3 className="h-6 w-6" />
-                  POS Reports & Analytics
-                </h1>
                 <p className="text-sm text-muted-foreground">
                   Comprehensive sales, returns, and performance reporting
                 </p>
@@ -232,10 +233,6 @@ export default function ReportsClientPage({
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <BarChart3 className="h-6 w-6" />
-                Daily Sales Report
-              </h1>
             </div>
           </div>
           <div className="flex items-center gap-2">

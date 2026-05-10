@@ -19,6 +19,8 @@ export default function GoodsReceiptPage() {
   const [vendors, setVendors] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [selectedPOId, setSelectedPOId] = useState('');
+  const [selectedPO, setSelectedPO] = useState<any>(null);
 
   const fetchVendors = async () => {
     try {
@@ -46,7 +48,7 @@ export default function GoodsReceiptPage() {
 
   const fetchPurchaseOrders = async () => {
     try {
-      const response = await fetch(`/api/d/${workspaceid}/procurement/orders?status=approved,sent`);
+      const response = await fetch(`/api/d/${workspaceid}/procurement/orders?status=pending,partial,approved,sent`);
       if (response.ok) {
         const data = await response.json();
         setPurchaseOrders(data);
@@ -285,7 +287,16 @@ export default function GoodsReceiptPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#dc2626', display: 'block', marginBottom: '4px' }}>Purchase Order *</label>
-                  <select style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}>
+                  <select
+                    value={selectedPOId}
+                    onChange={(e) => {
+                      const poId = e.target.value;
+                      setSelectedPOId(poId);
+                      const po = purchaseOrders.find((p) => p.id === poId);
+                      setSelectedPO(po);
+                    }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', color: '#111827', boxSizing: 'border-box' }}
+                  >
                     <option value="">— Select PO —</option>
                     {purchaseOrders.map((po) => (
                       <option key={po.id} value={po.id}>{po.ponumber}</option>
@@ -312,11 +323,48 @@ export default function GoodsReceiptPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '28px', textAlign: 'center', marginBottom: '4px' }}>
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>📦</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Select a purchase order to continue</div>
-                <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>Items from the selected order will be displayed here</div>
-              </div>
+              {selectedPO && selectedPO.items && selectedPO.items.length > 0 ? (
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb' }}>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Item</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Unit</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Ordered</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Unit Price</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedPO.items.map((item: any) => (
+                        <tr key={item.id} style={{ background: '#ffffff' }}>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                            {item.item?.name || item.name}
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '12px', color: '#6b7280' }}>
+                            {item.item?.uom || item.uom || '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 700, textAlign: 'center' }}>
+                            {item.orderedqty}
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827' }}>
+                            {selectedPO.currency || 'USD'} {item.unitprice}
+                          </td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #f9fafb', fontSize: '13px', color: '#111827', fontWeight: 700 }}>
+                            {selectedPO.currency || 'USD'} {(item.orderedqty * item.unitprice).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '28px', textAlign: 'center', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '6px' }}>📦</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Select a purchase order to continue</div>
+                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>Items from the selected order will be displayed here</div>
+                </div>
+              )}
             </div>
           </div>
         </div>

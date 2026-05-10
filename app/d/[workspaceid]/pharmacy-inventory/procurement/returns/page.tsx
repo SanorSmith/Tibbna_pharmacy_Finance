@@ -228,7 +228,7 @@ export default function SupplierReturnsPage() {
         </DropdownMenu>
 
         {/* Action Buttons */}
-        <button onClick={fetchReturns} style={{padding:"10px",fontSize:13,fontWeight:600,border:"none",background:"#16a34a",cursor:"pointer",color:"#ffffff",borderRadius:9999,margin:"4px 2px",display:"flex",alignItems:"center",gap:6,justifyContent:"center",width:"40px",height:"40px"}}>🔄</button>
+        <button onClick={fetchReturns} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"1px solid #e5e7eb",background:"#ffffff",cursor:"pointer",color:"#374151",borderRadius:6,margin:"4px 2px"}}>Refresh</button>
         <button onClick={()=>setShowCreateDialog(true)} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"none",background:"#2563eb",cursor:"pointer",color:"#ffffff",borderRadius:6,margin:"4px 2px"}}>Add Medicine</button>
       </div>
       

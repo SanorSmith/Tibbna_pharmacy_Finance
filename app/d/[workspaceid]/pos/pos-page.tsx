@@ -19,7 +19,7 @@ import { PrescriptionItems } from "./components/PrescriptionItems";
 import { DrugSearch } from "./components/DrugSearch";
 import { ShoppingCart } from "./components/ShoppingCart";
 import { CheckoutDialog } from "./components/CheckoutDialog";
-import { PharmacyNav } from "./components/PharmacyNav";
+import { PharmacyNav } from "@/components/pharmacy/PharmacyNav";
 import ReprintReceiptDialog from "./components/ReprintReceiptDialog";
 
 export type CartItem = {
@@ -255,6 +255,11 @@ export default function POSClientPage({
 
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",background:"#ffffff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:10}}>
+        <span style={{fontSize:24,fontWeight:700,color:"#111827"}}>Point of Sale</span>
+      </div>
+
       {/* Pharmacy Dashboard Navigation */}
       <PharmacyNav workspaceid={workspaceid} activeTab="pos" />
 
@@ -262,10 +267,6 @@ export default function POSClientPage({
       <div className="flex-shrink-0 p-4 pt-0 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <CartIcon className="h-6 w-6" />
-              Point of Sale
-            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {currentShift ? (
                 <span className="flex items-center gap-1">

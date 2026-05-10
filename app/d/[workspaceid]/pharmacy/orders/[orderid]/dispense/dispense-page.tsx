@@ -311,12 +311,8 @@ export default function PharmacyDispensePage({
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <ScanBarcode className="h-5 w-5" />
-            Dispense — Barcode Scanning
-          </h1>
           <p className="text-xs text-muted-foreground">
-            Scan each medication barcode to verify and complete dispensing
+            Dispense — Barcode Scanning &bull; Scan each medication barcode to verify and complete dispensing
           </p>
         </div>
         <Badge variant={allScanned ? "outline" : "default"} className="text-sm px-3 py-1">

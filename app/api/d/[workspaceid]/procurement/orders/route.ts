@@ -127,6 +127,7 @@ const createPOSchema = z.object({
   shippingaddress: z.string().optional(),
   notes: z.string().optional(),
   approvedby: z.string().optional(),
+  currency: z.string().optional(),
   items: z.array(
     z.object({
       itemid: z.string().uuid(),
@@ -166,8 +167,9 @@ export async function POST(
         shippingaddress: validated.shippingaddress,
         notes: validated.notes,
         approvedby: validated.approvedby,
+        currency: validated.currency || 'USD',
         totalamount: totalamount.toString(),
-        status: 'draft',
+        status: 'pending',
         orderdate: new Date(),
       })
       .returning();

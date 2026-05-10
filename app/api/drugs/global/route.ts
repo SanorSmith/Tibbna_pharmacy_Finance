@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
+    console.log("[Global Drugs API] Searching for:", search);
+
     const result = await globalPool.query(
       `SELECT DISTINCT ON (name, form, strength)
         drugid,
@@ -24,14 +26,14 @@ export async function GET(req: NextRequest) {
         strength,
         unit,
         category,
-        description,
-        indication,
+        route,
         interaction,
         warning,
+        pregnancy,
         sideeffect,
         storagetype,
+        indication,
         traffic,
-        pregnancy,
         requiresprescription,
         isactive
       FROM global_drugs
@@ -50,9 +52,11 @@ export async function GET(req: NextRequest) {
       [`%${search}%`, `${search}%`]
     );
 
+    console.log("[Global Drugs API] Found", result.rows.length, "results");
     return NextResponse.json(result.rows);
   } catch (err: any) {
-    console.error("Global drug search error:", err.message);
+    console.error("[Global Drugs API] Error:", err.message);
+    console.error("[Global Drugs API] Full error:", err);
     return NextResponse.json({ error: "Failed to search drug database" }, { status: 500 });
   }
 }

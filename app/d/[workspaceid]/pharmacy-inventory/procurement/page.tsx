@@ -1023,6 +1023,8 @@ export default function PharmacyProcurementPage() {
       {/* Pharmacy Navigation */}
       <PharmacyNav workspaceid={workspaceid} activeTab="inventory" />
 
+      <div style={s.content}>
+        <div style={{padding: "24px", maxWidth: "1400px", margin: "0px auto"}}>
       {/* Unified Navigation Bar */}
       <div style={{display:"flex",gap:4,marginBottom:16,background:"#f9fafb",flexWrap:"wrap",borderRadius:8,padding:4,marginTop:16,alignItems:"center"}}>
         {/* Standalone Tabs */}
@@ -1069,11 +1071,9 @@ export default function PharmacyProcurementPage() {
         </DropdownMenu>
 
         {/* Action Buttons */}
-        <button onClick={()=>{fetchOrders(); fetchReceipts();}} style={{padding:"10px",fontSize:13,fontWeight:600,border:"none",background:"#16a34a",cursor:"pointer",color:"#ffffff",borderRadius:9999,margin:"4px 2px",display:"flex",alignItems:"center",gap:6,justifyContent:"center",width:"40px",height:"40px"}}>🔄</button>
+        <button onClick={()=>{fetchOrders(); fetchReceipts();}} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"1px solid #e5e7eb",background:"#ffffff",cursor:"pointer",color:"#374151",borderRadius:6,margin:"4px 2px"}}>Refresh</button>
         <button onClick={()=>setShowCreateOrder(true)} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"none",background:"#2563eb",cursor:"pointer",color:"#ffffff",borderRadius:6,margin:"4px 2px"}}>Add Medicine</button>
       </div>
-
-      <div style={s.content}>
         {/* Tabs */}
         <div style={s.tabs}>
           {(["orders", "gr", "correction"] as const).map(t => (
@@ -1089,7 +1089,7 @@ export default function PharmacyProcurementPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
               {["", "PENDING", "PARTIALLY_DELIVERED", "DELIVERED", "CANCELLED"].map(st => (
                 <button key={st} onClick={() => setOrderStatusFilter(st)} style={{ ...s.btn(orderStatusFilter === st ? "purple" : "ghost"), border: orderStatusFilter === st ? "none" : "1px solid #e5e7eb", fontSize: 11 }}>
-                  {st || "ALL"}{st === "PARTIALLY_DELIVERED" ? " (PARTIAL)" : ""}
+                  {st === "PARTIALLY_DELIVERED" ? "Partial" : (st || "ALL")}
                 </button>
               ))}
               <div style={{ flex: 1 }} />
@@ -1114,7 +1114,7 @@ export default function PharmacyProcurementPage() {
                         <td style={s.td}>{o.orderdate ? new Date(o.orderdate).toLocaleDateString() : "—"}</td>
                         <td style={s.td}>{o.expecteddate ? new Date(o.expecteddate).toLocaleDateString() : "—"}</td>
                         <td style={s.td}>
-                          <span style={s.badge(sc.bg, sc.color)}>{o.status}</span>
+                          <span style={s.badge(sc.bg, sc.color)}>{o.status === "PARTIALLY_DELIVERED" ? "Partial" : o.status}</span>
                           {o.isedited && <span style={{ ...s.badge("#dbeafe", "#1d4ed8"), marginLeft: 4 }}>EDITED</span>}
                         </td>
                         <td style={s.td}>
@@ -1173,7 +1173,7 @@ export default function PharmacyProcurementPage() {
                         <td style={s.td}>{r.receivedby}</td>
                         <td style={s.td}>{r.receiptdate ? new Date(r.receiptdate).toLocaleDateString() : "—"}</td>
                         <td style={s.td}>{r.item_count}</td>
-                        <td style={s.td}><span style={s.badge(sc.bg, sc.color)}>{r.status}</span></td>
+                        <td style={s.td}><span style={s.badge(sc.bg, sc.color)}>{r.status === "PARTIALLY_DELIVERED" ? "Partial" : r.status}</span></td>
                         <td style={s.td}>
                           <button onClick={() => loadGRDetail(r.id)} title="View" style={{ background: "none", border: "none", cursor: "pointer" }}><Icon d={icons.eye} size={15} color="#6366f1" /></button>
                         </td>
@@ -1195,6 +1195,7 @@ export default function PharmacyProcurementPage() {
             <button onClick={() => setShowCorrection(true)} style={s.btn("purple")}>Open Correction Wizard</button>
           </div>
         )}
+        </div>
       </div>
 
       {/* ═══ MODALS ═══ */}

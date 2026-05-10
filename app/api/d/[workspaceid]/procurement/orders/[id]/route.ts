@@ -66,7 +66,7 @@ export async function DELETE(
     const [deletedPO] = await db
       .update(purchaseOrders)
       .set({ 
-        status: 'cancelled',
+        status: 'canceled',
         updatedat: new Date(),
       })
       .where(eq(purchaseOrders.id, id))

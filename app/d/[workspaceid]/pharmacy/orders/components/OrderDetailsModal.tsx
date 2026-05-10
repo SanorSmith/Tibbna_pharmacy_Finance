@@ -630,13 +630,13 @@ export default function OrderDetailsModal({
           </div>
         </DialogHeader>
 
-        <div className="flex flex-1 flex-col gap-4">
-          {/* Medications List */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Left Column: Medications */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-lg">Medications</h3>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+            <div className="flex flex-col gap-3 overflow-y-auto max-h-[600px]">
               {items.map((item: any) => {
                     // Parse dosage string to extract structured information
                     const parseDosageDetails = (dosageStr: string) => {
@@ -799,6 +799,79 @@ export default function OrderDetailsModal({
             </div>
           </div>
 
+          {/* Right Column */}
+          <div className="space-y-4">
+          {/* Pricing Summary Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Pricing Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Calculate total from individual medication items if invoice data is not available
+                const calculateTotalFromItems = () => {
+                  return items.reduce((total: number, item: any) => {
+                    const price = parseFloat(item.bestBatchPrice || '0') > 0
+                      ? parseFloat(item.bestBatchPrice)
+                      : parseFloat(item.unitprice || '0') > 0
+                        ? parseFloat(item.unitprice)
+                        : parseFloat(item.nameBasedPrice || '0') > 0
+                          ? parseFloat(item.nameBasedPrice)
+                          : 0;
+                    return total + (price * (item.quantity || 1));
+                  }, 0);
+                };
+
+                const totalFromInvoice = invoice?.total ? parseFloat(invoice.total) : 0;
+                const totalFromItems = calculateTotalFromItems();
+                const finalTotal = totalFromInvoice || totalFromItems;
+
+                const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
+                const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
+                
+                // Use invoice data if available, otherwise calculate based on items
+                const patientPay = patientFromInvoice || finalTotal;
+                const insurancePay = insuranceFromInvoice || 0;
+                const doctorShare = finalTotal - patientPay - insurancePay;
+                const insuranceCoverage = finalTotal > 0 ? Math.round((insurancePay / finalTotal) * 100) : 0;
+                const remainingDue = finalTotal - patientPay;
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Insurance Coverage</span>
+                      <span className="font-semibold text-blue-600">{insuranceCoverage}%</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Insurance Covered</span>
+                      <span className="font-semibold text-blue-600">{insurancePay.toFixed(2)} IQD</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Doctor Share</span>
+                      <span className="font-semibold text-purple-600">{doctorShare.toFixed(2)} IQD</span>
+                    </div>
+                    <div className="border-t pt-2 mt-2"></div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Amount Paid</span>
+                      <span className="font-semibold text-green-600">{patientPay.toFixed(2)} IQD</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Remaining Due</span>
+                      <span className="font-semibold text-gray-600">{remainingDue.toFixed(2)} IQD</span>
+                    </div>
+                    <div className="border-t pt-3 flex justify-between items-center">
+                      <span className="font-semibold">Total</span>
+                      <span className="font-bold text-lg text-green-600">{finalTotal.toFixed(2)} IQD</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
           {/* Dosage Instructions Section */}
           <Card>
             <CardHeader className="pb-2">
@@ -834,109 +907,24 @@ export default function OrderDetailsModal({
             </CardContent>
           </Card>
 
-          {/* Insurance and Pharmacist Notes Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Insurance benefits
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-center mb-1">
-                  {invoice?.insurancecovered ? `${Math.round((parseFloat(invoice.insurancecovered) / parseFloat(invoice.total || "1")) * 100)}%` : "0%"}
-                </div>
-                <p className="text-sm text-muted-foreground text-center">
-                  {invoice?.insurancecovered && parseFloat(invoice.insurancecovered) > 0 
-                    ? `Insurance covers $${parseFloat(invoice.insurancecovered).toFixed(2)}` 
-                    : "No insurance coverage"}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Pharmacist notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <textarea
-                  className="w-full h-16 p-1 text-sm border rounded resize-none"
-                  placeholder="Add pharmacist notes..."
-                  value={order.pharmacistnotes || ""}
-                  onChange={(e) => {
-                    console.log("Pharmacist notes updated:", e.target.value);
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Total Price Section */}
+          {/* Pharmacist Notes Card */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Total price</CardTitle>
+              <CardTitle className="text-base">Pharmacist notes</CardTitle>
             </CardHeader>
             <CardContent>
-              {(() => {
-                // Calculate total from individual medication items if invoice data is not available
-                const calculateTotalFromItems = () => {
-                  return items.reduce((total: number, item: any) => {
-                    const price = parseFloat(item.bestBatchPrice || '0') > 0
-                      ? parseFloat(item.bestBatchPrice)
-                      : parseFloat(item.unitprice || '0') > 0
-                        ? parseFloat(item.unitprice)
-                        : parseFloat(item.nameBasedPrice || '0') > 0
-                          ? parseFloat(item.nameBasedPrice)
-                          : 0;
-                    return total + (price * (item.quantity || 1));
-                  }, 0);
-                };
-
-                const totalFromInvoice = invoice?.total ? parseFloat(invoice.total) : 0;
-                const totalFromItems = calculateTotalFromItems();
-                const finalTotal = totalFromInvoice || totalFromItems;
-
-                const patientFromInvoice = invoice?.patientcopay ? parseFloat(invoice.patientcopay) : 0;
-                const insuranceFromInvoice = invoice?.insurancecovered ? parseFloat(invoice.insurancecovered) : 0;
-                
-                // Use invoice data if available, otherwise calculate based on items
-                const patientPay = patientFromInvoice || finalTotal;
-                const insurancePay = insuranceFromInvoice || 0;
-                const doctorShare = finalTotal - patientPay - insurancePay;
-
-                return (
-                  <>
-                    <div className="flex gap-4 mb-2">
-                      <div className="flex-1 text-center">
-                        <p className="text-sm text-muted-foreground">Patient pays</p>
-                        <p className="text-xl font-semibold text-green-600">
-                          ${patientPay.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="flex-1 text-center">
-                        <p className="text-sm text-muted-foreground">Insurance</p>
-                        <p className="text-xl font-semibold text-blue-600">
-                          ${insurancePay.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="flex-1 text-center">
-                        <p className="text-sm text-muted-foreground">Doctor Share</p>
-                        <p className="text-xl font-semibold text-purple-600">
-                          ${doctorShare.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-xl font-semibold">
-                      Total: <span className="text-green-600">${finalTotal.toFixed(2)}</span>
-                    </div>
-                  </>
-                );
-              })()}
+              <textarea
+                className="w-full h-16 p-1 text-sm border rounded resize-none"
+                placeholder="Add pharmacist notes..."
+                value={order.pharmacistnotes || ""}
+                onChange={(e) => {
+                  console.log("Pharmacist notes updated:", e.target.value);
+                }}
+              />
             </CardContent>
           </Card>
 
-          {/* Bottom Actions Row */}
+          {/* Indication and Drug Interactions Row */}
           <div className="grid grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
@@ -1015,42 +1003,24 @@ export default function OrderDetailsModal({
           {order.status !== "DISPENSED" && order.status !== "CANCELLED" && (
             <div className="flex gap-3 justify-end">
               <Button
-                variant="destructive"
-                onClick={handleCancel}
-                disabled={cancelling}
+                variant="outline"
+                onClick={onClose}
                 className="gap-2"
               >
-                {cancelling ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Cancelling...
-                  </>
-                ) : (
-                  "Cancel"
-                )}
+                Close
               </Button>
-              {!scanningMode ? (
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                  onClick={handleBeginDispensing}
-                  disabled={loadingInventory}
-                >
-                  {loadingInventory ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ScanBarcode className="h-4 w-4" />
-                  )}
-                  {loadingInventory ? 'Loading...' : 'Begin Dispensing'}
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline"
-                  onClick={() => setScanningMode(false)}
-                  className="gap-2"
-                >
-                  Back to Review
-                </Button>
-              )}
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                onClick={handleBeginDispensing}
+                disabled={loadingInventory}
+              >
+                {loadingInventory ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ScanBarcode className="h-4 w-4" />
+                )}
+                {loadingInventory ? 'Loading...' : 'Go to Checkout'}
+              </Button>
             </div>
           )}
 
@@ -1178,7 +1148,6 @@ export default function OrderDetailsModal({
                           scannedItems: Array.from(scannedItems),
                           items: items.map((item: any) => ({ id: item.itemid, status: item.status, name: item.drugname }))
                         });
-                        // Force complete dispensing anyway
                         handleCompleteDispensing();
                       }}
                       disabled={dispensing}
@@ -1191,6 +1160,7 @@ export default function OrderDetailsModal({
               </CardContent>
             </Card>
           )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

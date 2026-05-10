@@ -73,7 +73,7 @@ export default function PharmacyInventory({ workspaceid }: PharmacyInventoryProp
         </Card>
 
         <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <Link href="/procurement">
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Procurement
@@ -111,7 +111,7 @@ export default function PharmacyInventory({ workspaceid }: PharmacyInventoryProp
                 <span className="text-muted-foreground">Approved</span>
                 <span className="font-semibold">-</span>
               </div>
-              <Link href="/procurement?tab=pr">
+              <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`}>
                 <Button variant="outline" size="sm" className="w-full mt-2">
                   View All PRs
                 </Button>
@@ -137,7 +137,7 @@ export default function PharmacyInventory({ workspaceid }: PharmacyInventoryProp
                 <span className="text-muted-foreground">Sent</span>
                 <span className="font-semibold">-</span>
               </div>
-              <Link href="/procurement?tab=po">
+              <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`}>
                 <Button variant="outline" size="sm" className="w-full mt-2">
                   View All POs
                 </Button>
@@ -163,7 +163,7 @@ export default function PharmacyInventory({ workspaceid }: PharmacyInventoryProp
                 <span className="text-muted-foreground">Posted</span>
                 <span className="font-semibold">-</span>
               </div>
-              <Link href="/procurement?tab=grn">
+              <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`}>
                 <Button variant="outline" size="sm" className="w-full mt-2">
                   View All GRNs
                 </Button>
@@ -192,13 +192,13 @@ export default function PharmacyInventory({ workspaceid }: PharmacyInventoryProp
                 Add Vendor
               </Button>
             </Link>
-            <Link href="/procurement?tab=pr">
+            <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`}>
               <Button variant="outline" className="w-full justify-start">
                 <FileText className="mr-2 h-4 w-4" />
-                New Requisition
+                New Order
               </Button>
             </Link>
-            <Link href="/procurement?tab=po">
+            <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`}>
               <Button variant="outline" className="w-full justify-start">
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 New Purchase Order

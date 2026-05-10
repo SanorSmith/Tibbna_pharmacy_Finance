@@ -1,7 +1,7 @@
 // ─── Procurement Types ───────────────────────────────────────────────────────────────
 
 // PO Status
-export type POStatus = 'draft' | 'pending' | 'approved' | 'sent' | 'partial' | 'complete' | 'cancelled';
+export type POStatus = 'pending' | 'partial' | 'delivered' | 'canceled';
 
 // GRN Status
 export type GRNStatus = 'draft' | 'pending' | 'approved' | 'posted' | 'cancelled';

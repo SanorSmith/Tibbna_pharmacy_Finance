@@ -204,7 +204,7 @@ export async function POST(
           await tx
             .update(purchaseOrders)
             .set({
-              status: 'complete',
+              status: 'delivered',
               updatedat: new Date(),
             })
             .where(eq(purchaseOrders.id, grn[0].poid));

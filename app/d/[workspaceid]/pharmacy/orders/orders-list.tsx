@@ -106,28 +106,59 @@ export default function PharmacyOrdersPage({
     refetchOnWindowFocus: false,
   });
 
-  // Use React Query to cache orders - only fetch when search is active
-  const { data: orders = [], isLoading: loading, refetch } = useQuery({
-    queryKey: ["pharmacy-orders", workspaceid, statusFilter, search],
+  // Use React Query to cache orders - fetch when search is active or filters are set
+  const { data: rawOrders = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ["pharmacy-orders", workspaceid, statusFilter, dateFilter, search],
     queryFn: async () => {
-      if (!search.trim()) return []; // Don't fetch if no search query
-      
-      // Build query string with status and search filters
+      // Build query string with status and search filters (dateFilter handled client-side)
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.append("status", statusFilter);
+      // Only send search parameter if it has content
       if (search.trim()) params.append("search", search.trim());
       
       const qs = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/d/${workspaceid}/pharmacy-orders${qs}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
+      console.log("API returned:", data); // Debug log
       return data.orders || [];
     },
     staleTime: 10 * 1000, // Cache for 10 seconds (shorter for testing)
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
     refetchOnMount: false, // Use cached data if available
-    enabled: search.trim().length > 0, // Only enable query when search is active
+    enabled: true, // Always enabled to ensure refetch works when filters change
   });
+
+  // Apply date filtering on client side
+  const orders = useMemo(() => {
+    if (dateFilter === "all") return rawOrders;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return rawOrders.filter((order: any) => {
+      const orderDate = new Date(order.createdat);
+      
+      if (dateFilter === "day") {
+        const orderDay = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+        return orderDay.getTime() === today.getTime();
+      }
+      
+      if (dateFilter === "week") {
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return orderDate >= weekAgo;
+      }
+      
+      if (dateFilter === "month") {
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return orderDate >= monthAgo;
+      }
+      
+      return true;
+    });
+  }, [rawOrders, dateFilter]);
 
   const handleSync = () => {
     setSyncMessage(null);
@@ -212,10 +243,6 @@ export default function PharmacyOrdersPage({
       <div className="flex-shrink-0 p-4 pt-0 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Pill className="h-6 w-6" />
-              Pharmacy Orders
-            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Manage medication orders, dispensing, and billing
             </p>
@@ -276,7 +303,7 @@ export default function PharmacyOrdersPage({
               className="pl-10"
             />
           </div>
-          <Select value={dateFilter} onValueChange={setDateFilter}>
+          <Select value={dateFilter} onValueChange={(value) => { setDateFilter(value); refetch(); }}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Date filter" />
             </SelectTrigger>
@@ -287,7 +314,7 @@ export default function PharmacyOrdersPage({
               <SelectItem value="month">This Month</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); refetch(); }}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>

@@ -36,7 +36,11 @@ export async function GET(req: NextRequest) {
       ON ist.item_id = i.id
       AND ist.warehouse_id = ANY($1::uuid[])
     WHERE i.is_active = true
-      AND i.inventorycategory = 'pharmacy'
+      AND (
+        i.inventorycategory = 'pharmacy'
+        OR i.inventory_category = 'pharmacy'
+        OR ist.item_id IS NOT NULL
+      )
     GROUP BY i.id, i.itemcode, i.name, i.generic_name, i.uom,
              i.min_level, i.reorder_level, i.max_level, i.manufacturer
     HAVING COALESCE(SUM(ist.quantity), 0) <= i.reorder_level

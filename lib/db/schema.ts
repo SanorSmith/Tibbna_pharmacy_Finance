@@ -555,7 +555,7 @@ export const prStatusEnum = pgEnum("pr_status", [
 ]);
 
 export const poStatusEnum = pgEnum("po_status", [
-  "draft", "approved", "sent", "partial", "complete", "cancelled",
+  "pending", "partial", "delivered", "canceled",
 ]);
 
 export const grnStatusEnum = pgEnum("grn_status", [
@@ -638,7 +638,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
   vendorid:        uuid("vendorid").references(() => vendors.id),
   prid:            uuid("prid").references(() => purchaseRequisitions.id),
   warehouseid:     uuid("warehouseid").references(() => warehouses.id),
-  status:          poStatusEnum("status").default("draft"),
+  status:          poStatusEnum("status").default("pending"),
   orderdate:       timestamp("orderdate", { withTimezone: true }).defaultNow(),
   expecteddate:    timestamp("expecteddate", { withTimezone: true }),
   totalamount:     decimal("totalamount", { precision: 12, scale: 4 }).default("0"),
@@ -953,3 +953,6 @@ export * from "./tables/finance-audit";
 // ─── POS Module ─────────────────────────────────────────────────────────────
 export * from "./tables/pos-schema";
 export * from "./tables/pos-returns-schema";
+
+// ─── Pharmacy Procurement Module ────────────────────────────────────────────
+export * from "./tables/pharmacy-procurement";

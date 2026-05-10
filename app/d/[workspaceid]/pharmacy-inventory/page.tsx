@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AddDrugToPharmacyWizard } from "@/components/AddDrugToPharmacyWizard";
+import { PharmacyNav } from "@/components/pharmacy/PharmacyNav";
 
 const Icon = ({ d, size = 16, color = "currentColor" }: { d: string; size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -24,6 +25,8 @@ const icons = {
   refresh: "M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15",
   lock:    "M12 17a2 2 0 100-4 2 2 0 000 4zm6-6V9a6 6 0 10-12 0v2H4v13h16V11h-2z",
   layers:  "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+  chevronDown: "M6 9l6 6 6-6",
+  filter:  "M3 4a1 1 0 011 0v14a1 1 0 01-2 0V4a1 1 0 011 0zm4 0a1 1 0 011 0v14a1 1 0 01-2 0V4a1 1 0 011 0zm4 0a1 1 0 011 0v14a1 1 0 01-2 0V4a1 1 0 011 0z",
 };
 
 const s: Record<string, any> = {
@@ -141,6 +144,66 @@ function MfgSearchInput({ value, manufacturers, onChange }: { value: string; man
               {m.country && <span style={{ fontSize:11, color:"#6b7280", marginLeft:6 }}>{m.country}</span>}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dropdown Menu Component ────────────────────────────────────────────────────
+function DropdownMenu({ label, isOpen, onToggle, onClose, children }: { label: string; isOpen: boolean; onToggle: () => void; onClose: () => void; children: any }) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen, onClose]);
+
+  return (
+    <div style={{ position: "relative" }} ref={menuRef}>
+      <button
+        onClick={onToggle}
+        style={{
+          padding: "10px 18px",
+          fontSize: 13,
+          fontWeight: 700,
+          border: "1px solid #e5e7eb",
+          background: isOpen ? "#ffffff" : "transparent",
+          cursor: "pointer",
+          color: isOpen ? "#2563eb" : "#6b7280",
+          borderRadius: 6,
+          margin: "4px 2px",
+          boxShadow: isOpen ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+          display: "flex",
+          alignItems: "center",
+          gap: 6
+        }}
+      >
+        {label}
+        <Icon d={icons.chevronDown} size={12} color={isOpen ? "#2563eb" : "#6b7280"} />
+      </button>
+      {isOpen && (
+        <div style={{
+          position: "absolute",
+          top: "100%",
+          left: 0,
+          minWidth: 180,
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          zIndex: 100,
+          marginTop: 4,
+          padding: 4
+        }}>
+          {children}
         </div>
       )}
     </div>
@@ -567,7 +630,7 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   
   console.log('[PharmacyInventoryPage] Using workspace ID:', workspaceid);
 
-  type Tab = "items"|"stock"|"history"|"shoplist"|"suppliers"|"manufacturers"|"storage"|"orders"|"uom"|"reports";
+  type Tab = "items"|"stock"|"history"|"shoplist"|"suppliers"|"manufacturers"|"storage"|"uom"|"reports";
   const [tab, setTab] = useState<Tab>("items");
   const [items, setItems] = useState<any[]>([]);
   const [dispenses, setDispenses] = useState<any[]>([]);
@@ -655,6 +718,10 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   const [orders, setOrders]                   = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading]     = useState(false);
   const [orderStatus, setOrderStatus]         = useState("PENDING");
+  // Dropdown states
+  const [procurementOpen, setProcurementOpen] = useState(false);
+  const [partnersOpen, setPartnersOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
 
@@ -812,7 +879,6 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   useEffect(()=>{if(tab==="suppliers")fetchSuppliers();},[tab,supplierSearch,fetchSuppliers]);
   useEffect(()=>{fetchManufacturers();},[fetchManufacturers]);
   useEffect(()=>{if(tab==="manufacturers")fetchManufacturers();},[tab,mfgSearch,fetchManufacturers]);
-  useEffect(()=>{if(tab==="orders")fetchOrders();},[tab,orderStatus,fetchOrders]);
   useEffect(()=>{fetchStorage();},[fetchStorage]);
   useEffect(()=>{if(tab==="storage")fetchStorage();},[tab,fetchStorage]);
   useEffect(()=>{if(tab==="uom")fetchUom();},[tab,fetchUom]);
@@ -965,16 +1031,15 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
   console.log('[PharmacyInventoryPage] Calculated stats:', { totalItems, lowStock, outOfStock, itemsCount: items.length });
 
   const tabLabels: Record<Tab,string> = {
-    items:`💊 Items (${items.length})`,
-    stock:"📦 Stock",
-    history:"📜 History",
-    shoplist:`🛒 Shop List`,
-    suppliers:"🏪 Suppliers",
-    manufacturers:"🏭 Manufacturers",
-    storage:"📍 Storage",
-    orders:"📋 Orders",
-    uom:"🔄 UOM",
-    reports:"📊 Reports",
+    items:`Items (${items.length})`,
+    stock:"Stock",
+    history:"History",
+    shoplist:"Shop List",
+    suppliers:"Suppliers",
+    manufacturers:"Manufacturers",
+    storage:"Storage",
+    uom:"UOM",
+    reports:"Reports",
   };
 
   return (
@@ -982,28 +1047,69 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
       <style>{`* { box-sizing: border-box; } input, select { color: #111827 !important; } tr:hover td { background: #f9fafb; }`}</style>
 
       {/* Header */}
-      <div style={s.header}>
-        <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>Pharmacy Inventory</span>
-        <div style={{marginLeft:"auto",display:"flex",gap:8}}>
-          <button onClick={fetchAll} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",display:"flex",alignItems:"center",gap:5}}><Icon d={icons.refresh} size={13} color="#374151"/></button>
-          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/orders`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
-            📋 Create Order
-          </Link>
-          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/grn`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
-            📥 Goods Receipt
-          </Link>
-          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/claims`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
-            ⚠️ Claims
-          </Link>
-          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/returns`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
-            🚚 Returns
-          </Link>
-          <Link href={`/d/${workspaceid}/pharmacy-inventory/vendors`} style={{...s.btn("blue"),display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}>
-            🏭 Vendors
-          </Link>
-          <button onClick={()=>{setDrugPrefill(null);setShowAddDrug(true);}} style={{...s.btn("purple"),display:"flex",alignItems:"center",gap:6}}><Icon d={icons.pill} size={13} color="#fff"/> Add Medicine</button>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",background:"#ffffff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:10}}>
+        <span style={{fontSize:24,fontWeight:700,color:"#111827"}}>
+          {tab === "items" ? "Items" :
+           tab === "shoplist" ? "Shop List" :
+           tab === "reports" ? "Reports" :
+           tab === "suppliers" ? "Suppliers" :
+           tab === "manufacturers" ? "Manufacturers" :
+           tab === "storage" ? "Storage" :
+           tab === "uom" ? "Unit of Measure" : "Pharmacy Inventory"}
+        </span>
+      </div>
 
-        </div>
+      {/* Pharmacy Navigation */}
+      <PharmacyNav workspaceid={workspaceid} activeTab="inventory" />
+
+      {/* Unified Navigation Bar */}
+      <div style={{display:"flex",gap:4,marginBottom:16,background:"#f9fafb",flexWrap:"wrap",borderRadius:8,padding:4,marginTop:16,alignItems:"center"}}>
+        {/* Standalone Tabs */}
+        <button key="items" style={{padding:"10px 18px",fontSize:13,fontWeight:700,border:"1px solid #e5e7eb",background:tab==="items"?"#ffffff":"transparent",cursor:"pointer",color:tab==="items"?"#2563eb":"#6b7280",borderRadius:6,margin:"4px 2px",boxShadow:tab==="items"?"0 1px 3px rgba(0,0,0,0.1)":"none"}} onClick={()=>setTab("items")}>{tabLabels.items}</button>
+        <button key="shoplist" style={{padding:"10px 18px",fontSize:13,fontWeight:700,border:"1px solid #e5e7eb",background:tab==="shoplist"?"#ffffff":"transparent",cursor:"pointer",color:tab==="shoplist"?"#2563eb":"#6b7280",borderRadius:6,margin:"4px 2px",boxShadow:tab==="shoplist"?"0 1px 3px rgba(0,0,0,0.1)":"none"}} onClick={()=>setTab("shoplist")}>{tabLabels.shoplist}</button>
+        <button key="reports" style={{padding:"10px 18px",fontSize:13,fontWeight:700,border:"1px solid #e5e7eb",background:tab==="reports"?"#ffffff":"transparent",cursor:"pointer",color:tab==="reports"?"#2563eb":"#6b7280",borderRadius:6,margin:"4px 2px",boxShadow:tab==="reports"?"0 1px 3px rgba(0,0,0,0.1)":"none"}} onClick={()=>setTab("reports")}>{tabLabels.reports}</button>
+
+        {/* Procurement Dropdown */}
+        <DropdownMenu 
+          label="Procurement" 
+          isOpen={procurementOpen} 
+          onToggle={()=>setProcurementOpen(!procurementOpen)} 
+          onClose={()=>setProcurementOpen(false)}
+        >
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer",":hover":{background:"#f9fafb"}}} onClick={()=>setProcurementOpen(false)}>Create Order</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer",":hover":{background:"#f9fafb"}}} onClick={()=>setProcurementOpen(false)}>Goods Receipt</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/claims`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer",":hover":{background:"#f9fafb"}}} onClick={()=>setProcurementOpen(false)}>Claims</Link>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/procurement/returns`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer",":hover":{background:"#f9fafb"}}} onClick={()=>setProcurementOpen(false)}>Returns</Link>
+        </DropdownMenu>
+
+        {/* Partners Dropdown */}
+        <DropdownMenu 
+          label="Partners" 
+          isOpen={partnersOpen} 
+          onToggle={()=>setPartnersOpen(!partnersOpen)} 
+          onClose={()=>setPartnersOpen(false)}
+        >
+          <div style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",cursor:"pointer",borderRadius:4,":hover":{background:"#f9fafb"}}} onClick={()=>{setTab("suppliers");setPartnersOpen(false);}}>{tabLabels.suppliers}</div>
+          <div style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",cursor:"pointer",borderRadius:4,":hover":{background:"#f9fafb"}}} onClick={()=>{setTab("manufacturers");setPartnersOpen(false);}}>{tabLabels.manufacturers}</div>
+          <Link href={`/d/${workspaceid}/pharmacy-inventory/vendors`} style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",textDecoration:"none",borderRadius:4,cursor:"pointer",":hover":{background:"#f9fafb"}}} onClick={()=>setPartnersOpen(false)}>Vendors</Link>
+        </DropdownMenu>
+
+        {/* Inventory Dropdown */}
+        <DropdownMenu 
+          label="Inventory" 
+          isOpen={inventoryOpen} 
+          onToggle={()=>setInventoryOpen(!inventoryOpen)} 
+          onClose={()=>setInventoryOpen(false)}
+        >
+          <div style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",cursor:"pointer",borderRadius:4,":hover":{background:"#f9fafb"}}} onClick={()=>{setTab("stock");setInventoryOpen(false);}}>{tabLabels.stock}</div>
+          <div style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",cursor:"pointer",borderRadius:4,":hover":{background:"#f9fafb"}}} onClick={()=>{setTab("history");setInventoryOpen(false);}}>{tabLabels.history}</div>
+          <div style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",cursor:"pointer",borderRadius:4,":hover":{background:"#f9fafb"}}} onClick={()=>{setTab("storage");setInventoryOpen(false);}}>{tabLabels.storage}</div>
+          <div style={{display:"block",padding:"8px 12px",fontSize:13,color:"#374151",cursor:"pointer",borderRadius:4,":hover":{background:"#f9fafb"}}} onClick={()=>{setTab("uom");setInventoryOpen(false);}}>{tabLabels.uom}</div>
+        </DropdownMenu>
+
+        {/* Action Buttons */}
+        <button onClick={fetchAll} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"1px solid #e5e7eb",background:"#ffffff",cursor:"pointer",color:"#374151",borderRadius:6,margin:"4px 2px"}}>Refresh</button>
+        <button onClick={()=>{setDrugPrefill(null);setShowAddDrug(true);}} style={{padding:"8px 16px",fontSize:13,fontWeight:600,border:"none",background:"#2563eb",cursor:"pointer",color:"#ffffff",borderRadius:6,margin:"4px 2px"}}>Add Medicine</button>
       </div>
 
       <div style={{...s.content, marginTop:8}}>
@@ -1014,27 +1120,12 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
             {label:"Low Stock",value:lowStock,color:"#f59e0b",bg:"#f3f4f6",filter:"lowstock" as const},
             {label:"Out of Stock",value:outOfStock,color:"#ef4444",bg:"#f3f4f6",filter:"outofstock" as const}
           ].map(m=>(
-            <div
-              key={m.label}
-              style={{background:m.bg,borderRadius:6,padding:"2px",cursor:"pointer",border:stockFilter===m.filter?`2px solid ${m.color}`:"2px solid transparent",transition:"all 0.2s",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center"}}
-              onClick={()=>setStockFilter(m.filter)}
-              onMouseEnter={e=>e.currentTarget.style.transform="translateY(-1px)"}
-              onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
-            >
-              <div style={{fontSize:10,fontWeight:700,color:m.color,marginBottom:0}}>{m.label}</div>
-              <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>{m.value}</div>
+            <div key={m.label} style={{background:m.bg,borderRadius:10,padding:"12px 16px",border:`1px solid ${m.color}20`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div><div style={{fontSize:11,color:"#6b7280"}}>{m.label}</div><div style={{fontSize:18,fontWeight:700,color:m.color}}>{m.value}</div></div>
+              <button onClick={()=>setStockFilter(m.filter)} style={{background:"none",border:"none",cursor:"pointer",opacity:stockFilter===m.filter?1:0.4}}><Icon d={icons.filter} size={16} color={m.color}/></button>
             </div>
           ))}
         </div>
-
-        {/* Tabs */}
-        <div style={s.tabs}>
-          {(Object.keys(tabLabels) as Tab[]).map(t=>(
-            <button key={t} style={s.tab(tab===t)} onClick={()=>setTab(t)}>{tabLabels[t]}</button>
-          ))}
-        </div>
-
-        {/* ITEMS TAB */}
         {tab==="items" && (
           <div style={s.card}>
             <div style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap" as const}}>
@@ -1400,22 +1491,26 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
                       <button disabled={shopSaving||!shopCreatedBy.trim()} onClick={async()=>{
                         if (!shopCreatedBy.trim()) { showToast("Please enter your name"); return; }
                         setShopSaving(true);
-                        const total = cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0);
-                        const orderItems = cartItems.map((i:any)=>({itemId:i.id,itemName:i.name,quantity:shopQtys[i.id]??1,unitCost:i.lastUnitCost,supplierName:cartSupplier||i.supplierName||"No Supplier"}));
-                        const res = await fetch("/api/pharmacy/shoporders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({supplier:cartSupplier,createdBy:shopCreatedBy,items:orderItems,totalAmount:total})});
-                        if(res.ok){
-                          showToast("Order created!");
-                          setCartItems([]);
-                          setShopList([]);
-                          setManualShopItems([]);
-                          setShopQtys({});
-                          setShowCartModal(false);
-                          setCartSupplier("");
-                          fetchOrders();
-                        } else showToast("Failed to create order");
+                        // Store cart data for procurement page
+                        const orderItems = cartItems.map((i:any)=>({
+                          itemId: i.id,
+                          itemName: i.name,
+                          uom: i.uom,
+                          orderedQty: shopQtys[i.id]??1,
+                          unitCost: i.lastUnitCost||""
+                        }));
+                        const cartData = {
+                          items: orderItems,
+                          supplier: cartSupplier,
+                          createdBy: shopCreatedBy,
+                          total: cartItems.reduce((sum:number,i:any)=>sum+(shopQtys[i.id]??1)*parseFloat(i.lastUnitCost??0),0)
+                        };
+                        sessionStorage.setItem('pharmacyCartData', JSON.stringify(cartData));
+                        // Redirect to procurement page
+                        window.location.href = `/d/${workspaceid}/pharmacy-inventory/procurement`;
                         setShopSaving(false);
                       }} style={{...s.btn("purple"),fontSize:12,display:"flex",alignItems:"center",gap:5}}>
-                        {shopSaving?"Saving...":<><Icon d={icons.check} size={12} color="#fff"/> Create Order</>}
+                        {shopSaving?"Loading...":<><Icon d={icons.check} size={12} color="#fff"/> Create Order</>}
                       </button>
                     </div>
                   </>
@@ -2065,73 +2160,6 @@ export default function PharmacyPage({ initialStockFilter }: { initialStockFilte
             </div>
           </div>
         )}
-
-        {/* ORDERS TAB */}
-        {tab==="orders" && (
-          <div style={s.card}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap" as const}}>
-              <span style={{fontSize:13,fontWeight:600}}>Shop Orders</span>
-              <div style={{display:"flex",gap:6}}>
-                {["ALL","PENDING","DONE","CANCELLED","DELAYED"].map(st=>(
-                  <button key={st} onClick={()=>setOrderStatus(st)}
-                    style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
-                      border:`1px solid ${orderStatus===st?"#6366f1":"#e5e7eb"}`,
-                      background:orderStatus===st?"#6366f1":"#f9fafb",
-                      color:orderStatus===st?"#fff":"#374151"}}>
-                    {st}
-                  </button>
-                ))}
-              </div>
-              <button onClick={fetchOrders} style={{...s.btn("ghost"),border:"1px solid #e5e7eb",display:"flex",alignItems:"center",gap:5}}><Icon d={icons.refresh} size={13} color="#374151"/></button>
-              <span style={{fontSize:12,color:"#9ca3af",marginLeft:"auto"}}>{orders.length} orders</span>
-            </div>
-            {ordersLoading?<div style={{padding:40,textAlign:"center",color:"#9ca3af"}}>Loading...</div>
-            :orders.length===0?<div style={{padding:40,textAlign:"center",color:"#9ca3af"}}><div style={{fontSize:32,marginBottom:8}}>📋</div><div style={{fontSize:14,fontWeight:600}}>No orders yet</div><div style={{fontSize:12,marginTop:4}}>Create orders from the Shop List tab</div></div>
-            :<div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead><tr>{["Order","Supplier","Created By","Items","Total","Created","Status","Actions"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {orders.filter((o:any)=>orderStatus==="ALL"||o.status===orderStatus||(orderStatus==="DELAYED"&&Math.floor((Date.now()-new Date(o.createdat).getTime())/86400000)>3&&o.status==="PENDING")).map((order:any, idx:number)=>{
-                    const daysSince = Math.floor((Date.now()-new Date(order.createdat).getTime())/86400000);
-                    const isDelayed = order.status==="PENDING" && daysSince > 3;
-                    const status = isDelayed ? "DELAYED" : order.status;
-                    const statusColors:Record<string,{bg:string,color:string}>={PENDING:{bg:"#fef3c7",color:"#92400e"},DONE:{bg:"#d1fae5",color:"#065f46"},CANCELLED:{bg:"#fee2e2",color:"#991b1b"},DELAYED:{bg:"#fee2e2",color:"#991b1b"}};
-                    const sc = statusColors[status]??{bg:"#f3f4f6",color:"#374151"};
-                    return (
-                      <tr key={order.id || order.ordernumber || `order-${idx}`}>
-                        <td style={{...s.td,fontFamily:"monospace",fontSize:11,color:"#6366f1"}}>{order.ordernumber??order.id?.slice(0,8)}</td>
-                        <td style={{...s.td,fontWeight:600}}>{order.clientname??"—"}</td>
-                        <td style={s.td}>{order.createdbyname??"—"}</td>
-                        <td style={{...s.td,fontWeight:600}}>{order.itemcount??0} items</td>
-                        <td style={{...s.td,color:"#16a34a",fontWeight:600}}>{order.totalcost?`$${parseFloat(order.totalcost).toFixed(2)}`:"—"}</td>
-                        <td style={{...s.td,fontSize:12,color:"#6b7280"}}>{new Date(order.createdat).toLocaleDateString()}{isDelayed&&<div style={{fontSize:10,color:"#dc2626",fontWeight:600}}>{daysSince}d ago</div>}</td>
-                        <td style={s.td}><span style={{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,background:sc.bg,color:sc.color}}>
-                          {isDelayed?"⏰ DELAYED":status==="PENDING"?"⏳ PENDING":status==="DONE"?"✓ DONE":status==="CANCELLED"?"✕ CANCELLED":status}
-                        </span></td>
-                        <td style={s.td}>
-                          <div style={{display:"flex",gap:5}}>
-                            {["PENDING","DONE","CANCELLED"].map(st=>(
-                              <button key={st} onClick={()=>{
-                                if (order.status === st) return;
-                                setStatusConfirm({ order, status: st });
-                              }} style={{padding:"3px 8px",borderRadius:6,fontSize:10,fontWeight:600,cursor:"pointer",
-                                border:`1px solid ${order.status===st?"transparent":"#e5e7eb"}`,
-                                background:order.status===st?(st==="DONE"?"#d1fae5":st==="CANCELLED"?"#fee2e2":"#fef3c7"):"#f9fafb",
-                                color:order.status===st?(st==="DONE"?"#065f46":st==="CANCELLED"?"#991b1b":"#92400e"):"#6b7280"}}>
-                                {st}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>}
-          </div>
-        )}
-
       </div>
 
       {/* View Item Modal */}

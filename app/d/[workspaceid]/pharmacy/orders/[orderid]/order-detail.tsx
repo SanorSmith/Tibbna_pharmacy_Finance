@@ -168,11 +168,8 @@ export default function PharmacyOrderDetailPage({
           Back to Orders
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Pill className="h-5 w-5" />
-            Order {orderid.slice(0, 8)}…
-          </h1>
           <p className="text-xs text-muted-foreground">
+            Order {orderid.slice(0, 8)}… &bull;{" "}
             Created {new Date(order.createdat).toLocaleString()} &bull;{" "}
             {order.source === "openehr" ? "OpenEHR" : "Manual"} &bull; Priority:{" "}
             <span className="font-medium">{order.priority.toUpperCase()}</span>
