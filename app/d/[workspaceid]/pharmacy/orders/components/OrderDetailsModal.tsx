@@ -170,41 +170,24 @@ export default function OrderDetailsModal({
   // Download individual medication card PDF using jsPDF
   const handleDownloadIndividualPDF = async (item: any) => {
     try {
-      // Parse dosage details
+      // Parse dosage string — handles labeled pipe-separated format:
+      // "Dose: 500mg | Route: Oral | Timing: Twice daily | Duration: 5 days | Instructions: Take with food"
       const parseDosageDetails = (dosageStr: string) => {
-        if (!dosageStr) return {};
-        
-        const details: any = {};
-        
-        // Handle both pipe-separated and comma-separated dosage strings
-        const parts = dosageStr.includes('|') 
-          ? dosageStr.split('|').map(p => p.trim())
-          : dosageStr.split(',').map(p => p.trim());
-        
+        if (!dosageStr) return {} as Record<string, string>;
+        const details: Record<string, string> = {};
+        const parts = dosageStr.split('|').map(p => p.trim());
         parts.forEach(part => {
-          // Dose amount and unit
-          const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
-          if (doseMatch) {
-            details.doseamount = doseMatch[1];
-            details.doseunit = doseMatch[2];
-          }
-          
-          // Route
-          if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
-            details.route = part;
-          }
-          
-          // Timing directions
-          if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
-            details.timingdirections = part;
-          }
-          
-          // Duration
-          if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
-            details.duration = part.replace(/^for\s+/i, '');
-          }
+          const colonIdx = part.indexOf(':');
+          if (colonIdx === -1) return;
+          const key = part.slice(0, colonIdx).trim().toLowerCase().replace(/\s+/g, '');
+          const val = part.slice(colonIdx + 1).trim();
+          if (!val) return;
+          if (key === 'dose') details.dose = val;
+          else if (key === 'route') details.route = val;
+          else if (key === 'timing') details.timing = val;
+          else if (key === 'duration') details.duration = val;
+          else if (key === 'instructions') details.instructions = val;
         });
-        
         return details;
       };
 
@@ -230,6 +213,7 @@ export default function OrderDetailsModal({
       const card = document.createElement('div');
       card.style.cssText = `
         width: 15cm;
+        max-width: 15cm;
         height: auto !important;
         min-height: unset !important;
         max-height: unset !important;
@@ -238,6 +222,7 @@ export default function OrderDetailsModal({
         padding: 3mm;
         display: flex;
         flex-direction: column;
+        overflow-wrap: break-word;
       `;
       
       const patientName = data?.patient ? `${data.patient.firstname} ${data.patient.lastname}` : 'Unknown Patient';
@@ -253,13 +238,13 @@ export default function OrderDetailsModal({
         <div style="font-size: 9px; font-weight: bold; color: #000; margin: 1mm 0; line-height: 1.3;">
           ${item.drugname}
         </div>
-        <div style="font-size: 7.5px; line-height: 1.3;">
+        <div style="font-size: 7.5px; line-height: 1.3; width: 100%; min-width: 0; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word;">
           ${item.quantity ? `<div style="margin-bottom: 0.5mm;"><strong>Qty:</strong> ${(item.quantity || 0) - (item.quantitydispensed || 0)}</div>` : ''}
-          ${doseInfo.doseamount && doseInfo.doseunit ? `<div style="margin-bottom: 0.5mm;"><strong>Dose:</strong> ${doseInfo.doseamount} ${doseInfo.doseunit}</div>` : ''}
+          ${doseInfo.dose ? `<div style="margin-bottom: 0.5mm;"><strong>Dose:</strong> ${doseInfo.dose}</div>` : ''}
           ${doseInfo.route ? `<div style="margin-bottom: 0.5mm;"><strong>Route:</strong> ${doseInfo.route}</div>` : ''}
-          ${doseInfo.timingdirections ? `<div style="margin-bottom: 0.5mm;"><strong>Timing:</strong> ${doseInfo.timingdirections}</div>` : ''}
+          ${doseInfo.timing ? `<div style="margin-bottom: 0.5mm;"><strong>Timing:</strong> ${doseInfo.timing}</div>` : ''}
           ${doseInfo.duration ? `<div style="margin-bottom: 0.5mm;"><strong>Duration:</strong> ${doseInfo.duration}</div>` : ''}
-          ${item.dosage && item.dosage.trim() ? `<div style="margin-bottom: 0.5mm;"><strong>Instructions:</strong> ${item.dosage}</div>` : ''}
+          ${doseInfo.instructions ? `<div style="margin-bottom: 0.5mm; word-wrap: break-word; overflow-wrap: break-word;"><strong>Instructions:</strong> ${doseInfo.instructions}</div>` : ''}
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 7px; color: #666; border-top: 0.5px solid #ccc; padding-top: 1mm; margin-top: 4mm; line-height: 1.4;">
           <span>Pharmacy Management System</span>
@@ -624,67 +609,51 @@ export default function OrderDetailsModal({
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {items.map((item: any) => {
-                    // Parse dosage string to extract structured information
-                    const parseDosageDetails = (dosageStr: string) => {
+                    // Parse labeled pipe-separated dosage string:
+                    // "Dose: 500mg | Route: Oral | Timing: Twice daily | Instructions: ..."
+                    const parseDosageDetails = (dosageStr: string): Record<string, string> => {
                       if (!dosageStr) return {};
-                      
-                      const details: any = {};
-                      
-                      // Handle both pipe-separated and comma-separated dosage strings
-                      const parts = dosageStr.includes('|') 
-                        ? dosageStr.split('|').map(p => p.trim())
-                        : dosageStr.split(',').map(p => p.trim());
-                      
-                      parts.forEach(part => {
-                        // Dose amount and unit (e.g., "500 mg", "1 tablet")
-                        const doseMatch = part.match(/^(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|tablet|capsule|puff|U|TU|MU|mmol)/i);
-                        if (doseMatch) {
-                          details.doseamount = doseMatch[1];
-                          details.doseunit = doseMatch[2];
-                        }
-                        
-                        // Route (Oral, Parenteral, etc.)
-                        if (/^(Oral|Parenteral|Nasal|Rectal|Vaginal|Implant|Inhalation|Instillation|Sublingual|Transdermal)$/i.test(part)) {
-                          details.route = part;
-                        }
-                        
-                        // Timing directions - more specific to avoid conflicts
-                        if (/^(Once|Twice|Three times|Four times|Five times|Every|As needed|When needed|PRN|At bedtime|With meals|Before meals|After meals|daily|hourly|weekly|monthly)/i.test(part)) {
-                          details.timingdirections = part;
-                        }
-                        
-                        // Duration - more specific pattern to avoid conflicts
-                        if (/^(for\s+\d+\s*(day|week|month)s?|until finished|\d+\s*(day|week|month)s?)$/i.test(part)) {
-                          details.duration = part.replace(/^for\s+/i, '');
-                        }
-                        
-                        // Instructions
-                        if (/^(with food|before meals|after meals|with water|swallow whole|chew|dissolve|shake well|avoid alcohol)/i.test(part)) {
-                          details.instructions = part;
-                        }
-                        
-                        // Usage - more specific to avoid conflicts
-                        if (/^for (headache|fever|pain|high blood pressure|diabetes|infection|asthma|allergies|stomach pain|diarrhea|anxiety|anemia|vitamin deficiency)$/i.test(part)) {
-                          details.usage = part;
-                        }
+                      const details: Record<string, string> = {};
+                      dosageStr.split('|').map(p => p.trim()).forEach(part => {
+                        const idx = part.indexOf(':');
+                        if (idx === -1) return;
+                        const key = part.slice(0, idx).trim().toLowerCase().replace(/\s+/g, '');
+                        const val = part.slice(idx + 1).trim();
+                        if (!val) return;
+                        if (key === 'dose') details.dose = val;
+                        else if (key === 'route') details.route = val;
+                        else if (key === 'timing') details.timing = val;
+                        else if (key === 'instructions') details.instructions = val;
+                        else if (key === 'duration') details.duration = val;
+                        else if (key === 'usage') details.usage = val;
+                        else if (key === 'pharmacistnotes') details.pharmacistNotes = val;
                       });
-                      
                       return details;
                     };
-                    
+
                     const doseInfo = parseDosageDetails(item.dosage || '');
                     
                     return (
                 <Card key={item.itemid} className="p-3 min-w-[320px] flex-shrink-0">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
-                      <h4 
-                        className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
-                        onClick={() => handleDrugClick(item.drugid, item.drugname)}
-                      >
-                        {item.drugname}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-1">
+                        <h4
+                          className="font-medium cursor-pointer hover:text-blue-600 hover:underline"
+                          onClick={() => handleDrugClick(item.drugid, item.drugname)}
+                        >
+                          {item.drugname}
+                        </h4>
+                        {(item.interaction && item.interaction !== "None") || item.warning ? (
+                          <span
+                            title={[item.interaction, item.warning].filter(Boolean).join(" | ")}
+                            className="cursor-help"
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
                         <p className="text-sm text-muted-foreground">{item.quantity ? `x${(item.quantity || 0) - (item.quantitydispensed || 0)}` : ""}</p>
                         {(() => {
                           // Priority: bestBatchPrice > unitprice > nameBasedPrice
@@ -696,12 +665,12 @@ export default function OrderDetailsModal({
                                 ? parseFloat(item.nameBasedPrice)
                                 : 0;
                           return price > 0 ? (
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm font-medium text-green-600">
+                            <div className="text-right">
+                              <span className="text-sm font-bold text-green-600">
                                 {(price * (item.quantity || 1)).toLocaleString()} IQD
                               </span>
-                              <span className="text-xs text-muted-foreground">
-                                @ {price.toLocaleString()} each
+                              <span className="text-xs text-muted-foreground ml-1">
+                                @ {price.toLocaleString()}
                               </span>
                             </div>
                           ) : null;
@@ -730,44 +699,39 @@ export default function OrderDetailsModal({
                   
                   {/* Dose Information */}
                   {Object.keys(doseInfo).length > 0 && (
-                    <div className="space-y-1 text-sm mb-2">
-                      {doseInfo.doseamount && doseInfo.doseunit && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Dose:</span>
-                          <Badge variant="outline" className="text-xs">
-                            {doseInfo.doseamount} {doseInfo.doseunit}
-                          </Badge>
-                        </div>
+                    <div className="space-y-1 text-sm mb-2 mt-1">
+                      {doseInfo.dose && (
+                        <Badge variant="outline" className="text-xs font-bold text-blue-700 border-blue-300">
+                          {doseInfo.dose}
+                        </Badge>
                       )}
                       {doseInfo.route && (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Route:</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {doseInfo.route}
-                          </Badge>
+                          <span className="font-medium text-muted-foreground text-xs">Route:</span>
+                          <Badge variant="secondary" className="text-xs">{doseInfo.route}</Badge>
                         </div>
                       )}
-                      {doseInfo.timingdirections && (
+                      {doseInfo.timing && (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Timing:</span>
-                          <span className="text-xs">{doseInfo.timingdirections}</span>
+                          <span className="font-medium text-muted-foreground text-xs">Timing:</span>
+                          <span className="text-xs">{doseInfo.timing}</span>
                         </div>
                       )}
                       {doseInfo.duration && (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Duration:</span>
+                          <span className="font-medium text-muted-foreground text-xs">Duration:</span>
                           <span className="text-xs">{doseInfo.duration}</span>
                         </div>
                       )}
                       {doseInfo.instructions && (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Instructions:</span>
-                          <span className="text-xs">{doseInfo.instructions}</span>
+                          <span className="font-medium text-amber-600 text-xs">Instructions:</span>
+                          <span className="text-xs font-medium text-amber-700">{doseInfo.instructions}</span>
                         </div>
                       )}
                       {doseInfo.usage && (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground">Usage:</span>
+                          <span className="font-medium text-muted-foreground text-xs">Usage:</span>
                           <span className="text-xs">{doseInfo.usage}</span>
                         </div>
                       )}

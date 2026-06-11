@@ -95,41 +95,71 @@ export async function POST(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
 
+    // Parse the labeled, pipe-separated dosage string, e.g.
+    // "Dose: 500mg | Route: Oral | Timing: Twice daily | Duration: 5 days | Instructions: Take with food"
+    const dosageDetails: Record<string, string> = {};
+    if (body.dosage) {
+      body.dosage.split("|").forEach((segment) => {
+        const part = segment.trim();
+        const colonIdx = part.indexOf(":");
+        if (colonIdx === -1) return;
+        const key = part.slice(0, colonIdx).trim().toLowerCase();
+        const val = part.slice(colonIdx + 1).trim();
+        if (val) dosageDetails[key] = val;
+      });
+    }
+
     let currentY = 2.0;
-    
+
     // Quantity
     if (body.quantity) {
       pdf.text(`Qty: ${body.quantity}`, 0.5, currentY);
       currentY += 0.3;
     }
 
-    // Dosage information
-    if (body.doseAmount && body.doseUnit) {
-      pdf.text(`Dose: ${body.doseAmount} ${body.doseUnit}`, 0.5, currentY);
+    // Dosage information — prefer discrete fields, fall back to the parsed dosage string
+    const doseText = body.doseAmount && body.doseUnit
+      ? `${body.doseAmount} ${body.doseUnit}`
+      : dosageDetails.dose;
+    if (doseText) {
+      pdf.text(`Dose: ${doseText}`, 0.5, currentY);
       currentY += 0.3;
     }
 
     // Route
-    if (body.route) {
-      pdf.text(`Route: ${body.route}`, 0.5, currentY);
+    const routeText = body.route || dosageDetails.route;
+    if (routeText) {
+      pdf.text(`Route: ${routeText}`, 0.5, currentY);
       currentY += 0.3;
     }
 
     // Timing
-    if (body.timingDirections) {
-      pdf.text(`Timing: ${body.timingDirections}`, 0.5, currentY);
+    const timingText = body.timingDirections || dosageDetails.timing;
+    if (timingText) {
+      pdf.text(`Timing: ${timingText}`, 0.5, currentY);
       currentY += 0.3;
     }
 
     // Duration
-    if (body.directionDuration) {
-      pdf.text(`Duration: ${body.directionDuration}`, 0.5, currentY);
+    const durationText = body.directionDuration || dosageDetails.duration;
+    if (durationText) {
+      pdf.text(`Duration: ${durationText}`, 0.5, currentY);
       currentY += 0.3;
     }
 
-    // Additional dosage info if available
-    if (body.dosage && body.dosage.trim()) {
-      pdf.text(`Instructions: ${body.dosage}`, 0.5, currentY);
+    // Additional instructions — pull just the "Instructions:" segment out of the
+    // labeled dosage string (Dose/Route/Timing/Duration are rendered separately
+    // above), and wrap long text to fit the card width.
+    let instructionsText = dosageDetails.instructions;
+    if (!instructionsText && body.dosage && !body.dosage.includes(":")) {
+      // Raw, unlabeled dosage string — show it as-is
+      instructionsText = body.dosage.trim();
+    }
+    if (instructionsText) {
+      const maxWidth = 14; // cm (card width is 15cm, leave margin)
+      const lines = pdf.splitTextToSize(`Instructions: ${instructionsText}`, maxWidth);
+      pdf.text(lines, 0.5, currentY);
+      currentY += 0.3 * lines.length;
     }
 
     // Footer with pharmacy info

@@ -115,7 +115,7 @@ export const drugs = pgTable("drugs", {
   strength:             text("strength"),
   unit:                 text("unit"),
   manufacturer:         text("manufacturer"),
-  description:          text("description"),
+  description:          text("route"), // Route of administration (DB column is "route")
   indication:           text("indication"),
   interaction:          text("interaction"),
   warning:              text("warning"),
@@ -824,6 +824,7 @@ export * from "./tables/lab";
 export * from "./tables/pharmacy";
 export * from "./tables/operation";
 export * from "./tables/todo";
+export * from "./tables/patient-reminders";
 export * from "./tables/sample";
 export * from "./tables/test-result";
 export * from "./tables/validation-state";
