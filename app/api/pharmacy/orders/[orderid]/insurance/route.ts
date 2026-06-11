@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Insurance company not found" }, { status: 404 });
     }
 
-    const coveragePercent = parseFloat(insurance.coveragepercent) / 100;
+    const coveragePercent = parseFloat(insurance.coveragepercent ?? "80") / 100;
 
     // Get existing invoice
     const [inv] = await db

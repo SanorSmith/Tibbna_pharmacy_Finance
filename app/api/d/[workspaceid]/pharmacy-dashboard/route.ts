@@ -12,6 +12,7 @@ import {
   stockLevels,
   invoices,
   posSales,
+  posPayments,
 } from "@/lib/db/schema";
 import { eq, and, sql, lt, gte, count } from "drizzle-orm";
 
@@ -30,16 +31,24 @@ export async function GET(
 
     const { workspaceid } = await params;
 
-    // Date calculations
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    
-    const overdueThreshold = new Date();
-    overdueThreshold.setHours(overdueThreshold.getHours() - OVERDUE_HOURS);
-    
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
+    // Date calculations — all aligned to Baghdad local time (UTC+3)
+    const BAGHDAD_OFFSET_MS = 3 * 60 * 60 * 1000;
+    const nowUtc = Date.now();
+    // Midnight Baghdad = floor to day in Baghdad time, then convert back to UTC
+    const todayStart = new Date(
+      Math.floor((nowUtc + BAGHDAD_OFFSET_MS) / 86_400_000) * 86_400_000 - BAGHDAD_OFFSET_MS
+    );
+
+    const overdueThreshold = new Date(nowUtc - OVERDUE_HOURS * 60 * 60 * 1000);
+
+    const monthStart = new Date(
+      Math.floor((nowUtc + BAGHDAD_OFFSET_MS) / 86_400_000) * 86_400_000 - BAGHDAD_OFFSET_MS
+    );
+    // Rewind to the 1st of the current Baghdad month
+    const baghdadNow = new Date(nowUtc + BAGHDAD_OFFSET_MS);
+    monthStart.setTime(
+      new Date(Date.UTC(baghdadNow.getUTCFullYear(), baghdadNow.getUTCMonth(), 1)).getTime() - BAGHDAD_OFFSET_MS
+    );
 
     // Run all queries in parallel for better performance
     const [
@@ -52,6 +61,7 @@ export async function GET(
       todayPosSales,
       overdueOrders,
       doctorNotifications,
+      todayPaymentBreakdown,
       topSellers,
     ] = await Promise.all([
       // 1. Low stock medicines
@@ -178,6 +188,23 @@ export async function GET(
         )
         .limit(10),
 
+      // 8. Today's payment breakdown by method
+      db
+        .select({
+          paymentmethod: posPayments.paymentmethod,
+          total: sql<string>`COALESCE(SUM(${posPayments.amount}::numeric), 0)`,
+          txcount: sql<number>`COUNT(*)::int`,
+        })
+        .from(posPayments)
+        .innerJoin(posSales, eq(posPayments.saleid, posSales.saleid))
+        .where(
+          and(
+            eq(posSales.workspaceid, workspaceid),
+            gte(posSales.saledate, todayStart)
+          )
+        )
+        .groupBy(posPayments.paymentmethod),
+
       // 7. Top selling medicines
       db
         .select({
@@ -242,6 +269,16 @@ export async function GET(
         items: doctorNotifications,
       },
       topSellers: topSellers,
+      budget: {
+        todayRevenue: parseFloat(todaySales?.[0]?.total || "0") + parseFloat(todayPosSales?.[0]?.total || "0"),
+        paymentBreakdown: {
+          cash: parseFloat(todayPaymentBreakdown.find(p => p.paymentmethod === "CASH")?.total || "0"),
+          card: parseFloat(todayPaymentBreakdown.find(p => p.paymentmethod === "CARD")?.total || "0"),
+          insurance: parseFloat(todayPaymentBreakdown.find(p => p.paymentmethod === "INSURANCE")?.total || "0"),
+          credit: parseFloat(todayPaymentBreakdown.find(p => p.paymentmethod === "CREDIT_ACCOUNT")?.total || "0"),
+        },
+        transactionCount: todayPaymentBreakdown.reduce((sum, p) => sum + p.txcount, 0),
+      },
     });
   } catch (error) {
     console.error("Error fetching pharmacy dashboard stats:", error);

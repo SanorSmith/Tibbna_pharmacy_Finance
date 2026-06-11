@@ -29,7 +29,7 @@ export function PatientInfo({ data, onOrderSelect }: Props) {
       <CardContent className="px-4 pb-4 space-y-3">
         {/* Name & ID */}
         <div>
-          <p className="font-semibold">
+          <p className="text-2xl font-bold">
             {patient.firstname} {patient.lastname}
           </p>
           {patient.nationalid && (

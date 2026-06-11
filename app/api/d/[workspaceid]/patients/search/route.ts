@@ -33,12 +33,15 @@ export async function GET(
 
     const searchPattern = `%${query.trim()}%`;
     
-    // Search by Patient ID, National ID, or Phone Number
-    // Include both workspace-specific and global patients
+    // Search by name, Patient ID, National ID, or Phone Number
     const searchCondition = or(
       ilike(patients.patientid, searchPattern),
       ilike(patients.nationalid, searchPattern),
-      ilike(patients.phone, searchPattern)
+      ilike(patients.phone, searchPattern),
+      ilike(patients.firstname, searchPattern),
+      ilike(patients.lastname, searchPattern),
+      ilike(patients.firstnameAr, searchPattern),
+      ilike(patients.lastnameAr, searchPattern)
     )!;
 
     const baseCondition = or(
@@ -83,18 +86,19 @@ export async function GET(
       })
       .from(patients)
       .where(finalCondition)
-      .limit(1); // Return single best match
+      .limit(20);
 
     if (rows.length === 0) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         patient: null,
+        patients: [],
         message: "No patient found matching the search criteria"
       }, { status: 404 });
     }
 
-    // Return the first (best) match
-    return NextResponse.json({ 
+    return NextResponse.json({
       patient: rows[0],
+      patients: rows,
       message: "Patient found successfully"
     });
 

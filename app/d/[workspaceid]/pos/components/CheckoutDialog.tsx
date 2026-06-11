@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +70,7 @@ export function CheckoutDialog({
   workspaceId,
   onSuccess,
 }: Props) {
+  const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([
     { method: "CASH", amount: total },
   ]);
@@ -305,7 +307,7 @@ export function CheckoutDialog({
                 </p>
               </div>
             )}
-            <div className="flex gap-2 justify-center">
+            <div className="flex gap-2 justify-center flex-wrap">
               <Button
                 onClick={handlePrintReceipt}
                 variant="outline"
@@ -313,6 +315,15 @@ export function CheckoutDialog({
               >
                 <Printer className="h-4 w-4" />
                 Print Receipt
+              </Button>
+              <Button
+                onClick={() => {
+                  onSuccess();
+                  router.push(`/d/${workspaceId}/pharmacy/dashboard?tab=orders`);
+                }}
+                variant="outline"
+              >
+                Back to Orders
               </Button>
               <Button
                 onClick={handleClose}

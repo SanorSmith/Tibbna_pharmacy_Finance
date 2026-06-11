@@ -372,7 +372,28 @@ export default function CreateOrderModal({
         const data = await res.json();
         console.log("Order created successfully:", data.order?.orderid);
         onSuccess();
-        handleClose();
+        // B4: Keep patient selected — only reset the medication list
+        setOrderItems([]);
+        setCurrentItem({
+          drugid: "",
+          drugname: "",
+          form: "",
+          strength: "",
+          quantity: 1,
+          doseAmount: "",
+          doseUnit: "mg",
+          route: "",
+          timingDirections: "Once daily",
+          directionDuration: "",
+          validUntil: "",
+          usage: "",
+          asRequired: false,
+          asRequiredCriterion: "",
+          additionalInstruction: "",
+          clinicalIndication: "",
+          pharmacistNotes: "",
+        });
+        setLoading(false);
       } else {
         const data = await res.json();
         alert(data.error || "Failed to create order");
@@ -1234,29 +1255,16 @@ export default function CreateOrderModal({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Instructions *</Label>
-                  <Input
-                    placeholder="e.g., Take with food"
-                    value={currentItem.additionalInstruction}
-                    onChange={(e) =>
-                      setCurrentItem({ ...currentItem, additionalInstruction: e.target.value })
-                    }
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Clinical Indication</Label>
-                  <Input
-                    placeholder="e.g., Bacterial infection"
-                    value={currentItem.clinicalIndication}
-                    onChange={(e) =>
-                      setCurrentItem({ ...currentItem, clinicalIndication: e.target.value })
-                    }
-                    className="h-8 text-xs"
-                  />
-                </div>
+              <div>
+                <Label className="text-xs">Instructions *</Label>
+                <Input
+                  placeholder="e.g., Take with food, avoid sunlight"
+                  value={currentItem.additionalInstruction}
+                  onChange={(e) =>
+                    setCurrentItem({ ...currentItem, additionalInstruction: e.target.value })
+                  }
+                  className="h-8 text-xs"
+                />
               </div>
 
               {/* Pharmacist Notes */}

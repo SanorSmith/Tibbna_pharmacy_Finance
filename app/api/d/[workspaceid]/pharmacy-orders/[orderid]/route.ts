@@ -82,6 +82,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         drugbarcode: drugs.barcode,
         drugform: drugs.form,
         drugstrength: drugs.strength,
+        interaction: drugs.interaction,
+        warning: drugs.warning,
         // Best available batch selling price from item_batches (new system)
         bestBatchPrice: sql<string>`(
           SELECT ib.selling_price

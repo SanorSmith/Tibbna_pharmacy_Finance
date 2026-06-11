@@ -134,6 +134,7 @@ const emptyForm: FormData = {
 export default function DrugRegistration({ workspaceid }: { workspaceid: string }) {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [editingDrug, setEditingDrug] = useState<DrugRecord | null>(null);
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -173,6 +174,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pharmacy-drugs"] });
       setDialogOpen(false);
+      setShowAddForm(false);
       setEditingDrug(null);
       setFormData(emptyForm);
     },
@@ -196,7 +198,8 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
   const handleOpenNew = () => {
     setEditingDrug(null);
     setFormData(emptyForm);
-    setDialogOpen(true);
+    setShowAddForm(true);
+    setDialogOpen(false);
   };
 
   const handleOpenEdit = (drug: DrugRecord) => {
@@ -236,7 +239,159 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const PAGE_SIZE = 50;
+  const renderDrugFormContent = (onCancel: () => void) => (
+    <div className="space-y-4">
+      {/* Row 1: Drug name → Form → Strength → National code → Category */}
+      <div className="grid grid-cols-6 gap-3">
+        <div className="space-y-1 col-span-2">
+          <Label className="text-[11px]">Drug name *</Label>
+          <Input className="h-8 text-sm" value={formData.name} onChange={(e) => updateField("name", e.target.value)} placeholder="e.g. Acrecil" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Dose form *</Label>
+          <Select value={formData.form || undefined} onValueChange={(value) => updateField("form", value)}>
+            <SelectTrigger className="h-8 text-sm min-w-[120px]"><SelectValue placeholder="Select form" /></SelectTrigger>
+            <SelectContent>
+              {["tablet","capsule","syrup","injection","cream","ointment","drops","inhaler","patch","suppository","powder","solution","suspension","gel","lotion","spray"].map(f => (
+                <SelectItem key={f} value={f}>{f.charAt(0).toUpperCase()+f.slice(1)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Strength *</Label>
+          <Select value={formData.strength || undefined} onValueChange={(value) => updateField("strength", value)}>
+            <SelectTrigger className="h-8 text-sm min-w-[120px]"><SelectValue placeholder="Select strength" /></SelectTrigger>
+            <SelectContent>
+              {["1 mg","2.5 mg","5 mg","10 mg","20 mg","25 mg","50 mg","100 mg","125 mg","150 mg","200 mg","250 mg","300 mg","400 mg","500 mg","600 mg","750 mg","800 mg","1000 mg","1 g","2 g","5 mcg","10 mcg","25 mcg","50 mcg","100 mcg","200 mcg","500 mcg","1000 mcg","1 mg/ml","5 mg/ml","10 mg/ml","50 mg/ml","100 mg/ml","100 IU","1000 IU","5000 IU","10000 IU"].map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">National code</Label>
+          <Input className="h-8 text-sm" value={formData.nationalcode} onChange={(e) => updateField("nationalcode", e.target.value)} placeholder="e.g. NDL123456" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Category</Label>
+          <Select value={formData.category || undefined} onValueChange={(value) => updateField("category", value)}>
+            <SelectTrigger className="h-8 text-sm min-w-[120px]"><SelectValue placeholder="Select category" /></SelectTrigger>
+            <SelectContent>
+              {["antibiotic","analgesic","antipyretic","anti-inflammatory","antihistamine","antiviral","antifungal","cardiovascular","diuretic","antihypertensive","antidiabetic","vitamin","supplement","vaccine","anesthetic","muscle relaxant","antidepressant","antipsychotic","bronchodilator","corticosteroid","hormone","contraceptive"].map(c => (
+                <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {/* Row 2: Side effect, Storage type, Pregnancy, Traffic, Indication */}
+      <div className="grid grid-cols-6 gap-3">
+        <div className="space-y-1 col-span-2">
+          <Label className="text-[11px]">Side effect</Label>
+          <Input className="h-8 text-sm" value={formData.sideeffect} onChange={(e) => updateField("sideeffect", e.target.value)} placeholder="e.g. Drowsiness, Nausea" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Storage type</Label>
+          <Select value={formData.storagetype || undefined} onValueChange={(value) => updateField("storagetype", value)}>
+            <SelectTrigger className="h-8 text-sm min-w-[120px]"><SelectValue placeholder="Select storage type" /></SelectTrigger>
+            <SelectContent>
+              {["Room temperature","Refrigerated","Frozen","Cool dry place","Dark place","Away from light","Controlled temperature","Dry place","Airtight container","Child-proof container","Original container"].map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Pregnancy</Label>
+          <Select value={formData.pregnancy || undefined} onValueChange={(value) => updateField("pregnancy", value)}>
+            <SelectTrigger className="h-8 text-sm min-w-[120px]"><SelectValue placeholder="Select status" /></SelectTrigger>
+            <SelectContent><SelectItem value="yes">Yes</SelectItem><SelectItem value="no">No</SelectItem></SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Traffic</Label>
+          <Select value={formData.traffic || undefined} onValueChange={(value) => updateField("traffic", value)}>
+            <SelectTrigger className="h-8 text-sm min-w-[120px]"><SelectValue placeholder="Select status" /></SelectTrigger>
+            <SelectContent><SelectItem value="yes">Yes</SelectItem><SelectItem value="no">No</SelectItem></SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Indication</Label>
+          <Input className="h-8 text-sm" value={formData.indication} onChange={(e) => updateField("indication", e.target.value)} placeholder="e.g. Hypertension, Pain relief" />
+        </div>
+      </div>
+      {/* Row 3 */}
+      <div className="grid grid-cols-6 gap-3">
+        <div className="space-y-1 col-span-2">
+          <Label className="text-[11px]">Generic name</Label>
+          <Input className="h-8 text-sm" value={formData.genericname} onChange={(e) => updateField("genericname", e.target.value)} placeholder="e.g. Acetaminophen" />
+        </div>
+        <div className="space-y-1 col-span-2">
+          <Label className="text-[11px]">Manufacturer</Label>
+          <Input className="h-8 text-sm" value={formData.manufacturer} onChange={(e) => updateField("manufacturer", e.target.value)} placeholder="e.g. Pfizer, GSK" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Barcode</Label>
+          <Input className="h-8 text-sm" value={formData.barcode} onChange={(e) => updateField("barcode", e.target.value)} placeholder="e.g. 1234567890123" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">ATC Code</Label>
+          <Input className="h-8 text-sm" value={formData.atccode} onChange={(e) => updateField("atccode", e.target.value)} placeholder="e.g. J01CA04" />
+        </div>
+      </div>
+      {/* Textarea Fields */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-[11px]">Description</Label>
+          <Textarea className="text-sm overflow-y-auto resize-none h-[72px]" value={formData.description} onChange={(e) => updateField("description", e.target.value)} rows={3} placeholder="Enter drug description" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Interaction</Label>
+          <Textarea className="text-sm overflow-y-auto resize-none h-[72px]" value={formData.interaction} onChange={(e) => updateField("interaction", e.target.value)} rows={3} placeholder="Enter drug interactions" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Warning</Label>
+          <Textarea className="text-sm overflow-y-auto resize-none h-[72px]" value={formData.warning} onChange={(e) => updateField("warning", e.target.value)} rows={3} placeholder="Enter drug warnings" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Notes</Label>
+          <Textarea className="text-sm overflow-y-auto resize-none h-[72px]" value={formData.notes} onChange={(e) => updateField("notes", e.target.value)} rows={3} placeholder="Enter additional notes" />
+        </div>
+      </div>
+      {/* Insurance + actions */}
+      <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium text-blue-600">Insurance approved?</span>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox checked={formData.insuranceapproved === true} onCheckedChange={() => updateField("insuranceapproved", true)} />
+            <span className="text-sm">Yes</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox checked={formData.insuranceapproved === false} onCheckedChange={() => updateField("insuranceapproved", false)} />
+            <span className="text-sm">No</span>
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={saveMutation.isPending}>Cancel</Button>
+          <Button
+            size="sm"
+            className="bg-[#618FF5] border-blue-400 text-white hover:bg-[#618FF5] hover:border-blue-900"
+            onClick={handleSave}
+            disabled={saveMutation.isPending || !formData.name || !formData.form || !formData.strength}
+          >
+            {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+            Save
+          </Button>
+        </div>
+      </div>
+      {saveMutation.isError && (
+        <p className="text-sm text-red-500">{(saveMutation.error as Error).message}</p>
+      )}
+    </div>
+  );
+
+  const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
 
   const drugList = data?.drugs || [];
@@ -245,6 +400,21 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
 
   return (
     <div className="space-y-4">
+      {/* Add New Drug form — inline at top */}
+      {showAddForm && (
+        <Card className="shadow-sm border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm text-blue-700">New Drug Registration</h3>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground" onClick={() => { setShowAddForm(false); setFormData(emptyForm); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {renderDrugFormContent(() => { setShowAddForm(false); setFormData(emptyForm); })}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">Drug Registration</h2>
         <div className="flex items-center gap-3">
@@ -432,21 +602,99 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
         </CardContent>
       </Card>
 
-      {/* Registration / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => {
-          if (!open) return; // Prevent closing when clicking outside
+      {/* Edit Dialog — only for editing existing drugs */}
+      <Dialog open={dialogOpen && !!editingDrug} onOpenChange={(open) => {
+          if (!open) { setDialogOpen(false); setEditingDrug(null); setFormData(emptyForm); }
         }}>
-        <DialogContent className="max-w-[80vw] h-[600px]">
+        <DialogContent className="max-w-[80vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingDrug ? "Edit Drug" : "New Drug Registration"}</DialogTitle>
+            <DialogTitle>Edit Drug</DialogTitle>
           </DialogHeader>
+          {renderDrugFormContent(() => { setDialogOpen(false); setEditingDrug(null); setFormData(emptyForm); })}
+        </DialogContent>
+      </Dialog>
 
-          <div className="space-y-4">
-            {/* Row 1 */}
+      {/* LEGACY FORM CONTENT - kept for reference, replaced by renderDrugFormContent above */}
+      {false && <div className="space-y-4">
+            {/* Row 1: Drug name → Form → Strength → National code → Category → Generic name */}
             <div className="grid grid-cols-6 gap-3">
-              <div className="space-y-1">
+              <div className="space-y-1 col-span-2">
                 <Label className="text-[11px]">Drug name *</Label>
                 <Input className="h-8 text-sm" value={formData.name} onChange={(e) => updateField("name", e.target.value)} placeholder="e.g. Acrecil" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Dose form *</Label>
+                <Select value={formData.form || undefined} onValueChange={(value) => updateField("form", value)}>
+                  <SelectTrigger className="h-8 text-sm min-w-[120px]">
+                    <SelectValue placeholder="Select form" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tablet">Tablet</SelectItem>
+                    <SelectItem value="capsule">Capsule</SelectItem>
+                    <SelectItem value="syrup">Syrup</SelectItem>
+                    <SelectItem value="injection">Injection</SelectItem>
+                    <SelectItem value="cream">Cream</SelectItem>
+                    <SelectItem value="ointment">Ointment</SelectItem>
+                    <SelectItem value="drops">Drops</SelectItem>
+                    <SelectItem value="inhaler">Inhaler</SelectItem>
+                    <SelectItem value="patch">Patch</SelectItem>
+                    <SelectItem value="suppository">Suppository</SelectItem>
+                    <SelectItem value="powder">Powder</SelectItem>
+                    <SelectItem value="solution">Solution</SelectItem>
+                    <SelectItem value="suspension">Suspension</SelectItem>
+                    <SelectItem value="gel">Gel</SelectItem>
+                    <SelectItem value="lotion">Lotion</SelectItem>
+                    <SelectItem value="spray">Spray</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Strength *</Label>
+                <Select value={formData.strength || undefined} onValueChange={(value) => updateField("strength", value)}>
+                  <SelectTrigger className="h-8 text-sm min-w-[120px]">
+                    <SelectValue placeholder="Select strength" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1 mg">1 mg</SelectItem>
+                    <SelectItem value="2.5 mg">2.5 mg</SelectItem>
+                    <SelectItem value="5 mg">5 mg</SelectItem>
+                    <SelectItem value="10 mg">10 mg</SelectItem>
+                    <SelectItem value="20 mg">20 mg</SelectItem>
+                    <SelectItem value="25 mg">25 mg</SelectItem>
+                    <SelectItem value="50 mg">50 mg</SelectItem>
+                    <SelectItem value="100 mg">100 mg</SelectItem>
+                    <SelectItem value="125 mg">125 mg</SelectItem>
+                    <SelectItem value="150 mg">150 mg</SelectItem>
+                    <SelectItem value="200 mg">200 mg</SelectItem>
+                    <SelectItem value="250 mg">250 mg</SelectItem>
+                    <SelectItem value="300 mg">300 mg</SelectItem>
+                    <SelectItem value="400 mg">400 mg</SelectItem>
+                    <SelectItem value="500 mg">500 mg</SelectItem>
+                    <SelectItem value="600 mg">600 mg</SelectItem>
+                    <SelectItem value="750 mg">750 mg</SelectItem>
+                    <SelectItem value="800 mg">800 mg</SelectItem>
+                    <SelectItem value="1000 mg">1000 mg</SelectItem>
+                    <SelectItem value="1 g">1 g</SelectItem>
+                    <SelectItem value="2 g">2 g</SelectItem>
+                    <SelectItem value="5 mcg">5 mcg</SelectItem>
+                    <SelectItem value="10 mcg">10 mcg</SelectItem>
+                    <SelectItem value="25 mcg">25 mcg</SelectItem>
+                    <SelectItem value="50 mcg">50 mcg</SelectItem>
+                    <SelectItem value="100 mcg">100 mcg</SelectItem>
+                    <SelectItem value="200 mcg">200 mcg</SelectItem>
+                    <SelectItem value="500 mcg">500 mcg</SelectItem>
+                    <SelectItem value="1000 mcg">1000 mcg</SelectItem>
+                    <SelectItem value="1 mg/ml">1 mg/ml</SelectItem>
+                    <SelectItem value="5 mg/ml">5 mg/ml</SelectItem>
+                    <SelectItem value="10 mg/ml">10 mg/ml</SelectItem>
+                    <SelectItem value="50 mg/ml">50 mg/ml</SelectItem>
+                    <SelectItem value="100 mg/ml">100 mg/ml</SelectItem>
+                    <SelectItem value="100 IU">100 IU</SelectItem>
+                    <SelectItem value="1000 IU">1000 IU</SelectItem>
+                    <SelectItem value="5000 IU">5000 IU</SelectItem>
+                    <SelectItem value="10000 IU">10000 IU</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label className="text-[11px]">National code</Label>
@@ -484,59 +732,9 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Dose form *</Label>
-                <Select value={formData.form || undefined} onValueChange={(value) => updateField("form", value)}>
-                  <SelectTrigger className="h-8 text-sm min-w-[120px]">
-                    <SelectValue placeholder="Select form" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tablet">Tablet</SelectItem>
-                    <SelectItem value="capsule">Capsule</SelectItem>
-                    <SelectItem value="syrup">Syrup</SelectItem>
-                    <SelectItem value="injection">Injection</SelectItem>
-                    <SelectItem value="cream">Cream</SelectItem>
-                    <SelectItem value="ointment">Ointment</SelectItem>
-                    <SelectItem value="drops">Drops</SelectItem>
-                    <SelectItem value="inhaler">Inhaler</SelectItem>
-                    <SelectItem value="patch">Patch</SelectItem>
-                    <SelectItem value="suppository">Suppository</SelectItem>
-                    <SelectItem value="powder">Powder</SelectItem>
-                    <SelectItem value="solution">Solution</SelectItem>
-                    <SelectItem value="suspension">Suspension</SelectItem>
-                    <SelectItem value="gel">Gel</SelectItem>
-                    <SelectItem value="lotion">Lotion</SelectItem>
-                    <SelectItem value="spray">Spray</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Pregnancy</Label>
-                <Select value={formData.pregnancy || undefined} onValueChange={(value) => updateField("pregnancy", value)}>
-                  <SelectTrigger className="h-8 text-sm min-w-[120px]">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Traffic</Label>
-                <Select value={formData.traffic || undefined} onValueChange={(value) => updateField("traffic", value)}>
-                  <SelectTrigger className="h-8 text-sm min-w-[120px]">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
-            {/* Row 2 */}
+            {/* Row 2: Side effect, Storage type, Pregnancy, Traffic, Indication */}
             <div className="grid grid-cols-6 gap-3">
               <div className="space-y-1 col-span-2">
                 <Label className="text-[11px]">Side effect</Label>
@@ -564,61 +762,30 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px]">Unit dose / Strength *</Label>
-                <Select value={formData.strength || undefined} onValueChange={(value) => updateField("strength", value)}>
+                <Label className="text-[11px]">Pregnancy</Label>
+                <Select value={formData.pregnancy || undefined} onValueChange={(value) => updateField("pregnancy", value)}>
                   <SelectTrigger className="h-8 text-sm min-w-[120px]">
-                    <SelectValue placeholder="Select strength" />
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1 mg">1 mg</SelectItem>
-                    <SelectItem value="2.5 mg">2.5 mg</SelectItem>
-                    <SelectItem value="5 mg">5 mg</SelectItem>
-                    <SelectItem value="10 mg">10 mg</SelectItem>
-                    <SelectItem value="20 mg">20 mg</SelectItem>
-                    <SelectItem value="25 mg">25 mg</SelectItem>
-                    <SelectItem value="50 mg">50 mg</SelectItem>
-                    <SelectItem value="100 mg">100 mg</SelectItem>
-                    <SelectItem value="125 mg">125 mg</SelectItem>
-                    <SelectItem value="150 mg">150 mg</SelectItem>
-                    <SelectItem value="200 mg">200 mg</SelectItem>
-                    <SelectItem value="250 mg">250 mg</SelectItem>
-                    <SelectItem value="300 mg">300 mg</SelectItem>
-                    <SelectItem value="400 mg">400 mg</SelectItem>
-                    <SelectItem value="500 mg">500 mg</SelectItem>
-                    <SelectItem value="600 mg">600 mg</SelectItem>
-                    <SelectItem value="750 mg">750 mg</SelectItem>
-                    <SelectItem value="800 mg">800 mg</SelectItem>
-                    <SelectItem value="1000 mg">1000 mg</SelectItem>
-                    <SelectItem value="1 g">1 g</SelectItem>
-                    <SelectItem value="2 g">2 g</SelectItem>
-                    <SelectItem value="5 mcg">5 mcg</SelectItem>
-                    <SelectItem value="10 mcg">10 mcg</SelectItem>
-                    <SelectItem value="25 mcg">25 mcg</SelectItem>
-                    <SelectItem value="50 mcg">50 mcg</SelectItem>
-                    <SelectItem value="100 mcg">100 mcg</SelectItem>
-                    <SelectItem value="200 mcg">200 mcg</SelectItem>
-                    <SelectItem value="500 mcg">500 mcg</SelectItem>
-                    <SelectItem value="1000 mcg">1000 mcg</SelectItem>
-                    <SelectItem value="1 mg/ml">1 mg/ml</SelectItem>
-                    <SelectItem value="2 mg/ml">2 mg/ml</SelectItem>
-                    <SelectItem value="5 mg/ml">5 mg/ml</SelectItem>
-                    <SelectItem value="10 mg/ml">10 mg/ml</SelectItem>
-                    <SelectItem value="20 mg/ml">20 mg/ml</SelectItem>
-                    <SelectItem value="50 mg/ml">50 mg/ml</SelectItem>
-                    <SelectItem value="100 mg/ml">100 mg/ml</SelectItem>
-                    <SelectItem value="200 mg/ml">200 mg/ml</SelectItem>
-                    <SelectItem value="500 mg/ml">500 mg/ml</SelectItem>
-                    <SelectItem value="100 IU">100 IU</SelectItem>
-                    <SelectItem value="200 IU">200 IU</SelectItem>
-                    <SelectItem value="500 IU">500 IU</SelectItem>
-                    <SelectItem value="1000 IU">1000 IU</SelectItem>
-                    <SelectItem value="2000 IU">2000 IU</SelectItem>
-                    <SelectItem value="5000 IU">5000 IU</SelectItem>
-                    <SelectItem value="10000 IU">10000 IU</SelectItem>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1 col-span-2">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Traffic</Label>
+                <Select value={formData.traffic || undefined} onValueChange={(value) => updateField("traffic", value)}>
+                  <SelectTrigger className="h-8 text-sm min-w-[120px]">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
                 <Label className="text-[11px]">Indication</Label>
                 <Input className="h-8 text-sm" value={formData.indication} onChange={(e) => updateField("indication", e.target.value)} placeholder="e.g. Hypertension, Pain relief" />
               </div>
@@ -702,11 +869,7 @@ export default function DrugRegistration({ workspaceid }: { workspaceid: string 
             {saveMutation.isError && (
               <p className="text-sm text-red-500">{(saveMutation.error as Error).message}</p>
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete confirmation */}
+          </div>}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -47,7 +47,7 @@ export async function GET(
           NULLIF(d.strength, '')
         ) as strength,
         COALESCE(gd.unit, d.unit, i.uom) as unit,
-        COALESCE(gd.description, d.description, '') as route,
+        COALESCE(gd.route, d.route, '') as route,
         COALESCE(gd.atccode, d.atccode, '') as atccode,
         COALESCE(gd.category, d.category, '') as category,
         COALESCE(gd.interaction, d.interaction, '') as interaction,
@@ -67,7 +67,7 @@ export async function GET(
       LEFT JOIN warehouse_sections ws ON ws.id = i.storage_location_id
       WHERE i.workspace_id = ${workspaceid}
         AND i.is_active = true
-        AND (i.inventorycategory = 'pharmacy' OR i.inventory_category = 'pharmacy')
+        AND i.inventory_category = 'pharmacy'
         AND (i.name ILIKE ${'%' + query + '%'} OR i.generic_name ILIKE ${'%' + query + '%'})
         AND EXISTS (
           SELECT 1 FROM inventory_stock ist

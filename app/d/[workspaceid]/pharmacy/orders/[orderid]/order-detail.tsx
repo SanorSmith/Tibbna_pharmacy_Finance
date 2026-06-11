@@ -232,9 +232,8 @@ export default function PharmacyOrderDetailPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Drug</TableHead>
-                    <TableHead>Dosage</TableHead>
                     <TableHead className="text-center">Qty</TableHead>
-                    <TableHead className="text-center">Price</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead>Barcode</TableHead>
                   </TableRow>
@@ -249,10 +248,12 @@ export default function PharmacyOrderDetailPage({
                             {item.drugform} &bull; {item.drugstrength}
                           </div>
                         )}
+                        {item.dosage && (
+                          <div className="text-xs text-blue-700 mt-0.5">{item.dosage}</div>
+                        )}
                       </TableCell>
-                      <TableCell className="text-xs">{item.dosage || "—"}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
-                      <TableCell className="text-center text-sm">
+                      <TableCell className="text-right text-sm font-medium">
                         {item.unitprice ? `${parseFloat(item.unitprice).toFixed(2)} IQD` : "—"}
                       </TableCell>
                       <TableCell className="text-center">

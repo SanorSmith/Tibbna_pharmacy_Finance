@@ -184,27 +184,16 @@ export function SearchBar({ onPatientSelect, onOrderSelect, onDrugAdd }: Props) 
       <CardHeader className="py-3 px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Search className="h-4 w-4" />
-          Search
+          Patient / Order / Drug Search
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
         <div className="flex gap-2">
-          <Select value={searchType} onValueChange={setSearchType}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="patient">Patient</SelectItem>
-              <SelectItem value="order">Order</SelectItem>
-              <SelectItem value="drug">Drug</SelectItem>
-            </SelectContent>
-          </Select>
           <div className="relative flex-1">
             <ScanBarcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
-              placeholder="Barcode, ID, name..."
+              placeholder="Search patient name, NID, barcode, or order ID"
               value={query}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}

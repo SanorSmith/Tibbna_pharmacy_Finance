@@ -77,6 +77,7 @@ export default function ProcessReturnClientPage({
   const [returnNotes, setReturnNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [success, setSuccess] = useState<any>(null);
   const [error, setError] = useState("");
 
@@ -210,6 +211,14 @@ export default function ProcessReturnClientPage({
       restockingFee,
       refund: subtotal - restockingFee,
     };
+  };
+
+  const handlePreview = () => {
+    if (returnItems.size === 0) { setError("Please select at least one item to return"); return; }
+    if (!selectedReason) { setError("Please select a return reason"); return; }
+    if (!refundMethod) { setError("Please select a refund method"); return; }
+    setError("");
+    setPreviewMode(true);
   };
 
   const processReturn = async () => {
@@ -451,6 +460,120 @@ export default function ProcessReturnClientPage({
                 <p>Thank you - Tibbna Pharmacy</p>
                 <p>*** End of Return Receipt ***</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Preview / Confirm step
+  if (previewMode) {
+    const selectedReasonObj = returnReasons.find((r) => r.reasonid === selectedReason);
+    return (
+      <div className="p-6 space-y-6 max-w-2xl mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => setPreviewMode(false)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Confirm Return</h1>
+            <p className="text-sm text-muted-foreground">Review the return details before confirming</p>
+          </div>
+        </div>
+
+        <Card className="border-orange-200 bg-orange-50/40 dark:bg-orange-950/10">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Return Preview
+            </CardTitle>
+            <CardDescription>Sale: {sale.salenumber} • {sale.customername || "Walk-in"}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Items */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Items Being Returned</p>
+              {Array.from(returnItems.values()).map((item) => (
+                <div key={item.itemid} className="flex justify-between items-center py-2 border-b last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{item.drugname}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Qty: {item.returnQuantity} × {parseFloat(item.unitprice).toLocaleString()} IQD
+                      {item.itemCondition && <span className="ml-2 capitalize">({item.itemCondition.toLowerCase()})</span>}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold">
+                    {(parseFloat(item.unitprice) * item.returnQuantity).toLocaleString()} IQD
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <Separator />
+
+            {/* Details */}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Return Reason</p>
+                <p className="font-medium">{selectedReasonObj?.reasonname || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Refund Method</p>
+                <p className="font-medium">{refundMethod}</p>
+              </div>
+              {returnNotes && (
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">Notes</p>
+                  <p className="font-medium">{returnNotes}</p>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Totals */}
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span>{totals.subtotal.toLocaleString()} IQD</span>
+              </div>
+              {totals.restockingFee > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>Restocking Fee</span>
+                  <span>-{totals.restockingFee.toLocaleString()} IQD</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-lg pt-1 border-t">
+                <span>Refund Amount</span>
+                <span className="text-green-600">{totals.refund.toLocaleString()} IQD</span>
+              </div>
+            </div>
+
+            {selectedReasonObj?.requiresapproval && (
+              <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded text-sm">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <p className="text-yellow-700 dark:text-yellow-400">This return requires manager approval before refund is processed.</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">{error}</div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setPreviewMode(false)} disabled={processing}>
+                <ArrowLeft className="h-4 w-4 mr-1" /> Back to Edit
+              </Button>
+              <Button
+                className="flex-1 gap-2 bg-[#618FF5] text-white hover:bg-[#4a7ae0]"
+                size="lg"
+                onClick={processReturn}
+                disabled={processing}
+              >
+                {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Confirm Return
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -709,19 +832,13 @@ export default function ProcessReturnClientPage({
               )}
 
               <Button
-                onClick={processReturn}
-                disabled={
-                  processing || returnItems.size === 0 || !selectedReason || !refundMethod
-                }
+                onClick={handlePreview}
+                disabled={returnItems.size === 0 || !selectedReason || !refundMethod}
                 className="w-full gap-2 bg-[#618FF5] text-white hover:bg-[#4a7ae0]"
                 size="lg"
               >
-                {processing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Process Return
+                <CheckCircle2 className="h-4 w-4" />
+                Preview &amp; Confirm
               </Button>
             </CardContent>
           </Card>

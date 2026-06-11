@@ -47,6 +47,7 @@ export default function ReprintReceiptDialog({ open, onClose, workspaceid }: Pro
   const [endDate, setEndDate] = useState("");
   const [receiptType, setReceiptType] = useState<"SALE" | "RETURN" | "SHIFT" | "ALL">("ALL");
   
+  const [filterDate, setFilterDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchResults, setSearchResults] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
@@ -59,6 +60,7 @@ export default function ReprintReceiptDialog({ open, onClose, workspaceid }: Pro
     setLoading(true);
     try {
       const params: any = { workspaceId: workspaceid, receiptType };
+      if (filterDate) { params.startDate = filterDate; params.endDate = filterDate; }
       if (searchType === "receiptNumber" && receiptNumber) params.receiptNumber = receiptNumber;
       if (searchType === "phone" && phone) params.customerPhone = phone;
       if (searchType === "name" && name) params.customerName = name;
@@ -144,6 +146,26 @@ export default function ReprintReceiptDialog({ open, onClose, workspaceid }: Pro
           <>
             {/* Search Form */}
             <div className="space-y-4 py-4">
+              {/* Quick Date Filter */}
+              <div className="flex items-center gap-3">
+                <Label className="whitespace-nowrap text-sm">Date</Label>
+                <Input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  className="w-44"
+                />
+                {filterDate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    onClick={() => setFilterDate("")}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Search By</Label>

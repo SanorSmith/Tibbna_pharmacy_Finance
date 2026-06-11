@@ -371,9 +371,6 @@ export async function POST(
           parts.push(`As Required (PRN): Yes${item.asRequiredCriterion ? ` - ${item.asRequiredCriterion}` : ''}`);
         }
         
-        // Clinical Indication
-        if (item.clinicalIndication) parts.push(`Clinical Indication: ${item.clinicalIndication}`);
-        
         // Pharmacist Notes
         if (item.pharmacistNotes) parts.push(`Pharmacist Notes: ${item.pharmacistNotes}`);
         

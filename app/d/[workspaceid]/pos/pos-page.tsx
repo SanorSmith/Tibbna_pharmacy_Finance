@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +12,7 @@ import {
   AlertCircle,
   RotateCcw,
   FileText,
+  ArrowLeft,
 } from "lucide-react";
 import { SearchBar } from "./components/SearchBar";
 import { PatientInfo } from "./components/PatientInfo";
@@ -61,6 +62,7 @@ export default function POSClientPage({
   userId: string;
 }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [patient, setPatient] = useState<any>(null);
   const [dispensedOrder, setDispensedOrder] = useState<any>(null);
@@ -227,6 +229,21 @@ export default function POSClientPage({
     []
   );
 
+  const updateCartDiscount = useCallback(
+    (cartItemId: number, discountPercent: number) => {
+      const pct = Math.max(0, Math.min(100, discountPercent));
+      setCart((prev) =>
+        prev.map((item) => {
+          if (item.cartItemId !== cartItemId) return item;
+          const lineTotal = item.quantity * item.unitPrice;
+          const discountAmount = parseFloat(((pct / 100) * lineTotal).toFixed(2));
+          return { ...item, discountPercent: pct, discountAmount, totalAmount: lineTotal - discountAmount };
+        })
+      );
+    },
+    []
+  );
+
   const removeFromCart = useCallback((cartItemId: number) => {
     setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
   }, []);
@@ -257,7 +274,16 @@ export default function POSClientPage({
     <div className="flex flex-1 flex-col h-full overflow-hidden">
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",background:"#ffffff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:10}}>
-        <span style={{fontSize:24,fontWeight:700,color:"#111827"}}>Point of Sale</span>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button
+            onClick={() => router.push(`/d/${workspaceid}/pharmacy/dashboard?tab=orders`)}
+            style={{display:"flex",alignItems:"center",gap:6,fontSize:14,color:"#618FF5",background:"none",border:"none",cursor:"pointer",padding:"4px 8px",borderRadius:6}}
+          >
+            <ArrowLeft style={{width:16,height:16}} />
+            Back
+          </button>
+          <span style={{fontSize:24,fontWeight:700,color:"#111827"}}>Point of Sale</span>
+        </div>
       </div>
 
       {/* Pharmacy Dashboard Navigation */}
@@ -368,6 +394,7 @@ export default function POSClientPage({
             <ShoppingCart
               items={cart}
               onUpdateQuantity={updateCartQuantity}
+              onUpdateDiscount={updateCartDiscount}
               onRemove={removeFromCart}
               onClear={clearAll}
               subtotal={subtotal}
