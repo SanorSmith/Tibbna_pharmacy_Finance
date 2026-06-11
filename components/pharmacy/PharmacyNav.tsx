@@ -1,15 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   ClipboardList,
   ShoppingCart,
   Pill,
   Warehouse,
-  ListTodo,
+  Bell,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+
+interface Reminder {
+  reminderid: string;
+  reminderdate: string | null;
+  isread: boolean;
+  completed: boolean;
+}
 
 const TABS = [
   { label: "Dashboard", value: "dashboard", icon: LayoutDashboard },
@@ -17,7 +26,7 @@ const TABS = [
   { label: "Point of Sale", value: "pos", icon: ShoppingCart },
   { label: "Drug registration", value: "drug-registration", icon: Pill },
   { label: "Inventory", value: "inventory", icon: Warehouse },
-  { label: "To Do", value: "todo", icon: ListTodo },
+  { label: "Reminders", value: "todo", icon: Bell },
 ];
 
 export function PharmacyNav({
@@ -29,6 +38,22 @@ export function PharmacyNav({
 }) {
   const router = useRouter();
   const dashboardBase = `/d/${workspaceid}/pharmacy/dashboard`;
+
+  const { data } = useQuery<{ reminders: Reminder[] }>({
+    queryKey: ["patient-reminders", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patient-reminders`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
+  const todayStr = new Date().toDateString();
+  const unreadTodayCount = (data?.reminders || []).filter((r) => {
+    if (r.isread || r.completed || !r.reminderdate) return false;
+    return new Date(r.reminderdate).toDateString() === todayStr;
+  }).length;
 
   const handleTabChange = (value: string) => {
     if (value === "pos") {
@@ -50,10 +75,15 @@ export function PharmacyNav({
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-3 py-1.5 flex items-center gap-1 text-xs"
+                className="relative rounded-md data-[state=active]:bg-[#4a6fd4] data-[state=active]:text-white bg-[#618FF5] text-white border-0 font-semibold px-4 py-2.5 flex items-center gap-1.5 text-sm"
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4.5 w-4.5" />
                 {tab.label}
+                {tab.value === "todo" && unreadTodayCount > 0 && (
+                  <Badge className="ml-0.5 h-5 min-w-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] border-0">
+                    {unreadTodayCount}
+                  </Badge>
+                )}
               </TabsTrigger>
             );
           })}

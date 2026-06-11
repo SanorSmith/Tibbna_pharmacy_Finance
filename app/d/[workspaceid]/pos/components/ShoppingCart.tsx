@@ -18,6 +18,7 @@ import type { CartItem } from "../pos-page";
 type Props = {
   items: CartItem[];
   onUpdateQuantity: (cartItemId: number, quantity: number) => void;
+  onUpdateDiscount: (cartItemId: number, discountPercent: number) => void;
   onRemove: (cartItemId: number) => void;
   onClear: () => void;
   subtotal: number;
@@ -31,6 +32,7 @@ type Props = {
 export function ShoppingCart({
   items,
   onUpdateQuantity,
+  onUpdateDiscount,
   onRemove,
   onClear,
   subtotal,
@@ -114,7 +116,7 @@ export function ShoppingCart({
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     {/* Quantity controls */}
                     <div className="flex items-center gap-1">
                       <Button
@@ -151,14 +153,33 @@ export function ShoppingCart({
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
+                    {/* Discount % input */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Disc.</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={item.discountPercent || ""}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          onUpdateDiscount(item.cartItemId, val);
+                        }}
+                        className="h-6 w-12 text-center text-xs p-0"
+                        title="Discount %"
+                        aria-label="Discount percent"
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
                     {/* Price */}
                     <div className="text-right">
                       <p className="text-sm font-medium">
-                        {(item.quantity * item.unitPrice).toLocaleString()} IQD
+                        {item.totalAmount.toLocaleString()} IQD
                       </p>
-                      {item.unitPrice > 0 && (
-                        <p className="text-[10px] text-muted-foreground">
-                          {item.unitPrice.toLocaleString()} each
+                      {item.discountPercent > 0 && (
+                        <p className="text-[10px] text-green-600">
+                          -{item.discountAmount.toLocaleString()} off
                         </p>
                       )}
                     </div>

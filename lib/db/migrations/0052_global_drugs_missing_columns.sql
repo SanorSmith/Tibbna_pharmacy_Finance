@@ -1,0 +1,10 @@
+-- NOT NEEDED — superseded.
+--
+-- Investigation showed global_drugs already has all required columns; the
+-- "description" column the autocomplete query referenced doesn't exist
+-- under that name — the actual column is named "route". Fixed by updating
+-- lib/db/tables/global-drugs.ts and the raw SQL in
+-- app/api/d/[workspaceid]/drugs/autocomplete/route.ts to reference "route"
+-- instead of "description". No DB migration required.
+--
+-- This file is intentionally a no-op. Do not run it.
