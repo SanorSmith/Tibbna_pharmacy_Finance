@@ -33,8 +33,16 @@ import {
 import PharmacyOrdersPage from "../orders/orders-list";
 import DrugRegistration from "./components/DrugRegistration";
 import PharmacyInventoryPage from "../../pharmacy-inventory/page";
+import PatientReminder from "./components/PatientReminder";
 
 const PRIMARY = "#618FF5";
+
+interface Reminder {
+  reminderid: string;
+  reminderdate: string | null;
+  isread: boolean;
+  completed: boolean;
+}
 
 interface DashboardStats {
   lowStock: { count: number; threshold: number; items: { drugid: string; drugname: string; strength: string; form: string; totalQuantity: number }[] };
@@ -68,6 +76,22 @@ export default function PharmacyDashboard({
     expiringSoon: 0,
     criticalItems: 0
   });
+
+  const { data: remindersData } = useQuery<{ reminders: Reminder[] }>({
+    queryKey: ["patient-reminders", workspaceid],
+    queryFn: async () => {
+      const res = await fetch(`/api/d/${workspaceid}/patient-reminders`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
+  const todayStr = new Date().toDateString();
+  const unreadTodayCount = (remindersData?.reminders || []).filter((r) => {
+    if (r.isread || r.completed || !r.reminderdate) return false;
+    return new Date(r.reminderdate).toDateString() === todayStr;
+  }).length;
 
   useEffect(() => {
     const tab = searchParams.get("tab") || "dashboard";
@@ -173,6 +197,11 @@ export default function PharmacyDashboard({
           >
             <ListTodo className="h-4 w-4" />
             To Do
+            {unreadTodayCount > 0 && (
+              <Badge className="ml-0.5 h-5 min-w-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] border-0">
+                {unreadTodayCount}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
       </div>
@@ -554,7 +583,7 @@ export default function PharmacyDashboard({
       {/* To Do Tab */}
       <TabsContent value="todo" className="mt-4 px-4">
         {loadedTabs.has("todo") && (
-          <PlaceholderTab title="To Do" description="Task management and reminders" icon={<ListTodo className="h-12 w-12 text-gray-300" />} />
+          <PatientReminder workspaceid={workspaceid} />
         )}
       </TabsContent>
     </Tabs>
