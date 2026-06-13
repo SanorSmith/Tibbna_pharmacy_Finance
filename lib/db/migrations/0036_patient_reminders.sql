@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS "patient_reminders" (
   "description"   text,
   "reminderdate"  timestamptz,
   "completed"     boolean NOT NULL DEFAULT false,
+  "isread"        boolean NOT NULL DEFAULT false,
   "priority"      text NOT NULL DEFAULT 'medium',
   "createdby"     text,
   "createdat"     timestamptz NOT NULL DEFAULT now(),

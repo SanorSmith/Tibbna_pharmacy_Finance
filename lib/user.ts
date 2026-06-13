@@ -62,7 +62,8 @@ const authOptions: NextAuthConfig = {
         try {
           // Call our API endpoint to verify credentials
           // This avoids using Node.js crypto module in the Edge runtime
-          const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000";
+          const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+          const baseUrl = process.env.NEXTAUTH_URL || vercelUrl || "http://localhost:3000";
           const res = await fetch(`${baseUrl}/api/auth/credentials`, {
               method: "POST",
               body: JSON.stringify({
